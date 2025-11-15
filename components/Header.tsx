@@ -57,9 +57,30 @@ export default function Header() {
   }, [supabase]);
 
   const handleLogout = async () => {
-    setIsLoggingOut(true);
-    await supabase.auth.signOut();
-    router.push("/login");
+    try {
+      setIsLoggingOut(true);
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Logout error:", error);
+        throw error;
+      }
+
+      // Clear any stored data
+      sessionStorage.clear();
+      localStorage.clear();
+
+      // Redirect to login page
+      router.push("/login");
+
+      // Force refresh after redirect
+      setTimeout(() => {
+        router.refresh();
+      }, 500);
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setIsLoggingOut(false);
+    }
   };
 
   return (

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { SplineScene } from "@/components/ui/splite";
 import { Card } from "@/components/ui/card";
 import { SpotlightInteractive } from "@/components/ui/spotlight-interactive";
@@ -20,30 +21,44 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 export default function Home() {
   const router = useRouter();
   const supabase = createClientComponentClient();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Minimal check - only handle OAuth code on home page
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+
+    if (code) {
+      // There's an OAuth code, redirect to login to handle it
+      router.replace(`/login?code=${code}`);
+      return;
+    }
+
     // Check if user is already logged in
     const checkUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      // If there's an OAuth code, redirect to login with the code
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get("code");
-
-      if (session && !code) {
-        // User is logged in and no OAuth code, go to dashboard
-        router.replace("/dashboard");
-      } else if (code) {
-        // There's an OAuth code, redirect to login to handle it
-        router.replace(`/login?code=${code}`);
+        if (session) {
+          // User is logged in, proxy will redirect to dashboard
+          // Just set loading to false and proxy will handle the redirect
+          return;
+        }
+        // Otherwise, stay on home page
+      } finally {
+        setIsLoading(false);
       }
-      // Otherwise, stay on home page
     };
 
     checkUser();
   }, [router, supabase]);
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-linear-to-br from-navlens-dark via-gray-900 to-black text-black overflow-x-hidden">

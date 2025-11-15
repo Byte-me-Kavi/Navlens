@@ -35,82 +35,42 @@ export default function Login() {
     textDark: "#333333", // Dark text
   };
 
-  // This logic handles redirecting the user if they are already logged in
-  // or after they successfully sign in.
+  // Show error toast from proxy redirect cookie and listen for auth changes
   useEffect(() => {
-    setMounted(true); // Ensures this runs only on the client
+    setMounted(true);
 
-    const handleAuthChange = async () => {
-      // Check for redirect toast message from proxy cookie
-      const cookies = document.cookie.split("; ").reduce((acc, cookie) => {
-        const [key, value] = cookie.split("=");
-        acc[key] = decodeURIComponent(value);
-        return acc;
-      }, {} as Record<string, string>);
+    // Check for redirect toast message from proxy cookie
+    const cookies = document.cookie.split("; ").reduce((acc, cookie) => {
+      const [key, value] = cookie.split("=");
+      acc[key] = decodeURIComponent(value);
+      return acc;
+    }, {} as Record<string, string>);
 
-      if (cookies["x-toast-message"]) {
+    if (cookies["x-toast-message"] && !hasShownToastRef.current) {
+      hasShownToastRef.current = true;
+      setTimeout(() => {
         toast.error(cookies["x-toast-message"]);
-        // Clear the cookie
-        document.cookie = "x-toast-message=; max-age=0; path=/";
-      }
+      }, 100);
+      // Clear the cookie
+      document.cookie = "x-toast-message=; max-age=0; path=/";
+    }
 
-      // Check for OAuth code in URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get("code");
-
-      // 1. Check if user is already logged in
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session || code) {
+    // Listen for auth state changes from Supabase Auth UI (OAuth callback)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user && !hasShownToastRef.current) {
+        hasShownToastRef.current = true;
+        // Redirect to dashboard and let proxy set the success cookies
         router.replace("/dashboard");
-        return;
       }
+    });
 
-      // 2. Listen for future sign-in events
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, session) => {
-        if (
-          event === "SIGNED_IN" &&
-          session?.user &&
-          !hasShownToastRef.current
-        ) {
-          hasShownToastRef.current = true;
-          // Pass email via URL parameter for toast notification
-          const email = encodeURIComponent(session.user.email || "user");
-          router.replace(`/dashboard?login=success&email=${email}`);
-        }
-      });
+    return () => subscription?.unsubscribe();
+  }, [supabase.auth, router]);
 
-      return () => subscription?.unsubscribe();
-    };
-
-    handleAuthChange();
-  }, [router, supabase]);
-
-  // Prevents the login form from flashing if the user is already logged in
-  // and being redirected.
   if (!mounted) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        {/* You can add a branded "Navlens" loading spinner here */}
-      </div>
-    );
-  }
-
-  // Check if we're on the root path with OAuth code, redirect to /login
-  const urlParams = new URLSearchParams(
-    typeof window !== "undefined" ? window.location.search : ""
-  );
-  const code = urlParams.get("code");
-  if (
-    code &&
-    typeof window !== "undefined" &&
-    window.location.pathname === "/"
-  ) {
-    router.replace("/login?code=" + code);
+    return null;
   }
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-blue-50">
