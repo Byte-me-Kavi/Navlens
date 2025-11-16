@@ -5,19 +5,15 @@ import { createBrowserClient } from "@supabase/ssr";
 import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
-
-type Database = any;
 
 export default function Login() {
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const hasShownToastRef = useRef(false);
 
@@ -38,8 +34,6 @@ export default function Login() {
 
   // Show error toast from proxy redirect cookie and listen for auth changes
   useEffect(() => {
-    setMounted(true);
-
     // Check for redirect toast message from proxy cookie
     const cookies = document.cookie.split("; ").reduce((acc, cookie) => {
       const [key, value] = cookie.split("=");
@@ -68,7 +62,12 @@ export default function Login() {
     });
 
     return () => subscription?.unsubscribe();
-  }, [supabase.auth, router]);
+  }, [supabase.auth]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   if (!mounted) {
     return null;

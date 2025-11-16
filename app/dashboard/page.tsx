@@ -7,7 +7,7 @@ import {
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 
-import HeatmapOverlay from '@/components/HeatmapOverlay';
+import HeatmapOverlay from "@/components/HeatmapOverlay";
 
 const stats = [
   {
@@ -88,8 +88,8 @@ export default function DashboardOverview() {
                 Add Your First Site
               </h3>
               <p className="text-gray-600 text-sm">
-                Navigate to "My Sites" and add your website to start tracking
-                user interactions.
+                Navigate to &ldquo;My Sites&rdquo; and add your website to start
+                tracking user interactions.
               </p>
             </div>
           </div>
@@ -103,8 +103,8 @@ export default function DashboardOverview() {
                 Install Tracking Script
               </h3>
               <p className="text-gray-600 text-sm">
-                Copy and paste the JavaScript snippet into your website's HTML
-                to begin collecting data.
+                Copy and paste the JavaScript snippet into your website&rsquo;s
+                HTML to begin collecting data.
               </p>
             </div>
           </div>
@@ -151,7 +151,10 @@ export default function DashboardOverview() {
         </div>
       </div>
       {/* Integrate the HeatmapOverlay component */}
-      <HeatmapOverlay siteId={"a2a95f61-1024-40f8-af7e-4c4df2fcbd01"} pagePath={"/dashboard"} />
+      <HeatmapOverlay
+        siteId={"a2a95f61-1024-40f8-af7e-4c4df2fcbd01"}
+        pagePath={"/dashboard"}
+      />
     </div>
   );
 }

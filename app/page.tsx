@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
 import { Navbar } from "@/components/Navbar";
 import { SplineScene } from "@/components/ui/splite";
 import { Card } from "@/components/ui/card";
@@ -22,17 +20,10 @@ import {
   GlobeAltIcon,
   DevicePhoneMobileIcon,
 } from "@heroicons/react/24/outline";
-import Image from "next/image";
-import { LoadingScreen } from "@/components/LoadingScreen";
 import Footer from "@/components/Footer";
 
 export default function Home() {
   const router = useRouter();
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  const [isLoading, setIsLoading] = useState(false);
 
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">

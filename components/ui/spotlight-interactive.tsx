@@ -1,19 +1,14 @@
 "use client";
 import React, { useRef, useState, useEffect } from "react";
-import { motion, SpringOptions } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 type SpotlightProps = {
   className?: string;
   size?: number;
-  springOptions?: SpringOptions;
 };
 
-export function SpotlightInteractive({
-  className,
-  size = 200,
-  springOptions = { bounce: 0.2 },
-}: SpotlightProps) {
+export function SpotlightInteractive({ size = 200 }: SpotlightProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isVisible, setIsVisible] = useState(false);

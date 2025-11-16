@@ -269,11 +269,13 @@ export default function SiteManager({ sites }: SiteManagerProps) {
           <div>
             <h4 className="font-bold text-blue-900 mb-2">How to Add a Site</h4>
             <ol className="text-sm text-gray-700 space-y-2">
-              <li>1. Click "Add New Site" and enter your website URL</li>
+              <li>
+                1. Click &ldquo;Add New Site&rdquo; and enter your website URL
+              </li>
               <li>2. Copy the generated tracking script</li>
               <li>
-                3. Paste it into your website's HTML, just before the closing
-                &lt;/body&gt; tag
+                3. Paste it into your website&rsquo;s HTML, just before the
+                closing &lt;/body&gt; tag
               </li>
               <li>4. Start collecting data and viewing heatmaps!</li>
             </ol>

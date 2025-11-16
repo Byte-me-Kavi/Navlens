@@ -35,8 +35,8 @@ export default function ExperimentsPage() {
         </h3>
         <p className="text-gray-700 mb-6 max-w-2xl mx-auto">
           This feature will allow you to run A/B tests and AI-powered
-          experiments to automatically optimize your website's conversion rates
-          based on heatmap data and user behavior insights.
+          experiments to automatically optimize your website&rsquo;s conversion
+          rates based on heatmap data and user behavior insights.
         </p>
 
         {/* Feature Preview */}
@@ -67,7 +67,7 @@ export default function ExperimentsPage() {
             </div>
             <h4 className="font-bold text-blue-900 mb-1">Auto-Optimization</h4>
             <p className="text-sm text-gray-600">
-              Let AI continuously improve your site's performance
+              Let AI continuously improve your site&rsquo;s performance
             </p>
           </div>
         </div>

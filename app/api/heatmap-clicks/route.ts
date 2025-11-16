@@ -73,10 +73,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(heatmapData, { status: 200 });
 
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error fetching heatmap data:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch heatmap data', error: error.message },
+      { message: 'Failed to fetch heatmap data', error: errorMessage },
       { status: 500 }
     );
   }

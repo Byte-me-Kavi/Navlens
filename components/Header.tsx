@@ -4,13 +4,10 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  UserCircleIcon,
   ArrowRightOnRectangleIcon,
   BellIcon,
   QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
-
-type Database = any;
 
 export default function Header() {
   const supabase = createBrowserClient(
@@ -123,6 +120,7 @@ export default function Header() {
               <p className="text-xs text-gray-500">Account</p>
             </div>
             {userImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={userImage}
                 alt="Profile"

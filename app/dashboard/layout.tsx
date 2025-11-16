@@ -3,7 +3,6 @@
 import SideNavbar from "@/components/SideNavbar";
 import Header from "@/components/Header";
 import { useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Toast } from "@/components/Toast";
 import { createBrowserClient } from "@supabase/ssr";
@@ -13,8 +12,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

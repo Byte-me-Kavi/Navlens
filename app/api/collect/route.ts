@@ -27,11 +27,12 @@ export async function POST(req: NextRequest) {
         // Return a successful response
         return NextResponse.json({ message: 'Events ingested successfully' }, { status: 200 });
         
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error ingesting events to ClickHouse:', error);
         // Return an error response
         return NextResponse.json(
-            { message: 'Failed to ingest events', error: error.message },
+            { message: 'Failed to ingest events', error: errorMessage },
             { status: 500 }
         );
     }
