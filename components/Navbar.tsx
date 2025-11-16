@@ -17,7 +17,7 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-black/40 backdrop-blur-md border-b border-navlens-accent/20">
+    <nav className="fixed top-0 w-full z-50 bg-white backdrop-blur-md border-b border-navlens-accent/20">
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
@@ -31,7 +31,10 @@ export function Navbar() {
               width={60}
               height={60}
               className="drop-shadow-[0_0_20px_rgba(0,200,200,0.5)]"
-            /><h2 className="text-blue-900 text-2xl font-bold">Navlens</h2>
+            />
+            <h2 className="bg-linear-to-r from-blue-900 to-blue-600 bg-clip-text text-transparent text-2xl font-bold">
+              Navlens
+            </h2>
           </div>
 
           {/* Desktop Navigation */}
@@ -40,7 +43,7 @@ export function Navbar() {
               <a
                 key={item.label}
                 href={item.href}
-                className="text-gray-300 hover:text-navlens-accent transition-colors duration-200 font-medium text-sm"
+                className="text-gray-900 hover:text-navlens-accent transition-colors duration-200 font-medium text-sm"
               >
                 {item.label}
               </a>
@@ -57,7 +60,7 @@ export function Navbar() {
             </button>
             <button
               onClick={() => router.push("/login")}
-              className="px-6 py-2 bg-linear-to-r from-navlens-accent to-navlens-electric-blue rounded-lg text-black font-bold shadow-glow hover:shadow-glow-blue transition-all duration-200 text-sm"
+              className="px-6 py-2 border border-navlens-accent/50 to-navlens-electric-blue rounded-lg text-black font-bold shadow-glow hover:shadow-glow-blue transition-all duration-200 text-sm"
             >
               Get Started
             </button>
@@ -65,25 +68,40 @@ export function Navbar() {
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden text-navlens-accent"
+            className="md:hidden text-navlens-accent relative w-8 h-8 flex items-center justify-center"
             onClick={() => setIsOpen(!isOpen)}
           >
-            {isOpen ? (
-              <XMarkIcon className="w-6 h-6" />
-            ) : (
-              <Bars3Icon className="w-6 h-6" />
-            )}
+            <Bars3Icon
+              className={`w-6 h-6 absolute transition-all duration-300 ${
+                isOpen
+                  ? "rotate-90 opacity-0 scale-0"
+                  : "rotate-0 opacity-100 scale-100"
+              }`}
+            />
+            <XMarkIcon
+              className={`w-6 h-6 absolute transition-all duration-300 ${
+                isOpen
+                  ? "rotate-0 opacity-100 scale-100"
+                  : "-rotate-90 opacity-0 scale-0"
+              }`}
+            />
           </button>
         </div>
 
         {/* Mobile Navigation */}
-        {isOpen && (
-          <div className="md:hidden pt-4 pb-4 space-y-4 border-t border-navlens-accent/20 mt-4">
+        <div
+          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out border-t border-navlens-accent/20 mt-4 ${
+            isOpen
+              ? "max-h-96 opacity-100"
+              : "max-h-0 opacity-0 border-t-0 mt-0"
+          }`}
+        >
+          <div className="pt-4 pb-4 space-y-4">
             {navItems.map((item) => (
               <a
                 key={item.label}
                 href={item.href}
-                className="block text-gray-300 hover:text-navlens-accent transition-colors duration-200 font-medium"
+                className="block text-gray-900 hover:text-navlens-accent transition-colors duration-200 font-medium"
                 onClick={() => setIsOpen(false)}
               >
                 {item.label}
@@ -110,7 +128,7 @@ export function Navbar() {
               </button>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </nav>
   );

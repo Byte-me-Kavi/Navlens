@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Toast } from "@/components/Toast";
+import { createBrowserClient } from "@supabase/ssr";
 
 export default function DashboardLayout({
   children,
@@ -14,11 +15,17 @@ export default function DashboardLayout({
 }) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const hasShownToastRef = useRef(false);
 
   useEffect(() => {
-    // Check for login success from cookie set by proxy
-    const timer = setTimeout(() => {
+    // Show success toast when cookies are set by proxy after OAuth
+    const showLoginToast = () => {
+      if (hasShownToastRef.current) return;
+
       const cookies = document.cookie.split("; ").reduce((acc, cookie) => {
         const [key, ...valueParts] = cookie.split("=");
         const value = valueParts.join("=");
@@ -39,37 +46,39 @@ export default function DashboardLayout({
           duration: 5000,
         });
 
-        // Clear success cookies after showing toast
-        setTimeout(() => {
-          document.cookie =
-            "x-login-success=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-          document.cookie =
-            "x-user-email=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        }, 100);
+        // Clear success cookies IMMEDIATELY after showing toast
+        document.cookie =
+          "x-login-success=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        document.cookie =
+          "x-user-email=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
       }
-    }, 50);
+    };
 
-    return () => clearTimeout(timer);
-  }, []);
+    // Check cookies from proxy
+    showLoginToast();
+
+    // Also listen for auth state changes from Supabase
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user && !hasShownToastRef.current) {
+        hasShownToastRef.current = true;
+        toast.success(`Welcome back! Logged in as ${session.user.email}`, {
+          duration: 5000,
+        });
+      }
+    });
+
+    return () => subscription?.unsubscribe();
+  }, [supabase.auth]);
 
   return (
     <Toast>
-      <div
-        suppressHydrationWarning
-        className="flex h-screen bg-blue-50 overflow-hidden"
-      >
-        {/* Side Navigation */}
+      <div className="flex h-screen bg-gray-50">
         <SideNavbar />
-
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
           <Header />
-
-          {/* Page Content */}
-          <main className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-7xl mx-auto">{children}</div>
-          </main>
+          <main className="flex-1 p-5 overflow-auto">{children}</main>
         </div>
       </div>
     </Toast>

@@ -1,21 +1,22 @@
 // This file must be a Client Component
 "use client";
 
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createBrowserClient } from "@supabase/ssr";
 import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
+import Link from "next/link";
 
-// If you have a types/supabase.ts file, import Database
-// import { Database } from '@/types/supabase';
-// If not, you can use 'any' for now, but type safety is recommended
 type Database = any;
 
 export default function Login() {
-  const supabase = createClientComponentClient<Database>();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const hasShownToastRef = useRef(false);
@@ -59,10 +60,10 @@ export default function Login() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session?.user && !hasShownToastRef.current) {
+      // Proxy handles the redirect, so we don't need to redirect here
+      if (event === "SIGNED_IN" && session?.user) {
         hasShownToastRef.current = true;
-        // Redirect to dashboard and let proxy set the success cookies
-        router.replace("/dashboard");
+        // Just mark that user is logged in - proxy will handle redirect
       }
     });
 
@@ -75,7 +76,7 @@ export default function Login() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-blue-50">
       {/* 1. Your Navlens Logo */}
-      <div className="mb-2">
+      <Link className="mb-2" href="/">
         <Image
           src="/images/navlens.png"
           alt="Navlens Logo"
@@ -84,7 +85,7 @@ export default function Login() {
           priority
           className="drop-shadow-[0_0_20px_rgba(0,200,200,0.4)]"
         />
-      </div>
+      </Link>
 
       {/* 2. The Themed Authentication Card */}
       <div className="w-full max-w-md p-8 space-y-8 bg-gray-50 rounded-2xl shadow-[0_8px_32px_rgba(0,200,200,0.15)] border-2 border-blue-200">
@@ -92,6 +93,7 @@ export default function Login() {
           supabaseClient={supabase}
           // Add providers you enabled in your Supabase project
           providers={["google"]}
+          redirectTo={`${window.location.origin}/dashboard`}
           socialLayout="horizontal"
           // This 'appearance' prop is where all the theming happens
           appearance={{

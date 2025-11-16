@@ -1,78 +1,98 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 
 export async function proxy(request: NextRequest) {
-    const res = NextResponse.next();
-    const supabase = createMiddlewareClient({ req: request, res });
-    
-    // Check auth session
+    let response = NextResponse.next({
+        request: {
+            headers: request.headers,
+        },
+    });
+
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() {
+                    return request.cookies.getAll();
+                },
+                setAll(cookiesToSet) {
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                        response.cookies.set(name, value, options),
+                    );
+                },
+            },
+        },
+    );
+
+    const pathname = request.nextUrl.pathname;
+    const searchParams = request.nextUrl.searchParams;
+
+    // CRITICAL: Allow OAuth code to be processed - don't redirect yet
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    const hasAuthParams = code || state;
+
+    if (hasAuthParams) {
+        // Let the OAuth code be processed without redirecting
+        return response;
+    }
+
+    // Check auth session AFTER OAuth code check
     const {
         data: { session },
     } = await supabase.auth.getSession();
     
-    const pathname = request.nextUrl.pathname;
-    
-    // If accessing dashboard without session, redirect to login with error toast
     if (pathname.startsWith('/dashboard') && !session) {
         const redirectUrl = new URL('/login', request.url);
-        const response = NextResponse.redirect(redirectUrl);
-        // Set a cookie to show error toast on login page
-        response.cookies.set('x-toast-message', 'Please log in to access the dashboard', {
+        const redirectResponse = NextResponse.redirect(redirectUrl);
+        redirectResponse.cookies.set('x-toast-message', 'Please log in to access the dashboard', {
             maxAge: 5,
             path: '/',
         });
-        return response;
+        return redirectResponse;
     }
     
     // If logged in and accessing login page, redirect to dashboard with success toast
     if (pathname === '/login' && session) {
         const redirectUrl = new URL('/dashboard', request.url);
-        const response = NextResponse.redirect(redirectUrl);
-        // Set cookies for success toast
-        response.cookies.set('x-login-success', 'true', {
+        const redirectResponse = NextResponse.redirect(redirectUrl);
+        redirectResponse.cookies.set('x-login-success', 'true', {
             maxAge: 10,
             path: '/',
             httpOnly: false,
         });
-        response.cookies.set('x-user-email', session.user.email || 'user', {
+        redirectResponse.cookies.set('x-user-email', session.user.email || 'user', {
             maxAge: 10,
             path: '/',
             httpOnly: false,
         });
-        return response;
+        return redirectResponse;
     }
 
     // If logged in and accessing home page, redirect to dashboard with success toast
     if (pathname === '/' && session) {
         const redirectUrl = new URL('/dashboard', request.url);
-        const response = NextResponse.redirect(redirectUrl);
-        // Set cookies for success toast
-        response.cookies.set('x-login-success', 'true', {
+        const redirectResponse = NextResponse.redirect(redirectUrl);
+        redirectResponse.cookies.set('x-login-success', 'true', {
             maxAge: 10,
             path: '/',
             httpOnly: false,
         });
-        response.cookies.set('x-user-email', session.user.email || 'user', {
+        redirectResponse.cookies.set('x-user-email', session.user.email || 'user', {
             maxAge: 10,
             path: '/',
             httpOnly: false,
         });
-        return response;
+        return redirectResponse;
     }
-    
-    return res;
+
+    return response;
 }
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * - public folder
-         */
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 };

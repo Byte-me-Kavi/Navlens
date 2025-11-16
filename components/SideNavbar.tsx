@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  PresentationChartBarIcon,
   HomeIcon,
   GlobeAltIcon,
   Cog6ToothIcon,
@@ -20,6 +21,11 @@ const navItems = [
     name: "My Sites",
     href: "/dashboard/my-sites",
     icon: GlobeAltIcon,
+  },
+  {
+    name: "Heatmaps",
+    href: "/dashboard/heatmap-viewer",
+    icon: PresentationChartBarIcon,
   },
   {
     name: "Settings",

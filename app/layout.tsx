@@ -17,6 +17,11 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased" suppressHydrationWarning>
         <Toast>{children}</Toast>
+        {/* IMPORTANT: Load your tracker.js script here.
+          Using `defer` ensures it doesn't block page rendering
+          and runs after the DOM is ready.
+        */}
+        <script src="/tracker.js" defer></script>
       </body>
     </html>
   );

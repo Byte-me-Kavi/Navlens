@@ -7,6 +7,8 @@ import {
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 
+import HeatmapOverlay from '@/components/HeatmapOverlay';
+
 const stats = [
   {
     name: "Total Sites",
@@ -148,6 +150,8 @@ export default function DashboardOverview() {
           </button>
         </div>
       </div>
+      {/* Integrate the HeatmapOverlay component */}
+      <HeatmapOverlay siteId={"a2a95f61-1024-40f8-af7e-4c4df2fcbd01"} pagePath={"/dashboard"} />
     </div>
   );
 }

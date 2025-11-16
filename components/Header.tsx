@@ -1,6 +1,6 @@
 "use client";
 
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -13,7 +13,10 @@ import {
 type Database = any;
 
 export default function Header() {
-  const supabase = createClientComponentClient<Database>();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
@@ -85,7 +88,7 @@ export default function Header() {
 
   return (
     <header className="bg-white border-b border-blue-200 shadow-md">
-      <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex items-center justify-between px-6 py-6">
         {/* Left Section - Page Title/Breadcrumb */}
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold text-blue-900">
@@ -124,6 +127,11 @@ export default function Header() {
                 src={userImage}
                 alt="Profile"
                 className="w-10 h-10 rounded-full object-cover border border-blue-200"
+                onError={(e) => {
+                  // If image fails to load, hide it and show fallback
+                  e.currentTarget.style.display = "none";
+                  setUserImage(null);
+                }}
               />
             ) : (
               <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-lg border border-blue-200">
