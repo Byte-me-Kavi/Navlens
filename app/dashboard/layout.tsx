@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { Toast } from "@/components/Toast";
 import { createBrowserClient } from "@supabase/ssr";
 import { NavigationProvider } from "@/context/NavigationContext";
+import { SiteProvider } from "@/app/context/SiteContext";
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const supabase = createBrowserClient(
@@ -117,7 +118,9 @@ export default function DashboardLayout({
 }) {
   return (
     <NavigationProvider>
-      <DashboardLayoutContent children={children} />
+      <SiteProvider>
+        <DashboardLayoutContent children={children} />
+      </SiteProvider>
     </NavigationProvider>
   );
 }

@@ -32,22 +32,17 @@ export function NavigationProvider({
       if (path !== pathname) {
         setIsNavigating(true);
         router.push(path);
-        // Don't set an immediate timeout - wait for actual page load
       }
     },
     [pathname, router]
   );
 
   useEffect(() => {
+    // Close spinner immediately when pathname changes (page has loaded)
     if (isNavigating) {
-      // Wait for the page to actually render and stabilize (longer timeout for data fetching)
-      const timer = setTimeout(() => {
-        setIsNavigating(false);
-      }, 1500); // Increased from 500ms to 1500ms to wait for actual page load + data fetching
-
-      return () => clearTimeout(timer);
+      setIsNavigating(false);
     }
-  }, [isNavigating, pathname]);
+  }, [pathname]);
 
   return (
     <NavigationContext.Provider value={{ isNavigating, navigateTo }}>

@@ -55,15 +55,33 @@ export async function createSite(formData: FormData) {
         console.error('Error creating site:', error);
         return { success: false, message: `Failed to create site: ${error.message}` };
     }
+
+    // 5. Auto-insert default page paths for new sites
+    const DEFAULT_PATHS = ["/", "/about", "/contact", "/pricing", "/blog", "/services"];
     
-    // 5. Revalidate the path
+    const pagePathsToInsert = DEFAULT_PATHS.map(path => ({
+        site_id: data.id,
+        page_path: path,
+    }));
+
+    const { error: pathsError } = await supabase
+        .from('page_paths')
+        .insert(pagePathsToInsert)
+        .select();
+
+    if (pathsError) {
+        console.warn('Warning: Could not auto-populate default page paths:', pathsError);
+        // Don't fail the site creation, just warn
+    }
+    
+    // 6. Revalidate the path
     // This tells Next.js to refresh the '/dashboard/sites' page
     // so the new site appears in the list instantly.
     revalidatePath('/dashboard/sites');
     
     return {
         success: true,
-        message: 'Site created successfully!',
+        message: 'Site created successfully! Default page paths have been added.',
         newSite: data,
     };
 }

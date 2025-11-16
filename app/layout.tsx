@@ -20,11 +20,17 @@ export default function RootLayout({
         {/* IMPORTANT: Load your tracker.js script here.
           Using `defer` ensures it doesn't block page rendering
           and runs after the DOM is ready.
+          
+          REQUIRED ATTRIBUTES:
+          - data-site-id: Your unique site ID from the dashboard
+          - data-api-key: Your site's API key from the dashboard (required for security)
+          - data-api-host: Your Navlens API host URL
         */}
-        <script 
-          async 
-          src="https://navlens-rho.vercel.app/tracker.js" 
+        <script
+          async
+          src="https://navlens-rho.vercel.app/tracker.js"
           data-site-id="a2a95f61-1024-40f8-af7e-4c4df2fcbd01"
+          data-api-key="69e4dce7-5f3b-44c9-a0e1-aea13097e8a1"
           data-api-host="https://navlens-rho.vercel.app"
         ></script>
       </body>

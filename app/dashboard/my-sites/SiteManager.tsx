@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import {
   PlusIcon,
@@ -8,10 +9,13 @@ import {
   CodeBracketIcon,
   TrashIcon,
   DocumentDuplicateIcon,
+  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { createSite, deleteSite } from "./action";
 import toast from "react-hot-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useSite } from "@/app/context/SiteContext";
+import PagePathManager from "./PagePathManager";
 
 // Your deployed Vercel URL is the API host
 const NAVLENS_API_HOST = "https://navlens-rho.vercel.app";
@@ -130,6 +134,7 @@ function SnippetCode({ site }: { site: Site }) {
   async 
   src="${NAVLENS_API_HOST}/tracker.js" 
   data-site-id="${site.id}"
+  data-api-key="${site.api_key}"
   data-api-host="${NAVLENS_API_HOST}"
 ></script>`;
 
@@ -164,7 +169,19 @@ function SnippetCode({ site }: { site: Site }) {
 export default function SiteManager({ sites }: SiteManagerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showSnippetId, setShowSnippetId] = useState<string | null>(null);
+  const [showPathManagerId, setShowPathManagerId] = useState<string | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
+  const { setSelectedSiteId } = useSite();
+  const router = useRouter();
+
+  const handleViewHeatmap = (siteId: string) => {
+    // Set the site ID in context
+    setSelectedSiteId(siteId);
+    // Navigate to heatmap viewer without query params
+    router.push("/dashboard/heatmap-viewer");
+  };
 
   const handleDelete = async (siteId: string, siteName: string) => {
     if (
@@ -256,12 +273,27 @@ export default function SiteManager({ sites }: SiteManagerProps) {
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <a
-                    href={`/dashboard/heatmap-viewer?siteId=${site.id}`}
+                  <button
+                    onClick={() => handleViewHeatmap(site.id)}
                     className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
                   >
                     View Heatmap
-                  </a>
+                  </button>
+                  <button
+                    onClick={() =>
+                      setShowPathManagerId(
+                        showPathManagerId === site.id ? null : site.id
+                      )
+                    }
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors w-full sm:w-auto"
+                  >
+                    <ChevronDownIcon
+                      className={`w-4 h-4 transition-transform ${
+                        showPathManagerId === site.id ? "rotate-180" : ""
+                      }`}
+                    />
+                    Manage Paths
+                  </button>
                   <button
                     onClick={() =>
                       setShowSnippetId(
@@ -285,6 +317,13 @@ export default function SiteManager({ sites }: SiteManagerProps) {
 
               {/* Snippet Code Block */}
               {showSnippetId === site.id && <SnippetCode site={site} />}
+
+              {/* Page Path Manager */}
+              {showPathManagerId === site.id && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <PagePathManager siteId={site.id} siteName={site.site_name} />
+                </div>
+              )}
             </div>
           ))}
         </div>

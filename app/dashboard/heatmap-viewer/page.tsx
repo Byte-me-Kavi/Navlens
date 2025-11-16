@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
 import Head from "next/head";
 import h337 from "heatmap.js";
 import { createBrowserClient } from "@supabase/ssr";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { useSite } from "@/app/context/SiteContext";
 
 const CLIENT_DOMAIN = "https://navlens-rho.vercel.app";
 
@@ -32,9 +31,9 @@ const debounce = (func: (...args: any[]) => void, delay: number) => {
 };
 
 export default function HeatmapViewer() {
-  const searchParams = useSearchParams();
-  const siteId = searchParams.get("siteId");
+  const { selectedSiteId: siteId } = useSite();
 
+  const [pagePaths, setPagePaths] = useState<string[]>([]);
   const [pagePath, setPagePath] = useState("/");
   const [selectedDevice, setSelectedDevice] = useState<DeviceType>("desktop");
   const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
@@ -48,6 +47,7 @@ export default function HeatmapViewer() {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [siteIdError, setSiteIdError] = useState<string | null>(null);
+  const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Validate siteId on mount
   useEffect(() => {
@@ -58,6 +58,35 @@ export default function HeatmapViewer() {
     } else {
       setSiteIdError(null);
     }
+  }, [siteId]);
+
+  // Fetch page paths dynamically
+  useEffect(() => {
+    if (!siteId) return;
+
+    const fetchPagePaths = async () => {
+      try {
+        const response = await fetch(`/api/get-pages-list?siteId=${siteId}`);
+        if (!response.ok) throw new Error("Failed to fetch page paths");
+        const data = await response.json();
+        if (data.pagePaths && data.pagePaths.length > 0) {
+          setPagePaths(data.pagePaths);
+          // Set first page path as default if not already set
+          if (!pagePath || pagePath === "/") {
+            setPagePath(data.pagePaths[0]);
+          }
+        } else {
+          // Fallback to default paths if no pages found
+          setPagePaths(["/", "/dashboard", "/contact"]);
+        }
+      } catch (err) {
+        console.error("Error fetching page paths:", err);
+        // Fallback to default paths on error
+        setPagePaths(["/", "/dashboard", "/contact"]);
+      }
+    };
+
+    fetchPagePaths();
   }, [siteId]);
 
   // Detect if viewing on mobile device
@@ -246,10 +275,30 @@ export default function HeatmapViewer() {
   // --- Load initial screenshot when pagePath changes ---
   useEffect(() => {
     if (!pagePath || !siteId) return;
+
+    // Clear any existing timeout when loading new screenshot
+    if (imageLoadTimeoutRef.current) {
+      clearTimeout(imageLoadTimeoutRef.current);
+      imageLoadTimeoutRef.current = null;
+    }
+
     const url = getScreenshotUrl(siteId, pagePath, selectedDevice);
     setScreenshotUrl(`${url}?t=${new Date().getTime()}`);
     setImageLoaded(false); // Hide image until new one loads
+    setError(null); // Clear any previous error
     heatmapInstance?.setData({ min: 0, max: 1, data: [] }); // Clear old heatmap
+
+    // Set timeout for the new image - but shorter for first load (no screenshot exists yet)
+    // After 5 seconds, if still not loaded, show "no screenshot" message instead of error
+    console.log("Setting timeout for screenshot load");
+    imageLoadTimeoutRef.current = setTimeout(() => {
+      console.log("Screenshot load timeout fired");
+      setError(
+        "No screenshot available for this page yet. Click 'Refresh Preview' to generate one."
+      );
+      // Force hide the loading spinner
+      setImageLoaded(true);
+    }, 5000); // Shorter 5-second timeout for better UX
   }, [pagePath, selectedDevice, siteId, getScreenshotUrl, heatmapInstance]);
 
   // --- Trigger initial heatmap render when instance and image are ready ---
@@ -261,8 +310,16 @@ export default function HeatmapViewer() {
 
   // --- Handle image load event ---
   const handleImageLoad = () => {
+    console.log("Image loaded successfully - clearing timeout");
+    // Clear any pending timeout IMMEDIATELY
+    if (imageLoadTimeoutRef.current) {
+      clearTimeout(imageLoadTimeoutRef.current);
+      imageLoadTimeoutRef.current = null;
+    }
+    // Set imageLoaded immediately without setTimeout delay
+    setImageLoaded(true);
+    // Debounce the heatmap rendering
     setTimeout(() => {
-      setImageLoaded(true);
       debouncedRenderHeatmap();
     }, 50);
   };
@@ -285,84 +342,383 @@ export default function HeatmapViewer() {
   }, [imageLoaded, debouncedRenderHeatmap]);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-2 sm:p-4">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-blue-50/30 to-slate-50 p-3 sm:p-6">
       <Head>
-        <title>Heatmap Viewer</title>
+        <title>Heatmap Viewer - NavLens Analytics</title>
       </Head>
 
       {/* Error state when no siteId is provided */}
       {siteIdError ? (
-        <main className="container mx-auto bg-white p-6 rounded shadow-md">
-          <div className="flex flex-col items-center justify-center py-12">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-blue-900 mb-3">
-                No Site Selected
-              </h1>
-              <p className="text-gray-600 mb-6">{siteIdError}</p>
+        <main className="container mx-auto max-w-2xl">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 sm:p-12">
+            <div className="flex flex-col items-center justify-center text-center space-y-6">
+              {/* Icon */}
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-10 h-10 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
+
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold text-slate-800">
+                  No Site Selected
+                </h1>
+                <p className="text-gray-600 text-lg">{siteIdError}</p>
+              </div>
+
               <a
                 href="/dashboard/my-sites"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center gap-2 px-8 py-3.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg font-medium"
               >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  />
+                </svg>
                 Go to My Sites
               </a>
             </div>
           </div>
         </main>
       ) : (
-        <main className="container mx-auto bg-white p-3 sm:p-6 rounded shadow-md">
-          <h1 className="text-xl sm:text-2xl font-bold mb-4">Heatmap Viewer</h1>
+        <main className="container mx-auto bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-8">
+          {/* Header Section */}
+          <div className="mb-6 pb-4 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
+                  Heatmap Viewer
+                </h1>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Visualize user interactions on your website
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Loading spinners */}
           {loadingData && (
-            <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
-              <div className="flex flex-col items-center gap-2">
-                <div className="relative w-8 h-8">
-                  <div className="absolute inset-0 rounded-full border-4 border-blue-200"></div>
-                  <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 border-r-blue-600 animate-spin"></div>
+            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8">
+                <div className="flex flex-col items-center gap-5">
+                  {/* Windows 11 loading animation */}
+                  <div className="relative w-14 h-14">
+                    <style>{`
+                      @keyframes win11Spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                      }
+                      .win11Loader {
+                        animation: win11Spin 1.2s linear infinite;
+                      }
+                    `}</style>
+
+                    {/* Background ring */}
+                    <svg
+                      className="absolute inset-0"
+                      width="56"
+                      height="56"
+                      viewBox="0 0 56 56"
+                      fill="none"
+                    >
+                      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+                        const angle = (i * 45 - 90) * (Math.PI / 180);
+                        const x = 28 + 20 * Math.cos(angle);
+                        const y = 28 + 20 * Math.sin(angle);
+                        return (
+                          <circle
+                            key={`bg-${i}`}
+                            cx={x}
+                            cy={y}
+                            r="2.5"
+                            fill="rgba(200, 210, 220, 0.3)"
+                          />
+                        );
+                      })}
+                    </svg>
+
+                    {/* Animated ring */}
+                    <svg
+                      className="absolute inset-0 win11Loader"
+                      width="56"
+                      height="56"
+                      viewBox="0 0 56 56"
+                      fill="none"
+                    >
+                      {[0, 1, 2, 3].map((i) => {
+                        const angle = (i * 45 - 90) * (Math.PI / 180);
+                        const x = 28 + 20 * Math.cos(angle);
+                        const y = 28 + 20 * Math.sin(angle);
+                        const opacity = 1 - i * 0.25;
+                        return (
+                          <circle
+                            key={`active-${i}`}
+                            cx={x}
+                            cy={y}
+                            r="2.5"
+                            fill={`rgba(59, 130, 246, ${opacity})`}
+                          />
+                        );
+                      })}
+                    </svg>
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="text-gray-700 font-semibold">
+                      Loading heatmap data
+                    </p>
+                    <p className="text-gray-500 text-sm">Please wait...</p>
+                  </div>
                 </div>
-                <p className="text-gray-600 text-sm">Loading heatmap data...</p>
               </div>
             </div>
           )}
 
           {loadingScreenshot && (
-            <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
-              <div className="flex flex-col items-center gap-2">
-                <div className="relative w-8 h-8">
-                  <div className="absolute inset-0 rounded-full border-4 border-blue-200"></div>
-                  <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 border-r-blue-600 animate-spin"></div>
+            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8">
+                <div className="flex flex-col items-center gap-5">
+                  {/* Windows 11 loading animation */}
+                  <div className="relative w-14 h-14">
+                    <style>{`
+                      @keyframes win11Spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                      }
+                      .win11Loader {
+                        animation: win11Spin 1.2s linear infinite;
+                      }
+                    `}</style>
+
+                    {/* Background ring */}
+                    <svg
+                      className="absolute inset-0"
+                      width="56"
+                      height="56"
+                      viewBox="0 0 56 56"
+                      fill="none"
+                    >
+                      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+                        const angle = (i * 45 - 90) * (Math.PI / 180);
+                        const x = 28 + 20 * Math.cos(angle);
+                        const y = 28 + 20 * Math.sin(angle);
+                        return (
+                          <circle
+                            key={`bg-${i}`}
+                            cx={x}
+                            cy={y}
+                            r="2.5"
+                            fill="rgba(200, 210, 220, 0.3)"
+                          />
+                        );
+                      })}
+                    </svg>
+
+                    {/* Animated ring */}
+                    <svg
+                      className="absolute inset-0 win11Loader"
+                      width="56"
+                      height="56"
+                      viewBox="0 0 56 56"
+                      fill="none"
+                    >
+                      {[0, 1, 2, 3].map((i) => {
+                        const angle = (i * 45 - 90) * (Math.PI / 180);
+                        const x = 28 + 20 * Math.cos(angle);
+                        const y = 28 + 20 * Math.sin(angle);
+                        const opacity = 1 - i * 0.25;
+                        return (
+                          <circle
+                            key={`active-${i}`}
+                            cx={x}
+                            cy={y}
+                            r="2.5"
+                            fill={`rgba(59, 130, 246, ${opacity})`}
+                          />
+                        );
+                      })}
+                    </svg>
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="text-gray-700 font-semibold">
+                      Capturing screenshot
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      This may take a moment...
+                    </p>
+                  </div>
                 </div>
-                <p className="text-gray-600 text-sm">Loading screenshot...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Loading spinner for image rendering - appears inside viewport while image loads */}
+          {screenshotUrl && !imageLoaded && !error && (
+            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8">
+                <div className="flex flex-col items-center gap-5">
+                  {/* Windows 11 loading animation */}
+                  <div className="relative w-14 h-14">
+                    <style>{`
+                      @keyframes win11Spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                      }
+                      .win11Loader {
+                        animation: win11Spin 1.2s linear infinite;
+                      }
+                    `}</style>
+
+                    {/* Background ring */}
+                    <svg
+                      className="absolute inset-0"
+                      width="56"
+                      height="56"
+                      viewBox="0 0 56 56"
+                      fill="none"
+                    >
+                      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+                        const angle = (i * 45 - 90) * (Math.PI / 180);
+                        const x = 28 + 20 * Math.cos(angle);
+                        const y = 28 + 20 * Math.sin(angle);
+                        return (
+                          <circle
+                            key={`bg-${i}`}
+                            cx={x}
+                            cy={y}
+                            r="2.5"
+                            fill="rgba(200, 210, 220, 0.3)"
+                          />
+                        );
+                      })}
+                    </svg>
+
+                    {/* Animated ring */}
+                    <svg
+                      className="absolute inset-0 win11Loader"
+                      width="56"
+                      height="56"
+                      viewBox="0 0 56 56"
+                      fill="none"
+                    >
+                      {[0, 1, 2, 3].map((i) => {
+                        const angle = (i * 45 - 90) * (Math.PI / 180);
+                        const x = 28 + 20 * Math.cos(angle);
+                        const y = 28 + 20 * Math.sin(angle);
+                        const opacity = 1 - i * 0.25;
+                        return (
+                          <circle
+                            key={`active-${i}`}
+                            cx={x}
+                            cy={y}
+                            r="2.5"
+                            fill={`rgba(59, 130, 246, ${opacity})`}
+                          />
+                        );
+                      })}
+                    </svg>
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="text-gray-700 font-semibold">Loading image</p>
+                    <p className="text-gray-500 text-sm">
+                      Rendering your screenshot...
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {/* --- CONTROLS --- */}
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-4">
-            <div className="flex-1">
-              <label
-                htmlFor="pagePathSelect"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Select Page:
-              </label>
-              <select
-                id="pagePathSelect"
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                value={pagePath}
-                onChange={(e) => setPagePath(e.target.value)}
-              >
-                {pagePaths.map((path) => (
-                  <option key={path} value={path}>
-                    {path === "/" ? "Homepage" : path}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+          <div className="bg-linear-to-r from-slate-50 to-blue-50 rounded-xl p-4 sm:p-6 mb-12 border border-gray-200 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+              {/* Page Selection */}
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Device:
+                <label
+                  htmlFor="pagePathSelect"
+                  className="block text-sm font-semibold text-slate-700 mb-4"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Select Page
+                  </span>
+                </label>
+                <select
+                  id="pagePathSelect"
+                  className="block w-1/2 pl-4 pr-10 py-2.5 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg bg-white shadow-sm transition-all"
+                  value={pagePath}
+                  onChange={(e) => setPagePath(e.target.value)}
+                >
+                  {pagePaths.map((path) => (
+                    <option key={path} value={path}>
+                      {path === "/" ? "/homepage" : path}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Device Selection */}
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-4">
+                  <span className="flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Device Type
+                  </span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(DEVICE_PROFILES).map(([key, profile]) => {
@@ -376,10 +732,10 @@ export default function HeatmapViewer() {
                         key={key}
                         onClick={() => setSelectedDevice(key as DeviceType)}
                         disabled={isMobile && key !== "mobile"}
-                        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                        className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm ${
                           selectedDevice === key
-                            ? "bg-indigo-600 text-white"
-                            : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                            ? "bg-blue-600 text-white shadow-md scale-105"
+                            : "bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300"
                         } ${isMobile && key !== "mobile" ? "hidden" : ""}`}
                       >
                         {profile.name}
@@ -388,26 +744,86 @@ export default function HeatmapViewer() {
                   })}
                 </div>
               </div>
-              <button
-                onClick={handleRefreshScreenshot}
-                disabled={loadingScreenshot}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 w-full sm:w-auto"
-              >
-                {loadingScreenshot ? "Refreshing..." : "Refresh Screenshot"}
-              </button>
+
+              {/* Refresh Button */}
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-4">
+                  <span className="flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
+                    </svg>
+                    Capture Live Preview
+                  </span>
+                </label>
+                <button
+                  onClick={handleRefreshScreenshot}
+                  disabled={loadingScreenshot}
+                  className="px-6 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-md hover:shadow-lg font-semibold flex items-center justify-center gap-2 min-w-[180px]"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  {loadingScreenshot ? "Refreshing..." : "Refresh Preview"}
+                </button>
+              </div>
             </div>
           </div>
 
           {/* --- STATUS MESSAGES --- */}
-          {loadingData && (
-            <p className="text-blue-500">Loading heatmap data...</p>
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+              <div className="flex items-start gap-3">
+                <svg
+                  className="w-5 h-5 text-red-500 mt-0.5 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-red-800">Error</p>
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
           )}
-          {error && <p className="text-red-500">Error: {error}</p>}
 
           {/* Full-width viewport with fixed height and vertical scrolling */}
           <div
             ref={heatmapViewportRef}
-            className="relative w-full mx-auto border border-gray-300 bg-gray-50"
+            className="relative w-full mx-auto border-2 border-gray-300 bg-gray-50 rounded-lg shadow-lg overflow-hidden"
             style={{
               width: `${DEVICE_PROFILES[selectedDevice].width}px`,
               height: "600px", // Fixed viewer height
@@ -427,9 +843,17 @@ export default function HeatmapViewer() {
                 className="w-full h-auto transition-opacity duration-300" // w-full ensures horizontal fit
                 onLoad={handleImageLoad}
                 onError={() => {
-                  setImageLoaded(false);
+                  // Clear timeout on error
+                  if (imageLoadTimeoutRef.current) {
+                    clearTimeout(imageLoadTimeoutRef.current);
+                    imageLoadTimeoutRef.current = null;
+                  }
+                  setImageLoaded(true); // Hide spinner
                   heatmapInstance?.setData({ min: 0, max: 1, data: [] });
-                  setError(`Failed to load screenshot: Failed to load image.`);
+                  // Show user-friendly message for 404 (no screenshot yet)
+                  setError(
+                    "No screenshot available for this page yet. Click 'Capture Live Preview' to generate one."
+                  );
                 }}
                 style={{
                   opacity: imageLoaded ? 1 : 0,
@@ -443,9 +867,29 @@ export default function HeatmapViewer() {
                 }}
               />
             ) : (
-              <p className="absolute inset-0 flex items-center justify-center z-0 text-gray-400 text-lg">
-                No screenshot available. Click "Refresh Screenshot".
-              </p>
+              <div className="absolute inset-0 flex items-center justify-center z-0">
+                <div className="text-center space-y-3 p-8">
+                  <svg
+                    className="w-16 h-16 text-gray-300 mx-auto"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <p className="text-gray-500 font-medium text-lg">
+                    No screenshot available
+                  </p>
+                  <p className="text-gray-400 text-sm">
+                    Click "Refresh Screenshot" to capture your page
+                  </p>
+                </div>
+              </div>
             )}
 
             {/* Heatmap overlay container - Only show for current device */}
@@ -465,9 +909,27 @@ export default function HeatmapViewer() {
 
             {/* Hide heatmap overlay for wrong device on mobile */}
             {isMobile && selectedDevice !== "mobile" && (
-              <p className="absolute inset-0 flex items-center justify-center z-20 text-yellow-600 text-sm bg-yellow-50/80">
-                Heatmap only available for Mobile view
-              </p>
+              <div className="absolute inset-0 flex items-center justify-center z-20 bg-yellow-50/95 backdrop-blur-sm">
+                <div className="text-center space-y-2 p-6">
+                  <svg
+                    className="w-12 h-12 text-yellow-600 mx-auto"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <p className="text-yellow-700 font-semibold">Limited View</p>
+                  <p className="text-yellow-600 text-sm">
+                    Heatmap only available for Mobile view on this device
+                  </p>
+                </div>
+              </div>
             )}
 
             {/* Text to show if no heatmap data */}
@@ -476,9 +938,31 @@ export default function HeatmapViewer() {
               imageLoaded &&
               heatmapInstance &&
               heatmapInstance.getData?.()?.data?.length === 0 && (
-                <p className="absolute inset-0 flex items-center justify-center z-20 text-gray-500 text-lg">
-                  No heatmap data available for this page/period.
-                </p>
+                <div className="absolute inset-0 flex items-center justify-center z-20 bg-white/80 backdrop-blur-sm">
+                  <div className="text-center space-y-3 p-8">
+                    <svg
+                      className="w-16 h-16 text-gray-400 mx-auto"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                    <div>
+                      <p className="text-gray-600 font-semibold text-lg">
+                        No heatmap data available
+                      </p>
+                      <p className="text-gray-500 text-sm mt-1">
+                        There are no interactions recorded for this page yet
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
           </div>
         </main>
@@ -486,5 +970,3 @@ export default function HeatmapViewer() {
     </div>
   );
 }
-
-const pagePaths = ["/", "/dashboard", "/contact"];

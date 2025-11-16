@@ -10,11 +10,12 @@
 
   // Read parameters from the script tag attributes
   const SITE_ID = SCRIPT_TAG.getAttribute("data-site-id");
+  const API_KEY = SCRIPT_TAG.getAttribute("data-api-key");
   const API_HOST = SCRIPT_TAG.getAttribute("data-api-host");
 
-  if (!SITE_ID || !API_HOST) {
+  if (!SITE_ID || !API_KEY || !API_HOST) {
     console.warn(
-      "Navlens: Missing required attributes (data-site-id or data-api-host). Tracking disabled."
+      "Navlens: Missing required attributes (data-site-id, data-api-key, or data-api-host). Tracking disabled."
     );
     return;
   }
@@ -46,7 +47,7 @@
     const eventsToSend = [...eventQueue];
     eventQueue = [];
 
-    const payload = JSON.stringify({ events: eventsToSend });
+    const payload = JSON.stringify({ events: eventsToSend, api_key: API_KEY });
 
     // Try using fetch with keepalive for best reliability
     fetch(API_COLLECT_ENDPOINT, {
