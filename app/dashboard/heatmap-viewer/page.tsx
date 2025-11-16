@@ -142,7 +142,7 @@ export default function HeatmapViewer() {
     const containerAspectRatio = displayedWidth / displayedHeight;
 
     let actualImageWidth, actualImageHeight;
-    
+
     if (containerAspectRatio > imageAspectRatio) {
       // Container is wider - image is limited by height
       actualImageHeight = displayedHeight;
@@ -154,7 +154,9 @@ export default function HeatmapViewer() {
     }
 
     console.log(
-      `Rendering heatmap - Container: ${displayedWidth}x${displayedHeight}, Actual image: ${Math.round(actualImageWidth)}x${Math.round(actualImageHeight)}`
+      `Rendering heatmap - Container: ${displayedWidth}x${displayedHeight}, Actual image: ${Math.round(
+        actualImageWidth
+      )}x${Math.round(actualImageHeight)}`
     );
 
     // Set the heatmap canvas dimensions to match the ACTUAL visible image
