@@ -1,19 +1,45 @@
-// app/api/generate-screenshot/route.ts
-
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy initialize Supabase admin client to avoid errors at build time
+let supabaseAdmin: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseAdminClient() {
+    if (!supabaseAdmin) {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!url || !key) {
+            throw new Error('Missing Supabase environment variables');
+        }
+        supabaseAdmin = createClient(url, key);
+    }
+    return supabaseAdmin;
+}
 
 export async function POST(req: NextRequest) {
     try {
         const { pageUrlToScreenshot, siteId, pagePath } = await req.json();
 
+        console.log(`Backend: Parsed pageUrlToScreenshot: ${pageUrlToScreenshot}`);
+        console.log(`Backend: Parsed siteId: ${siteId}`);
+        console.log(`Backend: Parsed pagePath: ${pagePath}`);
+        console.log(`Backend: Type of pageUrlToScreenshot: ${typeof pageUrlToScreenshot}`);
+        console.log(`Backend: Type of siteId: ${typeof siteId}`);
+        console.log(`Backend: Type of pagePath: ${typeof pagePath}`);
+
         if (!pageUrlToScreenshot || !siteId || !pagePath) {
-            return NextResponse.json({ error: 'Missing required parameters: pageUrlToScreenshot, siteId, pagePath' }, { status: 400 });
+            const missingParams = [];
+            if (!pageUrlToScreenshot) missingParams.push('pageUrlToScreenshot');
+            if (!siteId) missingParams.push('siteId');
+            if (!pagePath) missingParams.push('pagePath');
+            return NextResponse.json({ error: `Missing required parameters: ${missingParams.join(', ')}` }, { status: 400 });
+        }
+
+        // Validate that pageUrlToScreenshot is a valid URL
+        try {
+            new URL(pageUrlToScreenshot);
+        } catch (e) {
+            return NextResponse.json({ error: `Invalid URL format: ${pageUrlToScreenshot}` }, { status: 400 });
         }
 
         console.log(`Generating screenshot for: ${pageUrlToScreenshot}`);
@@ -29,7 +55,7 @@ export async function POST(req: NextRequest) {
         const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${API_FLASH_KEY}`;
         console.log("API Flash URL being used (with key):", apiFlashUrl); // Debugging: Check the full URL
 
-        // Construct the request body for API Flash (WITHOUT the access_key here)
+        // Construct the request body for API Flash
         const apiFlashBody = {
             url: pageUrlToScreenshot,
             full_page: true,
@@ -40,10 +66,9 @@ export async function POST(req: NextRequest) {
             device_scale_factor: 2,
             response_type: 'json',
             delay: 2000,
-            // You can add waitUntil here as well, e.g., 'networkidle0'
-            // wait_until: 'page_loaded', // This is also valid for API Flash
         };
         console.log("API Flash request body:", JSON.stringify(apiFlashBody));
+        console.log("URL being sent to API Flash:", pageUrlToScreenshot);
 
         const response = await fetch(apiFlashUrl, {
             method: 'POST',
@@ -84,7 +109,8 @@ export async function POST(req: NextRequest) {
         const filePath = `${siteId}/${encodeURIComponent(pagePath)}.png`;
         console.log(`Uploading screenshot to Supabase at: ${filePath}`);
 
-        const { error: uploadError } = await supabaseAdmin.storage
+        const supabase = getSupabaseAdminClient();
+        const { error: uploadError } = await supabase.storage
             .from('screenshots')
             .upload(filePath, screenshotBuffer, {
                 contentType: 'image/png',
@@ -95,7 +121,7 @@ export async function POST(req: NextRequest) {
             throw new Error(`Supabase upload failed: ${uploadError.message}`);
         }
 
-        const { data: publicUrlData } = supabaseAdmin.storage
+        const { data: publicUrlData } = supabase.storage
             .from('screenshots')
             .getPublicUrl(filePath);
 
