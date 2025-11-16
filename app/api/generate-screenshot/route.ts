@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { url } from 'inspector';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Lazy initialize Supabase admin client to avoid errors at build time
@@ -55,9 +56,11 @@ export async function POST(req: NextRequest) {
         const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${API_FLASH_KEY}`;
         console.log("API Flash URL being used (with key):", apiFlashUrl); // Debugging: Check the full URL
 
+        const urlForApiFlash = "https://www.google.com/"; // <--- CHANGE THIS LINE
+        console.log(`Backend: Temporarily forcing API Flash to screenshot: ${urlForApiFlash}`);
         // Construct the request body for API Flash
         const apiFlashBody = {
-            url: pageUrlToScreenshot,
+            url: urlForApiFlash,
             full_page: true,
             format: 'png',
             quality: 95,
