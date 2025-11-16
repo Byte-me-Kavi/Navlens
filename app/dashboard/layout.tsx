@@ -74,7 +74,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     });
 
     return () => subscription?.unsubscribe();
-  }, []); // Empty dependency array - run only on mount
+  }, [supabase.auth]); // Include supabase.auth in dependencies
 
   return (
     <Toast>
@@ -119,7 +119,7 @@ export default function DashboardLayout({
   return (
     <NavigationProvider>
       <SiteProvider>
-        <DashboardLayoutContent children={children} />
+        <DashboardLayoutContent>{children}</DashboardLayoutContent>
       </SiteProvider>
     </NavigationProvider>
   );

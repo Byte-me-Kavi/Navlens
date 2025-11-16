@@ -22,9 +22,18 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const debounce = (func: (...args: any[]) => void, delay: number) => {
+// --- Type Definitions ---
+
+interface DebounceFunction<T extends unknown[]> {
+  (...args: T): void;
+}
+
+const debounce = <T extends unknown[]>(
+  func: (...args: T) => void,
+  delay: number
+): DebounceFunction<T> => {
   let timeout: NodeJS.Timeout;
-  return (...args: any[]) => {
+  return (...args: T) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), delay);
   };
@@ -36,7 +45,8 @@ export default function HeatmapViewer() {
   const [pagePaths, setPagePaths] = useState<string[]>([]);
   const [pagePath, setPagePath] = useState("/");
   const [selectedDevice, setSelectedDevice] = useState<DeviceType>("desktop");
-  const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [heatmapInstance, setHeatmapInstance] = useState<any>(null); // heatmap.js instance
   const heatmapContainerRef = useRef<HTMLDivElement>(null);
   const screenshotImgRef = useRef<HTMLImageElement>(null);
   const heatmapViewportRef = useRef<HTMLDivElement>(null);
@@ -87,7 +97,7 @@ export default function HeatmapViewer() {
     };
 
     fetchPagePaths();
-  }, [siteId]);
+  }, [siteId, pagePath]);
 
   // Detect if viewing on mobile device
   useEffect(() => {
@@ -116,7 +126,7 @@ export default function HeatmapViewer() {
         .getPublicUrl(filePath);
       return data.publicUrl;
     },
-    [selectedDevice]
+    []
   );
 
   const fetchHeatmapData = useCallback(
@@ -142,7 +152,7 @@ export default function HeatmapViewer() {
         setLoadingData(false);
       }
     },
-    [siteId, selectedDevice]
+    [siteId]
   );
 
   const handleRefreshScreenshot = async () => {
@@ -189,8 +199,6 @@ export default function HeatmapViewer() {
       console.warn("renderHeatmapData: Refs or instance not ready.");
       return;
     }
-
-    const viewportElement = heatmapViewportRef.current;
 
     // Use the actual image dimensions, which should equal the container's width,
     // and the height is auto-calculated due to height: auto.
@@ -241,9 +249,10 @@ export default function HeatmapViewer() {
     }
   }, [heatmapInstance, pagePath, selectedDevice, fetchHeatmapData]);
 
-  const debouncedRenderHeatmap = useCallback(debounce(renderHeatmapData, 150), [
-    renderHeatmapData,
-  ]);
+  const debouncedRenderHeatmap = useCallback(
+    () => debounce(renderHeatmapData, 150)(),
+    [renderHeatmapData]
+  );
 
   // --- Initialize Heatmap.js instance once ---
   useEffect(() => {
@@ -886,7 +895,7 @@ export default function HeatmapViewer() {
                     No screenshot available
                   </p>
                   <p className="text-gray-400 text-sm">
-                    Click "Refresh Screenshot" to capture your page
+                    Click &quot;Refresh Screenshot&quot; to capture your page
                   </p>
                 </div>
               </div>

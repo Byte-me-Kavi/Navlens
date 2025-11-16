@@ -1,6 +1,6 @@
 // app/api/seed-test-data/route.ts
 import { createClient } from '@clickhouse/client';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 const client = createClient({
     host: process.env.CLICKHOUSE_HOST || 'localhost',
@@ -9,7 +9,7 @@ const client = createClient({
     database: process.env.CLICKHOUSE_DATABASE,
 });
 
-export async function POST(req: NextRequest) {
+export async function POST() {
     try {
         const SITE_ID = 'a2a95f61-1024-40f8-af7e-4c4df2fcbd01';
         const PAGE_PATH = '/';

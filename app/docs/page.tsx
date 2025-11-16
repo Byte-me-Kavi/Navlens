@@ -1,10 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
-  DocumentDuplicateIcon,
-  CodeBracketIcon,
-  CheckCircleIcon,
   PuzzlePieceIcon,
   SunIcon,
   ArrowRightIcon,
@@ -23,68 +20,6 @@ const colors = {
   textSecondary: "text-gray-500",
   border: "border-gray-200",
   success: "text-green-500",
-};
-
-// Mock Site Data (Used for snippet example)
-// Note: In a real app, the client would get their actual unique ID from the dashboard.
-const MOCK_SITE_ID = "YOUR-UNIQUE-SITE-ID-HERE";
-const MOCK_API_KEY = "YOUR-UNIQUE-API-KEY-HERE";
-const MOCK_API_HOST = "https://navlens-rho.vercel.app";
-
-const SnippetBox: React.FC<{
-  siteId: string;
-  apiHost: string;
-  apiKey?: string;
-}> = ({ siteId, apiHost, apiKey = "YOUR-API-KEY" }) => {
-  const snippet = `<script
-  async
-  src="${apiHost}/tracker.js"
-  data-site-id="${siteId}"
-  data-api-key="${apiKey}"
-  data-api-host="${apiHost}"
-></script>`;
-
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(snippet).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  return (
-    <div
-      className={`p-5 mt-4 rounded-xl ${colors.cardBg} border ${colors.border}`}
-    >
-      <h3 className={`text-lg font-semibold mb-3 ${colors.textPrimary}`}>
-        Your Unique Tracking Code
-      </h3>
-      <div className="relative font-mono text-sm">
-        <pre
-          className={`p-4 rounded-lg bg-gray-100 ${colors.textSecondary} overflow-x-auto`}
-        >
-          <code>{snippet}</code>
-        </pre>
-        <button
-          onClick={handleCopy}
-          className={`absolute top-2 right-2 p-2 rounded-md ${colors.primary} bg-blue-50/50 hover:bg-blue-100 transition-colors flex items-center gap-1 text-xs`}
-        >
-          {copied ? (
-            <CheckCircleIcon className={`w-4 h-4 ${colors.success}`} />
-          ) : (
-            <DocumentDuplicateIcon className="w-4 h-4" />
-          )}
-          {copied ? "Copied!" : "Copy Code"}
-        </button>
-      </div>
-      <p className={`mt-3 text-sm ${colors.textSecondary}`}>
-        *This unique code connects user activity on your site to your Navlens
-        dashboard. **Note: You must replace 'YOUR-UNIQUE-SITE-ID-HERE' with the
-        ID provided in your account.**
-      </p>
-    </div>
-  );
 };
 
 const DocumentationPage: React.FC = () => {
@@ -121,7 +56,7 @@ const DocumentationPage: React.FC = () => {
                   </h3>
                   <p className={`text-sm ${colors.textSecondary}`}>
                     Navlens turns complex visitor data into instant
-                    **Heatmaps**. You'll see exactly where users focus (red
+                    **Heatmaps**. You&apos;ll see exactly where users focus (red
                     spots) and what content they ignore (blue spots) across your
                     entire website.
                   </p>
@@ -186,8 +121,8 @@ const DocumentationPage: React.FC = () => {
                     &lt;head&gt;
                     <div className="pl-4">...</div>
                     <div className="pl-4 font-bold text-blue-600">
-                      **&lt;script async src="..."
-                      data-site-id="..."&gt;&lt;/script&gt;**
+                      **&lt;script async src=&quot;...&quot;
+                      data-site-id=&quot;...&quot;&gt;&lt;/script&gt;**
                     </div>
                     <div className="pl-4">...</div>
                     &lt;/head&gt;
@@ -203,7 +138,8 @@ const DocumentationPage: React.FC = () => {
                   </h3>
                   <p className={`text-sm ${colors.textSecondary}`}>
                     Allow up to 5 minutes for user clicks and scrolls to be
-                    processed and appear in your dashboard's Heatmap viewer.
+                    processed and appear in your dashboard&apos;s Heatmap
+                    viewer.
                   </p>
                 </div>
               </div>

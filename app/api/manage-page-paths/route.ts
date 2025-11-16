@@ -1,6 +1,11 @@
 import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 
+// --- Type Definitions ---
+interface CountResult {
+  count: number;
+}
+
 // Initialize ClickHouse client
 const clickhouseClient = (() => {
     const url = process.env.CLICKHOUSE_URL;
@@ -104,7 +109,7 @@ export async function POST(req: NextRequest) {
         });
 
         const checkData = await checkResult.json();
-        const pathExists = ((checkData.data?.[0] as any)?.count || 0) > 0;
+        const pathExists = ((checkData.data?.[0] as CountResult)?.count || 0) > 0;
 
         if (!pathExists) {
             // Insert a marker event to add this path to the database

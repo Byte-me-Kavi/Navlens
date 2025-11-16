@@ -30,6 +30,7 @@
   // --- Event Queue ---
   let eventQueue = [];
   let isProcessing = false;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let flushTimer = null;
   let lastClickTime = 0; // Track last click time for throttling
 

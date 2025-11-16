@@ -2,16 +2,43 @@ import { createClient } from '@clickhouse/client';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-// CORS headers to allow cross-origin requests from tracked websites
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-};
+// Add proper type definitions instead of 'any'
+interface ValidateResult {
+  valid: boolean;
+  error?: string;
+}
 
-// Handle CORS preflight requests
-export async function OPTIONS(req: NextRequest) {
-    return NextResponse.json({}, { headers: corsHeaders });
+interface SiteData {
+  id: string;
+  api_key: string;
+}
+
+interface ExcludedPathData {
+  page_path: string;
+}
+
+interface EventData {
+  site_id: string;
+  page_path: string;
+  [key: string]: unknown; // Allow additional properties
+}
+
+// Add CORS headers helper
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  };
+}
+
+// Handle preflight requests
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: corsHeaders(),
+  });
 }
 
 // Initialize Supabase admin client for exclusion check
@@ -61,7 +88,7 @@ function getSupabaseAdminClient() {
 }
 
 // Validate that the site_id exists and API key matches
-async function validateSiteAndApiKey(siteId: string, apiKey: string): Promise<boolean> {
+async function validateSiteAndApiKey(siteId: string, apiKey: string): Promise<ValidateResult> {
     try {
         const supabase = getSupabaseAdminClient();
         const { data, error } = await supabase
@@ -72,53 +99,26 @@ async function validateSiteAndApiKey(siteId: string, apiKey: string): Promise<bo
 
         if (error) {
             console.warn(`[collect] Site validation FAILED for ${siteId}:`, error.message);
-            return false;
+            return { valid: false, error: error.message };
         }
 
         if (!data) {
             console.warn(`[collect] Site validation FAILED: No data found for ${siteId}`);
-            return false;
+            return { valid: false, error: 'No data found' };
         }
 
         // Verify API key matches
-        if ((data as any).api_key !== apiKey) {
+        const siteData = data as SiteData;
+        if (siteData.api_key !== apiKey) {
             console.warn(`[collect] API key validation FAILED for ${siteId}: Key mismatch`);
-            return false;
+            return { valid: false, error: 'API key mismatch' };
         }
 
         console.log(`[collect] Site and API key validation SUCCESS for ${siteId}`);
-        return true;
+        return { valid: true };
     } catch (error) {
         console.error(`[collect] Unexpected error validating site ${siteId}:`, error);
-        return false;
-    }
-}
-
-// Validate that the site_id exists in our system
-async function validateSiteId(siteId: string): Promise<boolean> {
-    try {
-        const supabase = getSupabaseAdminClient();
-        const { data, error } = await supabase
-            .from('sites')
-            .select('id')
-            .eq('id', siteId)
-            .single();
-
-        if (error) {
-            console.warn(`[collect] Site validation FAILED for ${siteId}:`, error.message);
-            return false;
-        }
-
-        if (data) {
-            console.log(`[collect] Site validation SUCCESS for ${siteId}`);
-            return true;
-        }
-
-        console.warn(`[collect] Site validation FAILED: No data found for ${siteId}`);
-        return false;
-    } catch (error) {
-        console.error(`[collect] Unexpected error validating site ${siteId}:`, error);
-        return false;
+        return { valid: false, error: 'Unexpected error' };
     }
 }
 
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
         }
         
         // Handle both batched format { events: [...] } and legacy single event format
-        let eventsArray: any[];
+        let eventsArray: EventData[];
         if (body.events && Array.isArray(body.events)) {
             // New batched format from tracker.js
             eventsArray = body.events;
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
         if (eventsArray.length === 0) {
             return NextResponse.json(
                 { message: 'No events provided' },
-                { status: 400, headers: corsHeaders }
+                { status: 400, headers: corsHeaders() }
             );
         }
 
@@ -162,17 +162,17 @@ export async function POST(req: NextRequest) {
             console.warn('[collect] Missing site_id in event data');
             return NextResponse.json(
                 { message: 'Invalid event data: missing site_id' },
-                { status: 400, headers: corsHeaders }
+                { status: 400, headers: corsHeaders() }
             );
         }
 
         // SECURITY: Validate that the site_id exists and API key matches
-        const isValidSiteAndKey = await validateSiteAndApiKey(siteId, apiKey);
+        const { valid: isValidSiteAndKey, error } = await validateSiteAndApiKey(siteId, apiKey);
         if (!isValidSiteAndKey) {
-            console.error(`[collect] REJECTED: Invalid site_id or API key mismatch for ${siteId}`);
+            console.error(`[collect] REJECTED: Invalid site_id or API key mismatch for ${siteId}: ${error}`);
             return NextResponse.json(
                 { message: 'Invalid site_id or api_key' },
-                { status: 403, headers: corsHeaders }
+                { status: 403, headers: corsHeaders() }
             );
         }
 
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
                 .eq('site_id', siteId);
             
             if (!error && data) {
-                excludedPaths = new Set(data.map((d: any) => d.page_path));
+                excludedPaths = new Set(data.map((d: ExcludedPathData) => d.page_path));
                 console.log(`[collect] Loaded ${excludedPaths.size} excluded paths for site ${siteId}`);
             } else if (error && !error.message.includes('does not exist')) {
                 console.warn('[collect] Error fetching excluded paths:', error.message);
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
             console.log('[collect] All events were from excluded paths, rejecting');
             return NextResponse.json(
                 { message: 'All events are from excluded paths' },
-                { status: 400, headers: corsHeaders }
+                { status: 400, headers: corsHeaders() }
             );
         }
 
@@ -226,18 +226,33 @@ export async function POST(req: NextRequest) {
         console.log(`[collect] Successfully inserted ${filteredEvents.length} event(s) for site ${siteId}`);
         
         // Return a successful response with CORS headers
-        return NextResponse.json(
-            { message: 'Events ingested successfully' },
-            { status: 200, headers: corsHeaders }
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'Events ingested successfully' 
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders(),
+            },
+          }
         );
         
-    } catch (error: Error | unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to ingest events';
         console.error('[collect] Error ingesting events to ClickHouse:', error);
         // Return an error response with CORS headers
-        return NextResponse.json(
-            { message: 'Failed to ingest events', error: errorMessage },
-            { status: 500, headers: corsHeaders }
+        return new Response(
+          JSON.stringify({ error: errorMessage }),
+          {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders(),
+            },
+          }
         );
     }
 }

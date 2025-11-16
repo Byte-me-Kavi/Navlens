@@ -49,9 +49,10 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ pagePaths: data });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Failed to fetch page paths";
     return NextResponse.json(
-      { error: err.message || "Failed to fetch page paths" },
+      { error: errorMessage },
       { status: 500 }
     );
   }

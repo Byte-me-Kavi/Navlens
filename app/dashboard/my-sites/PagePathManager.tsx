@@ -85,9 +85,11 @@ export default function PagePathManager({
       setPagePaths([...pagePaths, newPath].sort());
       setNewPath("");
       toast.success(`Page path "${newPath}" added successfully`);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to add page path";
       console.error("Error adding page path:", err);
-      toast.error(err.message || "Failed to add page path");
+      toast.error(errorMessage);
     } finally {
       setIsAdding(false);
     }
@@ -131,9 +133,11 @@ export default function PagePathManager({
       toast.success(
         `✓ Path "${pathValue}" deleted and excluded from future data collection`
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to delete page path";
       console.error("Error deleting page path:", err);
-      toast.error(err.message || "Failed to delete page path");
+      toast.error(errorMessage);
     } finally {
       setDeletingPath(null);
     }
@@ -223,7 +227,7 @@ export default function PagePathManager({
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
           <p className="text-xs text-blue-900">
             <strong>ℹ️ About Paths:</strong> Paths are automatically discovered
-            from your site's analytics events.
+            from your site&apos;s analytics events.
           </p>
         </div>
 

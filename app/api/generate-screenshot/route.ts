@@ -36,7 +36,7 @@
             // Validate that pageUrlToScreenshot is a valid URL
             try {
                 new URL(pageUrlToScreenshot);
-            } catch (e) {
+            } catch {
                 return NextResponse.json({ error: `Invalid URL format: ${pageUrlToScreenshot}` }, { status: 400 });
             }
 
@@ -90,7 +90,7 @@
                 try {
                     const errorDetails = JSON.parse(errorText); // Try parsing as JSON
                     errorMessage = errorDetails.message || errorText;
-                } catch (jsonError) {
+                } catch {
                     // Not JSON, use original text
                     console.warn("API Flash error response was not JSON. Using plain text.");
                 }

@@ -1,6 +1,16 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
+// --- Type Definitions ---
+interface ExcludedPathRow {
+  page_path: string;
+}
+
+interface ExcludedPathRequest {
+  siteId: string;
+  pagePath: string;
+}
+
 // Initialize Supabase admin client
 let supabaseAdmin: ReturnType<typeof createSupabaseClient> | null = null;
 function getSupabaseAdminClient() {
@@ -45,7 +55,7 @@ export async function GET(req: NextRequest) {
             throw error;
         }
 
-        const excludedPaths = (data || []).map((d: any) => d.page_path);
+        const excludedPaths = (data || []).map((d: ExcludedPathRow) => d.page_path);
         return NextResponse.json({ excludedPaths }, { status: 200 });
     } catch (error: Error | unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -60,7 +70,7 @@ export async function GET(req: NextRequest) {
 // POST: Add a path to the exclusion list
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
+        const body: ExcludedPathRequest = await req.json();
         const { siteId, pagePath } = body;
 
         if (!siteId || !pagePath) {
@@ -73,13 +83,13 @@ export async function POST(req: NextRequest) {
         const supabase = getSupabaseAdminClient();
 
         // Add path to exclusion list
-        const { error } = await (supabase as any)
+        const { error } = await supabase
             .from('excluded_paths')
             .insert([
                 {
                     site_id: siteId,
                     page_path: pagePath,
-                }
+                } as never
             ]);
 
         // Ignore duplicate key errors

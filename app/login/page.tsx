@@ -82,7 +82,7 @@ export default function Login() {
           width={120}
           height={60}
           priority
-          className="w-90 md:w-120 drop-shadow-[0_0_20px_rgba(0,200,200,0.4)]"
+          className="drop-shadow-[0_0_20px_rgba(0,200,200,0.4)]"
         />
       </Link>
 

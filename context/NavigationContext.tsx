@@ -40,9 +40,13 @@ export function NavigationProvider({
   useEffect(() => {
     // Close spinner immediately when pathname changes (page has loaded)
     if (isNavigating) {
-      setIsNavigating(false);
+      // Use setTimeout to avoid synchronous state updates in effects
+      const timeoutId = setTimeout(() => {
+        setIsNavigating(false);
+      }, 0);
+      return () => clearTimeout(timeoutId);
     }
-  }, [pathname]);
+  }, [pathname, isNavigating]);
 
   return (
     <NavigationContext.Provider value={{ isNavigating, navigateTo }}>

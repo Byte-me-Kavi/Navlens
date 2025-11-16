@@ -56,6 +56,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { navigateTo } = useNavigation();
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -155,7 +156,6 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
-          const { navigateTo } = useNavigation();
 
           const handleNavClick = (e: React.MouseEvent) => {
             e.preventDefault();

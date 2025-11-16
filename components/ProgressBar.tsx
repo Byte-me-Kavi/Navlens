@@ -15,7 +15,6 @@ export default function ProgressBar({
 
   useEffect(() => {
     if (!isVisible) {
-      setProgress(0);
       return;
     }
 
@@ -33,8 +32,6 @@ export default function ProgressBar({
     let timeElapsed = 0;
 
     const timer = setInterval(() => {
-      let added = false;
-
       for (const interval of intervals) {
         if (timeElapsed >= 0 && timeElapsed < interval.time) {
           if (Math.random() > 0.7) {
@@ -44,7 +41,6 @@ export default function ProgressBar({
               90
             );
             setProgress(currentProgress);
-            added = true;
           }
           break;
         }

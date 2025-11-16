@@ -1,6 +1,11 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient as createClickHouseClient } from '@clickhouse/client';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+
+// --- Type Definitions ---
+interface ClickData {
+  total_clicks: number;
+}
 
 // --- Environment Setup ---
 
@@ -26,7 +31,7 @@ const clickHouseClient = createClickHouseClient({
     database: process.env.CLICKHOUSE_DATABASE,
 });
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     try {
         const supabase = getSupabaseAdminClient();
         
@@ -47,7 +52,7 @@ export async function GET(req: NextRequest) {
         
         const clickResult = await clickHouseClient.query({ query: totalClicksQuery, format: 'JSON' });
         const clickData = await clickResult.json();
-        const totalClicks = (clickData.data[0] as any)?.total_clicks || 0;
+        const totalClicks = (clickData.data[0] as ClickData)?.total_clicks || 0;
 
 
         // --- 3. Get Total Heatmaps Generated (from Supabase Storage) ---
@@ -72,10 +77,11 @@ export async function GET(req: NextRequest) {
             activeSessions: 'N/A' // Requires more complex real-time aggregation which we skip for MVP
         }, { status: 200 });
 
-    } catch (error: any) {
-        console.error('Dashboard Stats Error:', error.message);
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Dashboard Stats Error:', errorMessage);
         return NextResponse.json(
-            { message: 'Failed to retrieve dashboard stats.', error: error.message },
+            { message: 'Failed to retrieve dashboard stats.', error: errorMessage },
             { status: 500 }
         );
     }
