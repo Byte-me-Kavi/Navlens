@@ -376,8 +376,8 @@ export default function HeatmapViewer() {
             ref={heatmapContainerRef}
             className="absolute top-0 left-0 z-10 transition-opacity duration-300"
             style={{
-              width: screenshotImgRef.current?.offsetWidth || '100%',
-              height: screenshotImgRef.current?.offsetHeight || '100%',
+              width: screenshotImgRef.current?.offsetWidth || "100%",
+              height: screenshotImgRef.current?.offsetHeight || "100%",
               // Heatmap visibility tied to image being loaded
               opacity: imageVisible ? 1 : 0,
               pointerEvents: "none", // Make heatmap non-interactive
