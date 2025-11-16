@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
 
         console.log(`Generating screenshot for: ${pageUrlToScreenshot}`);
 
-        // --- API Flash specific setup ---
         const API_FLASH_KEY = process.env.API_FLASH_KEY;
 
         if (!API_FLASH_KEY) {
@@ -26,26 +25,23 @@ export async function POST(req: NextRequest) {
             throw new Error("API Flash Key is missing. Please set API_FLASH_KEY environment variable.");
         }
 
-        // API Flash endpoint
-        const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage`;
+        // --- API Flash endpoint with access_key as a query parameter ---
+        const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${API_FLASH_KEY}`;
+        console.log("API Flash URL being used (with key):", apiFlashUrl); // Debugging: Check the full URL
 
-        // Construct the request body for API Flash
+        // Construct the request body for API Flash (WITHOUT the access_key here)
         const apiFlashBody = {
-            access_key: API_FLASH_KEY, // API Flash uses 'access_key'
             url: pageUrlToScreenshot,
-            full_page: true,          // Equivalent to Browserless 'fullPage'
-            format: 'png',            // Equivalent to Browserless 'type'
-            quality: 95,              // Standard quality setting
-            width: 1920,              // Viewport width
-            height: 1080,             // Viewport height
-            device_scale_factor: 2,   // Equivalent to Browserless 'deviceScaleFactor'
-            response_type: 'json',    // Request JSON response to get the URL
-            delay: 2000,              // Optional: wait 2 seconds for page to load JS/data
-            // Additional API Flash options you might want to add later:
-            // no_cookie_banners: true,
-            // no_ads: true,
-            // user_agent: '...',
-            // viewport: '1920x1080', // You can also pass viewport as string if preferred
+            full_page: true,
+            format: 'png',
+            quality: 95,
+            width: 1920,
+            height: 1080,
+            device_scale_factor: 2,
+            response_type: 'json',
+            delay: 2000,
+            // You can add waitUntil here as well, e.g., 'networkidle0'
+            // wait_until: 'page_loaded', // This is also valid for API Flash
         };
         console.log("API Flash request body:", JSON.stringify(apiFlashBody));
 
@@ -58,27 +54,32 @@ export async function POST(req: NextRequest) {
         });
 
         if (!response.ok) {
-            const errorDetails = await response.json(); // API Flash often returns JSON errors
-            console.error('API Flash raw error:', JSON.stringify(errorDetails, null, 2));
-            throw new Error(`API Flash failed with status ${response.status}: ${errorDetails.message || 'Unknown error'}`);
+            const errorText = await response.text(); // Read as text first
+            console.error('API Flash raw error response text:', errorText);
+            
+            let errorMessage = errorText;
+            try {
+                const errorDetails = JSON.parse(errorText); // Try parsing as JSON
+                errorMessage = errorDetails.message || errorText;
+            } catch (jsonError) {
+                // Not JSON, use original text
+                console.warn("API Flash error response was not JSON. Using plain text.");
+            }
+            throw new Error(`API Flash failed with status ${response.status}: ${errorMessage}`);
         }
 
-        // API Flash, when response_type: 'json', returns a JSON object with a 'url' to the image
-        const apiFlashResult = await response.json();
+        const apiFlashResult = await response.json(); // Now this should be valid JSON
         const imageUrl = apiFlashResult.url;
 
         if (!imageUrl) {
-            throw new Error("API Flash did not return an image URL.");
+            throw new Error("API Flash did not return an image URL in its JSON response.");
         }
 
-        // Fetch the actual image from the URL provided by API Flash
         const imageResponse = await fetch(imageUrl);
         if (!imageResponse.ok) {
-            throw new Error(`Failed to fetch image from API Flash URL: ${imageResponse.status}`);
+            throw new Error(`Failed to fetch image from API Flash URL (${imageUrl}): ${imageResponse.status}`);
         }
         const screenshotBuffer = await imageResponse.arrayBuffer();
-
-        // ... (Rest of your Supabase upload logic remains the same) ...
 
         const filePath = `${siteId}/${encodeURIComponent(pagePath)}.png`;
         console.log(`Uploading screenshot to Supabase at: ${filePath}`);
