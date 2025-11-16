@@ -134,6 +134,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
               width={80}
               height={40}
               priority
+              style={{ width: "auto", height: "auto" }}
               className="drop-shadow-[0_0_10px_rgba(0,200,200,0.3)]"
             />
           </Link>

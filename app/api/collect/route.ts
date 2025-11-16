@@ -2,6 +2,18 @@ import { createClient } from '@clickhouse/client';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
+// CORS headers to allow cross-origin requests from tracked websites
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+// Handle CORS preflight requests
+export async function OPTIONS(req: NextRequest) {
+    return NextResponse.json({}, { headers: corsHeaders });
+}
+
 // Initialize Supabase admin client for exclusion check
 let supabaseAdminForExclusions: ReturnType<typeof createSupabaseClient> | null = null;
 function getSupabaseAdminForExclusions() {
@@ -140,7 +152,7 @@ export async function POST(req: NextRequest) {
         if (eventsArray.length === 0) {
             return NextResponse.json(
                 { message: 'No events provided' },
-                { status: 400 }
+                { status: 400, headers: corsHeaders }
             );
         }
 
@@ -150,7 +162,7 @@ export async function POST(req: NextRequest) {
             console.warn('[collect] Missing site_id in event data');
             return NextResponse.json(
                 { message: 'Invalid event data: missing site_id' },
-                { status: 400 }
+                { status: 400, headers: corsHeaders }
             );
         }
 
@@ -160,7 +172,7 @@ export async function POST(req: NextRequest) {
             console.error(`[collect] REJECTED: Invalid site_id or API key mismatch for ${siteId}`);
             return NextResponse.json(
                 { message: 'Invalid site_id or api_key' },
-                { status: 403 }
+                { status: 403, headers: corsHeaders }
             );
         }
 
@@ -198,7 +210,7 @@ export async function POST(req: NextRequest) {
             console.log('[collect] All events were from excluded paths, rejecting');
             return NextResponse.json(
                 { message: 'All events are from excluded paths' },
-                { status: 400 }
+                { status: 400, headers: corsHeaders }
             );
         }
 
@@ -213,16 +225,19 @@ export async function POST(req: NextRequest) {
         
         console.log(`[collect] Successfully inserted ${filteredEvents.length} event(s) for site ${siteId}`);
         
-        // Return a successful response
-        return NextResponse.json({ message: 'Events ingested successfully' }, { status: 200 });
+        // Return a successful response with CORS headers
+        return NextResponse.json(
+            { message: 'Events ingested successfully' },
+            { status: 200, headers: corsHeaders }
+        );
         
     } catch (error: Error | unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('[collect] Error ingesting events to ClickHouse:', error);
-        // Return an error response
+        // Return an error response with CORS headers
         return NextResponse.json(
             { message: 'Failed to ingest events', error: errorMessage },
-            { status: 500 }
+            { status: 500, headers: corsHeaders }
         );
     }
 }
