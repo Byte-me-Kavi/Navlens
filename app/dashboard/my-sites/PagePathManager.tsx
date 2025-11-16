@@ -100,7 +100,7 @@ export default function PagePathManager({
 
     setDeleteModal({ isOpen: false, pathToDelete: null });
     setDeletingPath(pathValue);
-    
+
     try {
       // Step 1: Delete from manage-page-paths (removes existing events)
       const deleteResponse = await fetch("/api/manage-page-paths", {
