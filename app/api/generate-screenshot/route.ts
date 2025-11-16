@@ -18,51 +18,67 @@ export async function POST(req: NextRequest) {
 
         console.log(`Generating screenshot for: ${pageUrlToScreenshot}`);
 
-        // --- Use BROWSERLESS_TOKEN consistently ---
-        const BROWSERLESS_TOKEN = process.env.BROWSERLESS_TOKEN; 
+        // --- API Flash specific setup ---
+        const API_FLASH_KEY = process.env.API_FLASH_KEY;
 
-        if (!BROWSERLESS_TOKEN) {
-            console.error("BROWSERLESS_TOKEN environment variable is not defined.");
-            throw new Error("Browserless API Key (BROWSERLESS_TOKEN) is missing. Please set it as an environment variable.");
+        if (!API_FLASH_KEY) {
+            console.error("API_FLASH_KEY environment variable is not defined.");
+            throw new Error("API Flash Key is missing. Please set API_FLASH_KEY environment variable.");
         }
 
-        // --- CORRECT BROWSERLESS URL CONSTRUCTION ---
-        // Pass the API key as a query parameter in the URL for the function/screenshot endpoint
-        const browserlessUrl = `https://api.browserless.io/function/screenshot?token=${BROWSERLESS_TOKEN}`;
-        console.log("Browserless API URL being used:", browserlessUrl); // For debugging purposes
+        // API Flash endpoint
+        const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage`;
 
-        const response = await fetch(browserlessUrl, {
+        // Construct the request body for API Flash
+        const apiFlashBody = {
+            access_key: API_FLASH_KEY, // API Flash uses 'access_key'
+            url: pageUrlToScreenshot,
+            full_page: true,          // Equivalent to Browserless 'fullPage'
+            format: 'png',            // Equivalent to Browserless 'type'
+            quality: 95,              // Standard quality setting
+            width: 1920,              // Viewport width
+            height: 1080,             // Viewport height
+            device_scale_factor: 2,   // Equivalent to Browserless 'deviceScaleFactor'
+            response_type: 'json',    // Request JSON response to get the URL
+            delay: 2000,              // Optional: wait 2 seconds for page to load JS/data
+            // Additional API Flash options you might want to add later:
+            // no_cookie_banners: true,
+            // no_ads: true,
+            // user_agent: '...',
+            // viewport: '1920x1080', // You can also pass viewport as string if preferred
+        };
+        console.log("API Flash request body:", JSON.stringify(apiFlashBody));
+
+        const response = await fetch(apiFlashUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // REMOVE the Authorization header here, as the token is in the URL
-                // 'Authorization': `Bearer ${BROWSERLESS_TOKEN}`, 
             },
-            body: JSON.stringify({
-                url: pageUrlToScreenshot,
-                options: { // All screenshot options are correctly nested here
-                    fullPage: true,
-                    type: 'png',
-                    quality: 95,
-                    deviceScaleFactor: 2,
-                    timeout: 30000,
-                    viewport: {
-                        width: 1920,
-                        height: 1080,
-                    },
-                    ignoreHTTPSErrors: true,
-                    // waitUntil: 'networkidle0', 
-                }
-            }),
+            body: JSON.stringify(apiFlashBody),
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Browserless raw error:', errorText);
-            throw new Error(`Browserless API failed with status ${response.status}: ${errorText}`);
+            const errorDetails = await response.json(); // API Flash often returns JSON errors
+            console.error('API Flash raw error:', JSON.stringify(errorDetails, null, 2));
+            throw new Error(`API Flash failed with status ${response.status}: ${errorDetails.message || 'Unknown error'}`);
         }
 
-        const screenshotBuffer = await response.arrayBuffer();
+        // API Flash, when response_type: 'json', returns a JSON object with a 'url' to the image
+        const apiFlashResult = await response.json();
+        const imageUrl = apiFlashResult.url;
+
+        if (!imageUrl) {
+            throw new Error("API Flash did not return an image URL.");
+        }
+
+        // Fetch the actual image from the URL provided by API Flash
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image from API Flash URL: ${imageResponse.status}`);
+        }
+        const screenshotBuffer = await imageResponse.arrayBuffer();
+
+        // ... (Rest of your Supabase upload logic remains the same) ...
 
         const filePath = `${siteId}/${encodeURIComponent(pagePath)}.png`;
         console.log(`Uploading screenshot to Supabase at: ${filePath}`);
