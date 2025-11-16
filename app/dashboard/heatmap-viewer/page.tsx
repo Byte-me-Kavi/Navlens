@@ -165,6 +165,22 @@ export default function HeatmapViewer() {
       Math.round(actualImageHeight)
     );
 
+    console.log(
+      `Heatmap canvas dimensions set to: ${Math.round(
+        actualImageWidth
+      )}x${Math.round(actualImageHeight)}`
+    );
+
+    // Get the canvas element to verify it was created
+    const canvas = heatmapContainerRef.current?.querySelector("canvas");
+    if (canvas) {
+      console.log(
+        `Canvas element found - rendered size: ${canvas.offsetWidth}x${canvas.offsetHeight}, canvas size: ${canvas.width}x${canvas.height}`
+      );
+    } else {
+      console.warn("Canvas element not found in container!");
+    }
+
     const rawData = await fetchHeatmapData(pagePath);
 
     if (!rawData || rawData.length === 0) {
@@ -205,6 +221,17 @@ export default function HeatmapViewer() {
       max: maxCount,
       data: heatmapData,
     });
+
+    // Ensure canvas is visible - add style to make it render on top
+    const canvasElement = heatmapContainerRef.current?.querySelector("canvas");
+    if (canvasElement) {
+      canvasElement.style.position = "absolute";
+      canvasElement.style.top = "0";
+      canvasElement.style.left = "0";
+      canvasElement.style.zIndex = "100";
+      canvasElement.style.display = "block";
+      console.log("Canvas styled and positioned");
+    }
   }, [heatmapInstance, pagePath, fetchHeatmapData]);
 
   // Debounced version
@@ -376,11 +403,16 @@ export default function HeatmapViewer() {
           {/* Heatmap overlay (this div must be on top) */}
           <div
             ref={heatmapContainerRef}
-            className="absolute inset-0 flex items-center justify-center z-10 transition-opacity duration-300"
+            className="absolute inset-0 z-10 transition-opacity duration-300"
             style={{
               // Heatmap visibility tied to image being loaded
               opacity: imageVisible ? 1 : 0,
               pointerEvents: "none", // Make heatmap non-interactive
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
             }}
           ></div>
 
