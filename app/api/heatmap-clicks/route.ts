@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     // Required parameters
     const siteId = searchParams.get('siteId');
     const pagePath = searchParams.get('pagePath');
+    const deviceType = searchParams.get('deviceType') || 'desktop'; // Default to desktop
 
     if (!siteId || !pagePath) {
       return NextResponse.json(
@@ -34,11 +35,11 @@ export async function GET(req: NextRequest) {
     const endDate = rawEndDate ? new Date(rawEndDate) : new Date();
     const startDate = rawStartDate ? new Date(rawStartDate) : new Date(endDate.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
 
-    // ClickHouse query for aggregated click data
+    // ClickHouse query for aggregated click data filtered by device type
     const query = `
       SELECT
-          ROUND(x_relative * 100) AS x_bin,
-          ROUND(y_relative * 100) AS y_bin,
+          ROUND(x_relative, 2) AS x_relative,
+          ROUND(y_relative, 2) AS y_relative,
           COUNT() AS count
       FROM
           events
@@ -46,11 +47,12 @@ export async function GET(req: NextRequest) {
           event_type = 'click'
           AND site_id = {siteId:String}
           AND page_path = {pagePath:String}
+          AND device_type = {deviceType:String}
           AND timestamp >= {startDate:DateTime}
           AND timestamp <= {endDate:DateTime}
       GROUP BY
-          x_bin,
-          y_bin
+          x_relative,
+          y_relative
       HAVING
           count > 0
       ORDER BY
@@ -63,6 +65,7 @@ export async function GET(req: NextRequest) {
       query_params: {
         siteId: siteId,
         pagePath: pagePath,
+        deviceType: deviceType,
         startDate: startDate.toISOString().slice(0, 19).replace('T', ' '), // Format for ClickHouse DateTime
         endDate: endDate.toISOString().slice(0, 19).replace('T', ' '),     // Format for ClickHouse DateTime
       },
@@ -71,7 +74,7 @@ export async function GET(req: NextRequest) {
 
     const heatmapData = await resultSet.json(); // Get the JSON response
 
-    console.log(`[heatmap-clicks] Query result for siteId=${siteId}, pagePath=${pagePath}:`, JSON.stringify(heatmapData));
+    console.log(`[heatmap-clicks] Query result for siteId=${siteId}, pagePath=${pagePath}, deviceType=${deviceType}:`, JSON.stringify(heatmapData));
 
     return NextResponse.json(heatmapData, { status: 200 });
 

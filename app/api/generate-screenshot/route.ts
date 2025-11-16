@@ -18,14 +18,12 @@
 
     export async function POST(req: NextRequest) {
         try {
-            const { pageUrlToScreenshot, siteId, pagePath } = await req.json();
+            const { pageUrlToScreenshot, siteId, pagePath, deviceType } = await req.json();
 
             console.log(`Backend: Parsed pageUrlToScreenshot: ${pageUrlToScreenshot}`);
             console.log(`Backend: Parsed siteId: ${siteId}`);
             console.log(`Backend: Parsed pagePath: ${pagePath}`);
-            console.log(`Backend: Type of pageUrlToScreenshot: ${typeof pageUrlToScreenshot}`);
-            console.log(`Backend: Type of siteId: ${typeof siteId}`);
-            console.log(`Backend: Type of pagePath: ${typeof pagePath}`);
+            console.log(`Backend: Parsed deviceType: ${deviceType}`);
 
             if (!pageUrlToScreenshot || !siteId || !pagePath) {
                 const missingParams = [];
@@ -51,11 +49,34 @@
                 throw new Error("API Flash Key is missing. Please set API_FLASH_KEY environment variable.");
             }
 
-            // --- API Flash endpoint with access_key and url as query parameters ---
+            // Define device profiles with viewport dimensions and user agents
+            const deviceProfiles: Record<string, { width: number; height: number; userAgent: string }> = {
+              desktop: { 
+                width: 1440, 
+                height: 1080,
+                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+              },
+              tablet: { 
+                width: 768, 
+                height: 1024,
+                userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+              },
+              mobile: { 
+                width: 375, 
+                height: 667,
+                userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+              },
+            };
+
+            const device = deviceProfiles[deviceType || 'desktop'] || deviceProfiles.desktop;
+
+            // --- API Flash endpoint with viewport dimensions and user agent ---
             const encodedUrl = encodeURIComponent(pageUrlToScreenshot);
-            const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${API_FLASH_KEY}&url=${encodedUrl}&format=png&width=1920&height=1080&full_page=true&fresh=true&response_type=json`;
+            const encodedUserAgent = encodeURIComponent(device.userAgent);
+            const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${API_FLASH_KEY}&url=${encodedUrl}&format=png&width=${device.width}&height=${device.height}&full_page=true&fresh=true&response_type=json&user_agent=${encodedUserAgent}`;
             
             console.log("API Flash URL being called:", apiFlashUrl.replace(API_FLASH_KEY, '***'));
+            console.log(`Using device profile: ${deviceType || 'desktop'} (${device.width}x${device.height})`);
 
             const response = await fetch(apiFlashUrl, {
                 method: 'GET', // API Flash uses GET, not POST
@@ -89,9 +110,9 @@
             }
             const screenshotBuffer = await imageResponse.arrayBuffer();
 
-            // Don't encode pagePath - Supabase will handle it correctly
-            // Match frontend logic: "/" becomes "homepage.png"
-            const filePath = `${siteId}/${pagePath === '/' ? 'homepage' : pagePath.replace(/^\//, '')}.png`;
+            // Store device type in filename: homepage-desktop.png, homepage-mobile.png, etc.
+            const deviceSuffix = deviceType ? `-${deviceType}` : '';
+            const filePath = `${siteId}/${pagePath === '/' ? 'homepage' : pagePath.replace(/^\//, '')}${deviceSuffix}.png`;
             console.log(`Uploading screenshot to Supabase at: ${filePath}`);
 
             const supabase = getSupabaseAdminClient();

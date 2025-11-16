@@ -51,13 +51,14 @@ export default function DashboardLayout({
       }
     };
 
-    // Check cookies from proxy
+    // Only check on component mount, not on every render
     showLoginToast();
 
-    // Also listen for auth state changes from Supabase
+    // Also listen for auth state changes from Supabase (ONLY for actual sign-in events)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only show toast on initial sign-in, not on every state change
       if (event === "SIGNED_IN" && session?.user && !hasShownToastRef.current) {
         hasShownToastRef.current = true;
         toast.success(`Welcome back! Logged in as ${session.user.email}`, {
@@ -67,7 +68,7 @@ export default function DashboardLayout({
     });
 
     return () => subscription?.unsubscribe();
-  }, [supabase.auth]);
+  }, []); // Empty dependency array - run only on mount
 
   return (
     <Toast>
@@ -75,7 +76,7 @@ export default function DashboardLayout({
         <SideNavbar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 p-5 overflow-auto">{children}</main>
+          <main className="flex-1 p-5 overflow-x-hidden">{children}</main>
         </div>
       </div>
     </Toast>

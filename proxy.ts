@@ -58,16 +58,20 @@ export default async function middleware(request: NextRequest) {
     if (pathname === '/login' && session) {
         const redirectUrl = new URL('/dashboard', request.url);
         const redirectResponse = NextResponse.redirect(redirectUrl);
-        redirectResponse.cookies.set('x-login-success', 'true', {
-            maxAge: 10,
-            path: '/',
-            httpOnly: false,
-        });
-        redirectResponse.cookies.set('x-user-email', session.user.email || 'user', {
-            maxAge: 10,
-            path: '/',
-            httpOnly: false,
-        });
+        // Only set toast cookies on actual login redirect, not on every access
+        const hasShownToast = request.cookies.get('x-login-success');
+        if (!hasShownToast) {
+            redirectResponse.cookies.set('x-login-success', 'true', {
+                maxAge: 5,
+                path: '/',
+                httpOnly: false,
+            });
+            redirectResponse.cookies.set('x-user-email', session.user.email || 'user', {
+                maxAge: 5,
+                path: '/',
+                httpOnly: false,
+            });
+        }
         return redirectResponse;
     }
 
@@ -75,16 +79,20 @@ export default async function middleware(request: NextRequest) {
     if (pathname === '/' && session) {
         const redirectUrl = new URL('/dashboard', request.url);
         const redirectResponse = NextResponse.redirect(redirectUrl);
-        redirectResponse.cookies.set('x-login-success', 'true', {
-            maxAge: 10,
-            path: '/',
-            httpOnly: false,
-        });
-        redirectResponse.cookies.set('x-user-email', session.user.email || 'user', {
-            maxAge: 10,
-            path: '/',
-            httpOnly: false,
-        });
+        // Only set toast cookies on actual redirect, not on every access
+        const hasShownToast = request.cookies.get('x-login-success');
+        if (!hasShownToast) {
+            redirectResponse.cookies.set('x-login-success', 'true', {
+                maxAge: 5,
+                path: '/',
+                httpOnly: false,
+            });
+            redirectResponse.cookies.set('x-user-email', session.user.email || 'user', {
+                maxAge: 5,
+                path: '/',
+                httpOnly: false,
+            });
+        }
         return redirectResponse;
     }
 
