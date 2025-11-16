@@ -61,8 +61,14 @@ export default function HeatmapViewer() {
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
-      console.log("Fetched heatmap data:", data);
-      return data.data || [];
+      console.log("Fetched heatmap data response:", data);
+
+      // ClickHouse returns data in different formats depending on the client library
+      // Try multiple possible structures
+      const heatmapArray = data.data || data.result || data || [];
+      console.log("Extracted heatmap array:", heatmapArray);
+
+      return Array.isArray(heatmapArray) ? heatmapArray : [];
     } catch (err: Error | unknown) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       console.error("Failed to fetch heatmap data:", err);
@@ -165,12 +171,20 @@ export default function HeatmapViewer() {
       return;
     }
 
+    console.log(`Processing ${rawData.length} raw heatmap data points`);
+
     const heatmapData = rawData.map(
-      (d: { x_bin: number; y_bin: number; count: number }) => ({
-        x: Math.round((d.x_bin / 100) * displayedWidth),
-        y: Math.round((d.y_bin / 100) * displayedHeight),
-        value: d.count,
-      })
+      (d: { x_bin: number; y_bin: number; count: number }) => {
+        const transformedPoint = {
+          x: Math.round((d.x_bin / 100) * displayedWidth),
+          y: Math.round((d.y_bin / 100) * displayedHeight),
+          value: d.count,
+        };
+        console.log(
+          `Data point: x_bin=${d.x_bin}, y_bin=${d.y_bin}, count=${d.count} => x=${transformedPoint.x}, y=${transformedPoint.y}`
+        );
+        return transformedPoint;
+      }
     );
 
     const maxCount = Math.max(
@@ -178,7 +192,12 @@ export default function HeatmapViewer() {
       1
     );
 
-    console.log("Setting heatmap data with max:", maxCount);
+    console.log(
+      "Setting heatmap data with max:",
+      maxCount,
+      "points:",
+      heatmapData
+    );
     heatmapInstance.setData({
       min: 0,
       max: maxCount,

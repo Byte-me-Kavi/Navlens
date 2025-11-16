@@ -71,6 +71,8 @@ export async function GET(req: NextRequest) {
 
     const heatmapData = await resultSet.json(); // Get the JSON response
 
+    console.log(`[heatmap-clicks] Query result for siteId=${siteId}, pagePath=${pagePath}:`, JSON.stringify(heatmapData));
+
     return NextResponse.json(heatmapData, { status: 200 });
 
   } catch (error: Error | unknown) {

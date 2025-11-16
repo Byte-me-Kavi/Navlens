@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
         // Ensure events is an array for batch insertion, even if a single object comes in
         const eventsArray = Array.isArray(events) ? events : [events];
         
+        console.log(`[collect] Received ${eventsArray.length} event(s):`, JSON.stringify(eventsArray.slice(0, 2)));
+        
         // Perform the insertion into the 'events' table
         await client.insert({
             table: 'events', // The name of your ClickHouse table
@@ -24,12 +26,14 @@ export async function POST(req: NextRequest) {
             // Ensure your incoming JSON keys match your table column names
         });
         
+        console.log(`[collect] Successfully inserted ${eventsArray.length} event(s)`);
+        
         // Return a successful response
         return NextResponse.json({ message: 'Events ingested successfully' }, { status: 200 });
         
     } catch (error: Error | unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error ingesting events to ClickHouse:', error);
+        console.error('[collect] Error ingesting events to ClickHouse:', error);
         // Return an error response
         return NextResponse.json(
             { message: 'Failed to ingest events', error: errorMessage },
