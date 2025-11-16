@@ -39,7 +39,6 @@ export default function Home() {
             <SpotlightInteractive
               className="from-blue-500/20 via-purple-500/10 to-pink-500/5"
               size={300}
-              springOptions={{ bounce: 0.2 }}
             />
 
             {/* Decorative gradient overlays */}
