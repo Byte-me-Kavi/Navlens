@@ -1,49 +1,55 @@
-// app/dashboard/heatmap-viewer/page.tsx
-"use client"; // This component will be client-side rendered
+"use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
-import h337 from "heatmap.js"; // Properly import heatmap.js
-import { createBrowserClient } from "@supabase/ssr"; // Import Supabase client
+import h337 from "heatmap.js";
+import { createBrowserClient } from "@supabase/ssr";
 
-const SITE_ID = "a2a95f61-1024-40f8-af7e-4c4df2fcbd01"; // IMPORTANT: Use your actual SITE_ID
-// IMPORTANT: This should be your *client's* domain, not your dashboard's
-// TODO: Update this to your actual client website URL (e.g., "https://yoursite.com")
+const SITE_ID = "a2a95f61-1024-40f8-af7e-4c4df2fcbd01";
 const CLIENT_DOMAIN = "https://navlens-rho.vercel.app";
+const SCREENSHOT_WIDTH = 1920;
+const SCREENSHOT_HEIGHT = 1080;
 
-// Initialize the *public* Supabase client
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Debounce utility
+const debounce = (func: (...args: any[]) => void, delay: number) => {
+  // eslint-disable-line @typescript-eslint/no-explicit-any
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    // eslint-disable-line @typescript-eslint/no-explicit-any
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), delay);
+  };
+};
+
 export default function HeatmapViewer() {
-  const [pagePath, setPagePath] = useState("/"); // Default to homepage
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
+  const [pagePath, setPagePath] = useState("/");
+  const [heatmapInstance, setHeatmapInstance] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const heatmapContainerRef = useRef<HTMLDivElement>(null);
+  const screenshotImgRef = useRef<HTMLImageElement>(null);
   const [loadingData, setLoadingData] = useState(false);
   const [loadingScreenshot, setLoadingScreenshot] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [imageKey, setImageKey] = useState(0); // Force re-render of image element
-  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null); // State for the screenshot
-  const [imageDimensions, setImageDimensions] = useState({
-    width: 0,
-    height: 0,
-  }); // Actual image dimensions
-  const imageRef = useRef<HTMLImageElement>(null);
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [imageVisible, setImageVisible] = useState(false); // Used for opacity control
 
   // --- Helper to get the predictable screenshot URL ---
-  const getScreenshotUrl = (siteId: string, path: string) => {
-    const filePath = `${siteId}/${encodeURIComponent(path)}.png`;
+  const getScreenshotUrl = useCallback((siteId: string, path: string) => {
+    const filePath = `${siteId}/${
+      path === "/" ? "homepage" : path.replace(/^\//, "")
+    }.png`;
     const { data } = supabase.storage
       .from("screenshots")
       .getPublicUrl(filePath);
     return data.publicUrl;
-  };
+  }, []);
 
   // --- Fetch Heatmap Data ---
-  const fetchHeatmapData = async (path: string) => {
+  const fetchHeatmapData = useCallback(async (path: string) => {
     setLoadingData(true);
     setError(null);
     try {
@@ -52,12 +58,11 @@ export default function HeatmapViewer() {
           path
         )}`
       );
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
-      }
       const data = await response.json();
-      console.log("Fetched heatmap data:", data); // Debugging
-      return data.data || []; // ClickHouse client wraps data in `data` field
+      console.log("Fetched heatmap data:", data);
+      return data.data || [];
     } catch (err: Error | unknown) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       console.error("Failed to fetch heatmap data:", err);
@@ -66,18 +71,21 @@ export default function HeatmapViewer() {
     } finally {
       setLoadingData(false);
     }
-  };
+  }, []);
 
   // --- Handler for the "Refresh Screenshot" button ---
   const handleRefreshScreenshot = async () => {
     setLoadingScreenshot(true);
     setError(null);
+    setImageVisible(false); // Hide image and heatmap while loading new one
 
     const pageUrlToScreenshot = CLIENT_DOMAIN + pagePath;
-    console.log("Frontend preparing screenshot request:");
-    console.log("  pageUrlToScreenshot:", pageUrlToScreenshot);
-    console.log("  siteId:", SITE_ID);
-    console.log("  pagePath:", pagePath);
+    console.log("Frontend preparing screenshot request:", {
+      pageUrlToScreenshot,
+      SITE_ID,
+      pagePath,
+    });
+
     try {
       const response = await fetch("/api/generate-screenshot", {
         method: "POST",
@@ -95,10 +103,7 @@ export default function HeatmapViewer() {
       }
 
       const { publicUrl } = await response.json();
-
-      // Update the screenshot URL in state with a new cache-busting timestamp
       setScreenshotUrl(`${publicUrl}?t=${new Date().getTime()}`);
-      setImageKey((prev) => prev + 1); // Force image re-render
     } catch (err: Error | unknown) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       setError(errorMsg);
@@ -107,143 +112,164 @@ export default function HeatmapViewer() {
     }
   };
 
-  // --- Initialize Heatmap ---
+  // --- The Core Heatmap Rendering Function ---
+  const renderHeatmapData = useCallback(async () => {
+    if (
+      !heatmapInstance ||
+      !screenshotImgRef.current ||
+      !heatmapContainerRef.current
+    ) {
+      console.warn("renderHeatmapData: Refs or instance not ready.");
+      return;
+    }
+
+    const imgElement = screenshotImgRef.current;
+    const containerElement = heatmapContainerRef.current;
+
+    // Get actual displayed dimensions of the image
+    const displayedWidth = imgElement.offsetWidth;
+    const displayedHeight = imgElement.offsetHeight;
+
+    // Get actual dimensions of the heatmap container
+    const containerWidth = containerElement.offsetWidth;
+    const containerHeight = containerElement.offsetHeight;
+
+    if (
+      displayedWidth === 0 ||
+      displayedHeight === 0 ||
+      containerWidth === 0 ||
+      containerHeight === 0
+    ) {
+      console.warn(
+        `renderHeatmapData: Invalid dimensions (img: ${displayedWidth}x${displayedHeight}, container: ${containerWidth}x${containerHeight}). Scheduling retry...`
+      );
+      setTimeout(renderHeatmapData, 100); // Retry if elements are not sized yet
+      return;
+    }
+
+    console.log(
+      `Rendering heatmap with valid dimensions: ${displayedWidth}x${displayedHeight}`
+    );
+
+    // Set the heatmap canvas dimensions to match the displayed image dimensions
+    heatmapInstance._renderer.setDimensions(displayedWidth, displayedHeight);
+    console.log(
+      `Heatmap.js canvas dimensions set to: ${displayedWidth}x${displayedHeight}`
+    );
+
+    const rawData = await fetchHeatmapData(pagePath);
+
+    if (!rawData || rawData.length === 0) {
+      console.log("No raw heatmap data, clearing heatmap.");
+      heatmapInstance.setData({ min: 0, max: 1, data: [] });
+      return;
+    }
+
+    const heatmapData = rawData.map(
+      (d: { x_bin: number; y_bin: number; count: number }) => ({
+        x: Math.round((d.x_bin / 100) * displayedWidth),
+        y: Math.round((d.y_bin / 100) * displayedHeight),
+        value: d.count,
+      })
+    );
+
+    const maxCount = Math.max(
+      ...heatmapData.map((d: { value: number }) => d.value),
+      1
+    );
+
+    console.log("Setting heatmap data with max:", maxCount);
+    heatmapInstance.setData({
+      min: 0,
+      max: maxCount,
+      data: heatmapData,
+    });
+  }, [heatmapInstance, pagePath, fetchHeatmapData]);
+
+  // Debounced version
+  const debouncedRenderHeatmap = useCallback(debounce(renderHeatmapData, 150), [
+    renderHeatmapData,
+  ]);
+
+  // --- Initialize Heatmap.js instance once ---
   useEffect(() => {
-    if (heatmapContainerRef.current && imageDimensions.width > 0) {
-      // Destroy existing instance if dimensions changed
-      if (heatmapInstance) {
-        // Re-create with new dimensions
-        const instance = h337.create({
-          container: heatmapContainerRef.current,
-          radius: 30,
-          maxOpacity: 0.7,
-          minOpacity: 0.1,
-          blur: 0.85,
-          gradient: {
-            "0.0": "rgba(0, 0, 255, 0)",
-            "0.2": "rgba(0, 150, 255, 0.5)",
-            "0.4": "rgba(0, 255, 255, 0.6)",
-            "0.6": "rgba(0, 255, 0, 0.7)",
-            "0.8": "rgba(255, 255, 0, 0.8)",
-            "1.0": "rgba(255, 0, 0, 0.9)",
-          },
-        });
-        setHeatmapInstance(instance);
-        console.log(
-          "Heatmap instance recreated with dimensions:",
-          imageDimensions
-        );
-      } else {
-        // Initialize heatmap.js instance with refined appearance settings
-        const instance = h337.create({
-          container: heatmapContainerRef.current,
-          radius: 30,
-          maxOpacity: 0.7,
-          minOpacity: 0.1,
-          blur: 0.85,
-          gradient: {
-            "0.0": "rgba(0, 0, 255, 0)",
-            "0.2": "rgba(0, 150, 255, 0.5)",
-            "0.4": "rgba(0, 255, 255, 0.6)",
-            "0.6": "rgba(0, 255, 0, 0.7)",
-            "0.8": "rgba(255, 255, 0, 0.8)",
-            "1.0": "rgba(255, 0, 0, 0.9)",
-          },
-        });
-        setHeatmapInstance(instance);
-        console.log(
-          "Heatmap instance initialized with dimensions:",
-          imageDimensions
+    if (heatmapContainerRef.current && !heatmapInstance) {
+      console.log("Initializing heatmap.js instance.");
+      // Clear container in case of hot-reload artifacts
+      while (heatmapContainerRef.current.firstChild) {
+        heatmapContainerRef.current.removeChild(
+          heatmapContainerRef.current.firstChild
         );
       }
+      const instance = h337.create({
+        container: heatmapContainerRef.current,
+        radius: 30,
+        maxOpacity: 0.7,
+        minOpacity: 0.1,
+        blur: 0.85,
+        gradient: {
+          "0.0": "rgba(0, 0, 255, 0)",
+          "0.2": "rgba(0, 150, 255, 0.5)",
+          "0.4": "rgba(0, 255, 255, 0.6)",
+          "0.6": "rgba(0, 255, 0, 0.7)",
+          "0.8": "rgba(255, 255, 0, 0.8)",
+          "1.0": "rgba(255, 0, 0, 0.9)",
+        },
+      });
+      setHeatmapInstance(instance);
     }
-  }, [imageDimensions]);
+  }, [heatmapInstance]); // Only run once when instance is null
 
-  // --- Load Screenshot when pagePath changes (independent of heatmap) ---
+  // --- Load initial screenshot when pagePath changes ---
   useEffect(() => {
+    if (!pagePath) return;
+    console.log(`pagePath changed to: ${pagePath}. Loading screenshot.`);
     const url = getScreenshotUrl(SITE_ID, pagePath);
     setScreenshotUrl(`${url}?t=${new Date().getTime()}`);
-    setImageKey((prev) => prev + 1);
-    console.log("Loading screenshot for page:", pagePath, "URL:", url);
-  }, [pagePath]);
+    setImageVisible(false); // Hide until new image loads
+    heatmapInstance?.setData({ min: 0, max: 1, data: [] }); // Clear old heatmap
+  }, [pagePath, getScreenshotUrl, heatmapInstance]);
 
-  // --- Load Heatmap Data when heatmap instance is ready ---
+  // --- Trigger initial heatmap render when instance and image are ready ---
   useEffect(() => {
-    const loadData = async () => {
-      if (!heatmapInstance || !pagePath) return;
+    if (heatmapInstance && imageVisible && screenshotImgRef.current) {
+      console.log(
+        "Heatmap instance and image are ready, rendering heatmap data."
+      );
+      renderHeatmapData();
+    }
+  }, [heatmapInstance, imageVisible, renderHeatmapData]);
 
-      try {
-        // Fetch heatmap data
-        const rawData = await fetchHeatmapData(pagePath);
+  // --- Handle image load event ---
+  const handleImageLoad = () => {
+    console.log("Screenshot image load event fired.");
+    setImageVisible(true); // Now the image is loaded, make it and heatmap visible
+    debouncedRenderHeatmap(); // Render the heatmap after a short delay
+  };
 
-        console.log("Raw heatmap data fetched:", rawData);
-
-        if (!rawData || rawData.length === 0) {
-          console.log("No heatmap data available");
-          heatmapInstance.setData({ min: 0, max: 1, data: [] });
-          return;
-        }
-
-        // Transform ClickHouse data format to heatmap.js format
-        const heatmapData = rawData.map(
-          (d: { x_bin: number; y_bin: number; count: number }) => ({
-            x: d.x_bin,
-            y: d.y_bin,
-            value: d.count,
-          })
-        );
-
-        console.log("Heatmap data before scaling:", heatmapData.slice(0, 5));
-
-        // Calculate max value for color scaling
-        const maxCount = Math.max(
-          ...heatmapData.map((d: { value: number }) => d.value),
-          1
-        );
-
-        // IMPORTANT: Scale to the SCREENSHOT dimensions (1920x1080), not the image display size
-        // The x_bin and y_bin are percentages (0-100) of the user's viewport when they clicked
-        // We need to map those to the screenshot's fixed dimensions
-        const screenshotWidth = 1920;
-        const screenshotHeight = 1080;
-
-        const scaledHeatmapData = heatmapData.map(
-          (d: { x: number; y: number; value: number }) => ({
-            x: Math.round((d.x / 100) * screenshotWidth),
-            y: Math.round((d.y / 100) * screenshotHeight),
-            value: d.value,
-          })
-        );
-
-        console.log("Scaled heatmap data:", {
-          screenshotWidth,
-          screenshotHeight,
-          maxCount,
-          dataPoints: scaledHeatmapData.length,
-          samplePoints: scaledHeatmapData.slice(0, 3),
-        });
-
-        heatmapInstance.setData({
-          min: 0,
-          max: maxCount,
-          data: scaledHeatmapData,
-        });
-      } catch (err) {
-        console.error("Error loading data:", err);
+  // --- Resize Observer ---
+  useEffect(() => {
+    if (!heatmapContainerRef.current) return;
+    const resizeObserver = new ResizeObserver(() => {
+      console.log(
+        "ResizeObserver: Heatmap container resized, triggering render."
+      );
+      // Only re-render if image is currently visible, otherwise it's still loading
+      if (imageVisible) {
+        debouncedRenderHeatmap();
+      }
+    });
+    // Observe the parent container (which controls the overall sizing)
+    const parentContainer = heatmapContainerRef.current.parentElement;
+    if (parentContainer) {
+      resizeObserver.observe(parentContainer);
+    }
+    return () => {
+      if (parentContainer) {
+        resizeObserver.unobserve(parentContainer);
       }
     };
-
-    loadData();
-  }, [pagePath, heatmapInstance, imageDimensions]);
-
-  // --- Mock Page Paths (Replace with dynamic fetching if needed) ---
-  const pagePaths = [
-    "/",
-    "/dashboard",
-    "/products",
-    "/contact",
-    // Add more pages you want to view
-  ];
+  }, [imageVisible, debouncedRenderHeatmap]); // Re-run if imageVisible changes to ensure correct behavior
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
@@ -254,6 +280,7 @@ export default function HeatmapViewer() {
       <main className="container mx-auto bg-white p-6 rounded shadow-md">
         <h1 className="text-2xl font-bold mb-4">Heatmap Viewer</h1>
 
+        {/* --- CONTROLS --- */}
         <div className="flex justify-between items-center mb-4">
           <div className="flex-1">
             <label
@@ -266,10 +293,7 @@ export default function HeatmapViewer() {
               id="pagePathSelect"
               className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
               value={pagePath}
-              onChange={(e) => {
-                setPagePath(e.target.value);
-                setImageKey((prev) => prev + 1); // Force image re-render
-              }}
+              onChange={(e) => setPagePath(e.target.value)}
             >
               {pagePaths.map((path) => (
                 <option key={path} value={path}>
@@ -278,7 +302,6 @@ export default function HeatmapViewer() {
               ))}
             </select>
           </div>
-
           <button
             onClick={handleRefreshScreenshot}
             disabled={loadingScreenshot}
@@ -288,64 +311,64 @@ export default function HeatmapViewer() {
           </button>
         </div>
 
+        {/* --- STATUS MESSAGES --- */}
         {loadingData && (
           <p className="text-blue-500">Loading heatmap data...</p>
         )}
         {error && <p className="text-red-500">Error: {error}</p>}
 
-        <div className="relative w-full min-h-[600px] border border-gray-300 bg-gray-50 flex items-start justify-center overflow-auto">
-          <div className="relative inline-block">
-            {/* Dynamic Screenshot Background from Supabase Storage */}
-            {screenshotUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                ref={imageRef}
-                key={imageKey}
-                src={screenshotUrl}
-                alt={`Screenshot of ${pagePath}`}
-                className="block w-auto h-auto max-w-full"
-                onError={(e) => {
-                  console.warn(`Screenshot not found: ${screenshotUrl}`);
-                  e.currentTarget.style.display = "none";
-                }}
-                onLoad={(e) => {
-                  e.currentTarget.style.display = "block";
-                  // Get actual rendered image dimensions
-                  const img = e.currentTarget;
-                  setImageDimensions({
-                    width: img.naturalWidth,
-                    height: img.naturalHeight,
-                  });
-                  console.log("Image loaded:", {
-                    naturalWidth: img.naturalWidth,
-                    naturalHeight: img.naturalHeight,
-                    displayWidth: img.width,
-                    displayHeight: img.height,
-                  });
-                }}
-              />
-            )}
+        {/* --- HEATMAP CONTAINER --- */}
+        <div
+          className="relative w-full max-w-[1920px] mx-auto border border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden"
+          // This padding-top maintains the aspect ratio of the screenshot container
+          style={{
+            paddingTop: `${(SCREENSHOT_HEIGHT / SCREENSHOT_WIDTH) * 100}%`,
+          }}
+        >
+          {/* Screenshot Image */}
+          {screenshotUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              ref={screenshotImgRef}
+              src={screenshotUrl}
+              alt={`Screenshot of ${pagePath}`}
+              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300"
+              onLoad={handleImageLoad}
+              onError={(e) => {
+                console.warn(`Screenshot not found: ${screenshotUrl}`);
+                setImageVisible(false); // Hide heatmap if image fails to load
+                heatmapInstance?.setData({ min: 0, max: 1, data: [] }); // Clear heatmap
+                setError(`Failed to load screenshot: ${e.currentTarget.src}`);
+              }}
+              style={{
+                opacity: imageVisible ? 1 : 0,
+                pointerEvents: "none", // Prevent image from stealing clicks
+                zIndex: 5, // Ensure image is behind heatmap for layering
+              }}
+            />
+          ) : (
+            <p className="absolute z-0 text-gray-400 text-lg">
+              No screenshot available. Click "Refresh Screenshot".
+            </p>
+          )}
 
-            {/* Heatmap overlay (this div must match image size exactly) */}
-            {imageDimensions.width > 0 && (
-              <div
-                ref={heatmapContainerRef}
-                className="absolute top-0 left-0 z-10 pointer-events-none"
-                style={{
-                  width: `${imageDimensions.width}px`,
-                  height: `${imageDimensions.height}px`,
-                }}
-              ></div>
-            )}
-          </div>
+          {/* Heatmap overlay (this div must be on top) */}
+          <div
+            ref={heatmapContainerRef}
+            className="absolute inset-0 w-full h-full z-10 transition-opacity duration-300"
+            style={{
+              // Heatmap visibility tied to image being loaded
+              opacity: imageVisible ? 1 : 0,
+              pointerEvents: "none", // Make heatmap non-interactive
+            }}
+          ></div>
 
           {/* Text to show if no heatmap data */}
           {!loadingData &&
             !error &&
+            imageVisible && // Only show this if the image is visible
             heatmapInstance &&
-            heatmapInstance.getData &&
-            heatmapInstance.getData().data &&
-            heatmapInstance.getData().data.length === 0 && (
+            heatmapInstance.getData?.()?.data?.length === 0 && (
               <p className="absolute z-20 text-gray-500 text-lg">
                 No heatmap data available for this page/period.
               </p>
@@ -355,3 +378,12 @@ export default function HeatmapViewer() {
     </div>
   );
 }
+
+// Mock Page Paths
+const pagePaths = [
+  "/",
+  "/dashboard",
+  "/products",
+  "/contact",
+  // Add more pages you want to view
+];
