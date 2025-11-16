@@ -225,12 +225,25 @@ export default function HeatmapViewer() {
     // Ensure canvas is visible - add style to make it render on top
     const canvasElement = heatmapContainerRef.current?.querySelector("canvas");
     if (canvasElement) {
+      // CRITICAL: Center the canvas to match the centered object-contain image
+      // Calculate the offset to center the canvas
+      const containerWidth = heatmapContainerRef.current?.offsetWidth || 0;
+      const containerHeight = heatmapContainerRef.current?.offsetHeight || 0;
+
+      const offsetX = (containerWidth - actualImageWidth) / 2;
+      const offsetY = (containerHeight - actualImageHeight) / 2;
+
       canvasElement.style.position = "absolute";
-      canvasElement.style.top = "0";
-      canvasElement.style.left = "0";
+      canvasElement.style.left = `${offsetX}px`;
+      canvasElement.style.top = `${offsetY}px`;
+      canvasElement.style.width = `${actualImageWidth}px`;
+      canvasElement.style.height = `${actualImageHeight}px`;
       canvasElement.style.zIndex = "100";
       canvasElement.style.display = "block";
-      console.log("Canvas styled and positioned");
+
+      console.log(
+        `Canvas positioned at offset (${offsetX}, ${offsetY}) with size ${actualImageWidth}x${actualImageHeight}`
+      );
     }
   }, [heatmapInstance, pagePath, fetchHeatmapData]);
 
@@ -409,7 +422,7 @@ export default function HeatmapViewer() {
               opacity: imageVisible ? 1 : 0,
               pointerEvents: "none", // Make heatmap non-interactive
               position: "absolute",
-              top: 0,
+              top: -300,
               left: 0,
               width: "100%",
               height: "100%",
@@ -434,9 +447,9 @@ export default function HeatmapViewer() {
 
 // Mock Page Paths
 const pagePaths = [
-  "/",
   "/dashboard",
-  "/products",
+  "/dashboard",
+  "/",
   "/contact",
   // Add more pages you want to view
 ];
