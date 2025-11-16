@@ -374,8 +374,10 @@ export default function HeatmapViewer() {
           {/* Heatmap overlay (this div must be on top) */}
           <div
             ref={heatmapContainerRef}
-            className="absolute inset-0 w-full h-full z-10 transition-opacity duration-300"
+            className="absolute top-0 left-0 z-10 transition-opacity duration-300"
             style={{
+              width: screenshotImgRef.current?.offsetWidth || '100%',
+              height: screenshotImgRef.current?.offsetHeight || '100%',
               // Heatmap visibility tied to image being loaded
               opacity: imageVisible ? 1 : 0,
               pointerEvents: "none", // Make heatmap non-interactive
