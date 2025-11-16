@@ -8,7 +8,7 @@ import { createBrowserClient } from "@supabase/ssr"; // Import Supabase client
 
 const SITE_ID = "a2a95f61-1024-40f8-af7e-4c4df2fcbd01"; // IMPORTANT: Use your actual SITE_ID
 // IMPORTANT: This should be your *client's* domain, not your dashboard's
-const CLIENT_DOMAIN = "https://meteorological-ardelia-meuni.ngrok-free.dev";
+const CLIENT_DOMAIN = "https://navlens-rho.vercel.app";
 
 // Initialize the *public* Supabase client
 const supabase = createBrowserClient(

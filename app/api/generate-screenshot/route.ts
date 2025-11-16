@@ -18,21 +18,31 @@ export async function POST(req: NextRequest) {
 
         console.log(`Generating screenshot for: ${pageUrlToScreenshot}`);
 
-        // --- CORRECT ENDPOINT AND AUTH METHOD ---
-        const browserlessUrl = 'https://production-sfo.browserless.io/screenshot'; // Use the recommended endpoint
+        // --- Use BROWSERLESS_TOKEN consistently ---
+        const BROWSERLESS_TOKEN = process.env.BROWSERLESS_TOKEN; 
+
+        if (!BROWSERLESS_TOKEN) {
+            console.error("BROWSERLESS_TOKEN environment variable is not defined.");
+            throw new Error("Browserless API Key (BROWSERLESS_TOKEN) is missing. Please set it as an environment variable.");
+        }
+
+        // --- CORRECT BROWSERLESS URL CONSTRUCTION ---
+        // Pass the API key as a query parameter in the URL for the function/screenshot endpoint
+        const browserlessUrl = `https://api.browserless.io/function/screenshot?token=${BROWSERLESS_TOKEN}`;
+        console.log("Browserless API URL being used:", browserlessUrl); // For debugging purposes
 
         const response = await fetch(browserlessUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // Use Authorization: Bearer header for production-sfo endpoint
-                'Authorization': `Bearer ${process.env.BROWSERLESS_TOKEN}`, // <--- Use BROWSERLESS_TOKEN here
+                // REMOVE the Authorization header here, as the token is in the URL
+                // 'Authorization': `Bearer ${BROWSERLESS_TOKEN}`, 
             },
             body: JSON.stringify({
                 url: pageUrlToScreenshot,
                 options: { // All screenshot options are correctly nested here
                     fullPage: true,
-                    type: 'png', // 'type' is generally correct for screenshot format
+                    type: 'png',
                     quality: 95,
                     deviceScaleFactor: 2,
                     timeout: 30000,
@@ -40,8 +50,8 @@ export async function POST(req: NextRequest) {
                         width: 1920,
                         height: 1080,
                     },
-                    ignoreHTTPSErrors: true, // Crucial for ngrok, keep this!
-                    // waitUntil: 'networkidle0', // Consider adding this if the page renders slowly
+                    ignoreHTTPSErrors: true,
+                    // waitUntil: 'networkidle0', 
                 }
             }),
         });
