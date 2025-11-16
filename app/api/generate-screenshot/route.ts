@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { url } from 'inspector';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Lazy initialize Supabase admin client to avoid errors at build time
@@ -7,12 +6,12 @@ let supabaseAdmin: ReturnType<typeof createClient> | null = null;
 
 function getSupabaseAdminClient() {
     if (!supabaseAdmin) {
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (!url || !key) {
+        if (!supabaseUrl || !key) {
             throw new Error('Missing Supabase environment variables');
         }
-        supabaseAdmin = createClient(url, key);
+        supabaseAdmin = createClient(supabaseUrl, key);
     }
     return supabaseAdmin;
 }
@@ -52,33 +51,14 @@ export async function POST(req: NextRequest) {
             throw new Error("API Flash Key is missing. Please set API_FLASH_KEY environment variable.");
         }
 
-        // --- API Flash endpoint with access_key as a query parameter ---
-        const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${API_FLASH_KEY}`;
-        console.log("API Flash URL being used (with key):", apiFlashUrl); // Debugging: Check the full URL
-
-        const urlForApiFlash = "https://www.google.com/"; // <--- CHANGE THIS LINE
-        console.log(`Backend: Temporarily forcing API Flash to screenshot: ${urlForApiFlash}`);
-        // Construct the request body for API Flash
-        const apiFlashBody = {
-            url: urlForApiFlash,
-            full_page: true,
-            format: 'png',
-            quality: 95,
-            width: 1920,
-            height: 1080,
-            device_scale_factor: 2,
-            response_type: 'json',
-            delay: 2000,
-        };
-        console.log("API Flash request body:", JSON.stringify(apiFlashBody));
-        console.log("URL being sent to API Flash:", pageUrlToScreenshot);
+        // --- API Flash endpoint with access_key and url as query parameters ---
+        const encodedUrl = encodeURIComponent(pageUrlToScreenshot);
+        const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${API_FLASH_KEY}&url=${encodedUrl}&format=png&width=1920&height=1080&full_page=true&fresh=true&response_type=json`;
+        
+        console.log("API Flash URL being called:", apiFlashUrl.replace(API_FLASH_KEY, '***'));
 
         const response = await fetch(apiFlashUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(apiFlashBody),
+            method: 'GET', // API Flash uses GET, not POST
         });
 
         if (!response.ok) {
@@ -109,7 +89,8 @@ export async function POST(req: NextRequest) {
         }
         const screenshotBuffer = await imageResponse.arrayBuffer();
 
-        const filePath = `${siteId}/${encodeURIComponent(pagePath)}.png`;
+        // Don't encode pagePath - Supabase will handle it correctly
+        const filePath = `${siteId}/${pagePath.replace(/^\//, '')}.png`;
         console.log(`Uploading screenshot to Supabase at: ${filePath}`);
 
         const supabase = getSupabaseAdminClient();
