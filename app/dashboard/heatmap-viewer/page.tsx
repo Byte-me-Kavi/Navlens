@@ -136,31 +136,31 @@ export default function HeatmapViewer() {
     const displayedWidth = imgElement.offsetWidth;
     const displayedHeight = imgElement.offsetHeight;
 
-    // Get actual dimensions of the heatmap container
-    const containerWidth = containerElement.offsetWidth;
-    const containerHeight = containerElement.offsetHeight;
+    // CRITICAL: The image uses object-contain, so it maintains aspect ratio
+    // We need to calculate the actual visible image dimensions within the container
+    const imageAspectRatio = SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT;
+    const containerAspectRatio = displayedWidth / displayedHeight;
 
-    if (
-      displayedWidth === 0 ||
-      displayedHeight === 0 ||
-      containerWidth === 0 ||
-      containerHeight === 0
-    ) {
-      console.warn(
-        `renderHeatmapData: Invalid dimensions (img: ${displayedWidth}x${displayedHeight}, container: ${containerWidth}x${containerHeight}). Scheduling retry...`
-      );
-      setTimeout(renderHeatmapData, 100); // Retry if elements are not sized yet
-      return;
+    let actualImageWidth, actualImageHeight;
+    
+    if (containerAspectRatio > imageAspectRatio) {
+      // Container is wider - image is limited by height
+      actualImageHeight = displayedHeight;
+      actualImageWidth = displayedHeight * imageAspectRatio;
+    } else {
+      // Container is taller - image is limited by width
+      actualImageWidth = displayedWidth;
+      actualImageHeight = displayedWidth / imageAspectRatio;
     }
 
     console.log(
-      `Rendering heatmap with valid dimensions: ${displayedWidth}x${displayedHeight}`
+      `Rendering heatmap - Container: ${displayedWidth}x${displayedHeight}, Actual image: ${Math.round(actualImageWidth)}x${Math.round(actualImageHeight)}`
     );
 
-    // Set the heatmap canvas dimensions to match the displayed image dimensions
-    heatmapInstance._renderer.setDimensions(displayedWidth, displayedHeight);
-    console.log(
-      `Heatmap.js canvas dimensions set to: ${displayedWidth}x${displayedHeight}`
+    // Set the heatmap canvas dimensions to match the ACTUAL visible image
+    heatmapInstance._renderer.setDimensions(
+      Math.round(actualImageWidth),
+      Math.round(actualImageHeight)
     );
 
     const rawData = await fetchHeatmapData(pagePath);
@@ -176,8 +176,8 @@ export default function HeatmapViewer() {
     const heatmapData = rawData.map(
       (d: { x_bin: number; y_bin: number; count: number }) => {
         const transformedPoint = {
-          x: Math.round((d.x_bin / 100) * displayedWidth),
-          y: Math.round((d.y_bin / 100) * displayedHeight),
+          x: Math.round((d.x_bin / 100) * actualImageWidth),
+          y: Math.round((d.y_bin / 100) * actualImageHeight),
           value: d.count,
         };
         console.log(
@@ -374,10 +374,8 @@ export default function HeatmapViewer() {
           {/* Heatmap overlay (this div must be on top) */}
           <div
             ref={heatmapContainerRef}
-            className="absolute top-0 left-0 z-10 transition-opacity duration-300"
+            className="absolute inset-0 flex items-center justify-center z-10 transition-opacity duration-300"
             style={{
-              width: screenshotImgRef.current?.offsetWidth || "100%",
-              height: screenshotImgRef.current?.offsetHeight || "100%",
               // Heatmap visibility tied to image being loaded
               opacity: imageVisible ? 1 : 0,
               pointerEvents: "none", // Make heatmap non-interactive
