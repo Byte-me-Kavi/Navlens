@@ -21,7 +21,12 @@ export default function RootLayout({
           Using `defer` ensures it doesn't block page rendering
           and runs after the DOM is ready.
         */}
-        <script src="/tracker.js" defer></script>
+        <script 
+          async 
+          src="https://navlens-rho.vercel.app/tracker.js" 
+          data-site-id="a2a95f61-1024-40f8-af7e-4c4df2fcbd01"
+          data-api-host="https://navlens-rho.vercel.app"
+        ></script>
       </body>
     </html>
   );

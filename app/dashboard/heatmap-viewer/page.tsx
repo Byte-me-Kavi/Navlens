@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Head from "next/head";
 import h337 from "heatmap.js";
 import { createBrowserClient } from "@supabase/ssr";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
-const SITE_ID = "a2a95f61-1024-40f8-af7e-4c4df2fcbd01";
 const CLIENT_DOMAIN = "https://navlens-rho.vercel.app";
 
 // DEFINITIVE SCREENSHOT PROFILES (Keep these)
@@ -31,6 +32,9 @@ const debounce = (func: (...args: any[]) => void, delay: number) => {
 };
 
 export default function HeatmapViewer() {
+  const searchParams = useSearchParams();
+  const siteId = searchParams.get("siteId");
+
   const [pagePath, setPagePath] = useState("/");
   const [selectedDevice, setSelectedDevice] = useState<DeviceType>("desktop");
   const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
@@ -42,10 +46,40 @@ export default function HeatmapViewer() {
   const [error, setError] = useState<string | null>(null);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [siteIdError, setSiteIdError] = useState<string | null>(null);
 
+  // Validate siteId on mount
+  useEffect(() => {
+    if (!siteId) {
+      setSiteIdError(
+        "No site selected. Please select a site from the My Sites page."
+      );
+    } else {
+      setSiteIdError(null);
+    }
+  }, [siteId]);
+
+  // Detect if viewing on mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768; // md breakpoint
+      setIsMobile(mobile);
+
+      // Force mobile device selection on mobile screens
+      if (mobile && selectedDevice !== "mobile") {
+        setSelectedDevice("mobile");
+      }
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, [selectedDevice]);
   const getScreenshotUrl = useCallback(
-    (siteId: string, path: string, device: DeviceType) => {
-      const filePath = `${siteId}/${
+    (currentSiteId: string | null, path: string, device: DeviceType) => {
+      if (!currentSiteId) return "";
+      const filePath = `${currentSiteId}/${
         path === "/" ? "homepage" : path.replace(/^\//, "")
       }-${device}.png`;
       const { data } = supabase.storage
@@ -58,11 +92,12 @@ export default function HeatmapViewer() {
 
   const fetchHeatmapData = useCallback(
     async (path: string, deviceType: DeviceType) => {
+      if (!siteId) return [];
       setLoadingData(true);
       setError(null);
       try {
         const response = await fetch(
-          `/api/heatmap-clicks?siteId=${SITE_ID}&pagePath=${encodeURIComponent(
+          `/api/heatmap-clicks?siteId=${siteId}&pagePath=${encodeURIComponent(
             path
           )}&deviceType=${deviceType}`
         );
@@ -78,7 +113,7 @@ export default function HeatmapViewer() {
         setLoadingData(false);
       }
     },
-    [selectedDevice]
+    [siteId, selectedDevice]
   );
 
   const handleRefreshScreenshot = async () => {
@@ -94,7 +129,7 @@ export default function HeatmapViewer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pageUrlToScreenshot,
-          siteId: SITE_ID,
+          siteId: siteId,
           pagePath,
           deviceType: selectedDevice,
           userAgent: DEVICE_PROFILES[selectedDevice].userAgent,
@@ -210,12 +245,12 @@ export default function HeatmapViewer() {
 
   // --- Load initial screenshot when pagePath changes ---
   useEffect(() => {
-    if (!pagePath) return;
-    const url = getScreenshotUrl(SITE_ID, pagePath, selectedDevice);
+    if (!pagePath || !siteId) return;
+    const url = getScreenshotUrl(siteId, pagePath, selectedDevice);
     setScreenshotUrl(`${url}?t=${new Date().getTime()}`);
     setImageLoaded(false); // Hide image until new one loads
     heatmapInstance?.setData({ min: 0, max: 1, data: [] }); // Clear old heatmap
-  }, [pagePath, selectedDevice, getScreenshotUrl, heatmapInstance]);
+  }, [pagePath, selectedDevice, siteId, getScreenshotUrl, heatmapInstance]);
 
   // --- Trigger initial heatmap render when instance and image are ready ---
   useEffect(() => {
@@ -250,140 +285,204 @@ export default function HeatmapViewer() {
   }, [imageLoaded, debouncedRenderHeatmap]);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="min-h-screen bg-gray-100 p-2 sm:p-4">
       <Head>
         <title>Heatmap Viewer</title>
       </Head>
 
-      <main className="container mx-auto bg-white p-6 rounded shadow-md">
-        <h1 className="text-2xl font-bold mb-4">Heatmap Viewer</h1>
-
-        {/* --- CONTROLS --- */}
-        <div className="flex justify-between items-center mb-4 gap-4">
-          <div className="flex-1">
-            <label
-              htmlFor="pagePathSelect"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Select Page:
-            </label>
-            <select
-              id="pagePathSelect"
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              value={pagePath}
-              onChange={(e) => setPagePath(e.target.value)}
-            >
-              {pagePaths.map((path) => (
-                <option key={path} value={path}>
-                  {path === "/" ? "Homepage" : path}
-                </option>
-              ))}
-            </select>
+      {/* Error state when no siteId is provided */}
+      {siteIdError ? (
+        <main className="container mx-auto bg-white p-6 rounded shadow-md">
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-blue-900 mb-3">
+                No Site Selected
+              </h1>
+              <p className="text-gray-600 mb-6">{siteIdError}</p>
+              <a
+                href="/dashboard/my-sites"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Go to My Sites
+              </a>
+            </div>
           </div>
-          <div className="flex gap-2 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Device:
-              </label>
-              <div className="flex gap-2">
-                {Object.entries(DEVICE_PROFILES).map(([key, profile]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedDevice(key as DeviceType)}
-                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                      selectedDevice === key
-                        ? "bg-indigo-600 text-white"
-                        : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                    }`}
-                  >
-                    {profile.name}
-                  </button>
-                ))}
+        </main>
+      ) : (
+        <main className="container mx-auto bg-white p-3 sm:p-6 rounded shadow-md">
+          <h1 className="text-xl sm:text-2xl font-bold mb-4">Heatmap Viewer</h1>
+
+          {/* Loading spinners */}
+          {loadingData && (
+            <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
+              <div className="flex flex-col items-center gap-2">
+                <div className="relative w-8 h-8">
+                  <div className="absolute inset-0 rounded-full border-4 border-blue-200"></div>
+                  <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 border-r-blue-600 animate-spin"></div>
+                </div>
+                <p className="text-gray-600 text-sm">Loading heatmap data...</p>
               </div>
             </div>
-            <button
-              onClick={handleRefreshScreenshot}
-              disabled={loadingScreenshot}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 h-fit"
-            >
-              {loadingScreenshot ? "Refreshing..." : "Refresh Screenshot"}
-            </button>
-          </div>
-        </div>
-
-        {/* --- STATUS MESSAGES --- */}
-        {loadingData && (
-          <p className="text-blue-500">Loading heatmap data...</p>
-        )}
-        {error && <p className="text-red-500">Error: {error}</p>}
-
-        {/* Full-width viewport with fixed height and vertical scrolling */}
-        <div
-          ref={heatmapViewportRef}
-          className="relative w-full mx-auto border border-gray-300 bg-gray-50"
-          style={{
-            width: `${DEVICE_PROFILES[selectedDevice].width}px`,
-            height: "600px", // Fixed viewer height
-            maxWidth: "100%", // Allow it to shrink on small screens
-            overflowY: "scroll", // Allow vertical scrolling
-            overflowX: "hidden", // Prevent horizontal scrolling
-            position: "relative", // CRITICAL for inner absolute elements
-          }}
-        >
-          {/* Screenshot Image */}
-          {screenshotUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              ref={screenshotImgRef}
-              src={screenshotUrl}
-              alt={`Screenshot of ${pagePath}`}
-              className="w-full h-auto transition-opacity duration-300" // w-full ensures horizontal fit
-              onLoad={handleImageLoad}
-              onError={() => {
-                setImageLoaded(false);
-                heatmapInstance?.setData({ min: 0, max: 1, data: [] });
-                setError(`Failed to load screenshot: Failed to load image.`);
-              }}
-              style={{
-                opacity: imageLoaded ? 1 : 0,
-                pointerEvents: "none",
-                zIndex: 5,
-                position: "absolute", // CRITICAL: Absolute position for stacking
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "auto", // Allows image to be taller than viewport
-              }}
-            />
-          ) : (
-            <p className="absolute inset-0 flex items-center justify-center z-0 text-gray-400 text-lg">
-              No screenshot available. Click "Refresh Screenshot".
-            </p>
           )}
 
-          {/* Heatmap overlay container */}
-          <div
-            ref={heatmapContainerRef}
-            className="absolute top-0 left-0 w-full h-auto z-10 transition-opacity duration-300"
-            style={{
-              opacity: imageLoaded ? 1 : 0,
-              pointerEvents: "none",
-              // We will set the height dynamically in renderHeatmapData to match the image's height
-            }}
-          ></div>
+          {loadingScreenshot && (
+            <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
+              <div className="flex flex-col items-center gap-2">
+                <div className="relative w-8 h-8">
+                  <div className="absolute inset-0 rounded-full border-4 border-blue-200"></div>
+                  <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 border-r-blue-600 animate-spin"></div>
+                </div>
+                <p className="text-gray-600 text-sm">Loading screenshot...</p>
+              </div>
+            </div>
+          )}
 
-          {/* Text to show if no heatmap data */}
-          {!loadingData &&
-            !error &&
-            imageLoaded &&
-            heatmapInstance &&
-            heatmapInstance.getData?.()?.data?.length === 0 && (
-              <p className="absolute inset-0 flex items-center justify-center z-20 text-gray-500 text-lg">
-                No heatmap data available for this page/period.
+          {/* --- CONTROLS --- */}
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-4">
+            <div className="flex-1">
+              <label
+                htmlFor="pagePathSelect"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Select Page:
+              </label>
+              <select
+                id="pagePathSelect"
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                value={pagePath}
+                onChange={(e) => setPagePath(e.target.value)}
+              >
+                {pagePaths.map((path) => (
+                  <option key={path} value={path}>
+                    {path === "/" ? "Homepage" : path}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Device:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(DEVICE_PROFILES).map(([key, profile]) => {
+                    // Hide desktop/tablet buttons on mobile - only show mobile option
+                    if (isMobile && key !== "mobile") {
+                      return null;
+                    }
+
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setSelectedDevice(key as DeviceType)}
+                        disabled={isMobile && key !== "mobile"}
+                        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                          selectedDevice === key
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                        } ${isMobile && key !== "mobile" ? "hidden" : ""}`}
+                      >
+                        {profile.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <button
+                onClick={handleRefreshScreenshot}
+                disabled={loadingScreenshot}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 w-full sm:w-auto"
+              >
+                {loadingScreenshot ? "Refreshing..." : "Refresh Screenshot"}
+              </button>
+            </div>
+          </div>
+
+          {/* --- STATUS MESSAGES --- */}
+          {loadingData && (
+            <p className="text-blue-500">Loading heatmap data...</p>
+          )}
+          {error && <p className="text-red-500">Error: {error}</p>}
+
+          {/* Full-width viewport with fixed height and vertical scrolling */}
+          <div
+            ref={heatmapViewportRef}
+            className="relative w-full mx-auto border border-gray-300 bg-gray-50"
+            style={{
+              width: `${DEVICE_PROFILES[selectedDevice].width}px`,
+              height: "600px", // Fixed viewer height
+              maxWidth: "100%", // Allow it to shrink on small screens
+              overflowY: "scroll", // Allow vertical scrolling
+              overflowX: "hidden", // Prevent horizontal scrolling
+              position: "relative", // CRITICAL for inner absolute elements
+            }}
+          >
+            {/* Screenshot Image */}
+            {screenshotUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                ref={screenshotImgRef}
+                src={screenshotUrl}
+                alt={`Screenshot of ${pagePath}`}
+                className="w-full h-auto transition-opacity duration-300" // w-full ensures horizontal fit
+                onLoad={handleImageLoad}
+                onError={() => {
+                  setImageLoaded(false);
+                  heatmapInstance?.setData({ min: 0, max: 1, data: [] });
+                  setError(`Failed to load screenshot: Failed to load image.`);
+                }}
+                style={{
+                  opacity: imageLoaded ? 1 : 0,
+                  pointerEvents: "none",
+                  zIndex: 5,
+                  position: "absolute", // CRITICAL: Absolute position for stacking
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "auto", // Allows image to be taller than viewport
+                }}
+              />
+            ) : (
+              <p className="absolute inset-0 flex items-center justify-center z-0 text-gray-400 text-lg">
+                No screenshot available. Click "Refresh Screenshot".
               </p>
             )}
-        </div>
-      </main>
+
+            {/* Heatmap overlay container - Only show for current device */}
+            {((isMobile && selectedDevice === "mobile") ||
+              (!isMobile &&
+                (selectedDevice === "desktop" ||
+                  selectedDevice === "tablet"))) && (
+              <div
+                ref={heatmapContainerRef}
+                className="absolute top-0 left-0 w-full h-auto z-10 transition-opacity duration-300"
+                style={{
+                  opacity: imageLoaded ? 1 : 0,
+                  pointerEvents: "none",
+                }}
+              ></div>
+            )}
+
+            {/* Hide heatmap overlay for wrong device on mobile */}
+            {isMobile && selectedDevice !== "mobile" && (
+              <p className="absolute inset-0 flex items-center justify-center z-20 text-yellow-600 text-sm bg-yellow-50/80">
+                Heatmap only available for Mobile view
+              </p>
+            )}
+
+            {/* Text to show if no heatmap data */}
+            {!loadingData &&
+              !error &&
+              imageLoaded &&
+              heatmapInstance &&
+              heatmapInstance.getData?.()?.data?.length === 0 && (
+                <p className="absolute inset-0 flex items-center justify-center z-20 text-gray-500 text-lg">
+                  No heatmap data available for this page/period.
+                </p>
+              )}
+          </div>
+        </main>
+      )}
     </div>
   );
 }

@@ -29,7 +29,7 @@ export function Toast({ children }: { children: React.ReactNode }) {
               border: "1px solid rgba(0, 200, 200, 0.2)",
             },
             iconTheme: {
-              primary: "#00C8C8",
+              primary: "#029610",
               secondary: "#FFFFFF",
             },
           },

@@ -2,10 +2,83 @@
 
 (function () {
   // --- Configuration ---
-  const API_COLLECT_ENDPOINT = "/api/collect"; // Your Next.js API route
-  const SITE_ID = "a2a95f61-1024-40f8-af7e-4c4df2fcbd01"; // IMPORTANT: Change this to a unique ID for your website
+  const SCRIPT_TAG = document.currentScript;
+  if (!SCRIPT_TAG) {
+    console.warn("Navlens: Cannot find current script tag.");
+    return;
+  }
+
+  // Read parameters from the script tag attributes
+  const SITE_ID = SCRIPT_TAG.getAttribute("data-site-id");
+  const API_HOST = SCRIPT_TAG.getAttribute("data-api-host");
+
+  if (!SITE_ID || !API_HOST) {
+    console.warn(
+      "Navlens: Missing required attributes (data-site-id or data-api-host). Tracking disabled."
+    );
+    return;
+  }
+
+  const API_COLLECT_ENDPOINT = `${API_HOST}/api/collect`;
   const THROTTLE_SCROLL_MS = 100; // How often to send scroll events (ms)
   const THROTTLE_RESIZE_MS = 300; // How often to send resize events (ms)
+  const CLICK_THROTTLE_MS = 50; // Ignore successive clicks faster than 50ms (prevents rage-click spam)
+  const BATCH_SIZE = 15; // Send events when queue reaches this size
+  const BATCH_FLUSH_INTERVAL = 5000; // Send queued events every 5 seconds
+
+  // --- Event Queue ---
+  let eventQueue = [];
+  let isProcessing = false;
+  let flushTimer = null;
+  let lastClickTime = 0; // Track last click time for throttling
+
+  function addEventToQueue(event) {
+    eventQueue.push(event);
+    if (eventQueue.length >= BATCH_SIZE) {
+      flushEventQueue();
+    }
+  }
+
+  function flushEventQueue() {
+    if (eventQueue.length === 0 || isProcessing) return;
+
+    isProcessing = true;
+    const eventsToSend = [...eventQueue];
+    eventQueue = [];
+
+    const payload = JSON.stringify({ events: eventsToSend });
+
+    // Try using fetch with keepalive for best reliability
+    fetch(API_COLLECT_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: payload,
+      keepalive: true, // Ensures request completes even if page unloads
+    })
+      .then(() => {
+        console.log(`✓ Sent ${eventsToSend.length} events to Navlens`);
+      })
+      .catch((error) => {
+        console.error("Failed to send batched events:", error);
+        // Re-add events on failure if queue isn't too large
+        if (eventQueue.length < BATCH_SIZE * 2) {
+          eventQueue.unshift(...eventsToSend);
+        }
+      })
+      .finally(() => {
+        isProcessing = false;
+      });
+  }
+
+  function startFlushTimer() {
+    flushTimer = setInterval(() => {
+      if (eventQueue.length > 0) {
+        flushEventQueue();
+      }
+    }, BATCH_FLUSH_INTERVAL);
+  }
 
   // --- Helper Functions ---
   function getClientId() {
@@ -47,8 +120,8 @@
     return tag + classes;
   }
 
-  // --- Core Event Sending Function ---
-  async function sendEvent(eventType, payload = {}) {
+  // --- Core Event Creation Function (no longer sends immediately) ---
+  function createEvent(eventType, payload = {}) {
     const viewportWidth =
       window.innerWidth || document.documentElement.clientWidth;
     const viewportHeight =
@@ -70,47 +143,32 @@
       device_type: getDeviceType(viewportWidth),
       session_id: getSessionId(),
       client_id: getClientId(),
-      // Add any other common fields
     };
 
-    const fullEvent = { ...baseEvent, ...payload };
-
-    try {
-      // Use navigator.sendBeacon for page unloads if available, more reliable for analytics
-      if (
-        navigator.sendBeacon &&
-        (eventType === "page_unload" || eventType === "session_end")
-      ) {
-        navigator.sendBeacon(API_COLLECT_ENDPOINT, JSON.stringify(fullEvent));
-      } else {
-        await fetch(API_COLLECT_ENDPOINT, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(fullEvent),
-          keepalive: true, // Helps send events even if page is about to unload
-        });
-      }
-    } catch (error) {
-      console.error("Failed to send event:", error);
-    }
+    return { ...baseEvent, ...payload };
   }
 
   // --- Event Listeners ---
 
   // Page View / Load Event
   function handlePageView() {
-    sendEvent("page_view", {
-      load_time: performance.now(), // Time until page is interactive
+    const event = createEvent("page_view", {
+      load_time: performance.now(),
     });
+    addEventToQueue(event);
   }
   window.addEventListener("load", handlePageView);
 
   // Click Event
   function handleClick(event) {
+    const now = Date.now();
+    if (now - lastClickTime < CLICK_THROTTLE_MS) {
+      return; // Ignore rapid successive clicks
+    }
+    lastClickTime = now;
+
     const target = event.target;
-    sendEvent("click", {
+    const clickEvent = createEvent("click", {
       x: event.clientX,
       y: event.clientY,
       x_relative:
@@ -124,9 +182,10 @@
       element_tag: target.tagName || "",
       element_text: target.textContent
         ? target.textContent.trim().substring(0, 255)
-        : "", // Trim long text
+        : "",
       element_selector: getElementSelector(target),
     });
+    addEventToQueue(clickEvent);
   }
   document.addEventListener("click", handleClick);
 
@@ -148,12 +207,12 @@
       scrollDepth = currentScrollY / documentHeight;
     }
 
-    sendEvent("scroll", {
+    const scrollEvent = createEvent("scroll", {
       x: window.scrollX,
       y: window.scrollY,
-      scroll_depth: Math.min(1, Math.max(0, scrollDepth)), // Ensure 0-1 range
+      scroll_depth: Math.min(1, Math.max(0, scrollDepth)),
     });
-    lastScrollY = currentScrollY;
+    addEventToQueue(scrollEvent);
   }
   window.addEventListener("scroll", handleScroll);
 
@@ -162,14 +221,26 @@
   function handleResize() {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      sendEvent("viewport_resize", {
+      const resizeEvent = createEvent("viewport_resize", {
         viewport_width: window.innerWidth,
         viewport_height: window.innerHeight,
       });
+      addEventToQueue(resizeEvent);
     }, THROTTLE_RESIZE_MS);
   }
   window.addEventListener("resize", handleResize);
 
-  // Optional: Expose sendEvent globally for custom events
-  window.trackEvent = sendEvent;
+  // On page unload, flush any remaining events
+  window.addEventListener("beforeunload", () => {
+    flushEventQueue();
+  });
+
+  // Start the flush timer on initialization
+  startFlushTimer();
+
+  // Expose trackEvent globally for custom events
+  window.trackEvent = function (eventType, payload) {
+    const event = createEvent(eventType, payload);
+    addEventToQueue(event);
+  };
 })();

@@ -10,6 +10,11 @@ import {
   DocumentDuplicateIcon,
 } from "@heroicons/react/24/outline";
 import { createSite, deleteSite } from "./action";
+import toast from "react-hot-toast";
+import LoadingSpinner from "@/components/LoadingSpinner";
+
+// Your deployed Vercel URL is the API host
+const NAVLENS_API_HOST = "https://navlens-rho.vercel.app";
 
 export type Site = {
   id: string;
@@ -38,18 +43,22 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
     const result = await createSite(formData);
 
     if (result.success) {
+      toast.success(result.message);
       setLoading(false);
       onClose();
     } else {
+      toast.error(result.message);
       setError(result.message);
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
-        <h2 className="text-2xl font-bold text-blue-900 mb-6">Add New Site</h2>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 sm:p-6">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 sm:p-8">
+        <h2 className="text-xl sm:text-2xl font-bold text-blue-900 mb-4 sm:mb-6">
+          Add New Site
+        </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -119,8 +128,9 @@ function SnippetCode({ site }: { site: Site }) {
 
   const snippet = `<script 
   async 
-  src="https://cdn.navlens.ai/tracker.js" 
+  src="${NAVLENS_API_HOST}/tracker.js" 
   data-site-id="${site.id}"
+  data-api-host="${NAVLENS_API_HOST}"
 ></script>`;
 
   const handleCopy = () => {
@@ -154,6 +164,7 @@ function SnippetCode({ site }: { site: Site }) {
 export default function SiteManager({ sites }: SiteManagerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showSnippetId, setShowSnippetId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleDelete = async (siteId: string, siteName: string) => {
     if (
@@ -161,23 +172,32 @@ export default function SiteManager({ sites }: SiteManagerProps) {
         `Are you sure you want to delete "${siteName}"? This action cannot be undone.`
       )
     ) {
+      setIsLoading(true);
       await deleteSite(siteId);
+      setIsLoading(false);
+      toast.success(`Site "${siteName}" has been deleted.`);
     }
   };
+
+  if (isLoading) {
+    return <LoadingSpinner message="Processing..." />;
+  }
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-blue-900">My Sites</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-blue-900">
+            My Sites
+          </h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Manage and monitor your tracked websites
           </p>
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+          className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md w-full sm:w-auto"
         >
           <PlusIcon className="w-5 h-5" />
           <span className="font-semibold">Add New Site</span>
@@ -189,20 +209,22 @@ export default function SiteManager({ sites }: SiteManagerProps) {
 
       {/* Empty State or Sites List */}
       {sites.length === 0 ? (
-        <div className="bg-white rounded-xl border-2 border-dashed border-blue-300 p-12 text-center">
+        <div className="bg-white rounded-xl border-2 border-dashed border-blue-300 p-6 sm:p-12 text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-4 bg-blue-100 rounded-full">
-              <GlobeAltIcon className="w-16 h-16 text-blue-600" />
+            <div className="p-3 sm:p-4 bg-blue-100 rounded-full">
+              <GlobeAltIcon className="w-12 h-12 sm:w-16 sm:h-16 text-blue-600" />
             </div>
           </div>
-          <h3 className="text-xl font-bold text-blue-900 mb-2">No Sites Yet</h3>
-          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+          <h3 className="text-lg sm:text-xl font-bold text-blue-900 mb-2">
+            No Sites Yet
+          </h3>
+          <p className="text-sm sm:text-base text-gray-600 mb-6 max-w-md mx-auto px-4">
             Add your first website to start collecting heatmap data and
             analyzing user behavior.
           </p>
           <button
             onClick={() => setShowAddForm(true)}
-            className="inline-flex items-center gap-2 bg-cyan-600 text-white px-6 py-3 rounded-lg hover:bg-cyan-700 transition-colors shadow-md"
+            className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md w-full sm:w-auto"
           >
             <PlusIcon className="w-5 h-5" />
             <span className="font-semibold">Add Your First Site</span>
@@ -214,40 +236,46 @@ export default function SiteManager({ sites }: SiteManagerProps) {
           {sites.map((site) => (
             <div
               key={site.id}
-              className="bg-white rounded-xl border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-shadow"
+              className="bg-white rounded-xl border-2 border-blue-200 p-4 sm:p-6 shadow-md hover:shadow-lg transition-shadow"
             >
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 gap-3">
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold text-blue-900">
+                  <h3 className="text-lg sm:text-xl font-bold text-blue-900">
                     {site.site_name}
                   </h3>
                   <a
                     href={site.domain}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline mt-1 inline-block"
+                    className="text-sm sm:text-base text-blue-600 hover:underline mt-1 inline-block break-all"
                   >
                     {site.domain}
                   </a>
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-xs sm:text-sm text-gray-500 mt-2">
                     Added {new Date(site.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <a
+                    href={`/dashboard/heatmap-viewer?siteId=${site.id}`}
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
+                  >
+                    View Heatmap
+                  </a>
                   <button
                     onClick={() =>
                       setShowSnippetId(
                         showSnippetId === site.id ? null : site.id
                       )
                     }
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors w-full sm:w-auto"
                   >
                     <CodeBracketIcon className="w-4 h-4" />
                     {showSnippetId === site.id ? "Hide" : "Show"} Code
                   </button>
                   <button
                     onClick={() => handleDelete(site.id, site.site_name)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors w-full sm:w-auto"
                   >
                     <TrashIcon className="w-4 h-4" />
                     Delete
@@ -263,12 +291,14 @@ export default function SiteManager({ sites }: SiteManagerProps) {
       )}
 
       {/* Info Card */}
-      <div className="bg-linear-to-r from-blue-50 to-cyan-50 border border-blue-300 rounded-xl p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <CodeBracketIcon className="w-6 h-6 text-blue-600 shrink-0 mt-1" />
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-6 shadow-sm">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <CodeBracketIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 shrink-0 mt-1" />
           <div>
-            <h4 className="font-bold text-blue-900 mb-2">How to Add a Site</h4>
-            <ol className="text-sm text-gray-700 space-y-2">
+            <h4 className="text-sm sm:text-base font-bold text-gray-900 mb-2">
+              How to Add a Site
+            </h4>
+            <ol className="text-xs sm:text-sm text-gray-700 space-y-2">
               <li>
                 1. Click &ldquo;Add New Site&rdquo; and enter your website URL
               </li>
