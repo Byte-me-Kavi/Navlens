@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { TrashIcon } from "@heroicons/react/24/outline";
 
 interface PagePathManagerProps {
   siteId: string;
@@ -20,8 +20,6 @@ export default function PagePathManager({
 }: PagePathManagerProps) {
   const [pagePaths, setPagePaths] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newPath, setNewPath] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
   const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<DeleteConfirmModal>({
     isOpen: false,
@@ -47,53 +45,6 @@ export default function PagePathManager({
 
     fetchPagePaths();
   }, [siteId]);
-
-  // Add new page path to ClickHouse
-  const handleAddPath = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newPath.trim()) {
-      toast.error("Please enter a page path");
-      return;
-    }
-
-    // Validate path format
-    if (!newPath.startsWith("/")) {
-      toast.error("Path must start with /");
-      return;
-    }
-
-    // Check if path already exists
-    if (pagePaths.includes(newPath)) {
-      toast.error("This page path is already tracked");
-      return;
-    }
-
-    setIsAdding(true);
-    try {
-      const response = await fetch("/api/manage-page-paths", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ siteId, pagePath: newPath }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to add page path");
-      }
-
-      setPagePaths([...pagePaths, newPath].sort());
-      setNewPath("");
-      toast.success(`Page path "${newPath}" added successfully`);
-    } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to add page path";
-      console.error("Error adding page path:", err);
-      toast.error(errorMessage);
-    } finally {
-      setIsAdding(false);
-    }
-  };
 
   // Delete page path from ClickHouse
   const handleDeletePath = async () => {
@@ -158,41 +109,17 @@ export default function PagePathManager({
           Tracked Page Paths - {siteName}
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          Manage pages tracked in your analytics
+          Paths are automatically discovered from your site&apos;s analytics
+          events
         </p>
       </div>
-
-      {/* Add Page Path Form */}
-      <form
-        onSubmit={handleAddPath}
-        className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200"
-      >
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            type="text"
-            placeholder="Enter page path (e.g., /about, /contact, /pricing)"
-            value={newPath}
-            onChange={(e) => setNewPath(e.target.value)}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            disabled={isAdding}
-          />
-          <button
-            type="submit"
-            disabled={isAdding}
-            className="flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors font-medium whitespace-nowrap"
-          >
-            <PlusIcon className="w-4 h-4" />
-            {isAdding ? "Adding..." : "Add Path"}
-          </button>
-        </div>
-      </form>
 
       {/* Page Paths List */}
       {pagePaths.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <p className="text-sm">No page paths tracked yet</p>
           <p className="text-xs text-gray-400 mt-1">
-            Add your first page path above to get started
+            Send events from your site to see tracked paths here
           </p>
         </div>
       ) : (
@@ -232,7 +159,7 @@ export default function PagePathManager({
         </div>
 
         <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-          <p className="text-xs text-red-900 space-y-1">
+          <div className="text-xs text-red-900 space-y-1">
             <div>
               <strong>⚠️ Deleting a Path:</strong>
             </div>
@@ -241,7 +168,7 @@ export default function PagePathManager({
             </div>
             <div>• Future data from that path will NOT be collected</div>
             <div>• Once deleted, this cannot be undone</div>
-          </p>
+          </div>
         </div>
       </div>
 

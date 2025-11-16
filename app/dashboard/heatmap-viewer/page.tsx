@@ -5,6 +5,7 @@ import Head from "next/head";
 import h337 from "heatmap.js";
 import { createBrowserClient } from "@supabase/ssr";
 import { useSite } from "@/app/context/SiteContext";
+import ProgressBar from "@/components/ProgressBar";
 
 const CLIENT_DOMAIN = "https://navlens-rho.vercel.app";
 
@@ -81,10 +82,8 @@ export default function HeatmapViewer() {
         const data = await response.json();
         if (data.pagePaths && data.pagePaths.length > 0) {
           setPagePaths(data.pagePaths);
-          // Set first page path as default if not already set
-          if (!pagePath || pagePath === "/") {
-            setPagePath(data.pagePaths[0]);
-          }
+          // Set first page path as default only on initial load
+          setPagePath((prev) => (prev === "/" ? data.pagePaths[0] : prev));
         } else {
           // Fallback to default paths if no pages found
           setPagePaths(["/", "/dashboard", "/contact"]);
@@ -97,7 +96,7 @@ export default function HeatmapViewer() {
     };
 
     fetchPagePaths();
-  }, [siteId, pagePath]);
+  }, [siteId]);
 
   // Detect if viewing on mobile device
   useEffect(() => {
@@ -247,7 +246,7 @@ export default function HeatmapViewer() {
       canvasElement.style.height = `${Math.round(actualDisplayedHeight)}px`;
       canvasElement.style.zIndex = "100";
     }
-  }, [heatmapInstance, pagePath, selectedDevice, fetchHeatmapData]);
+  }, [heatmapInstance]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const debouncedRenderHeatmap = useCallback(
     () => debounce(renderHeatmapData, 150)(),
@@ -315,7 +314,7 @@ export default function HeatmapViewer() {
     if (heatmapInstance && imageLoaded && screenshotImgRef.current) {
       debouncedRenderHeatmap();
     }
-  }, [heatmapInstance, imageLoaded, selectedDevice, debouncedRenderHeatmap]);
+  }, [heatmapInstance, imageLoaded, debouncedRenderHeatmap]); // Removed selectedDevice
 
   // --- Handle image load event ---
   const handleImageLoad = () => {
@@ -517,84 +516,16 @@ export default function HeatmapViewer() {
 
           {loadingScreenshot && (
             <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8">
-                <div className="flex flex-col items-center gap-5">
-                  {/* Windows 11 loading animation */}
-                  <div className="relative w-14 h-14">
-                    <style>{`
-                      @keyframes win11Spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                      }
-                      .win11Loader {
-                        animation: win11Spin 1.2s linear infinite;
-                      }
-                    `}</style>
-
-                    {/* Background ring */}
-                    <svg
-                      className="absolute inset-0"
-                      width="56"
-                      height="56"
-                      viewBox="0 0 56 56"
-                      fill="none"
-                    >
-                      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
-                        const angle = (i * 45 - 90) * (Math.PI / 180);
-                        const x = 28 + 20 * Math.cos(angle);
-                        const y = 28 + 20 * Math.sin(angle);
-                        return (
-                          <circle
-                            key={`bg-${i}`}
-                            cx={x}
-                            cy={y}
-                            r="2.5"
-                            fill="rgba(200, 210, 220, 0.3)"
-                          />
-                        );
-                      })}
-                    </svg>
-
-                    {/* Animated ring */}
-                    <svg
-                      className="absolute inset-0 win11Loader"
-                      width="56"
-                      height="56"
-                      viewBox="0 0 56 56"
-                      fill="none"
-                    >
-                      {[0, 1, 2, 3].map((i) => {
-                        const angle = (i * 45 - 90) * (Math.PI / 180);
-                        const x = 28 + 20 * Math.cos(angle);
-                        const y = 28 + 20 * Math.sin(angle);
-                        const opacity = 1 - i * 0.25;
-                        return (
-                          <circle
-                            key={`active-${i}`}
-                            cx={x}
-                            cy={y}
-                            r="2.5"
-                            fill={`rgba(59, 130, 246, ${opacity})`}
-                          />
-                        );
-                      })}
-                    </svg>
-                  </div>
-                  <div className="text-center space-y-1">
-                    <p className="text-gray-700 font-semibold">
-                      Capturing screenshot
-                    </p>
-                    <p className="text-gray-500 text-sm">
-                      This may take a moment...
-                    </p>
-                  </div>
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8 max-w-md">
+                <div className="flex flex-col items-center gap-6">
+                  <ProgressBar isVisible={loadingScreenshot} />
                 </div>
               </div>
             </div>
           )}
 
           {/* Loading spinner for image rendering - appears inside viewport while image loads */}
-          {screenshotUrl && !imageLoaded && !error && (
+          {screenshotUrl && !imageLoaded && !error && !loadingScreenshot && (
             <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8">
                 <div className="flex flex-col items-center gap-5">

@@ -6,6 +6,7 @@ import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
@@ -14,6 +15,7 @@ export default function Login() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const hasShownToastRef = useRef(false);
 
@@ -34,6 +36,22 @@ export default function Login() {
 
   // Show error toast from proxy redirect cookie and listen for auth changes
   useEffect(() => {
+    // Check if user is already logged in and redirect
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session && !hasShownToastRef.current) {
+        hasShownToastRef.current = true;
+        document.cookie = "x-login-success=true; path=/; max-age=5";
+        document.cookie = `x-user-email=${
+          session.user.email || "user"
+        }; path=/; max-age=5`;
+        router.push("/dashboard");
+      }
+    };
+    checkSession();
+
     // Check for redirect toast message from proxy cookie
     const cookies = document.cookie.split("; ").reduce((acc, cookie) => {
       const [key, value] = cookie.split("=");
@@ -50,19 +68,26 @@ export default function Login() {
       document.cookie = "x-toast-message=; max-age=0; path=/";
     }
 
-    // Listen for auth state changes from Supabase Auth UI (OAuth callback)
+    // Listen for auth state changes and handle redirect
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      // Proxy handles the redirect, so we don't need to redirect here
-      if (event === "SIGNED_IN" && session?.user) {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("[Login] Auth state change:", event, session?.user?.email);
+      if (event === "SIGNED_IN" && session?.user && !hasShownToastRef.current) {
         hasShownToastRef.current = true;
-        // Just mark that user is logged in - proxy will handle redirect
+        // Set success toast cookies
+        document.cookie = "x-login-success=true; path=/; max-age=5";
+        document.cookie = `x-user-email=${
+          session.user.email || "user"
+        }; path=/; max-age=5`;
+        // Redirect to dashboard
+        console.log("[Login] Redirecting to dashboard...");
+        router.push("/dashboard");
       }
     });
 
     return () => subscription?.unsubscribe();
-  }, [supabase.auth]);
+  }, [supabase.auth, router]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -92,7 +117,11 @@ export default function Login() {
           supabaseClient={supabase}
           // Add providers you enabled in your Supabase project
           providers={["google"]}
-          redirectTo={`${window.location.origin}/dashboard`}
+          redirectTo={
+            typeof window !== "undefined"
+              ? `${window.location.origin}/login`
+              : "/login"
+          }
           socialLayout="horizontal"
           // This 'appearance' prop is where all the theming happens
           appearance={{

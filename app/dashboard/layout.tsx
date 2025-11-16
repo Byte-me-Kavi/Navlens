@@ -2,12 +2,12 @@
 
 import SideNavbar from "@/components/SideNavbar";
 import Header from "@/components/Header";
-import NavigationLoader from "@/components/NavigationLoader";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Toast } from "@/components/Toast";
 import { createBrowserClient } from "@supabase/ssr";
-import { NavigationProvider } from "@/context/NavigationContext";
+import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
 import { SiteProvider } from "@/app/context/SiteContext";
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
@@ -16,6 +16,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const { isNavigating } = useNavigation();
 
   useEffect(() => {
     // Show success toast when cookies are set by proxy after OAuth
@@ -76,6 +78,30 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return () => subscription?.unsubscribe();
   }, [supabase.auth]); // Include supabase.auth in dependencies
 
+  // Hide loading spinner after dashboard has initialized
+  useEffect(() => {
+    // Check if this is an OAuth redirect (has code/state params)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isOAuthRedirect = urlParams.has("code") || urlParams.has("state");
+
+    const timer = setTimeout(
+      () => {
+        setIsLoading(false);
+      },
+      isOAuthRedirect ? 1500 : 500
+    ); // Longer delay for OAuth to ensure everything loads
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
+        <LoadingSpinner message="Loading dashboard..." />
+      </div>
+    );
+  }
+
   return (
     <Toast>
       <div className="flex h-screen bg-gray-50">
@@ -106,7 +132,11 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           <main className="flex-1 p-5 overflow-x-hidden">{children}</main>
         </div>
       </div>
-      <NavigationLoader />
+      {isNavigating && (
+        <div className="fixed inset-0 z-50">
+          <LoadingSpinner message="Navigating..." />
+        </div>
+      )}
     </Toast>
   );
 }

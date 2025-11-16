@@ -189,18 +189,20 @@ export async function POST(req: NextRequest) {
             
             if (!error && data) {
                 excludedPaths = new Set(data.map((d: ExcludedPathData) => d.page_path));
-                console.log(`[collect] Loaded ${excludedPaths.size} excluded paths for site ${siteId}`);
+                console.log(`[collect] ✓ Loaded ${excludedPaths.size} excluded paths for site ${siteId}:`, Array.from(excludedPaths));
             } else if (error && !error.message.includes('does not exist')) {
-                console.warn('[collect] Error fetching excluded paths:', error.message);
+                console.warn('[collect] ⚠️ Error fetching excluded paths:', error.message);
+            } else if (error && error.message.includes('does not exist')) {
+                console.log('[collect] ℹ️ excluded_paths table does not exist yet (graceful fallback)');
             }
         } catch (err) {
-            console.warn('[collect] Failed to fetch excluded paths:', err);
+            console.warn('[collect] ⚠️ Failed to fetch excluded paths:', err);
         }
 
         // Filter out events from excluded paths
         const filteredEvents = eventsArray.filter(event => {
             if (excludedPaths.has(event.page_path)) {
-                console.warn(`[collect] Rejected event from excluded path: ${event.page_path}`);
+                console.warn(`[collect] 🚫 Rejected event from excluded path: ${event.page_path}`);
                 return false;
             }
             return true;

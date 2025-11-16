@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import { createContext, useContext, useCallback, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 interface NavigationContextType {
@@ -23,33 +17,24 @@ export function NavigationProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [isNavigating, setIsNavigating] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const pathname = usePathname();
 
   const navigateTo = useCallback(
     (path: string) => {
       if (path !== pathname) {
-        setIsNavigating(true);
-        router.push(path);
+        console.log(`[Navigation] Starting navigation to: ${path}`);
+        startTransition(() => {
+          router.push(path);
+        });
       }
     },
     [pathname, router]
   );
 
-  useEffect(() => {
-    // Close spinner immediately when pathname changes (page has loaded)
-    if (isNavigating) {
-      // Use setTimeout to avoid synchronous state updates in effects
-      const timeoutId = setTimeout(() => {
-        setIsNavigating(false);
-      }, 0);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [pathname, isNavigating]);
-
   return (
-    <NavigationContext.Provider value={{ isNavigating, navigateTo }}>
+    <NavigationContext.Provider value={{ isNavigating: isPending, navigateTo }}>
       {children}
     </NavigationContext.Provider>
   );

@@ -1,12 +1,49 @@
 # Database Setup Guide
 
-## Excluded Paths Table (Required for Path Management)
+## ⚠️ REQUIRED: Excluded Paths Table
 
-To enable the path exclusion feature (prevents data collection from deleted paths), you need to create the `excluded_paths` table in Supabase.
+**This table is REQUIRED for path deletion to work. Without it, deleted paths will continue to collect data.**
 
-### Step 1: Create the Excluded Paths Table
+### Quick Setup (Copy & Paste)
 
-Go to your Supabase dashboard → **SQL Editor** → **New Query** and run this SQL:
+1. Go to your **Supabase Dashboard**
+2. Click **SQL Editor** in the left sidebar
+3. Click **New Query**
+4. Copy and paste this SQL:
+
+```sql
+CREATE TABLE IF NOT EXISTS public.excluded_paths (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  site_id UUID NOT NULL REFERENCES public.sites(id) ON DELETE CASCADE,
+  page_path TEXT NOT NULL,
+  excluded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(site_id, page_path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_excluded_paths_site_id ON public.excluded_paths(site_id);
+
+-- Allow backend service role to access this table
+ALTER TABLE public.excluded_paths DISABLE ROW LEVEL SECURITY;
+
+-- Verify
+SELECT 'excluded_paths table created successfully!' as status;
+```
+
+5. Click **Run** or press `Ctrl+Enter`
+6. You should see: `excluded_paths table created successfully!`
+7. Restart your Next.js app: `npm run dev`
+
+### That's it! Path deletion now works.
+
+---
+
+## How It Works
+
+When you delete a page path from the dashboard:
+
+1. **Delete historical events** from ClickHouse (via `/api/manage-page-paths`)
+2. **Add to exclusion list** in Supabase `excluded_paths` table (via `/api/excluded-paths`)
+3. **Block future events** at collection time (via `/api/collect`)
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.excluded_paths (
@@ -56,6 +93,22 @@ CREATE POLICY "Users can delete excluded paths for their sites"
 
 -- Index for performance
 CREATE INDEX idx_excluded_paths_site_id ON public.excluded_paths(site_id);
+
+-- ⚠️ CRITICAL: RLS Configuration Issue
+-- If path deletions are silently failing or not blocking data collection, the issue is likely RLS policies.
+-- The backend uses SUPABASE_SERVICE_ROLE_KEY which SHOULD bypass RLS, but this requires explicit handling.
+--
+-- Solution: DISABLE RLS on the excluded_paths table to allow service role unrestricted access:
+--
+-- ALTER TABLE public.excluded_paths DISABLE ROW LEVEL SECURITY;
+--
+-- If you need to keep RLS enabled, add this permissive policy instead:
+--   CREATE POLICY "Service role can manage all excluded paths"
+--     ON public.excluded_paths
+--     FOR ALL
+--     USING (true)
+--     WITH CHECK (true);
+
 ```
 
 ## How Path Exclusion Works

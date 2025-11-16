@@ -29,17 +29,17 @@ export default async function middleware(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
     const searchParams = request.nextUrl.searchParams;
 
-    // CRITICAL: Allow OAuth code to be processed - don't redirect yet
+    // CRITICAL: Allow OAuth callback to be processed by Auth UI - don't redirect yet
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const hasAuthParams = code || state;
 
     if (hasAuthParams) {
-        // Let the OAuth code be processed without redirecting
+        // Let Auth UI component handle the OAuth callback
         return response;
     }
 
-    // Check auth session AFTER OAuth code check
+    // Check auth session AFTER OAuth params check
     const {
         data: { session },
     } = await supabase.auth.getSession();
@@ -54,25 +54,12 @@ export default async function middleware(request: NextRequest) {
         return redirectResponse;
     }
     
-    // If logged in and accessing login page, redirect to dashboard with success toast
-    if (pathname === '/login' && session) {
-        const redirectUrl = new URL('/dashboard', request.url);
-        const redirectResponse = NextResponse.redirect(redirectUrl);
-        // Only set toast cookies on actual login redirect, not on every access
-        const hasShownToast = request.cookies.get('x-login-success');
-        if (!hasShownToast) {
-            redirectResponse.cookies.set('x-login-success', 'true', {
-                maxAge: 5,
-                path: '/',
-                httpOnly: false,
-            });
-            redirectResponse.cookies.set('x-user-email', session.user.email || 'user', {
-                maxAge: 5,
-                path: '/',
-                httpOnly: false,
-            });
-        }
-        return redirectResponse;
+    // If logged in and accessing login page, let client-side handle the redirect
+    // This avoids conflicts with OAuth callback flow
+    if (pathname === '/login' && session && !hasAuthParams) {
+        // Client-side redirect will be handled by login page component
+        // Don't redirect from middleware to avoid race conditions
+        return response;
     }
 
     // If logged in and accessing home page, redirect to dashboard with success toast
@@ -94,6 +81,12 @@ export default async function middleware(request: NextRequest) {
             });
         }
         return redirectResponse;
+    }
+
+    // If not logged in and accessing home page, redirect to login
+    if (pathname === '/' && !session) {
+        const redirectUrl = new URL('/login', request.url);
+        return NextResponse.redirect(redirectUrl);
     }
 
     return response;

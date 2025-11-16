@@ -73,7 +73,10 @@ export async function POST(req: NextRequest) {
         const body: ExcludedPathRequest = await req.json();
         const { siteId, pagePath } = body;
 
+        console.log(`[excluded-paths] POST: Adding path "${pagePath}" for site "${siteId}"`);
+
         if (!siteId || !pagePath) {
+            console.error('[excluded-paths] POST: Missing parameters', { siteId, pagePath });
             return NextResponse.json(
                 { message: 'Missing required parameters: siteId, pagePath' },
                 { status: 400 }
@@ -83,17 +86,21 @@ export async function POST(req: NextRequest) {
         const supabase = getSupabaseAdminClient();
 
         // Add path to exclusion list
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('excluded_paths')
             .insert([
                 {
                     site_id: siteId,
                     page_path: pagePath,
                 } as never
-            ]);
+            ])
+            .select();
+
+        console.log(`[excluded-paths] POST: Insert response - Error: ${error ? 'YES' : 'NO'}, Data:`, data);
 
         // Ignore duplicate key errors
-        if (error && error.message.includes('Duplicate')) {
+        if (error && (error.message.includes('Duplicate') || error.code === 'PGRST116' || error.message.includes('unique'))) {
+            console.log(`[excluded-paths] POST: Path already excluded (duplicate key)`);
             return NextResponse.json(
                 { message: 'Path already excluded', pagePath },
                 { status: 200 }
@@ -101,9 +108,16 @@ export async function POST(req: NextRequest) {
         }
 
         if (error) {
+            console.error('[excluded-paths] POST: Supabase error:', {
+                message: error.message,
+                code: (error as { code?: string }).code,
+                hint: (error as { hint?: string }).hint,
+                details: (error as { details?: string }).details,
+            });
             throw error;
         }
 
+        console.log(`[excluded-paths] POST: Path "${pagePath}" successfully added for site "${siteId}"`);
         return NextResponse.json(
             { message: 'Path added to exclusion list', pagePath },
             { status: 200 }
