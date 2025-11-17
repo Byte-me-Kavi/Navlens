@@ -50,8 +50,8 @@ export async function GET(req: NextRequest) {
     // ClickHouse query for aggregated click data filtered by device type
     const query = `
       SELECT
-          ROUND(x_relative, 2) AS x_relative,
-          ROUND(y_relative, 2) AS y_relative,
+          ROUND(x_relative, 5) AS x_relative,
+          ROUND(y_relative, 5) AS y_relative,
           COUNT() AS count
       FROM
           events

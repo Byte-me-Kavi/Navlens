@@ -122,6 +122,22 @@
     return tag + classes;
   }
 
+  // NEW: Smart Selector that matches Puppeteer Scraper's logic
+  function getSmartSelector(el) {
+    if (!el || el.tagName === "BODY") return "BODY";
+    // If it has an ID, use it (fastest)
+    if (el.id) return `#${el.id}`;
+
+    // Otherwise generate path
+    const parent = el.parentElement;
+    if (!parent) return el.tagName;
+
+    const children = Array.from(parent.children);
+    const index = children.indexOf(el) + 1;
+
+    return `${getSmartSelector(parent)} > ${el.tagName}:nth-child(${index})`;
+  }
+
   // --- Core Event Creation Function (no longer sends immediately) ---
   function createEvent(eventType, payload = {}) {
     const viewportWidth =
@@ -185,7 +201,7 @@
       element_text: target.textContent
         ? target.textContent.trim().substring(0, 255)
         : "",
-      element_selector: getElementSelector(target),
+      smart_selector: getSmartSelector(target), // NEW: Smart selector that matches Puppeteer scraper
     });
     addEventToQueue(clickEvent);
   }

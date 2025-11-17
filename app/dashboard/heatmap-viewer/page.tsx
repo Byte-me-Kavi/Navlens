@@ -7,6 +7,16 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useSite } from "@/app/context/SiteContext";
 import ProgressBar from "@/components/ProgressBar";
 
+interface SmartElement {
+  tag: string;
+  text: string;
+  selector: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 const CLIENT_DOMAIN = "https://navlens-rho.vercel.app";
 
 // DEFINITIVE SCREENSHOT PROFILES (Keep these)
@@ -59,6 +69,10 @@ export default function HeatmapViewer() {
   const [isMobile, setIsMobile] = useState(false);
   const [siteIdError, setSiteIdError] = useState<string | null>(null);
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // --- NEW STATE: Smart Elements ---
+  const [smartElements, setSmartElements] = useState<SmartElement[]>([]);
+  const [showSmartMap, setShowSmartMap] = useState(false); // Toggle for the new view
 
   // Validate siteId on mount
   useEffect(() => {
@@ -151,6 +165,48 @@ export default function HeatmapViewer() {
     []
   );
 
+  // --- NEW: Helper for Storage URLs (Screenshot + JSON Map) ---
+  const getStorageUrls = useCallback(
+    (siteId: string, path: string, device: DeviceType) => {
+      // Normalize path for filename (match backend API)
+      let normalizedPath: string;
+      if (path === "/") {
+        normalizedPath = "homepage";
+      } else if (path.startsWith("/")) {
+        normalizedPath = path.slice(1); // Remove leading slash
+      } else if (path.startsWith(".")) {
+        normalizedPath = path.slice(1); // Remove leading dot
+      } else {
+        normalizedPath = path;
+      }
+
+      const basePath = `${siteId}/${normalizedPath}-${device}`;
+      return {
+        image: supabase.storage
+          .from("screenshots")
+          .getPublicUrl(`${basePath}.png`).data.publicUrl,
+        json: supabase.storage
+          .from("screenshots")
+          .getPublicUrl(`${basePath}.json`).data.publicUrl,
+      };
+    },
+    []
+  );
+
+  // --- NEW: Fetch Smart Map Data ---
+  const fetchSmartMap = async (url: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("No smart map found");
+      const data = await res.json();
+      console.log("[Smart Map] Loaded elements:", data);
+      setSmartElements(data);
+    } catch (e) {
+      console.warn("[Smart Map] Could not load element map:", e);
+      setSmartElements([]);
+    }
+  };
+
   const fetchHeatmapData = useCallback(
     async (path: string, deviceType: DeviceType) => {
       if (!siteId) return [];
@@ -209,7 +265,14 @@ export default function HeatmapViewer() {
         throw new Error(err.error || "Failed to generate preview");
       }
       const { publicUrl } = await response.json();
-      setScreenshotUrl(`${publicUrl}?t=${new Date().getTime()}`);
+
+      // Force reload by appending timestamp
+      const timestamp = new Date().getTime();
+      setScreenshotUrl(`${publicUrl}?t=${timestamp}`);
+
+      // Fetch smart map data too
+      const urls = getStorageUrls(siteId!, pagePath, selectedDevice);
+      fetchSmartMap(`${urls.json}?t=${timestamp}`);
     } catch (err: Error | unknown) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       setError(errorMsg);
@@ -332,6 +395,10 @@ export default function HeatmapViewer() {
     setError(null); // Clear any previous error
     heatmapInstance?.setData({ min: 0, max: 1, data: [] }); // Clear old heatmap
 
+    // Fetch smart map data too
+    const urls = getStorageUrls(siteId, pagePath, selectedDevice);
+    fetchSmartMap(urls.json);
+
     // Set timeout for the new image - but shorter for first load (no screenshot exists yet)
     // After 5 seconds, if still not loaded, show "no screenshot" message instead of error
     console.log("Setting timeout for screenshot load");
@@ -343,7 +410,14 @@ export default function HeatmapViewer() {
       // Force hide the loading spinner
       setImageLoaded(true);
     }, 5000); // Shorter 5-second timeout for better UX
-  }, [pagePath, selectedDevice, siteId, getScreenshotUrl, heatmapInstance]);
+  }, [
+    pagePath,
+    selectedDevice,
+    siteId,
+    getScreenshotUrl,
+    getStorageUrls,
+    heatmapInstance,
+  ]);
 
   // --- Trigger initial heatmap render when instance and image are ready ---
   useEffect(() => {
@@ -470,10 +544,11 @@ export default function HeatmapViewer() {
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
-                  Heatmap Viewer
+                  Smart Heatmap Viewer (v2.0)
                 </h1>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  Visualize user interactions on your website
+                  Visualize user interactions and detect interactive elements on
+                  your website
                 </p>
               </div>
             </div>
@@ -775,6 +850,45 @@ export default function HeatmapViewer() {
                 </button>
               </div>
             </div>
+
+            {/* Smart Elements Toggle */}
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                    <span className="flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4 text-blue-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                        />
+                      </svg>
+                      Smart Elements
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Highlight interactive elements detected on the page
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSmartMap(!showSmartMap)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm ${
+                    showSmartMap
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300"
+                  }`}
+                >
+                  {showSmartMap ? "Hide Elements" : "Show Elements"}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* --- STATUS MESSAGES --- */}
@@ -887,6 +1001,54 @@ export default function HeatmapViewer() {
                   pointerEvents: "none",
                 }}
               ></div>
+            )}
+
+            {/* --- Smart Elements Overlay (v2.0 Feature) --- */}
+            {showSmartMap && imageLoaded && smartElements.length > 0 && (
+              <div className="absolute top-0 left-0 w-full h-auto z-20 pointer-events-none">
+                {smartElements.map((el: SmartElement, i: number) => {
+                  // Calculate scaling based on current displayed width vs original screenshot width
+                  // We assume the image takes up 100% of the container width
+                  const currentWidth =
+                    heatmapViewportRef.current?.offsetWidth ||
+                    DEVICE_PROFILES[selectedDevice].width;
+                  const scale =
+                    currentWidth / DEVICE_PROFILES[selectedDevice].width;
+
+                  return (
+                    <div
+                      key={i}
+                      title={`${el.tag}: ${el.text}\nSelector: ${el.selector}`}
+                      className="absolute border-2 border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500 transition-all duration-200 rounded-sm pointer-events-auto"
+                      style={{
+                        // Scale the coordinates from the JSON to match the current view
+                        left: `${el.x * scale}px`,
+                        top: `${el.y * scale}px`,
+                        width: `${el.width * scale}px`,
+                        height: `${el.height * scale}px`,
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        alert(
+                          `Smart Element Detected:\n\nTag: ${el.tag}\nText: "${el.text}"\nSelector: ${el.selector}\nPosition: ${el.x}, ${el.y}\nSize: ${el.width} × ${el.height}px`
+                        );
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.borderColor =
+                          "rgb(59 130 246 / 0.8)";
+                        (e.currentTarget as HTMLElement).style.backgroundColor =
+                          "rgb(59 130 246 / 0.15)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.borderColor =
+                          "rgb(59 130 246 / 0.4)";
+                        (e.currentTarget as HTMLElement).style.backgroundColor =
+                          "rgb(59 130 246 / 0.1)";
+                      }}
+                    />
+                  );
+                })}
+              </div>
             )}
 
             {/* Hide heatmap overlay for wrong device on mobile */}

@@ -115,8 +115,11 @@ const DashboardClient: React.FC<{ initialStats: DashboardStats }> = ({
 
   // Fetch stats on mount AND set up auto-refresh
   useEffect(() => {
-    // Fetch immediately on mount
-    fetchStats();
+    // Fetch immediately on mount (async)
+    const loadInitialStats = async () => {
+      await fetchStats();
+    };
+    loadInitialStats();
 
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {

@@ -90,19 +90,25 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // ... rest of your useEffect for loading state ...
   useEffect(() => {
-    // Skip if already initialized
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
-
     // Determine correct loading state based on URL
     const urlParams = new URLSearchParams(window.location.search);
     const isOAuthRedirect = urlParams.has("code") || urlParams.has("state");
     const isDashboardPath = window.location.pathname.startsWith("/dashboard");
 
-    // Always use a timer to defer setState call
-    const delay =
-      isDashboardPath && !isOAuthRedirect ? 0 : isOAuthRedirect ? 2000 : 800;
+    // For dashboard paths, set loading to false immediately
+    if (isDashboardPath && !isOAuthRedirect) {
+      console.log(
+        "[Dashboard Layout] Setting loading to false immediately for dashboard path"
+      );
+      setIsLoading(false);
+      return;
+    }
 
+    // For other paths, use a timer
+    const delay = isOAuthRedirect ? 2000 : 800;
+    console.log(
+      `[Dashboard Layout] Setting loading to false after ${delay}ms delay`
+    );
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, delay);
