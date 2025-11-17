@@ -96,7 +96,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
+      <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-50">
         <LoadingSpinner message="Loading dashboard..." />
       </div>
     );

@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
   try {
     // 1. Await cookies (Required for Next.js 15+)
     const cookieStore = await cookies();
+    console.log('[Dashboard Stats] Cookies available:', cookieStore.getAll().map(c => c.name).join(', '));
 
     // 2. Initialize Supabase Client
     // We use createServerClient to properly read the user's session from cookies
@@ -56,9 +57,14 @@ export async function GET(req: NextRequest) {
     // 3. Authenticate User
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
+    console.log('[Dashboard Stats] Auth Check - Error:', authError, 'User:', user?.id || 'none');
+
     if (authError || !user) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      console.error('[Dashboard Stats] Authentication failed:', authError?.message || 'No user');
+      return NextResponse.json({ message: 'Unauthorized', error: authError?.message }, { status: 401 });
     }
+
+    console.log('[Dashboard Stats] User authenticated:', user.id);
 
     // 4. Get Sites Owned by User
     // We fetch ONLY the site IDs this user owns to filter the data securely
@@ -69,8 +75,11 @@ export async function GET(req: NextRequest) {
 
     if (siteError) throw new Error(siteError.message);
 
+    console.log('[Dashboard Stats] User sites:', userSites?.length || 0);
+
     // Handle case where user has no sites yet
     if (!userSites || userSites.length === 0) {
+      console.log('[Dashboard Stats] No sites found, returning zero stats');
       return NextResponse.json({
         totalSites: 0,
         totalClicks: 0,
@@ -82,6 +91,8 @@ export async function GET(req: NextRequest) {
     const siteIds = userSites.map(s => s.id);
     const totalSites = siteIds.length;
 
+    console.log('[Dashboard Stats] Fetching click data for sites:', siteIds);
+
     // 5. Get Total Clicks from ClickHouse (Filtered by Site IDs)
     const totalClicksQuery = `
       SELECT count() AS total_clicks 
@@ -90,29 +101,44 @@ export async function GET(req: NextRequest) {
       AND site_id IN ({siteIds:Array(String)})
     `;
 
-    const clickResult = await clickHouseClient.query({ 
-      query: totalClicksQuery, 
-      query_params: { siteIds: siteIds },
-      format: 'JSON' 
-    });
-    
-    const clickData = await clickResult.json() as { data: ClickData[] };
-    const totalClicks = clickData.data[0]?.total_clicks || 0;
+    let totalClicks = 0;
+    try {
+      const clickResult = await clickHouseClient.query({ 
+        query: totalClicksQuery, 
+        query_params: { siteIds: siteIds },
+        format: 'JSON' 
+      });
+      
+      const clickData = await clickResult.json() as { data: ClickData[] };
+      totalClicks = clickData.data[0]?.total_clicks || 0;
+      console.log('[Dashboard Stats] Total clicks retrieved:', totalClicks);
+    } catch (chError) {
+      console.error('[Dashboard Stats] ClickHouse Error:', chError);
+      console.log('[Dashboard Stats] Continuing with totalClicks = 0');
+    }
 
     // 6. Get Total Heatmaps from Storage (Filtered by Site IDs)
     // We list the root of the bucket. 
     // Note: This assumes your folders are named after site_ids.
-    const { data: fileList, error: storageError } = await supabase.storage
-      .from('screenshots')
-      .list();
-
     let totalHeatmaps = 0;
-    if (!storageError && fileList) {
-      // Count only folders that match our user's site IDs
-      totalHeatmaps = fileList.filter(file => siteIds.includes(file.name)).length;
+    try {
+      const { data: fileList, error: storageError } = await supabase.storage
+        .from('screenshots')
+        .list();
+
+      if (!storageError && fileList) {
+        // Count only folders that match our user's site IDs
+        totalHeatmaps = fileList.filter(file => siteIds.includes(file.name)).length;
+        console.log('[Dashboard Stats] Total heatmaps retrieved:', totalHeatmaps);
+      } else {
+        console.error('[Dashboard Stats] Storage Error:', storageError?.message);
+      }
+    } catch (storageErr) {
+      console.error('[Dashboard Stats] Storage Exception:', storageErr);
     }
 
     // 7. Return Data
+    console.log('[Dashboard Stats] Returning stats - Sites:', totalSites, 'Clicks:', totalClicks, 'Heatmaps:', totalHeatmaps);
     return NextResponse.json({
       totalSites,
       totalClicks,
@@ -122,7 +148,7 @@ export async function GET(req: NextRequest) {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Dashboard Stats Error:', errorMessage);
+    console.error('[Dashboard Stats] Critical Error:', errorMessage);
     return NextResponse.json(
       { message: 'Failed to retrieve dashboard stats.', error: errorMessage },
       { status: 500 }

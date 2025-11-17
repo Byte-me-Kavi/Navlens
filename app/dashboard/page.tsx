@@ -13,9 +13,18 @@ async function getDashboardStats() {
       : `http://localhost:3000/api/dashboard-stats`; // Use localhost in development
 
   try {
+    const cookieStore = await cookies();
+    const cookieHeader = cookieStore
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join("; ");
+
     const response = await fetch(url, {
       method: "GET",
       cache: "no-store", // Always fetch fresh data
+      headers: {
+        Cookie: cookieHeader,
+      },
     });
 
     if (!response.ok) {
