@@ -124,39 +124,25 @@ async function validateSiteAndApiKey(siteId: string, apiKey: string): Promise<Va
 
 export async function POST(req: NextRequest) {
     try {
-        let body;
-        try {
-            body = await req.json();
-        } catch (parseError) {
-            console.error('[collect] ❌ Failed to parse JSON:', parseError);
-            return NextResponse.json(
-                { message: 'Invalid JSON in request body', error: parseError instanceof Error ? parseError.message : 'Parse error' },
-                { status: 400, headers: corsHeaders() }
-            );
-        }
-        
+        const body = await req.json();
         console.log('[collect] Received request body keys:', Object.keys(body));
-        console.log('[collect] Full body:', JSON.stringify(body).substring(0, 500));
         
         // Extract API key from payload (should be at top level: { events: [...], api_key: "..." })
-        const apiKey = body.api_key || body.api_key?.trim();
-        if (!apiKey || apiKey.length === 0) {
-            console.error('[collect] ❌ Missing or empty api_key in request. Payload structure:', {
+        const apiKey = body.api_key;
+        if (!apiKey) {
+            console.error('[collect] ❌ Missing api_key in request. Payload structure:', {
                 hasEvents: !!body.events,
                 hasApiKey: !!body.api_key,
-                apiKeyLength: body.api_key?.length || 0,
-                apiKeyValue: body.api_key ? '***' : 'null',
                 eventType: Array.isArray(body.events) ? 'array' : typeof body.events,
-                eventsLength: Array.isArray(body.events) ? body.events.length : 'N/A',
                 payloadKeys: Object.keys(body),
             });
             return NextResponse.json(
-                { message: 'Invalid request: missing or empty api_key', debug: { hasApiKey: !!body.api_key, payloadKeys: Object.keys(body) } },
+                { message: 'Invalid request: missing api_key' },
                 { status: 400, headers: corsHeaders() }
             );
         }
         
-        console.log('[collect] ✓ Found api_key in request (length:', apiKey.length + ')');
+        console.log('[collect] ✓ Found api_key in request');
         
         // Handle both batched format { events: [...] } and legacy single event format
         let eventsArray: EventData[];
@@ -174,27 +160,22 @@ export async function POST(req: NextRequest) {
             eventsArray = [body];
         }
 
-        if (!eventsArray || eventsArray.length === 0) {
-            console.error('[collect] ❌ No events in array. Events:', eventsArray);
+        if (eventsArray.length === 0) {
             return NextResponse.json(
-                { message: 'No events provided', debug: { eventsLength: eventsArray?.length || 0 } },
+                { message: 'No events provided' },
                 { status: 400, headers: corsHeaders() }
             );
         }
-
-        console.log(`[collect] ✓ Events array has ${eventsArray.length} item(s)`);
 
         // Extract site_id from the first event (all events should have the same site_id)
         const siteId = eventsArray[0]?.site_id;
-        if (!siteId || siteId.length === 0) {
-            console.error('[collect] ❌ Missing or empty site_id in event data. First event keys:', Object.keys(eventsArray[0] || {}));
+        if (!siteId) {
+            console.warn('[collect] Missing site_id in event data');
             return NextResponse.json(
-                { message: 'Invalid event data: missing site_id', debug: { firstEventKeys: Object.keys(eventsArray[0] || {}) } },
+                { message: 'Invalid event data: missing site_id' },
                 { status: 400, headers: corsHeaders() }
             );
         }
-
-        console.log(`[collect] ✓ Found site_id: ${siteId}`);
 
         // SECURITY: Validate that the site_id exists and API key matches
         const { valid: isValidSiteAndKey, error } = await validateSiteAndApiKey(siteId, apiKey);
@@ -217,13 +198,15 @@ export async function POST(req: NextRequest) {
                 .select('page_path')
                 .eq('site_id', siteId);
             
-            if (!error && data) {
+            if (!error && data && data.length > 0) {
                 excludedPaths = new Set(data.map((d: ExcludedPathData) => d.page_path));
                 console.log(`[collect] ✓ Loaded ${excludedPaths.size} excluded paths for site ${siteId}:`, Array.from(excludedPaths));
+            } else if (!error && data && data.length === 0) {
+                console.log('[collect] ℹ️ No excluded paths configured for this site');
             } else if (error && !error.message.includes('does not exist')) {
                 console.warn('[collect] ⚠️ Error fetching excluded paths:', error.message);
             } else if (error && error.message.includes('does not exist')) {
-                console.log('[collect] ℹ️ excluded_paths table does not exist yet (graceful fallback)');
+                console.log('[collect] ℹ️ excluded_paths table does not exist');
             }
         } catch (err) {
             console.warn('[collect] ⚠️ Failed to fetch excluded paths:', err);
@@ -232,23 +215,35 @@ export async function POST(req: NextRequest) {
         // Filter out events from excluded paths
         const filteredEvents = eventsArray.filter(event => {
             if (excludedPaths.has(event.page_path)) {
-                console.warn(`[collect] 🚫 Rejected event from excluded path: ${event.page_path}`);
+                console.log(`[collect] 🚫 Skipped event from excluded path: ${event.page_path}`);
                 return false;
             }
             return true;
         });
 
+        console.log(`[collect] Filtered to ${filteredEvents.length}/${eventsArray.length} event(s) after exclusion checks`);
+        
+        // If all events were filtered, just return 200 OK (graceful handling)
+        // User wants to exclude these paths, so silently accepting is correct behavior
         if (filteredEvents.length === 0) {
-            console.log('[collect] All events were from excluded paths, rejecting');
-            return NextResponse.json(
-                { message: 'All events are from excluded paths' },
-                { status: 400, headers: corsHeaders() }
+            console.log('[collect] All events were from excluded paths (expected behavior - returning 200 OK)');
+            return new Response(
+                JSON.stringify({ 
+                    success: true, 
+                    message: 'All events were from excluded paths (silently discarded as configured)',
+                    eventCount: 0
+                }),
+                {
+                    status: 200,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...corsHeaders(),
+                    },
+                }
             );
         }
-
-        console.log(`[collect] Filtered to ${filteredEvents.length} event(s) after exclusion checks`);
         
-        // Perform the insertion into the 'events' table
+        // Perform the insertion into the 'events' table (only for non-excluded events)
         await clickhouseClient.insert({
             table: 'events',
             values: filteredEvents,
@@ -261,7 +256,8 @@ export async function POST(req: NextRequest) {
         return new Response(
           JSON.stringify({ 
             success: true, 
-            message: 'Events ingested successfully' 
+            message: 'Events ingested successfully',
+            eventCount: filteredEvents.length
           }),
           {
             status: 200,
@@ -271,6 +267,7 @@ export async function POST(req: NextRequest) {
             },
           }
         );
+        
         
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to ingest events';
