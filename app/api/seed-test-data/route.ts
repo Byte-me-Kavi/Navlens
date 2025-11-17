@@ -3,7 +3,7 @@ import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
 
 const client = createClient({
-    host: process.env.CLICKHOUSE_HOST || 'localhost',
+    url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
     username: process.env.CLICKHOUSE_USER,
     password: process.env.CLICKHOUSE_PASSWORD,
     database: process.env.CLICKHOUSE_DATABASE,
@@ -15,7 +15,34 @@ export async function POST() {
         const PAGE_PATHS = ['/', '/login', '/dashboard', '/settings'];
 
         // Generate mock click data for each page path
-        const mockEvents = [];
+        interface MockEvent {
+            site_id: string;
+            event_type: string;
+            timestamp: string;
+            page_url: string;
+            page_path: string;
+            referrer: string;
+            user_agent: string;
+            user_language: string;
+            viewport_width: number;
+            viewport_height: number;
+            screen_width: number;
+            screen_height: number;
+            device_type: string;
+            session_id: string;
+            client_id: string;
+            x: number;
+            y: number;
+            x_relative: number;
+            y_relative: number;
+            element_id: string;
+            element_classes: string;
+            element_tag: string;
+            element_text: string;
+            element_selector: string;
+        }
+
+        const mockEvents: MockEvent[] = [];
         const now = new Date();
 
         PAGE_PATHS.forEach((PAGE_PATH) => {

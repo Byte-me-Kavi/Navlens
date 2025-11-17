@@ -16,7 +16,7 @@ const clickhouseClient = (() => {
     } else {
         // Development: Use host-based configuration for local ClickHouse
         return createClient({
-            host: process.env.CLICKHOUSE_HOST || 'localhost',
+            url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
             username: process.env.CLICKHOUSE_USER,
             password: process.env.CLICKHOUSE_PASSWORD,
             database: process.env.CLICKHOUSE_DATABASE,

@@ -9,19 +9,22 @@ interface ClickData {
 }
 
 // --- ClickHouse Client Setup ---
-const host = process.env.CLICKHOUSE_HOST || 'localhost';
-const isLocal = host.includes('localhost');
-const protocol = isLocal ? 'http' : 'https';
-const port = isLocal ? 8123 : 8443;
-
-const clickHouseClient = createClient({
-  // Construct the full URL with protocol and port
-  url: `${protocol}://${host}:${port}`,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-  // The 'secure' property is removed; 'https' in the URL handles it.
-});
+const clickHouseClient = (() => {
+    const url = process.env.CLICKHOUSE_URL;
+    
+    if (url) {
+        // Production: Use full URL for ClickHouse Cloud (https://user:pass@host:8443/database)
+        return createClient({ url });
+    } else {
+        // Development: Use host-based configuration for local ClickHouse
+        return createClient({
+            url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
+            username: process.env.CLICKHOUSE_USER,
+            password: process.env.CLICKHOUSE_PASSWORD,
+            database: process.env.CLICKHOUSE_DATABASE,
+        });
+    }
+})();
 
 export async function GET() {
   try {

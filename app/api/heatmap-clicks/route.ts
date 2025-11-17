@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Initialize ClickHouse client (re-use the same client instance if possible for efficiency)
 const client = createClient({
-  host: process.env.CLICKHOUSE_HOST || 'localhost',
+  url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
   username: process.env.CLICKHOUSE_USER,
   password: process.env.CLICKHOUSE_PASSWORD,
   database: process.env.CLICKHOUSE_DATABASE,
