@@ -31,22 +31,17 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        // This query finds the most visited pages (e.g., top 50)
-        // We filter by 'page_view' for efficiency and order by count.
+        // Get all unique page paths that have any events (not just page_view)
         const query = `
-            SELECT
-                page_path,
-                COUNT() AS views
-            FROM
-                events
+            SELECT DISTINCT
+                page_path
+            FROM events
             WHERE
                 site_id = {siteId:String}
-                AND event_type = 'page_view'
-            GROUP BY
-                page_path
-            ORDER BY
-                views DESC
-            LIMIT 50 
+                AND page_path IS NOT NULL
+                AND page_path != ''
+            ORDER BY page_path ASC
+            LIMIT 50
         `;
 
         const resultSet = await clickhouseClient.query({
