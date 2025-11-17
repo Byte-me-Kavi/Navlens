@@ -93,6 +93,8 @@ export async function POST(req: NextRequest) {
             // --- PRODUCTION (Vercel) ---
             console.log('[Smart Scraper] Production mode - Vercel deployment detected');
             process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = 'true';
+            // Required polyfill for @sparticuz/chromium in Vercel serverless
+            process.env.AWS_LAMBDA_FUNCTION_VERSION = '1';
 
             try {
               const executablePath = await chromium.executablePath();
