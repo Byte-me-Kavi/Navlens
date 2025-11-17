@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Access-Control-Allow-Methods",
-            value: "POST, OPTIONS", // Allow POST and the preflight OPTIONS request
+            value: "POST, OPTIONS", // Allow POST and the preflight OPTIONS requests
           },
           {
             key: "Access-Control-Allow-Headers",
