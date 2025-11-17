@@ -13,11 +13,15 @@ interface HeatmapPoint {
 interface HeatmapOverlayProps {
   siteId: string;
   pagePath: string;
+  imageWidth: number; // Add these props
+  imageHeight: number; // Add these props
 }
 
 const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({
   siteId,
   pagePath,
+  imageWidth,
+  imageHeight,
 }) => {
   const heatmapRef = useRef<HTMLDivElement>(null);
   const [heatmapInstance, setHeatmapInstance] = useState<h337.Heatmap<
@@ -109,7 +113,31 @@ const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({
     return () => window.removeEventListener("resize", handleResize);
   }, [heatmapInstance, siteId, pagePath]); // Re-run if instance or props change
 
-  // --- 4. Render the Overlay ---
+  // --- 4. Resize the heatmap canvas to match image dimensions ---
+  useEffect(() => {
+    if (heatmapInstance && imageWidth && imageHeight) {
+      // Resize the heatmap canvas to match image dimensions
+      // Cast to any to access internal _renderer property
+      (heatmapInstance as any)._renderer.setDimensions(imageWidth, imageHeight);
+
+      // Also resize and position the canvas element itself
+      const canvas = heatmapRef.current?.querySelector("canvas");
+      if (canvas) {
+        canvas.style.position = "absolute";
+        canvas.style.left = "0px";
+        canvas.style.top = "0px";
+        canvas.style.width = `${imageWidth}px`;
+        canvas.style.height = `${imageHeight}px`;
+        canvas.style.zIndex = "100";
+        canvas.style.margin = "0";
+        canvas.style.padding = "0";
+        canvas.style.border = "none";
+        canvas.style.boxSizing = "border-box";
+      }
+    }
+  }, [heatmapInstance, imageWidth, imageHeight]);
+
+  // --- 5. Render the Overlay ---
   return (
     <div
       ref={heatmapRef}

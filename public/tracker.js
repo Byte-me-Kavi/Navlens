@@ -174,15 +174,20 @@
     lastClickTime = now;
 
     const target = event.target;
+
+    // Get the full size of the document (the entire scrollable page)
+    const docWidth = document.documentElement.scrollWidth;
+    const docHeight = document.documentElement.scrollHeight;
+
     const clickEvent = createEvent("click", {
-      x: event.clientX,
-      y: event.clientY,
-      x_relative:
-        event.clientX /
-        (document.documentElement.clientWidth || window.innerWidth),
-      y_relative:
-        event.clientY /
-        (document.documentElement.clientHeight || window.innerHeight),
+      // Use pageX/pageY which are relative to the DOCUMENT (includes scroll)
+      x: event.pageX,
+      y: event.pageY,
+
+      // Calculate relative position based on the ENTIRE DOCUMENT, not the viewport
+      x_relative: event.pageX / docWidth,
+      y_relative: event.pageY / docHeight,
+
       element_id: target.id || "",
       element_classes: Array.from(target.classList || []).join(" ") || "",
       element_tag: target.tagName || "",

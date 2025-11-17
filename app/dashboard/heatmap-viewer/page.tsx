@@ -80,6 +80,18 @@ export default function HeatmapViewer() {
   }>({});
   const [showElementClicks, setShowElementClicks] = useState(true); // Show click counts on elements
 
+  // --- NEW STATE: Element Insights Modal ---
+  const [selectedElement, setSelectedElement] = useState<SmartElement | null>(
+    null
+  );
+  const [elementInsights, setElementInsights] = useState<{
+    clickCount: number;
+    clickPercentage: number;
+    totalPageClicks: number;
+    rank: number;
+    totalElements: number;
+  } | null>(null);
+
   // Validate siteId on mount
   useEffect(() => {
     if (!siteId) {
@@ -248,7 +260,7 @@ export default function HeatmapViewer() {
 
   const fetchElementClicks = useCallback(
     async (path: string, deviceType: DeviceType) => {
-      if (!siteId) return {};
+      if (!siteId) return;
       try {
         const url = `/api/element-clicks?siteId=${siteId}&pagePath=${encodeURIComponent(
           path
@@ -258,30 +270,64 @@ export default function HeatmapViewer() {
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
-        console.log(
-          "[fetchElementClicks] Response data for path",
-          path,
-          ":",
-          data
-        );
-        // Convert array to object keyed by selector
-        const clicksBySelector: { [selector: string]: number } = {};
-        (data.data || []).forEach(
-          (item: { element_selector: string; click_count: number }) => {
-            clicksBySelector[item.element_selector] = item.click_count;
-          }
-        );
-        setElementClicks(clicksBySelector);
-        return clicksBySelector;
+        console.log("[fetchElementClicks] Response data:", data);
+
+        // Transform the data into the expected format: { selector: count }
+        const clicksMap: { [selector: string]: number } = {};
+        if (data.data && Array.isArray(data.data)) {
+          data.data.forEach(
+            (item: { element_selector: string; click_count: string }) => {
+              clicksMap[item.element_selector] = parseInt(item.click_count, 10);
+            }
+          );
+        }
+        setElementClicks(clicksMap);
       } catch (err: Error | unknown) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
         console.error("[fetchElementClicks] Error:", errorMsg);
         setElementClicks({});
-        return {};
       }
     },
     [siteId]
   );
+
+  const calculateElementInsights = (element: SmartElement) => {
+    const clickCount = elementClicks[element.selector] || 0;
+    const totalPageClicks = Object.values(elementClicks).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+
+    // Calculate rank among clicked elements
+    const clickedElements = Object.entries(elementClicks)
+      .filter(([, count]) => count > 0)
+      .sort(([, a], [, b]) => b - a);
+
+    const rank =
+      clickedElements.findIndex(([selector]) => selector === element.selector) +
+      1;
+    const clickPercentage =
+      totalPageClicks > 0 ? (clickCount / totalPageClicks) * 100 : 0;
+
+    return {
+      clickCount,
+      clickPercentage,
+      totalPageClicks,
+      rank,
+      totalElements: smartElements.length,
+    };
+  };
+
+  const openElementInsights = (element: SmartElement) => {
+    const insights = calculateElementInsights(element);
+    setSelectedElement(element);
+    setElementInsights(insights);
+  };
+
+  const closeElementInsights = () => {
+    setSelectedElement(null);
+    setElementInsights(null);
+  };
 
   const handleRefreshScreenshot = async () => {
     setLoadingScreenshot(true);
@@ -384,12 +430,40 @@ export default function HeatmapViewer() {
     // --- CRITICAL: Apply Final Canvas Sizing ---
     const canvasElement = heatmapContainerRef.current?.querySelector("canvas");
     if (canvasElement) {
+      console.log(
+        "[Canvas Sizing] Setting canvas to:",
+        actualDisplayedWidth,
+        "x",
+        actualDisplayedHeight
+      );
       canvasElement.style.position = "absolute";
       canvasElement.style.left = `0px`;
       canvasElement.style.top = `0px`;
       canvasElement.style.width = `${Math.round(actualDisplayedWidth)}px`;
       canvasElement.style.height = `${Math.round(actualDisplayedHeight)}px`;
       canvasElement.style.zIndex = "100";
+      canvasElement.style.margin = "0";
+      canvasElement.style.padding = "0";
+      canvasElement.style.border = "none";
+      canvasElement.style.boxSizing = "border-box";
+    } else {
+      console.log("[Canvas Sizing] Canvas element not found!");
+    }
+
+    // Set container height to match image height
+    if (heatmapContainerRef.current) {
+      console.log(
+        "[Container Sizing] Setting container to:",
+        actualDisplayedWidth,
+        "x",
+        actualDisplayedHeight
+      );
+      heatmapContainerRef.current.style.height = `${Math.round(
+        actualDisplayedHeight
+      )}px`;
+      heatmapContainerRef.current.style.width = `${Math.round(
+        actualDisplayedWidth
+      )}px`;
     }
   }, [
     heatmapInstance,
@@ -942,7 +1016,7 @@ export default function HeatmapViewer() {
               </div>
 
               {/* Element Click Counts Toggle */}
-              <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center mt-4 justify-between p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 mb-2">
                     <span className="flex items-center gap-2">
@@ -1090,7 +1164,7 @@ export default function HeatmapViewer() {
                   selectedDevice === "tablet"))) && (
               <div
                 ref={heatmapContainerRef}
-                className="absolute top-0 left-0 w-full h-auto z-10 transition-opacity duration-300"
+                className="absolute top-0 left-0 w-full z-10 transition-opacity duration-300"
                 style={{
                   opacity: imageLoaded ? 1 : 0,
                   pointerEvents: "none",
@@ -1131,9 +1205,7 @@ export default function HeatmapViewer() {
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        alert(
-                          `Smart Element Detected:\n\nTag: ${el.tag}\nText: "${el.text}"\nSelector: ${el.selector}\nClicks: ${clickCount}\nPosition: ${el.x}, ${el.y}\nSize: ${el.width} × ${el.height}px`
-                        );
+                        openElementInsights(el);
                       }}
                       onMouseEnter={(e) => {
                         const target = e.currentTarget as HTMLElement;
@@ -1230,6 +1302,243 @@ export default function HeatmapViewer() {
               )}
           </div>
         </main>
+      )}
+
+      {/* Element Insights Modal */}
+      {selectedElement && elementInsights && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-3xl max-h-[85vh] sm:max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
+            {/* Custom Scrollbar Styles */}
+            <style jsx>{`
+              .modal-scroll::-webkit-scrollbar {
+                width: 8px;
+              }
+              .modal-scroll::-webkit-scrollbar-track {
+                background: #f1f5f9;
+                border-radius: 4px;
+              }
+              .modal-scroll::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 4px;
+                transition: background-color 0.2s ease;
+              }
+              .modal-scroll::-webkit-scrollbar-thumb:hover {
+                background: #94a3b8;
+              }
+              .modal-scroll {
+                scrollbar-width: thin;
+                scrollbar-color: #cbd5e1 #f1f5f9;
+              }
+            `}</style>
+
+            <div className="modal-scroll overflow-y-auto max-h-[85vh] sm:max-h-[90vh]">
+              <div className="p-4 sm:p-6 lg:p-8">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-6">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+                      Element Insights
+                    </h2>
+                    <p className="text-gray-600 text-sm sm:text-base">
+                      Performance analysis for{" "}
+                      <code className="bg-gray-100 px-2 py-1 rounded text-xs sm:text-sm font-mono">
+                        {selectedElement.tag}
+                      </code>
+                    </p>
+                  </div>
+                  <button
+                    onClick={closeElementInsights}
+                    className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-lg ml-4 shrink-0"
+                  >
+                    <svg
+                      className="w-5 h-5 sm:w-6 sm:h-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Key Metrics */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                  <div className="bg-blue-50 p-3 sm:p-4 rounded-lg text-center">
+                    <div className="text-xl sm:text-2xl font-bold text-blue-600 mb-1">
+                      {elementInsights.clickCount}
+                    </div>
+                    <div className="text-xs sm:text-sm text-blue-700 font-medium">
+                      Total Clicks
+                    </div>
+                  </div>
+                  <div className="bg-green-50 p-3 sm:p-4 rounded-lg text-center">
+                    <div className="text-xl sm:text-2xl font-bold text-green-600 mb-1">
+                      {elementInsights.clickPercentage.toFixed(1)}%
+                    </div>
+                    <div className="text-xs sm:text-sm text-green-700 font-medium">
+                      Click Share
+                    </div>
+                  </div>
+                  <div className="bg-purple-50 p-3 sm:p-4 rounded-lg text-center">
+                    <div className="text-xl sm:text-2xl font-bold text-purple-600 mb-1">
+                      #{elementInsights.rank}
+                    </div>
+                    <div className="text-xs sm:text-sm text-purple-700 font-medium">
+                      Popularity Rank
+                    </div>
+                  </div>
+                  <div className="bg-orange-50 p-3 sm:p-4 rounded-lg text-center">
+                    <div className="text-xl sm:text-2xl font-bold text-orange-600 mb-1">
+                      {elementInsights.totalPageClicks}
+                    </div>
+                    <div className="text-xs sm:text-sm text-orange-700 font-medium">
+                      Page Total
+                    </div>
+                  </div>
+                </div>
+
+                {/* Element Details */}
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-gray-900 mb-3">
+                    Element Details
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                      <span className="text-gray-600 font-medium">
+                        Element Type:
+                      </span>
+                      <span className="font-mono bg-white px-2 py-1 rounded text-xs">
+                        &lt;{selectedElement.tag}&gt;
+                      </span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                      <span className="text-gray-600 font-medium">
+                        Content:
+                      </span>
+                      <span
+                        className="font-medium max-w-full sm:max-w-xs truncate bg-white px-2 py-1 rounded text-xs"
+                        title={selectedElement.text}
+                      >
+                        &ldquo;{selectedElement.text}&rdquo;
+                      </span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                      <span className="text-gray-600 font-medium">
+                        Position:
+                      </span>
+                      <span className="font-mono text-xs bg-white px-2 py-1 rounded">
+                        {selectedElement.x}, {selectedElement.y}
+                      </span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                      <span className="text-gray-600 font-medium">Size:</span>
+                      <span className="font-mono text-xs bg-white px-2 py-1 rounded">
+                        {selectedElement.width} × {selectedElement.height}px
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Insights & Recommendations */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-900">
+                    Performance Insights
+                  </h3>
+
+                  {/* Click Performance */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-3 h-3 rounded-full mt-1 shrink-0 ${
+                          elementInsights.clickPercentage > 20
+                            ? "bg-green-500"
+                            : elementInsights.clickPercentage > 10
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                        }`}
+                      ></div>
+                      <div className="min-w-0">
+                        <h4 className="font-medium text-gray-900 mb-1">
+                          Click Performance
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {elementInsights.clickPercentage > 20
+                            ? "Excellent! This element captures a significant portion of user attention."
+                            : elementInsights.clickPercentage > 10
+                            ? "Good performance. Consider optimizing placement for better results."
+                            : "Low engagement. May need visual improvements or better positioning."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Element Type Insights */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-3 h-3 rounded-full bg-blue-500 mt-1 shrink-0"></div>
+                      <div className="min-w-0">
+                        <h4 className="font-medium text-gray-900 mb-1">
+                          Element Type Analysis
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {selectedElement.tag === "BUTTON" ||
+                          selectedElement.tag === "A"
+                            ? "Interactive element performing well for user actions."
+                            : selectedElement.tag === "INPUT" ||
+                              selectedElement.tag === "SELECT"
+                            ? "Form element - consider usability improvements if click rates are low."
+                            : "Content element - focus on visual hierarchy and call-to-action placement."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recommendations */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-3 h-3 rounded-full bg-purple-500 mt-1 shrink-0"></div>
+                      <div className="min-w-0">
+                        <h4 className="font-medium text-gray-900 mb-1">
+                          Recommendations
+                        </h4>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          {elementInsights.clickPercentage < 5 && (
+                            <li>
+                              • Consider making this element more prominent or
+                              visible
+                            </li>
+                          )}
+                          {elementInsights.rank > 5 && (
+                            <li>
+                              • This element ranks low - review its importance
+                              and placement
+                            </li>
+                          )}
+                          {selectedElement.width < 100 ||
+                            (selectedElement.height < 30 && (
+                              <li>
+                                • Element size may be too small for easy
+                                interaction
+                              </li>
+                            ))}
+                          <li>
+                            • A/B test different colors, sizes, or positions to
+                            improve engagement
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
