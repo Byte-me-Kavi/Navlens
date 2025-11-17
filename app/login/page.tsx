@@ -81,7 +81,7 @@ export default function Login() {
           session.user.email || "user"
         }; path=/; max-age=5`;
         // Redirect to dashboard
-        console.log("[Login] Redirecting to dashboard...");
+        console.log("[Login] Redirecting to the dashboard...");
         router.push("/dashboard");
       }
     });
