@@ -110,18 +110,6 @@
     return "desktop";
   }
 
-  function getElementSelector(el) {
-    if (!el || el === document.body) return "body";
-    const id = el.getAttribute("id");
-    if (id) return `#${id}`;
-    const classes = Array.from(el.classList)
-      .filter((c) => c.length > 0)
-      .map((c) => `.${c}`)
-      .join("");
-    const tag = el.tagName.toLowerCase();
-    return tag + classes;
-  }
-
   // NEW: Smart Selector that matches Puppeteer Scraper's logic
   function getSmartSelector(el) {
     if (!el || el.tagName === "BODY") return "BODY";

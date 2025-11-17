@@ -74,6 +74,12 @@ export default function HeatmapViewer() {
   const [smartElements, setSmartElements] = useState<SmartElement[]>([]);
   const [showSmartMap, setShowSmartMap] = useState(false); // Toggle for the new view
 
+  // --- NEW STATE: Element Click Data ---
+  const [elementClicks, setElementClicks] = useState<{
+    [selector: string]: number;
+  }>({});
+  const [showElementClicks, setShowElementClicks] = useState(true); // Show click counts on elements
+
   // Validate siteId on mount
   useEffect(() => {
     if (!siteId) {
@@ -240,6 +246,43 @@ export default function HeatmapViewer() {
     [siteId]
   );
 
+  const fetchElementClicks = useCallback(
+    async (path: string, deviceType: DeviceType) => {
+      if (!siteId) return {};
+      try {
+        const url = `/api/element-clicks?siteId=${siteId}&pagePath=${encodeURIComponent(
+          path
+        )}&deviceType=${deviceType}`;
+        console.log("[fetchElementClicks] Fetching from URL:", url);
+        const response = await fetch(url);
+        if (!response.ok)
+          throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        console.log(
+          "[fetchElementClicks] Response data for path",
+          path,
+          ":",
+          data
+        );
+        // Convert array to object keyed by selector
+        const clicksBySelector: { [selector: string]: number } = {};
+        (data.data || []).forEach(
+          (item: { smart_selector: string; click_count: number }) => {
+            clicksBySelector[item.smart_selector] = item.click_count;
+          }
+        );
+        setElementClicks(clicksBySelector);
+        return clicksBySelector;
+      } catch (err: Error | unknown) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        console.error("[fetchElementClicks] Error:", errorMsg);
+        setElementClicks({});
+        return {};
+      }
+    },
+    [siteId]
+  );
+
   const handleRefreshScreenshot = async () => {
     setLoadingScreenshot(true);
     setError(null);
@@ -335,6 +378,9 @@ export default function HeatmapViewer() {
     );
     heatmapInstance.setData({ min: 0, max: maxCount, data: heatmapData });
 
+    // Fetch element click data for correlation with smart elements
+    await fetchElementClicks(pagePath, selectedDevice);
+
     // --- CRITICAL: Apply Final Canvas Sizing ---
     const canvasElement = heatmapContainerRef.current?.querySelector("canvas");
     if (canvasElement) {
@@ -345,7 +391,13 @@ export default function HeatmapViewer() {
       canvasElement.style.height = `${Math.round(actualDisplayedHeight)}px`;
       canvasElement.style.zIndex = "100";
     }
-  }, [heatmapInstance, pagePath, selectedDevice, fetchHeatmapData]);
+  }, [
+    heatmapInstance,
+    pagePath,
+    selectedDevice,
+    fetchHeatmapData,
+    fetchElementClicks,
+  ]);
 
   const debouncedRenderHeatmap = useCallback(
     () => debounce(renderHeatmapData, 150)(),
@@ -888,6 +940,49 @@ export default function HeatmapViewer() {
                   {showSmartMap ? "Hide Elements" : "Show Elements"}
                 </button>
               </div>
+
+              {/* Element Click Counts Toggle */}
+              <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                    <span className="flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4 text-red-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                      Click Counts
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Show click counts on interactive elements
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowElementClicks(!showElementClicks)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm ${
+                    showElementClicks
+                      ? "bg-red-600 text-white shadow-md"
+                      : "bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300"
+                  }`}
+                >
+                  {showElementClicks ? "Hide Counts" : "Show Counts"}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1015,11 +1110,18 @@ export default function HeatmapViewer() {
                   const scale =
                     currentWidth / DEVICE_PROFILES[selectedDevice].width;
 
+                  const clickCount = elementClicks[el.selector] || 0;
+                  const hasClicks = clickCount > 0;
+
                   return (
                     <div
                       key={i}
-                      title={`${el.tag}: ${el.text}\nSelector: ${el.selector}`}
-                      className="absolute border-2 border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500 transition-all duration-200 rounded-sm pointer-events-auto"
+                      title={`${el.tag}: ${el.text}\nSelector: ${el.selector}\nClicks: ${clickCount}`}
+                      className={`absolute border-2 rounded-sm pointer-events-auto transition-all duration-200 ${
+                        hasClicks
+                          ? "border-red-500/60 bg-red-500/15 hover:bg-red-500/25 hover:border-red-500"
+                          : "border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500"
+                      }`}
                       style={{
                         // Scale the coordinates from the JSON to match the current view
                         left: `${el.x * scale}px`,
@@ -1030,22 +1132,40 @@ export default function HeatmapViewer() {
                       onClick={(e) => {
                         e.stopPropagation();
                         alert(
-                          `Smart Element Detected:\n\nTag: ${el.tag}\nText: "${el.text}"\nSelector: ${el.selector}\nPosition: ${el.x}, ${el.y}\nSize: ${el.width} × ${el.height}px`
+                          `Smart Element Detected:\n\nTag: ${el.tag}\nText: "${el.text}"\nSelector: ${el.selector}\nClicks: ${clickCount}\nPosition: ${el.x}, ${el.y}\nSize: ${el.width} × ${el.height}px`
                         );
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLElement).style.borderColor =
-                          "rgb(59 130 246 / 0.8)";
-                        (e.currentTarget as HTMLElement).style.backgroundColor =
-                          "rgb(59 130 246 / 0.15)";
+                        const target = e.currentTarget as HTMLElement;
+                        if (hasClicks) {
+                          target.style.borderColor = "rgb(239 68 68 / 0.8)";
+                          target.style.backgroundColor = "rgb(239 68 68 / 0.2)";
+                        } else {
+                          target.style.borderColor = "rgb(59 130 246 / 0.8)";
+                          target.style.backgroundColor =
+                            "rgb(59 130 246 / 0.15)";
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.borderColor =
-                          "rgb(59 130 246 / 0.4)";
-                        (e.currentTarget as HTMLElement).style.backgroundColor =
-                          "rgb(59 130 246 / 0.1)";
+                        const target = e.currentTarget as HTMLElement;
+                        if (hasClicks) {
+                          target.style.borderColor = "rgb(239 68 68 / 0.6)";
+                          target.style.backgroundColor =
+                            "rgb(239 68 68 / 0.15)";
+                        } else {
+                          target.style.borderColor = "rgb(59 130 246 / 0.4)";
+                          target.style.backgroundColor =
+                            "rgb(59 130 246 / 0.1)";
+                        }
                       }}
-                    />
+                    >
+                      {/* Click count badge */}
+                      {showElementClicks && hasClicks && (
+                        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                          {clickCount}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

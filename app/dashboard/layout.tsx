@@ -16,12 +16,27 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const hasInitialized = useRef(false);
   const { isNavigating } = useNavigation();
 
   // Use a ref to track if we've processed the login toast in this mount instance
   const processedLoginToast = useRef(false);
+
+  // Calculate initial loading state synchronously
+  const getInitialLoadingState = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isOAuthRedirect = urlParams.has("code") || urlParams.has("state");
+    const isDashboardPath = window.location.pathname.startsWith("/dashboard");
+
+    // For dashboard paths, don't show loading
+    if (isDashboardPath && !isOAuthRedirect) {
+      return false;
+    }
+
+    // For OAuth redirects or other paths, show loading initially
+    return true;
+  };
+
+  const [isLoading, setIsLoading] = useState(getInitialLoadingState);
 
   useEffect(() => {
     // Prevent running this logic multiple times if component re-renders
@@ -88,23 +103,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return () => subscription?.unsubscribe();
   }, [isLoading, supabase.auth]); // Added isLoading to dependencies
 
-  // ... rest of your useEffect for loading state ...
+  // Handle loading state transitions for OAuth redirects and other paths
   useEffect(() => {
+    // If already not loading (dashboard paths), nothing to do
+    if (!isLoading) return;
+
     // Determine correct loading state based on URL
     const urlParams = new URLSearchParams(window.location.search);
     const isOAuthRedirect = urlParams.has("code") || urlParams.has("state");
-    const isDashboardPath = window.location.pathname.startsWith("/dashboard");
 
-    // For dashboard paths, set loading to false immediately
-    if (isDashboardPath && !isOAuthRedirect) {
-      console.log(
-        "[Dashboard Layout] Setting loading to false immediately for dashboard path"
-      );
-      setIsLoading(false);
-      return;
-    }
-
-    // For other paths, use a timer
+    // Use a timer for OAuth redirects and other paths
     const delay = isOAuthRedirect ? 2000 : 800;
     console.log(
       `[Dashboard Layout] Setting loading to false after ${delay}ms delay`
@@ -114,7 +122,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [isLoading]);
 
   if (isLoading) {
     return (
