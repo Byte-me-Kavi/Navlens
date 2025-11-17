@@ -2,6 +2,19 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  experimental: {
+    serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push({
+        'puppeteer-core': 'puppeteer-core',
+        '@sparticuz/chromium': '@sparticuz/chromium',
+      });
+    }
+    return config;
+  },
   async headers() {
     return [
       {
@@ -28,7 +41,6 @@ const nextConfig: NextConfig = {
 
   // CRITICAL: This tells Next.js to let these packages manage their own files
   // Required for @sparticuz/chromium to work properly in Vercel serverless functions
-  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
 };
 
 export default nextConfig;

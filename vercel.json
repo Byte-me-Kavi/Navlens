@@ -7,5 +7,13 @@
     "env": {
       "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true"
     }
+  },
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    },
+    "app/api/generate-screenshot/route.ts": {
+      "maxDuration": 60
+    }
   }
 }
