@@ -76,8 +76,8 @@ export default function Header({ onMenuToggle }: HeaderProps) {
       sessionStorage.clear();
       localStorage.clear();
 
-      // Redirect to login page
-      router.push("/login");
+      // Redirect to home page
+      router.push("/");
 
       // Force refresh after redirect
       setTimeout(() => {
