@@ -58,11 +58,13 @@ export async function GET(req: NextRequest) {
         });
 
         const queryData = await resultSet.json();
+        console.log('[get-pages-list] Raw ClickHouse result:', JSON.stringify(queryData));
         
         // Extract just the page_path strings
         const pagePaths = ((queryData.data || []) as Array<{ page_path: string }>).map(
             (row) => row.page_path
         );
+        console.log('[get-pages-list] Extracted page paths:', pagePaths);
 
         return NextResponse.json({ pagePaths: pagePaths }, { status: 200 });
 

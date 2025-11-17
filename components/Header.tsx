@@ -1,8 +1,8 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigation } from "@/context/NavigationContext";
 import {
   ArrowRightOnRectangleIcon,
   BellIcon,
@@ -19,11 +19,68 @@ export default function Header({ onMenuToggle }: HeaderProps) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
-  const router = useRouter();
+  const { navigateTo, isNavigating } = useNavigation();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  // Helper function to get cached image from localStorage
+  const getCachedImage = (userEmail: string) => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = localStorage.getItem(`profile_image_${userEmail}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed.url || null;
+      }
+    } catch (error) {
+      console.error("Error reading cached image:", error);
+    }
+    return null;
+  };
+
+  // Helper function to cache image in localStorage
+  const cacheImage = (userEmail: string, imageUrl: string | null) => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        `profile_image_${userEmail}`,
+        JSON.stringify({ url: imageUrl, timestamp: Date.now() })
+      );
+    } catch (error) {
+      console.error("Error caching image:", error);
+    }
+  };
+
+  // Helper function to process user image
+  const processUserImage = useCallback(
+    (
+      userMetadata: Record<string, unknown> | undefined,
+      email: string | null | undefined
+    ) => {
+      if (!email) return null;
+
+      // Check if there's a profile image URL from metadata
+      const imageUrl = (userMetadata?.avatar_url as string | undefined) || null;
+
+      if (imageUrl) {
+        // Check if it's different from cached version
+        const cachedUrl = getCachedImage(email);
+        if (cachedUrl !== imageUrl) {
+          // New image, cache it
+          cacheImage(email, imageUrl);
+          return imageUrl;
+        }
+        // Use cached version if same
+        return cachedUrl || imageUrl;
+      } else {
+        // No image, remove cache
+        cacheImage(email, null);
+        return null;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const getUser = async () => {
@@ -31,13 +88,22 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         data: { session },
       } = await supabase.auth.getSession();
       if (session?.user) {
-        setUserEmail(session.user.email || null);
+        const email = session.user.email || null;
+        setUserEmail(email);
 
-        // Get user metadata image if available
-        const userMetadata = session.user.user_metadata;
-        if (userMetadata?.avatar_url) {
-          setUserImage(userMetadata.avatar_url);
+        // First try to get cached image
+        if (email) {
+          const cachedImage = getCachedImage(email);
+          if (cachedImage) {
+            setUserImage(cachedImage);
+            return; // Use cached image
+          }
         }
+
+        // If no cache, process metadata
+        const userMetadata = session.user.user_metadata;
+        const processedImage = processUserImage(userMetadata, email);
+        setUserImage(processedImage);
       }
     };
 
@@ -48,23 +114,35 @@ export default function Header({ onMenuToggle }: HeaderProps) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUserEmail(session.user.email || null);
+        const email = session.user.email || null;
+        setUserEmail(email);
+
         const userMetadata = session.user.user_metadata;
-        if (userMetadata?.avatar_url) {
-          setUserImage(userMetadata.avatar_url);
-        }
+        const processedImage = processUserImage(userMetadata, email);
+        setUserImage(processedImage);
       } else {
         setUserEmail(null);
         setUserImage(null);
+        // Clear cache when logging out
+        if (typeof window !== "undefined") {
+          try {
+            Object.keys(localStorage).forEach((key) => {
+              if (key.startsWith("profile_image_")) {
+                localStorage.removeItem(key);
+              }
+            });
+          } catch (error) {
+            console.error("Error clearing cache:", error);
+          }
+        }
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, [supabase, processUserImage]);
 
   const handleLogout = async () => {
     try {
-      setIsLoggingOut(true);
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -76,16 +154,10 @@ export default function Header({ onMenuToggle }: HeaderProps) {
       sessionStorage.clear();
       localStorage.clear();
 
-      // Redirect to home page
-      router.push("/");
-
-      // Force refresh after redirect
-      setTimeout(() => {
-        router.refresh();
-      }, 500);
+      // Navigate to home page (this will trigger the navigation loading state)
+      navigateTo("/");
     } catch (error) {
       console.error("Logout failed:", error);
-      setIsLoggingOut(false);
     }
   };
 
@@ -155,12 +227,12 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           {/* Desktop: Logout Button */}
           <button
             onClick={handleLogout}
-            disabled={isLoggingOut}
+            disabled={isNavigating}
             className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-md hover:bg-blue-900 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowRightOnRectangleIcon className="w-5 h-5" />
             <span className="font-medium">
-              {isLoggingOut ? "Logging out..." : "Logout"}
+              {isNavigating ? "Logging out..." : "Logout"}
             </span>
           </button>
 
@@ -201,12 +273,12 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                       handleLogout();
                       setShowMobileMenu(false);
                     }}
-                    disabled={isLoggingOut}
+                    disabled={isNavigating}
                     className="w-full flex items-center gap-2 px-4 py-2 text-left text-gray-700 hover:bg-blue-50 transition-colors disabled:opacity-50"
                   >
                     <ArrowRightOnRectangleIcon className="w-5 h-5" />
                     <span className="font-medium">
-                      {isLoggingOut ? "Logging out..." : "Logout"}
+                      {isNavigating ? "Logging out..." : "Logout"}
                     </span>
                   </button>
                 </div>

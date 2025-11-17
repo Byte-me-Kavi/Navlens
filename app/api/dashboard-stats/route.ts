@@ -1,7 +1,7 @@
 import { createClient } from '@clickhouse/client';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // --- Type Definitions ---
 interface ClickData {
@@ -23,7 +23,7 @@ const clickHouseClient = createClient({
   // The 'secure' property is removed; 'https' in the URL handles it.
 });
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     // 1. Await cookies (Required for Next.js 15+)
     const cookieStore = await cookies();

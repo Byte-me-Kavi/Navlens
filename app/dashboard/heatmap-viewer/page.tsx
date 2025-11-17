@@ -80,12 +80,24 @@ export default function HeatmapViewer() {
         const response = await fetch(`/api/get-pages-list?siteId=${siteId}`);
         if (!response.ok) throw new Error("Failed to fetch page paths");
         const data = await response.json();
+        console.log("[heatmap-viewer] Fetched page paths:", data.pagePaths);
         if (data.pagePaths && data.pagePaths.length > 0) {
           setPagePaths(data.pagePaths);
+          console.log("[heatmap-viewer] Setting page paths:", data.pagePaths);
           // Set first page path as default only on initial load
-          setPagePath((prev) => (prev === "/" ? data.pagePaths[0] : prev));
+          setPagePath((prev) => {
+            const nextPath = prev === "/" ? data.pagePaths[0] : prev;
+            console.log(
+              "[heatmap-viewer] Page path change:",
+              prev,
+              "->",
+              nextPath
+            );
+            return nextPath;
+          });
         } else {
           // Fallback to default paths if no pages found
+          console.log("[heatmap-viewer] No page paths found, using fallback");
           setPagePaths(["/", "/dashboard", "/contact"]);
         }
       } catch (err) {
@@ -117,9 +129,20 @@ export default function HeatmapViewer() {
   const getScreenshotUrl = useCallback(
     (currentSiteId: string | null, path: string, device: DeviceType) => {
       if (!currentSiteId) return "";
-      const filePath = `${currentSiteId}/${
-        path === "/" ? "homepage" : path.replace(/^\//, "")
-      }-${device}.png`;
+
+      // Normalize path for screenshot filename
+      let normalizedPath: string;
+      if (path === "/") {
+        normalizedPath = "homepage";
+      } else if (path.startsWith("/")) {
+        normalizedPath = path.slice(1); // Remove leading slash
+      } else if (path.startsWith(".")) {
+        normalizedPath = path.slice(1); // Remove leading dot
+      } else {
+        normalizedPath = path;
+      }
+
+      const filePath = `${currentSiteId}/${normalizedPath}-${device}.png`;
       const { data } = supabase.storage
         .from("screenshots")
         .getPublicUrl(filePath);
@@ -134,17 +157,24 @@ export default function HeatmapViewer() {
       setLoadingData(true);
       setError(null);
       try {
-        const response = await fetch(
-          `/api/heatmap-clicks?siteId=${siteId}&pagePath=${encodeURIComponent(
-            path
-          )}&deviceType=${deviceType}`
-        );
+        const url = `/api/heatmap-clicks?siteId=${siteId}&pagePath=${encodeURIComponent(
+          path
+        )}&deviceType=${deviceType}`;
+        console.log("[fetchHeatmapData] Fetching from URL:", url);
+        const response = await fetch(url);
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
+        console.log(
+          "[fetchHeatmapData] Response data for path",
+          path,
+          ":",
+          data
+        );
         return data.data || [];
       } catch (err: Error | unknown) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        console.error("[fetchHeatmapData] Error:", errorMsg);
         setError(`Failed to fetch heatmap data: ${errorMsg}`);
         return [];
       } finally {
@@ -176,7 +206,7 @@ export default function HeatmapViewer() {
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.error || "Failed to generate screenshot");
+        throw new Error(err.error || "Failed to generate preview");
       }
       const { publicUrl } = await response.json();
       setScreenshotUrl(`${publicUrl}?t=${new Date().getTime()}`);
@@ -189,6 +219,12 @@ export default function HeatmapViewer() {
   };
 
   const renderHeatmapData = useCallback(async () => {
+    console.log(
+      "[renderHeatmapData] Called with pagePath:",
+      pagePath,
+      "selectedDevice:",
+      selectedDevice
+    );
     if (
       !heatmapInstance ||
       !screenshotImgRef.current ||
@@ -246,7 +282,7 @@ export default function HeatmapViewer() {
       canvasElement.style.height = `${Math.round(actualDisplayedHeight)}px`;
       canvasElement.style.zIndex = "100";
     }
-  }, [heatmapInstance]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [heatmapInstance, pagePath, selectedDevice, fetchHeatmapData]);
 
   const debouncedRenderHeatmap = useCallback(
     () => debounce(renderHeatmapData, 150)(),
@@ -302,7 +338,7 @@ export default function HeatmapViewer() {
     imageLoadTimeoutRef.current = setTimeout(() => {
       console.log("Screenshot load timeout fired");
       setError(
-        "No screenshot available for this page yet. Click 'Refresh Preview' to generate one."
+        "No preview available for this page yet. Click 'Refresh Preview' to generate one."
       );
       // Force hide the loading spinner
       setImageLoaded(true);
@@ -314,7 +350,13 @@ export default function HeatmapViewer() {
     if (heatmapInstance && imageLoaded && screenshotImgRef.current) {
       debouncedRenderHeatmap();
     }
-  }, [heatmapInstance, imageLoaded, debouncedRenderHeatmap]); // Removed selectedDevice
+  }, [
+    heatmapInstance,
+    imageLoaded,
+    debouncedRenderHeatmap,
+    pagePath,
+    selectedDevice,
+  ]);
 
   // --- Handle image load event ---
   const handleImageLoad = () => {
@@ -792,7 +834,7 @@ export default function HeatmapViewer() {
                   heatmapInstance?.setData({ min: 0, max: 1, data: [] });
                   // Show user-friendly message for 404 (no screenshot yet)
                   setError(
-                    "No screenshot available for this page yet. Click 'Capture Live Preview' to generate one."
+                    "No preview available for this page yet. Click 'Capture Live Preview' to generate one."
                   );
                 }}
                 style={{
@@ -823,10 +865,10 @@ export default function HeatmapViewer() {
                     />
                   </svg>
                   <p className="text-gray-500 font-medium text-lg">
-                    No screenshot available
+                    No preview available
                   </p>
                   <p className="text-gray-400 text-sm">
-                    Click &quot;Refresh Screenshot&quot; to capture your page
+                    Click &quot;Refresh Preview&quot; to capture your page
                   </p>
                 </div>
               </div>

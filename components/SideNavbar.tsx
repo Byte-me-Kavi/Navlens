@@ -13,7 +13,6 @@ import {
   ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import { createBrowserClient } from "@supabase/ssr";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useNavigation } from "@/context/NavigationContext";
 
@@ -52,11 +51,9 @@ interface SideNavbarProps {
 
 export default function SideNavbar({ onClose }: SideNavbarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { navigateTo } = useNavigation();
+  const { navigateTo, isNavigating } = useNavigation();
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -99,7 +96,6 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
 
   const handleLogout = async () => {
     try {
-      setIsLoggingOut(true);
       const { error } = await supabase.auth.signOut();
 
       if (error) {
@@ -109,14 +105,9 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
 
       sessionStorage.clear();
       localStorage.clear();
-      router.push("/login");
-
-      setTimeout(() => {
-        router.refresh();
-      }, 500);
+      navigateTo("/");
     } catch (error) {
       console.error("Logout failed:", error);
-      setIsLoggingOut(false);
     }
   };
 
@@ -216,12 +207,12 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         </div>
         <button
           onClick={handleLogout}
-          disabled={isLoggingOut}
+          disabled={isNavigating}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
         >
           <ArrowRightOnRectangleIcon className="w-5 h-5" />
           <span className="font-medium">
-            {isLoggingOut ? "Logging out..." : "Logout"}
+            {isNavigating ? "Logging out..." : "Logout"}
           </span>
         </button>
       </div>

@@ -3,7 +3,7 @@
 import SideNavbar from "@/components/SideNavbar";
 import Header from "@/components/Header";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { Toast } from "@/components/Toast";
 import { createBrowserClient } from "@supabase/ssr";
@@ -17,15 +17,28 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const hasInitialized = useRef(false);
   const { isNavigating } = useNavigation();
 
-  useEffect(() => {
-    // Show success toast when cookies are set by proxy after OAuth
-    const showLoginToast = () => {
-      // Check localStorage to prevent showing toast more than once per session
-      const toastShown = localStorage.getItem("navlens_welcome_toast_shown");
-      if (toastShown) return;
+  // Use a ref to track if we've processed the login toast in this mount instance
+  const processedLoginToast = useRef(false);
 
+  useEffect(() => {
+    // Prevent running this logic multiple times if component re-renders
+    if (processedLoginToast.current) return;
+
+    // Only proceed if not loading (Toaster must be mounted)
+    if (isLoading) return;
+
+    // Mark that we've processed the login toast
+    processedLoginToast.current = true;
+
+    const showLoginToast = () => {
+      // Check session storage - this persists across page reloads in the same tab
+      const hasShownToast = sessionStorage.getItem("navlens_toast_shown");
+      if (hasShownToast) return;
+
+      // Parse cookies
       const cookies = document.cookie.split("; ").reduce((acc, cookie) => {
         const [key, ...valueParts] = cookie.split("=");
         const value = valueParts.join("=");
@@ -39,15 +52,23 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       const email = cookies["x-user-email"];
 
       if (isLoginSuccess && email) {
-        // Mark that we've shown the toast
-        localStorage.setItem("navlens_welcome_toast_shown", "true");
+        // Mark in session storage that we showed the toast
+        sessionStorage.setItem("navlens_toast_shown", "true");
 
-        // Show toast
-        toast.success(`Welcome back! Logged in as ${email}`, {
-          duration: 5000,
+        // Dismiss any existing toasts to ensure a clean slate
+        toast.dismiss();
+
+        // Show success toast
+        const toastId = toast.success(`Welcome back! Logged in as ${email}`, {
+          duration: 0, // Disable auto-dismiss, we'll handle it manually
         });
 
-        // Clear success cookies IMMEDIATELY after showing toast
+        // Manually dismiss the toast after duration to ensure it disappears
+        setTimeout(() => {
+          toast.dismiss(toastId);
+        }, 2000);
+
+        // Clear cookies
         document.cookie =
           "x-login-success=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         document.cookie =
@@ -55,48 +76,36 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Only check on component mount, not on every render
     showLoginToast();
 
-    // Also listen for auth state changes from Supabase (ONLY for actual sign-in events)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      // Only show toast on initial sign-in, not on every state change
-      if (event === "SIGNED_IN" && session?.user) {
-        // Check if we already showed this session's welcome toast
-        const toastShown = localStorage.getItem("navlens_welcome_toast_shown");
-        if (!toastShown) {
-          localStorage.setItem("navlens_welcome_toast_shown", "true");
-          toast.success(`Welcome back! Logged in as ${session.user.email}`, {
-            duration: 5000,
-          });
-        }
-      }
+    } = supabase.auth.onAuthStateChange(() => {
+      // Don't show toast here - middleware already shows it via cookies
+      // This listener is just for detecting auth changes
     });
 
     return () => subscription?.unsubscribe();
-  }, [supabase.auth]); // Include supabase.auth in dependencies
+  }, [isLoading, supabase.auth]); // Added isLoading to dependencies
 
-  // Hide loading spinner after dashboard has initialized
+  // ... rest of your useEffect for loading state ...
   useEffect(() => {
-    // Check if this is an OAuth redirect (has code/state params)
+    // Skip if already initialized
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    // Determine correct loading state based on URL
     const urlParams = new URLSearchParams(window.location.search);
     const isOAuthRedirect = urlParams.has("code") || urlParams.has("state");
     const isDashboardPath = window.location.pathname.startsWith("/dashboard");
 
-    // Skip loading timeout if already on dashboard path (not an OAuth redirect)
-    if (isDashboardPath && !isOAuthRedirect) {
-      setIsLoading(false);
-      return;
-    }
+    // Always use a timer to defer setState call
+    const delay =
+      isDashboardPath && !isOAuthRedirect ? 0 : isOAuthRedirect ? 2000 : 800;
 
-    const timer = setTimeout(
-      () => {
-        setIsLoading(false);
-      },
-      isOAuthRedirect ? 2000 : 800
-    ); // Longer delay for OAuth to ensure everything loads smoothly
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, delay);
 
     return () => clearTimeout(timer);
   }, []);
@@ -112,7 +121,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <Toast>
       <div className="flex h-screen bg-gray-50">
-        {/* Desktop Sidebar - Hidden on mobile */}
+        {/* Desktop Sidebar */}
         <div className="hidden md:block">
           <SideNavbar />
         </div>
