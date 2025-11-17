@@ -83,20 +83,27 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     // Check if this is an OAuth redirect (has code/state params)
     const urlParams = new URLSearchParams(window.location.search);
     const isOAuthRedirect = urlParams.has("code") || urlParams.has("state");
+    const isDashboardPath = window.location.pathname.startsWith("/dashboard");
+
+    // Skip loading timeout if already on dashboard path (not an OAuth redirect)
+    if (isDashboardPath && !isOAuthRedirect) {
+      setIsLoading(false);
+      return;
+    }
 
     const timer = setTimeout(
       () => {
         setIsLoading(false);
       },
-      isOAuthRedirect ? 1500 : 500
-    ); // Longer delay for OAuth to ensure everything loads
+      isOAuthRedirect ? 2000 : 800
+    ); // Longer delay for OAuth to ensure everything loads smoothly
 
     return () => clearTimeout(timer);
   }, []);
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-50">
+      <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-50 transition-opacity duration-500 ease-out">
         <LoadingSpinner message="Loading dashboard..." />
       </div>
     );
