@@ -2,7 +2,7 @@
   "functions": {
     "app/api/generate-screenshot/route.ts": {
       "maxDuration": 60,
-      "runtime": "@vercel/node"
+      "runtime": "nodejs18.x"
     }
   },
   "regions": ["bom1"],
