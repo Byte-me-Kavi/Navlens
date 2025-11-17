@@ -1,88 +1,131 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { createClient as createClickHouseClient } from '@clickhouse/client';
-import { NextResponse } from 'next/server';
+import { createClient } from '@clickhouse/client';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 
 // --- Type Definitions ---
 interface ClickData {
   total_clicks: number;
 }
 
-// --- Environment Setup ---
+// --- ClickHouse Client Setup ---
+const host = process.env.CLICKHOUSE_HOST || 'localhost';
+const isLocal = host.includes('localhost');
+const protocol = isLocal ? 'http' : 'https';
+const port = isLocal ? 8123 : 8443;
 
-// Lazy initialize Supabase admin client (for Site Count and Heatmap Count)
-let supabaseAdmin: ReturnType<typeof createSupabaseClient> | null = null;
-function getSupabaseAdminClient() {
-    if (!supabaseAdmin) {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (!supabaseUrl || !key) {
-            throw new Error('Missing Supabase environment variables');
-        }
-        supabaseAdmin = createSupabaseClient(supabaseUrl, key);
-    }
-    return supabaseAdmin;
-}
-
-// Initialize ClickHouse client (for Total Clicks)
-const clickHouseClient = createClickHouseClient({
-    host: process.env.CLICKHOUSE_HOST,
-    username: process.env.CLICKHOUSE_USER,
-    password: process.env.CLICKHOUSE_PASSWORD,
-    database: process.env.CLICKHOUSE_DATABASE,
+const clickHouseClient = createClient({
+  // Construct the full URL with protocol and port
+  url: `${protocol}://${host}:${port}`,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+  // The 'secure' property is removed; 'https' in the URL handles it.
 });
 
-export async function GET() {
-    try {
-        const supabase = getSupabaseAdminClient();
-        
-        // --- 1. Get Total Sites (from Supabase/PostgreSQL) ---
-        // Note: Using `count()` requires RLS to be configured for the admin role, 
-        // or we use the service role key which bypasses RLS for this aggregated count.
-        const { count: totalSites, error: siteError } = await supabase
-            .from('sites')
-            .select('*', { count: 'exact', head: true });
-        
-        if (siteError) {
-            console.error('Supabase Site Count Error:', siteError);
-            throw new Error('Failed to fetch site count.');
-        }
+export async function GET(req: NextRequest) {
+  try {
+    // 1. Await cookies (Required for Next.js 15+)
+    const cookieStore = await cookies();
 
-        // --- 2. Get Total Clicks (from ClickHouse) ---
-        const totalClicksQuery = `SELECT count() AS total_clicks FROM events WHERE event_type = 'click'`;
-        
-        const clickResult = await clickHouseClient.query({ query: totalClicksQuery, format: 'JSON' });
-        const clickData = await clickResult.json();
-        const totalClicks = (clickData.data[0] as ClickData)?.total_clicks || 0;
+    // 2. Initialize Supabase Client
+    // We use createServerClient to properly read the user's session from cookies
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            // Optional: This is a GET route (read-only), so we don't strictly need to set cookies,
+            // but this handles session refreshing if Supabase attempts it.
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch {
+              // Ignore errors in Server Components/GET routes
+            }
+          },
+        },
+      }
+    );
 
+    // 3. Authenticate User
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-        // --- 3. Get Total Heatmaps Generated (from Supabase Storage) ---
-        // This counts the number of files in the "screenshots" bucket
-        const { data: fileList, error: storageError } = await supabase.storage
-            .from('screenshots')
-            .list('', { limit: 10000 }); // List up to 10k files
-
-        if (storageError) {
-            console.error('Supabase Storage Error:', storageError);
-            throw new Error('Failed to fetch screenshot count.');
-        }
-        
-        const totalHeatmaps = fileList.length;
-
-
-        // --- 4. Return Aggregated Stats ---
-        return NextResponse.json({
-            totalSites: totalSites || 0,
-            totalClicks: totalClicks,
-            totalHeatmaps: totalHeatmaps,
-            activeSessions: 'N/A' // Requires more complex real-time aggregation which we skip for MVP
-        }, { status: 200 });
-
-    } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Dashboard Stats Error:', errorMessage);
-        return NextResponse.json(
-            { message: 'Failed to retrieve dashboard stats.', error: errorMessage },
-            { status: 500 }
-        );
+    if (authError || !user) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
+
+    // 4. Get Sites Owned by User
+    // We fetch ONLY the site IDs this user owns to filter the data securely
+    const { data: userSites, error: siteError } = await supabase
+      .from('sites')
+      .select('id')
+      .eq('user_id', user.id);
+
+    if (siteError) throw new Error(siteError.message);
+
+    // Handle case where user has no sites yet
+    if (!userSites || userSites.length === 0) {
+      return NextResponse.json({
+        totalSites: 0,
+        totalClicks: 0,
+        totalHeatmaps: 0,
+        activeSessions: 0
+      }, { status: 200 });
+    }
+
+    const siteIds = userSites.map(s => s.id);
+    const totalSites = siteIds.length;
+
+    // 5. Get Total Clicks from ClickHouse (Filtered by Site IDs)
+    const totalClicksQuery = `
+      SELECT count() AS total_clicks 
+      FROM events 
+      WHERE event_type = 'click' 
+      AND site_id IN ({siteIds:Array(String)})
+    `;
+
+    const clickResult = await clickHouseClient.query({ 
+      query: totalClicksQuery, 
+      query_params: { siteIds: siteIds },
+      format: 'JSON' 
+    });
+    
+    const clickData = await clickResult.json() as { data: ClickData[] };
+    const totalClicks = clickData.data[0]?.total_clicks || 0;
+
+    // 6. Get Total Heatmaps from Storage (Filtered by Site IDs)
+    // We list the root of the bucket. 
+    // Note: This assumes your folders are named after site_ids.
+    const { data: fileList, error: storageError } = await supabase.storage
+      .from('screenshots')
+      .list();
+
+    let totalHeatmaps = 0;
+    if (!storageError && fileList) {
+      // Count only folders that match our user's site IDs
+      totalHeatmaps = fileList.filter(file => siteIds.includes(file.name)).length;
+    }
+
+    // 7. Return Data
+    return NextResponse.json({
+      totalSites,
+      totalClicks,
+      totalHeatmaps,
+      activeSessions: 0 // Placeholder
+    }, { status: 200 });
+
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Dashboard Stats Error:', errorMessage);
+    return NextResponse.json(
+      { message: 'Failed to retrieve dashboard stats.', error: errorMessage },
+      { status: 500 }
+    );
+  }
 }

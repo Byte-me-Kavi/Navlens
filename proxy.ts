@@ -83,10 +83,9 @@ export default async function middleware(request: NextRequest) {
         return redirectResponse;
     }
 
-    // If not logged in and accessing home page, redirect to login
+    // Allow unauthenticated users to access home page (landing page)
     if (pathname === '/' && !session) {
-        const redirectUrl = new URL('/login', request.url);
-        return NextResponse.redirect(redirectUrl);
+        return response;
     }
 
     return response;

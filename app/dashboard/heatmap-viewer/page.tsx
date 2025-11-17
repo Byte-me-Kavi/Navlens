@@ -358,7 +358,7 @@ export default function HeatmapViewer() {
       {/* Error state when no siteId is provided */}
       {siteIdError ? (
         <main className="container mx-auto max-w-2xl">
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 sm:p-12">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-2 md:p-8">
             <div className="flex flex-col items-center justify-center text-center space-y-6">
               {/* Icon */}
               <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
@@ -629,7 +629,7 @@ export default function HeatmapViewer() {
                 </label>
                 <select
                   id="pagePathSelect"
-                  className="block w-1/2 pl-4 pr-10 py-2.5 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg bg-white shadow-sm transition-all"
+                  className="block w-full md:w-1/2 pl-4 pr-10 py-2.5 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg bg-white shadow-sm transition-all"
                   value={pagePath}
                   onChange={(e) => setPagePath(e.target.value)}
                 >
