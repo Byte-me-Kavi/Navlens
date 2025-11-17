@@ -91,26 +91,34 @@ export async function POST(req: NextRequest) {
         
         if (process.env.NODE_ENV === 'production') {
             // --- PRODUCTION (Vercel) ---
+            console.log('[Smart Scraper] Production mode - Vercel deployment detected');
             process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = 'true';
 
-            const executablePath = await chromium.executablePath();
-            console.log('[Smart Scraper] Chromium executable path:', executablePath);
-
-            // Launch the compressed Chromium with optimized serverless args
-            console.log('[Smart Scraper] Launching browser with chromium.args...');
             try {
+              const executablePath = await chromium.executablePath();
+              console.log('[Smart Scraper] Chromium path:', executablePath);
+
+              // Use chromium with all optimizations for Vercel
               browser = await puppeteer.launch({
-                args: chromium.args,
+                args: [
+                  ...chromium.args,
+                  '--no-sandbox',
+                  '--disable-setuid-sandbox',
+                  '--disable-dev-shm-usage',
+                  '--disable-gpu',
+                  '--disable-software-rasterizer',
+                  '--disable-accelerated-2d-canvas',
+                ],
                 defaultViewport: device,
                 executablePath: executablePath,
                 headless: true,
-                dumpio: true,
               });
-              console.log('[Smart Scraper] Chromium launched successfully');
-            } catch (launchError) {
-              console.error('[Smart Scraper] Failed to launch Chromium:', launchError);
-              console.log('[Smart Scraper] Chromium args:', chromium.args.slice(0, 10), '...');
-              throw launchError;
+              console.log('[Smart Scraper] Successfully launched Chromium on Vercel');
+            } catch (error) {
+              console.error('[Smart Scraper] Error launching Chromium:', error);
+              // Log more details for debugging
+              console.log('[Smart Scraper] Chromium args length:', chromium.args.length);
+              throw new Error(`Failed to launch Chromium: ${error instanceof Error ? error.message : String(error)}`);
             }
         } else {
             // --- LOCAL DEVELOPMENT (Windows/Mac) ---

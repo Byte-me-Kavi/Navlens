@@ -9,11 +9,9 @@
     }
   },
   "functions": {
-    "app/api/**/*.ts": {
-      "maxDuration": 30
-    },
     "app/api/generate-screenshot/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "memory": 3008
     }
   }
 }
