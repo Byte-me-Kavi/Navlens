@@ -91,14 +91,20 @@ export async function POST(req: NextRequest) {
         
         if (process.env.NODE_ENV === 'production') {
             // --- PRODUCTION (Vercel) ---
-            // Launch the compressed Chromium with proper serverless configuration
+            // Set environment variables for better Chromium compatibility
+            process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = 'true';
+            process.env.PUPPETEER_EXECUTABLE_PATH = await chromium.executablePath();
+
+            // Launch the compressed Chromium with enhanced serverless configuration
+            console.log('[Smart Scraper] Launching browser with chromium.args...');
             browser = await puppeteer.launch({
                 args: chromium.args,
                 defaultViewport: device,
                 executablePath: await chromium.executablePath(),
-                headless: true,
+                headless: 'shell',
                 ignoreHTTPSErrors: true,
             });
+            console.log('[Smart Scraper] Chromium launched successfully');
         } else {
             // --- LOCAL DEVELOPMENT (Windows/Mac) ---
             browser = await puppeteer.launch({

@@ -1,0 +1,17 @@
+{
+  "functions": {
+    "app/api/generate-screenshot/route.ts": {
+      "maxDuration": 60,
+      "runtime": "@vercel/node"
+    }
+  },
+  "regions": ["bom1"],
+  "env": {
+    "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true"
+  },
+  "build": {
+    "env": {
+      "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true"
+    }
+  }
+}
