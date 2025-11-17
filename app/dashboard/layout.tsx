@@ -7,8 +7,8 @@ import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { Toast } from "@/components/Toast";
 import { createBrowserClient } from "@supabase/ssr";
-import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
 import { SiteProvider } from "@/app/context/SiteContext";
+import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const supabase = createBrowserClient(
@@ -21,8 +21,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // Use a ref to track if we've processed the login toast in this mount instance
   const processedLoginToast = useRef(false);
 
-  // Calculate initial loading state synchronously
+  // Calculate initial loading state synchronously - only on client side
   const getInitialLoadingState = () => {
+    // Check if we're on the client side
+    if (typeof window === "undefined") {
+      return true; // Default to loading on server
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const isOAuthRedirect = urlParams.has("code") || urlParams.has("state");
     const isDashboardPath = window.location.pathname.startsWith("/dashboard");
@@ -107,6 +112,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // If already not loading (dashboard paths), nothing to do
     if (!isLoading) return;
+
+    // Only run on client side
+    if (typeof window === "undefined") return;
 
     // Determine correct loading state based on URL
     const urlParams = new URLSearchParams(window.location.search);
