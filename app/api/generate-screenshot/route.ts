@@ -90,20 +90,22 @@ export async function POST(req: NextRequest) {
         let browser;
         
         if (process.env.NODE_ENV === 'production') {
-            // Production: Use the lightweight chromium binary
+            // --- PRODUCTION (Vercel) ---
+            // Launch the compressed Chromium with proper serverless configuration
             browser = await puppeteer.launch({
                 args: chromium.args,
                 defaultViewport: device,
                 executablePath: await chromium.executablePath(),
-                headless: true, // Always headless in production
+                headless: true,
+                ignoreHTTPSErrors: true,
             });
         } else {
-            // Local Dev: Use your local Chrome installation
-            // You might need to adjust this path based on your OS (Windows/Mac)
-            // Common Windows path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+            // --- LOCAL DEVELOPMENT (Windows/Mac) ---
             browser = await puppeteer.launch({
                 args: [],
                 defaultViewport: device,
+                // Path to your LOCAL Chrome. 
+                // On Windows, double check this path. It often requires double backslashes.
                 executablePath: process.env.LOCAL_CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
                 headless: true,
             });

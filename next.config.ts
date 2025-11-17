@@ -25,6 +25,10 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  // CRITICAL: This tells Next.js to let these packages manage their own files
+  // Required for @sparticuz/chromium to work properly in Vercel serverless functions
+  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
 };
 
 export default nextConfig;
