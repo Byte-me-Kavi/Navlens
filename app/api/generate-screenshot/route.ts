@@ -44,8 +44,8 @@ import { createClient } from '@supabase/supabase-js';
                 return NextResponse.json({ error: `Site not found: ${siteId}` }, { status: 404 });
             }
 
-            const pageUrlToScreenshot = (siteData as { domain: string }).domain;
-            console.log(`Backend: Retrieved domain from database: ${pageUrlToScreenshot}`);
+            const pageUrlToScreenshot = (siteData as { domain: string }).domain + (pagePath === '/' ? '' : pagePath);
+            console.log(`Backend: Constructed full URL: ${pageUrlToScreenshot} (domain: ${(siteData as { domain: string }).domain}, pagePath: ${pagePath})`);
 
             // Validate that pageUrlToScreenshot is a valid URL
             try {
