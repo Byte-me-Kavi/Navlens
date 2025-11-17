@@ -125,27 +125,38 @@ async function validateSiteAndApiKey(siteId: string, apiKey: string): Promise<Va
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
+        console.log('[collect] Received request body keys:', Object.keys(body));
         
-        // Extract API key from payload
+        // Extract API key from payload (should be at top level: { events: [...], api_key: "..." })
         const apiKey = body.api_key;
         if (!apiKey) {
-            console.warn('[collect] Missing api_key in request');
+            console.error('[collect] ❌ Missing api_key in request. Payload structure:', {
+                hasEvents: !!body.events,
+                hasApiKey: !!body.api_key,
+                eventType: Array.isArray(body.events) ? 'array' : typeof body.events,
+                payloadKeys: Object.keys(body),
+            });
             return NextResponse.json(
                 { message: 'Invalid request: missing api_key' },
-                { status: 400 }
+                { status: 400, headers: corsHeaders() }
             );
         }
+        
+        console.log('[collect] ✓ Found api_key in request');
         
         // Handle both batched format { events: [...] } and legacy single event format
         let eventsArray: EventData[];
         if (body.events && Array.isArray(body.events)) {
             // New batched format from tracker.js
+            console.log(`[collect] Processing batched format: ${body.events.length} events`);
             eventsArray = body.events;
         } else if (Array.isArray(body)) {
             // Array of events
+            console.log(`[collect] Processing array format: ${body.length} events`);
             eventsArray = body;
         } else {
             // Single event object (legacy format)
+            console.log('[collect] Processing single event format');
             eventsArray = [body];
         }
 

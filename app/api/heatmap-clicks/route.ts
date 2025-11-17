@@ -3,13 +3,25 @@
 import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Initialize ClickHouse client (re-use the same client instance if possible for efficiency)
-const client = createClient({
-  url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-});
+// Initialize ClickHouse client - supports both Cloud (URL) and local (host-based) setups
+const client = (() => {
+  const url = process.env.CLICKHOUSE_URL;
+  
+  if (url) {
+    // Production: Use full URL for ClickHouse Cloud (https://user:pass@host:8443/database)
+    console.log('[heatmap-clicks] Initializing ClickHouse Cloud client');
+    return createClient({ url });
+  } else {
+    // Development: Use host-based configuration for local ClickHouse
+    console.log('[heatmap-clicks] Initializing local ClickHouse client');
+    return createClient({
+      url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
+      username: process.env.CLICKHOUSE_USER,
+      password: process.env.CLICKHOUSE_PASSWORD,
+      database: process.env.CLICKHOUSE_DATABASE,
+    });
+  }
+})();
 
 export async function GET(req: NextRequest) {
   try {
