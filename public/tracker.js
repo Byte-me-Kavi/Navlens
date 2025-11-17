@@ -15,12 +15,16 @@
 
   if (!SITE_ID || !API_KEY || !API_HOST) {
     console.warn(
-      "Navlens: Missing required attributes (data-site-id, data-api-key, or data-api-host). Tracking disabled."
+      "Navlens: Missing required attributes (data-site-id, data-api-key, or data-api-host). Tracking disabled.",
+      { SITE_ID: !!SITE_ID, API_KEY: !!API_KEY, API_HOST: !!API_HOST }
     );
     return;
   }
 
   const API_COLLECT_ENDPOINT = `${API_HOST}/api/collect`;
+  console.log(
+    `[Navlens] Initialized with site_id: ${SITE_ID}, api_host: ${API_HOST}, endpoint: ${API_COLLECT_ENDPOINT}`
+  );
   const THROTTLE_SCROLL_MS = 100; // How often to send scroll events (ms)
   const THROTTLE_RESIZE_MS = 300; // How often to send resize events (ms)
   const CLICK_THROTTLE_MS = 50; // Ignore successive clicks faster than 50ms (prevents rage-click spam)
@@ -50,6 +54,15 @@
 
     const payload = JSON.stringify({ events: eventsToSend, api_key: API_KEY });
 
+    console.log(
+      `[Navlens] Flushing ${eventsToSend.length} events to ${API_COLLECT_ENDPOINT}`
+    );
+    console.log(
+      `[Navlens] Payload structure: { events: [${
+        eventsToSend.length
+      } items], api_key: '${API_KEY.substring(0, 10)}...' }`
+    );
+
     // Try using fetch with keepalive for best reliability
     fetch(API_COLLECT_ENDPOINT, {
       method: "POST",
@@ -59,11 +72,21 @@
       body: payload,
       keepalive: true, // Ensures request completes even if page unloads
     })
-      .then(() => {
-        console.log(`✓ Sent ${eventsToSend.length} events to Navlens`);
+      .then((response) => {
+        console.log(
+          `[Navlens] ✓ Sent ${eventsToSend.length} events. Response status: ${response.status}`
+        );
+        if (!response.ok) {
+          console.error(
+            `[Navlens] ⚠️ Server returned status ${response.status}`
+          );
+          return response
+            .json()
+            .then((data) => console.error("[Navlens] Error response:", data));
+        }
       })
       .catch((error) => {
-        console.error("Failed to send batched events:", error);
+        console.error("[Navlens] ❌ Failed to send batched events:", error);
         // Re-add events on failure if queue isn't too large
         if (eventQueue.length < BATCH_SIZE * 2) {
           eventQueue.unshift(...eventsToSend);

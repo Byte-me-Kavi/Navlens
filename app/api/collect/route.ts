@@ -124,25 +124,39 @@ async function validateSiteAndApiKey(siteId: string, apiKey: string): Promise<Va
 
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
-        console.log('[collect] Received request body keys:', Object.keys(body));
-        
-        // Extract API key from payload (should be at top level: { events: [...], api_key: "..." })
-        const apiKey = body.api_key;
-        if (!apiKey) {
-            console.error('[collect] ❌ Missing api_key in request. Payload structure:', {
-                hasEvents: !!body.events,
-                hasApiKey: !!body.api_key,
-                eventType: Array.isArray(body.events) ? 'array' : typeof body.events,
-                payloadKeys: Object.keys(body),
-            });
+        let body;
+        try {
+            body = await req.json();
+        } catch (parseError) {
+            console.error('[collect] ❌ Failed to parse JSON:', parseError);
             return NextResponse.json(
-                { message: 'Invalid request: missing api_key' },
+                { message: 'Invalid JSON in request body', error: parseError instanceof Error ? parseError.message : 'Parse error' },
                 { status: 400, headers: corsHeaders() }
             );
         }
         
-        console.log('[collect] ✓ Found api_key in request');
+        console.log('[collect] Received request body keys:', Object.keys(body));
+        console.log('[collect] Full body:', JSON.stringify(body).substring(0, 500));
+        
+        // Extract API key from payload (should be at top level: { events: [...], api_key: "..." })
+        const apiKey = body.api_key || body.api_key?.trim();
+        if (!apiKey || apiKey.length === 0) {
+            console.error('[collect] ❌ Missing or empty api_key in request. Payload structure:', {
+                hasEvents: !!body.events,
+                hasApiKey: !!body.api_key,
+                apiKeyLength: body.api_key?.length || 0,
+                apiKeyValue: body.api_key ? '***' : 'null',
+                eventType: Array.isArray(body.events) ? 'array' : typeof body.events,
+                eventsLength: Array.isArray(body.events) ? body.events.length : 'N/A',
+                payloadKeys: Object.keys(body),
+            });
+            return NextResponse.json(
+                { message: 'Invalid request: missing or empty api_key', debug: { hasApiKey: !!body.api_key, payloadKeys: Object.keys(body) } },
+                { status: 400, headers: corsHeaders() }
+            );
+        }
+        
+        console.log('[collect] ✓ Found api_key in request (length:', apiKey.length + ')');
         
         // Handle both batched format { events: [...] } and legacy single event format
         let eventsArray: EventData[];
@@ -160,22 +174,27 @@ export async function POST(req: NextRequest) {
             eventsArray = [body];
         }
 
-        if (eventsArray.length === 0) {
+        if (!eventsArray || eventsArray.length === 0) {
+            console.error('[collect] ❌ No events in array. Events:', eventsArray);
             return NextResponse.json(
-                { message: 'No events provided' },
+                { message: 'No events provided', debug: { eventsLength: eventsArray?.length || 0 } },
                 { status: 400, headers: corsHeaders() }
             );
         }
 
+        console.log(`[collect] ✓ Events array has ${eventsArray.length} item(s)`);
+
         // Extract site_id from the first event (all events should have the same site_id)
         const siteId = eventsArray[0]?.site_id;
-        if (!siteId) {
-            console.warn('[collect] Missing site_id in event data');
+        if (!siteId || siteId.length === 0) {
+            console.error('[collect] ❌ Missing or empty site_id in event data. First event keys:', Object.keys(eventsArray[0] || {}));
             return NextResponse.json(
-                { message: 'Invalid event data: missing site_id' },
+                { message: 'Invalid event data: missing site_id', debug: { firstEventKeys: Object.keys(eventsArray[0] || {}) } },
                 { status: 400, headers: corsHeaders() }
             );
         }
+
+        console.log(`[collect] ✓ Found site_id: ${siteId}`);
 
         // SECURITY: Validate that the site_id exists and API key matches
         const { valid: isValidSiteAndKey, error } = await validateSiteAndApiKey(siteId, apiKey);
