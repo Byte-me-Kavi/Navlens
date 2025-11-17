@@ -12,7 +12,7 @@
     "app/api/generate-screenshot/route.ts": {
       "maxDuration": 60,
       "memory": 3008,
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x"
     }
   }
 }
