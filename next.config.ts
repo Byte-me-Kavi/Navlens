@@ -6,8 +6,8 @@ const nextConfig: NextConfig = {
     return [
       {
         // We want to apply these headers to our API route
-        // This will match /api/collect
-        source: "/api/collect",
+        // This will match /api/analytics/collect
+        source: "/api/analytics/collect",
         headers: [
           {
             key: "Access-Control-Allow-Origin",

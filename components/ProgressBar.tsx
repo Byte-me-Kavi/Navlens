@@ -9,7 +9,7 @@ interface ProgressBarProps {
 
 export default function ProgressBar({
   isVisible,
-  message = "Capturing your live preview...this may take a while",
+  message = "Capturing live preview...this may take a while",
 }: ProgressBarProps) {
   const [progress, setProgress] = useState(0);
 

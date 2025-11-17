@@ -63,7 +63,9 @@ export default async function middleware(request: NextRequest) {
     }
 
     // If logged in and accessing home page, redirect to dashboard with success toast
-    if (pathname === '/' && session) {
+    // Triggered when user clicks sign in button or comes from login flow
+    const signInClicked = searchParams.get('signin') === 'true' || request.cookies.get('x-signin-clicked')?.value === 'true';
+    if (pathname === '/' && session && signInClicked) {
         const redirectUrl = new URL('/dashboard', request.url);
         const redirectResponse = NextResponse.redirect(redirectUrl);
         // Only set toast cookies on actual redirect, not on every access

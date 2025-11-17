@@ -1,5 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { validators } from '@/lib/validation';
+import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 
 // --- Type Definitions ---
 interface ExcludedPathRow {
@@ -28,14 +30,35 @@ function getSupabaseAdminClient() {
 // GET: Check if a path is excluded/deleted for a site
 export async function GET(req: NextRequest) {
     try {
+        // Authenticate user and get their authorized sites
+        const authResult = await authenticateAndAuthorize(req);
+
+        if (!authResult.isAuthorized) {
+            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
         const { searchParams } = new URL(req.url);
         const siteId = searchParams.get('siteId');
 
-        if (!siteId) {
+        // Validate siteId parameter
+        if (!siteId || typeof siteId !== 'string') {
             return NextResponse.json(
-                { message: 'Missing required parameter: siteId' },
+                { message: 'Missing or invalid siteId parameter' },
                 { status: 400 }
             );
+        }
+
+        // Validate siteId format (UUID)
+        if (!validators.isValidUUID(siteId)) {
+            return NextResponse.json(
+                { message: 'Invalid siteId format' },
+                { status: 400 }
+            );
+        }
+
+        // Check if user is authorized for this site
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
         }
 
         const supabase = getSupabaseAdminClient();
@@ -70,18 +93,56 @@ export async function GET(req: NextRequest) {
 // POST: Add a path to the exclusion list
 export async function POST(req: NextRequest) {
     try {
+        // Authenticate user and get their authorized sites
+        const authResult = await authenticateAndAuthorize(req);
+
+        if (!authResult.isAuthorized) {
+            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
         const body: ExcludedPathRequest = await req.json();
         const { siteId, pagePath } = body;
 
         console.log(`[excluded-paths] POST: Adding path "${pagePath}" for site "${siteId}"`);
 
-        if (!siteId || !pagePath) {
-            console.error('[excluded-paths] POST: Missing parameters', { siteId, pagePath });
+        // Validate required parameters
+        if (!siteId || typeof siteId !== 'string') {
             return NextResponse.json(
-                { message: 'Missing required parameters: siteId, pagePath' },
+                { message: 'Missing or invalid siteId parameter' },
                 { status: 400 }
             );
         }
+
+        if (!pagePath || typeof pagePath !== 'string') {
+            return NextResponse.json(
+                { message: 'Missing or invalid pagePath parameter' },
+                { status: 400 }
+            );
+        }
+
+        // Validate siteId format (UUID)
+        if (!validators.isValidUUID(siteId)) {
+            return NextResponse.json(
+                { message: 'Invalid siteId format' },
+                { status: 400 }
+            );
+        }
+
+        // Check if user is authorized for this site
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
+        }
+
+        // Validate pagePath format
+        if (!validators.isValidPagePath(pagePath)) {
+            return NextResponse.json(
+                { message: 'Invalid pagePath format' },
+                { status: 400 }
+            );
+        }
+
+        // Sanitize pagePath
+        const sanitizedPagePath = validators.sanitizeString(pagePath, 1000);
 
         const supabase = getSupabaseAdminClient();
 
@@ -91,7 +152,7 @@ export async function POST(req: NextRequest) {
             .insert([
                 {
                     site_id: siteId,
-                    page_path: pagePath,
+                    page_path: sanitizedPagePath,
                 } as never
             ])
             .select();
@@ -135,6 +196,13 @@ export async function POST(req: NextRequest) {
 // DELETE: Remove a path from the exclusion list
 export async function DELETE(req: NextRequest) {
     try {
+        // Authenticate user and get their authorized sites
+        const authResult = await authenticateAndAuthorize(req);
+
+        if (!authResult.isAuthorized) {
+            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
         const body = await req.json();
         const { siteId, pagePath } = body;
 
@@ -143,6 +211,19 @@ export async function DELETE(req: NextRequest) {
                 { message: 'Missing required parameters: siteId, pagePath' },
                 { status: 400 }
             );
+        }
+
+        // Validate siteId format (UUID)
+        if (!validators.isValidUUID(siteId)) {
+            return NextResponse.json(
+                { message: 'Invalid siteId format' },
+                { status: 400 }
+            );
+        }
+
+        // Check if user is authorized for this site
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
         }
 
         const supabase = getSupabaseAdminClient();

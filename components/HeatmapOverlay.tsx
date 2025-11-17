@@ -4,6 +4,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import h337 from "heatmap.js"; // Import heatmap.js
 
+interface HeatmapRenderer {
+  setDimensions: (width: number, height: number) => void;
+}
+
+interface HeatmapInstance extends h337.Heatmap<"value", "x", "y"> {
+  _renderer?: HeatmapRenderer;
+}
+
 interface HeatmapPoint {
   x_bin: number;
   y_bin: number;
@@ -24,11 +32,8 @@ const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({
   imageHeight,
 }) => {
   const heatmapRef = useRef<HTMLDivElement>(null);
-  const [heatmapInstance, setHeatmapInstance] = useState<h337.Heatmap<
-    "value",
-    "x",
-    "y"
-  > | null>(null);
+  const [heatmapInstance, setHeatmapInstance] =
+    useState<HeatmapInstance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,10 +120,14 @@ const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({
 
   // --- 4. Resize the heatmap canvas to match image dimensions ---
   useEffect(() => {
-    if (heatmapInstance && imageWidth && imageHeight) {
+    if (
+      heatmapInstance &&
+      imageWidth &&
+      imageHeight &&
+      heatmapInstance._renderer
+    ) {
       // Resize the heatmap canvas to match image dimensions
-      // Cast to any to access internal _renderer property
-      (heatmapInstance as any)._renderer.setDimensions(imageWidth, imageHeight);
+      heatmapInstance._renderer.setDimensions(imageWidth, imageHeight);
 
       // Also resize and position the canvas element itself
       const canvas = heatmapRef.current?.querySelector("canvas");

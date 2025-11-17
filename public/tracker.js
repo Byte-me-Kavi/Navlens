@@ -10,17 +10,39 @@
 
   // Read parameters from the script tag attributes
   const SITE_ID = SCRIPT_TAG.getAttribute("data-site-id");
-  const API_KEY = SCRIPT_TAG.getAttribute("data-api-key");
-  const API_HOST = SCRIPT_TAG.getAttribute("data-api-host");
+  const API_HOST =
+    SCRIPT_TAG.getAttribute("data-api-host") || window.location.origin;
 
-  if (!SITE_ID || !API_KEY || !API_HOST) {
+  if (!SITE_ID) {
     console.warn(
-      "Navlens: Missing required attributes (data-site-id, data-api-key, or data-api-host). Tracking disabled."
+      "Navlens: Missing required attribute (data-site-id). Tracking disabled."
     );
     return;
   }
 
-  const API_COLLECT_ENDPOINT = `${API_HOST}/api/collect`;
+  // Generate a unique session ID for this user session
+  const SESSION_ID = generateSessionId();
+
+  // --- Utility Functions ---
+  function generateSessionId() {
+    return (
+      "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9)
+    );
+  }
+
+  function generateUserId() {
+    // Check if user ID exists in localStorage, if not create one
+    let userId = localStorage.getItem("navlens_user_id");
+    if (!userId) {
+      userId =
+        "user_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem("navlens_user_id", userId);
+    }
+    return userId;
+  }
+
+  // Secure API endpoint (no sensitive data exposed)
+  const API_COLLECT_ENDPOINT = `${API_HOST}/api/analytics/collect`;
   const THROTTLE_SCROLL_MS = 100; // How often to send scroll events (ms)
   const THROTTLE_RESIZE_MS = 300; // How often to send resize events (ms)
   const CLICK_THROTTLE_MS = 50; // Ignore successive clicks faster than 50ms (prevents rage-click spam)
@@ -48,7 +70,18 @@
     const eventsToSend = [...eventQueue];
     eventQueue = [];
 
-    const payload = JSON.stringify({ events: eventsToSend, api_key: API_KEY });
+    const payload = JSON.stringify({
+      events: eventsToSend.map((event) => ({
+        ...event,
+        session_id: SESSION_ID,
+        user_id: generateUserId(),
+        page_url: window.location.href,
+        page_path: window.location.pathname,
+        user_agent: navigator.userAgent,
+        timestamp: Date.now(),
+      })),
+      siteId: SITE_ID,
+    });
 
     // Try using fetch with keepalive for best reliability
     fetch(API_COLLECT_ENDPOINT, {

@@ -1,5 +1,7 @@
 import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { validators } from '@/lib/validation';
+import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 
 // --- Type Definitions ---
 interface CountResult {
@@ -27,14 +29,35 @@ const clickhouseClient = (() => {
 // GET: Fetch all unique page paths for a site
 export async function GET(req: NextRequest) {
     try {
+        // Authenticate user and get their authorized sites
+        const authResult = await authenticateAndAuthorize(req);
+
+        if (!authResult.isAuthorized) {
+            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
         const { searchParams } = new URL(req.url);
         const siteId = searchParams.get('siteId');
 
-        if (!siteId) {
+        // Validate siteId parameter
+        if (!siteId || typeof siteId !== 'string') {
             return NextResponse.json(
-                { message: 'Missing required parameter: siteId' },
+                { message: 'Missing or invalid siteId parameter' },
                 { status: 400 }
             );
+        }
+
+        // Validate siteId format (UUID)
+        if (!validators.isValidUUID(siteId)) {
+            return NextResponse.json(
+                { message: 'Invalid siteId format' },
+                { status: 400 }
+            );
+        }
+
+        // Check if user is authorized for this site
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
         }
 
         // Get all unique page paths from events
@@ -74,6 +97,13 @@ export async function GET(req: NextRequest) {
 // POST: Add a new page path (creates an event marker in ClickHouse)
 export async function POST(req: NextRequest) {
     try {
+        // Authenticate user and get their authorized sites
+        const authResult = await authenticateAndAuthorize(req);
+
+        if (!authResult.isAuthorized) {
+            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
         const body = await req.json();
         const { siteId, pagePath } = body;
 
@@ -82,6 +112,19 @@ export async function POST(req: NextRequest) {
                 { message: 'Missing required parameters: siteId, pagePath' },
                 { status: 400 }
             );
+        }
+
+        // Validate siteId format (UUID)
+        if (!validators.isValidUUID(siteId)) {
+            return NextResponse.json(
+                { message: 'Invalid siteId format' },
+                { status: 400 }
+            );
+        }
+
+        // Check if user is authorized for this site
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
         }
 
         // Validate path format
@@ -159,6 +202,13 @@ export async function POST(req: NextRequest) {
 // DELETE: Remove a page path by deleting all events for that path
 export async function DELETE(req: NextRequest) {
     try {
+        // Authenticate user and get their authorized sites
+        const authResult = await authenticateAndAuthorize(req);
+
+        if (!authResult.isAuthorized) {
+            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
         const body = await req.json();
         const { siteId, pagePath } = body;
 
@@ -167,6 +217,19 @@ export async function DELETE(req: NextRequest) {
                 { message: 'Missing required parameters: siteId, pagePath' },
                 { status: 400 }
             );
+        }
+
+        // Validate siteId format (UUID)
+        if (!validators.isValidUUID(siteId)) {
+            return NextResponse.json(
+                { message: 'Invalid siteId format' },
+                { status: 400 }
+            );
+        }
+
+        // Check if user is authorized for this site
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
         }
 
         // Delete all events for this specific page path

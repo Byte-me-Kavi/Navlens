@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { validators } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
@@ -24,9 +25,18 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const siteId = searchParams.get("siteId");
 
-  if (!siteId) {
+  // Validate siteId parameter
+  if (!siteId || typeof siteId !== 'string') {
     return NextResponse.json(
-      { error: "siteId is required" },
+      { error: "siteId is required and must be a string" },
+      { status: 400 }
+    );
+  }
+
+  // Validate siteId format (UUID)
+  if (!validators.isValidUUID(siteId)) {
+    return NextResponse.json(
+      { error: "Invalid siteId format" },
       { status: 400 }
     );
   }

@@ -250,7 +250,7 @@ const DashboardClient: React.FC<{ initialStats: DashboardStats }> = ({
                 Start tracking user behavior in minutes
               </p>
               <Link
-                href="/dashboard/sites"
+                href="/dashboard/my-sites"
                 className="bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors inline-block"
               >
                 Get Started

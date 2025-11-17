@@ -10,10 +10,11 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
-    { label: "Features", href: "#features" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "Docs", href: "#docs" },
-    { label: "About", href: "#about" },
+    { label: "Home", href: "/" },
+    { label: "Features", href: "/features" },
+    { label: "Pricing", href: "/pricing" },
+    { label: "Docs", href: "/docs" },
+    { label: "About", href: "/about" },
   ];
 
   return (

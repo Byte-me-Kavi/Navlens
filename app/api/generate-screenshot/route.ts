@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
+import { validators } from '@/lib/validation';
 
 // Increase timeout for this route because launching a browser takes time
 export const maxDuration = 60; 
@@ -48,12 +49,41 @@ export async function POST(req: NextRequest) {
     try {
         const { pageUrlToScreenshot, siteId, pagePath, deviceType } = await req.json();
 
-        if (!pageUrlToScreenshot || !siteId) {
-            return NextResponse.json({ error: 'Missing params' }, { status: 400 });
+        // Comprehensive input validation
+        if (!pageUrlToScreenshot || typeof pageUrlToScreenshot !== 'string') {
+            return NextResponse.json({ error: 'Missing or invalid pageUrlToScreenshot' }, { status: 400 });
         }
 
-        const device = DEVICE_PROFILES[deviceType as keyof typeof DEVICE_PROFILES] || DEVICE_PROFILES.desktop;
-        console.log(`[Smart Scraper] Starting for ${pageUrlToScreenshot} on ${deviceType}`);
+        if (!siteId || typeof siteId !== 'string') {
+            return NextResponse.json({ error: 'Missing or invalid siteId' }, { status: 400 });
+        }
+
+        // Validate URL format
+        if (!validators.isValidURL(pageUrlToScreenshot)) {
+            return NextResponse.json({ error: 'Invalid URL format for pageUrlToScreenshot' }, { status: 400 });
+        }
+
+        // Validate siteId format (UUID)
+        if (!validators.isValidUUID(siteId)) {
+            return NextResponse.json({ error: 'Invalid siteId format' }, { status: 400 });
+        }
+
+        // Validate and sanitize pagePath if provided
+        if (pagePath) {
+            if (typeof pagePath !== 'string') {
+                return NextResponse.json({ error: 'Invalid pagePath format' }, { status: 400 });
+            }
+            if (!validators.isValidPagePath(pagePath)) {
+                return NextResponse.json({ error: 'Invalid pagePath format' }, { status: 400 });
+            }
+        }
+
+        // Validate deviceType
+        const validDeviceTypes = ['desktop', 'tablet', 'mobile'];
+        const finalDeviceType = validDeviceTypes.includes(deviceType) ? deviceType : 'desktop';
+
+        const device = DEVICE_PROFILES[finalDeviceType as keyof typeof DEVICE_PROFILES] || DEVICE_PROFILES.desktop;
+        console.log(`[Smart Scraper] Starting for ${pageUrlToScreenshot} on ${finalDeviceType}`);
 
         // 1. Launch Browser (The "Pro" Move)
         // We use sparticuz/chromium for production (Vercel) and local chrome for dev
@@ -98,6 +128,25 @@ export async function POST(req: NextRequest) {
         if (deviceType === 'mobile') {
             await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second additional wait for mobile-specific content
         }
+
+        // Ensure page is scrolled to top before taking screenshot
+        await page.evaluate(() => {
+            window.scrollTo(0, 0);
+        });
+
+        // Wait a bit for any scroll-triggered content to load
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Log page dimensions for debugging
+        const pageDimensions = await page.evaluate(() => ({
+            scrollHeight: document.documentElement.scrollHeight,
+            clientHeight: document.documentElement.clientHeight,
+            scrollWidth: document.documentElement.scrollWidth,
+            clientWidth: document.documentElement.clientWidth,
+            viewportHeight: window.innerHeight,
+            viewportWidth: window.innerWidth
+        }));
+        console.log(`[Smart Scraper] Page dimensions:`, pageDimensions);
 
         // 3. Inject Logic: Extract the "Smart Map" (DOM Elements)
         // This runs INSIDE the browser page
@@ -149,8 +198,8 @@ export async function POST(req: NextRequest) {
         const screenshotOptions = {
             type: 'png' as const,
             fullPage: true, // Always capture full page for complete mobile experience
-            // For mobile devices, we want crisp quality due to deviceScaleFactor
-            ...(deviceType === 'mobile' && { quality: 100 })
+            // Note: PNG format doesn't support quality parameter (always lossless)
+            // Quality parameter is only for JPEG format
         };
         
         const screenshotBuffer = await page.screenshot(screenshotOptions);

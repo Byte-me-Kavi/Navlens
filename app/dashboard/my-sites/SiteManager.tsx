@@ -18,7 +18,7 @@ import { useSite } from "@/app/context/SiteContext";
 import PagePathManager from "./PagePathManager";
 
 // Your deployed Vercel URL is the API host
-const NAVLENS_API_HOST = "https://navlens-rho.vercel.app";
+const NAVLENS_API_HOST = process.env.NEXT_PUBLIC_NAVLENS_API_HOST;
 
 export type Site = {
   id: string;
@@ -58,17 +58,35 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 sm:p-6">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 sm:p-8">
-        <h2 className="text-xl sm:text-2xl font-bold text-blue-900 mb-4 sm:mb-6">
-          Add New Site
-        </h2>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 sm:p-8 border border-gray-100">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Add New Site</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label
               htmlFor="site_name"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-semibold text-gray-700 mb-2"
             >
               Site Name
             </label>
@@ -78,7 +96,7 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
               name="site_name"
               required
               disabled={loading}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white"
               placeholder="My Awesome Website"
             />
           </div>
@@ -86,7 +104,7 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
           <div>
             <label
               htmlFor="domain"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-semibold text-gray-700 mb-2"
             >
               Domain URL
             </label>
@@ -96,18 +114,22 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
               name="domain"
               required
               disabled={loading}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white"
               placeholder="https://example.com"
             />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-2">
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 bg-blue-700 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
             >
               {loading ? "Adding..." : "Add Site"}
             </button>
@@ -115,7 +137,7 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -134,7 +156,6 @@ function SnippetCode({ site }: { site: Site }) {
   async 
   src="${NAVLENS_API_HOST}/tracker.js" 
   data-site-id="${site.id}"
-  data-api-key="${site.api_key}"
   data-api-host="${NAVLENS_API_HOST}"
 ></script>`;
 
@@ -144,24 +165,29 @@ function SnippetCode({ site }: { site: Site }) {
   };
 
   return (
-    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold text-gray-900">
-          Installation Code
-        </h4>
+    <div className="mt-6 p-5 bg-slate-50 rounded-xl border border-slate-200">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <CodeBracketIcon className="w-5 h-5 text-blue-600" />
+          <h4 className="text-base font-semibold text-gray-900">
+            Installation Code
+          </h4>
+        </div>
         <CopyToClipboard text={snippet} onCopy={handleCopy}>
-          <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
             <DocumentDuplicateIcon className="w-4 h-4" />
             {copied ? "Copied!" : "Copy"}
           </button>
         </CopyToClipboard>
       </div>
-      <p className="text-xs text-gray-600 mb-3">
+      <p className="text-sm text-gray-600 mb-4">
         Copy and paste this code into the &lt;head&gt; tag of your website.
       </p>
-      <pre className="text-xs text-gray-800 bg-white p-3 rounded border border-gray-200 overflow-x-auto">
-        <code>{snippet}</code>
-      </pre>
+      <div className="bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto">
+        <pre className="text-sm text-gray-800">
+          <code>{snippet}</code>
+        </pre>
+      </div>
     </div>
   );
 }
@@ -201,153 +227,162 @@ export default function SiteManager({ sites }: SiteManagerProps) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-blue-900">
-            My Sites
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">
-            Manage and monitor your tracked websites
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md w-full sm:w-auto"
-        >
-          <PlusIcon className="w-5 h-5" />
-          <span className="font-semibold">Add New Site</span>
-        </button>
-      </div>
-
-      {/* Add Site Modal */}
-      {showAddForm && <AddSiteForm onClose={() => setShowAddForm(false)} />}
-
-      {/* Empty State or Sites List */}
-      {sites.length === 0 ? (
-        <div className="bg-white rounded-xl border-2 border-dashed border-blue-300 p-6 sm:p-12 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 sm:p-4 bg-blue-100 rounded-full">
-              <GlobeAltIcon className="w-12 h-12 sm:w-16 sm:h-16 text-blue-600" />
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-8">
+          {/* Page Header */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">My Sites</h1>
+                <p className="text-gray-600 mt-2 text-lg">
+                  Manage and monitor your tracked websites
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="flex items-center justify-center gap-3 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-lg font-semibold w-full sm:w-auto"
+              >
+                <PlusIcon className="w-5 h-5" />
+                <span>Add New Site</span>
+              </button>
             </div>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-blue-900 mb-2">
-            No Sites Yet
-          </h3>
-          <p className="text-sm sm:text-base text-gray-600 mb-6 max-w-md mx-auto px-4">
-            Add your first website to start collecting heatmap data and
-            analyzing user behavior.
-          </p>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md w-full sm:w-auto"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span className="font-semibold">Add Your First Site</span>
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Sites Grid */}
-          {sites.map((site) => (
-            <div
-              key={site.id}
-              className="bg-white rounded-xl border-2 border-blue-200 p-4 sm:p-6 shadow-md hover:shadow-lg transition-shadow"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 gap-3">
-                <div className="flex-1">
-                  <h3 className="text-lg sm:text-xl font-bold text-blue-900">
-                    {site.site_name}
-                  </h3>
-                  <a
-                    href={site.domain}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm sm:text-base text-blue-600 hover:underline mt-1 inline-block break-all"
-                  >
-                    {site.domain}
-                  </a>
-                  <p className="text-xs sm:text-sm text-gray-500 mt-2">
-                    Added {new Date(site.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <button
-                    onClick={() => handleViewHeatmap(site.id)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
-                  >
-                    View Heatmap
-                  </button>
-                  <button
-                    onClick={() =>
-                      setShowPathManagerId(
-                        showPathManagerId === site.id ? null : site.id
-                      )
-                    }
-                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors w-full sm:w-auto"
-                  >
-                    <ChevronDownIcon
-                      className={`w-4 h-4 transition-transform ${
-                        showPathManagerId === site.id ? "rotate-180" : ""
-                      }`}
-                    />
-                    Manage Paths
-                  </button>
-                  <button
-                    onClick={() =>
-                      setShowSnippetId(
-                        showSnippetId === site.id ? null : site.id
-                      )
-                    }
-                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors w-full sm:w-auto"
-                  >
-                    <CodeBracketIcon className="w-4 h-4" />
-                    {showSnippetId === site.id ? "Hide" : "Show"} Code
-                  </button>
-                  <button
-                    onClick={() => handleDelete(site.id, site.site_name)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors w-full sm:w-auto"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                    Delete
-                  </button>
+
+          {/* Add Site Modal */}
+          {showAddForm && <AddSiteForm onClose={() => setShowAddForm(false)} />}
+
+          {/* Empty State or Sites List */}
+          {sites.length === 0 ? (
+            <div className="bg-white rounded-2xl border-2 border-dashed border-blue-200 p-8 sm:p-12 text-center shadow-sm">
+              <div className="flex justify-center mb-6">
+                <div className="p-4 bg-blue-50 rounded-full">
+                  <GlobeAltIcon className="w-16 h-16 text-blue-600" />
                 </div>
               </div>
-
-              {/* Snippet Code Block */}
-              {showSnippetId === site.id && <SnippetCode site={site} />}
-
-              {/* Page Path Manager */}
-              {showPathManagerId === site.id && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <PagePathManager siteId={site.id} siteName={site.site_name} />
-                </div>
-              )}
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                No Sites Yet
+              </h3>
+              <p className="text-gray-600 mb-8 max-w-md mx-auto text-lg leading-relaxed">
+                Add your first website to start collecting heatmap data and
+                analyzing user behavior.
+              </p>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="inline-flex items-center justify-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-lg font-semibold"
+              >
+                <PlusIcon className="w-5 h-5" />
+                <span>Add Your First Site</span>
+              </button>
             </div>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="space-y-6">
+              {/* Sites Grid */}
+              {sites.map((site) => (
+                <div
+                  key={site.id}
+                  className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm hover:shadow-lg transition-all duration-200"
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-6 gap-4">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                        {site.site_name}
+                      </h3>
+                      <a
+                        href={site.domain}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 transition-colors text-lg font-medium inline-block break-all"
+                      >
+                        {site.domain}
+                      </a>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Added {new Date(site.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={() => handleViewHeatmap(site.id)}
+                        className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                      >
+                        View Heatmap
+                      </button>
+                      <button
+                        onClick={() =>
+                          setShowPathManagerId(
+                            showPathManagerId === site.id ? null : site.id
+                          )
+                        }
+                        className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-all duration-200"
+                      >
+                        <ChevronDownIcon
+                          className={`w-4 h-4 transition-transform ${
+                            showPathManagerId === site.id ? "rotate-180" : ""
+                          }`}
+                        />
+                        Manage Paths
+                      </button>
+                      <button
+                        onClick={() =>
+                          setShowSnippetId(
+                            showSnippetId === site.id ? null : site.id
+                          )
+                        }
+                        className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200"
+                      >
+                        <CodeBracketIcon className="w-4 h-4" />
+                        {showSnippetId === site.id ? "Hide" : "Show"} Code
+                      </button>
+                      <button
+                        onClick={() => handleDelete(site.id, site.site_name)}
+                        className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all duration-200"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
 
-      {/* Info Card */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-6 shadow-sm">
-        <div className="flex items-start gap-3 sm:gap-4">
-          <CodeBracketIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 shrink-0 mt-1" />
-          <div>
-            <h4 className="text-sm sm:text-base font-bold text-gray-900 mb-2">
-              How to Add a Site
-            </h4>
-            <ol className="text-xs sm:text-sm text-gray-700 space-y-2">
-              <li>
-                1. Click &ldquo;Add New Site&rdquo; and enter your website URL
-              </li>
-              <li>2. Copy the generated tracking script</li>
-              <li>
-                3. Paste it into your website&rsquo;s HTML, just before the
-                closing &lt;/body&gt; tag
-              </li>
-              <li>4. Start collecting data and viewing heatmaps!</li>
-            </ol>
+                  {/* Snippet Code Block */}
+                  {showSnippetId === site.id && <SnippetCode site={site} />}
+
+                  {/* Page Path Manager */}
+                  {showPathManagerId === site.id && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <PagePathManager
+                        siteId={site.id}
+                        siteName={site.site_name}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Info Card */}
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <CodeBracketIcon className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-gray-900 mb-3">
+                  How to Add a Site
+                </h4>
+                <ol className="text-gray-700 space-y-2 text-base">
+                  <li>
+                    1. Click &quot;Add New Site&quot; and enter your website URL
+                  </li>
+                  <li>2. Copy the generated tracking script</li>
+                  <li>
+                    3. Paste it into your website&apos;s HTML, just before the
+                    closing &lt;/body&gt; tag
+                  </li>
+                  <li>4. Start collecting data and viewing heatmaps!</li>
+                </ol>
+              </div>
+            </div>
           </div>
         </div>
       </div>

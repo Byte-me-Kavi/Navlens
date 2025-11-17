@@ -17,13 +17,10 @@ interface SmartElement {
   height: number;
 }
 
-const CLIENT_DOMAIN = "https://navlens-rho.vercel.app";
-
-// DEFINITIVE SCREENSHOT PROFILES (Keep these)
 const DEVICE_PROFILES = {
   desktop: { width: 1465, height: 1060, name: "Desktop", userAgent: "..." },
-  tablet: { width: 768, height: 1024, name: "Tablet", userAgent: "..." },
-  mobile: { width: 375, height: 667, name: "Mobile", userAgent: "..." },
+  tablet: { width: 786, height: 1024, name: "Tablet", userAgent: "..." },
+  mobile: { width: 395, height: 667, name: "Mobile", userAgent: "..." },
 };
 
 type DeviceType = keyof typeof DEVICE_PROFILES;
@@ -67,6 +64,8 @@ export default function HeatmapViewer() {
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [siteDomain, setSiteDomain] = useState<string>("");
+  const [siteName, setSiteName] = useState<string>("");
   const [siteIdError, setSiteIdError] = useState<string | null>(null);
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -101,6 +100,32 @@ export default function HeatmapViewer() {
     } else {
       setSiteIdError(null);
     }
+  }, [siteId]);
+
+  // Fetch site details (domain and name)
+  useEffect(() => {
+    if (!siteId) return;
+
+    const fetchSiteDetails = async () => {
+      try {
+        const { data: siteData, error } = await supabase
+          .from("sites")
+          .select("domain, site_name")
+          .eq("id", siteId)
+          .single();
+
+        if (error) throw error;
+
+        setSiteDomain(siteData.domain);
+        setSiteName(siteData.site_name);
+        console.log("[heatmap-viewer] Fetched site details:", siteData);
+      } catch (error) {
+        console.error("[heatmap-viewer] Failed to fetch site details:", error);
+        setSiteIdError("Failed to load site details. Please try again.");
+      }
+    };
+
+    fetchSiteDetails();
   }, [siteId]);
 
   // Fetch page paths dynamically
@@ -334,7 +359,13 @@ export default function HeatmapViewer() {
     setError(null);
     setImageLoaded(false);
 
-    const pageUrlToScreenshot = CLIENT_DOMAIN + pagePath;
+    if (!siteDomain) {
+      setError("Site domain not loaded. Please try again.");
+      setLoadingScreenshot(false);
+      return;
+    }
+
+    const pageUrlToScreenshot = siteDomain + pagePath;
 
     try {
       const response = await fetch("/api/generate-screenshot", {
@@ -594,7 +625,10 @@ export default function HeatmapViewer() {
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 via-blue-50/30 to-slate-50 p-3 sm:p-6">
       <Head>
-        <title>Heatmap Viewer - NavLens Analytics</title>
+        <title>
+          {siteName ? `${siteName} - Heatmap Viewer` : "Heatmap Viewer"} -
+          NavLens Analytics
+        </title>
       </Head>
 
       {/* Error state when no siteId is provided */}
@@ -670,11 +704,24 @@ export default function HeatmapViewer() {
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
-                  Smart Heatmap Viewer (v2.0)
+                  {siteName || "Smart Heatmap Viewer"}
                 </h1>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  Visualize user interactions and detect interactive elements on
-                  your website
+                  {siteDomain ? (
+                    <>
+                      Visualizing user interactions on{" "}
+                      <a
+                        href={siteDomain}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 underline"
+                      >
+                        {siteDomain}
+                      </a>
+                    </>
+                  ) : (
+                    "Visualize user interactions and detect interactive elements on your website"
+                  )}
                 </p>
               </div>
             </div>

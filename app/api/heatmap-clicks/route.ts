@@ -2,6 +2,8 @@
 
 import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { validators } from '@/lib/validation';
+import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 
 // Initialize ClickHouse client - supports both Cloud (URL) and local (host-based) setups
 const client = (() => {
@@ -25,16 +27,61 @@ const client = (() => {
 
 export async function GET(req: NextRequest) {
   try {
+    // Authenticate user and get their authorized sites
+    const authResult = await authenticateAndAuthorize(req);
+
+    if (!authResult.isAuthorized) {
+      return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+    }
+
     const { searchParams } = new URL(req.url);
 
-    // Required parameters
+    // Required parameters with validation
     const siteId = searchParams.get('siteId');
     const pagePath = searchParams.get('pagePath');
     const deviceType = searchParams.get('deviceType') || 'desktop'; // Default to desktop
 
-    if (!siteId || !pagePath) {
+    // Validate required parameters
+    if (!siteId || typeof siteId !== 'string') {
       return NextResponse.json(
-        { message: 'Missing required parameters: siteId, pagePath' },
+        { message: 'Missing or invalid siteId parameter' },
+        { status: 400 }
+      );
+    }
+
+    if (!pagePath || typeof pagePath !== 'string') {
+      return NextResponse.json(
+        { message: 'Missing or invalid pagePath parameter' },
+        { status: 400 }
+      );
+    }
+
+    // Validate siteId format (UUID)
+    if (!validators.isValidUUID(siteId)) {
+      return NextResponse.json(
+        { message: 'Invalid siteId format' },
+        { status: 400 }
+      );
+    }
+
+    // Check if user is authorized for this site
+    if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+      return createUnauthorizedResponse();
+    }
+
+    // Validate pagePath format
+    if (!validators.isValidPagePath(pagePath)) {
+      return NextResponse.json(
+        { message: 'Invalid pagePath format' },
+        { status: 400 }
+      );
+    }
+
+    // Validate deviceType
+    const validDeviceTypes = ['desktop', 'tablet', 'mobile'];
+    if (!validDeviceTypes.includes(deviceType)) {
+      return NextResponse.json(
+        { message: 'Invalid deviceType. Must be one of: desktop, tablet, mobile' },
         { status: 400 }
       );
     }

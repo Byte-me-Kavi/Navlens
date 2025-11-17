@@ -3,16 +3,31 @@
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@supabase/ssr';
+import { validators } from '@/lib/validation';
 
 // This is our main 'create site' action
 export async function createSite(formData: FormData) {
     const siteName = formData.get('site_name') as string;
     const domain = formData.get('domain') as string;
-    
-    // 1. Simple Validation
+
+    // 1. Comprehensive Input Validation
     if (!siteName || !domain) {
         return { success: false, message: 'Site name and domain are required.' };
     }
+
+    // Validate site name format
+    if (!validators.isValidSiteName(siteName)) {
+        return { success: false, message: 'Site name contains invalid characters or is too long.' };
+    }
+
+    // Validate domain format
+    if (!validators.isValidDomain(domain)) {
+        return { success: false, message: 'Please enter a valid domain URL (e.g., https://example.com).' };
+    }
+
+    // Sanitize inputs
+    const sanitizedSiteName = validators.sanitizeString(siteName, 100);
+    const sanitizedDomain = validators.sanitizeString(domain, 500);
     
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -43,8 +58,8 @@ export async function createSite(formData: FormData) {
     const { data, error } = await supabase
     .from('sites')
     .insert({
-        site_name: siteName,
-        domain: domain,
+        site_name: sanitizedSiteName,
+        domain: sanitizedDomain,
         user_id: user.id,
     })
     .select() // 'select()' returns the new row, which is useful

@@ -2,6 +2,8 @@
 
 import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { validators } from '@/lib/validation';
+import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 
 // Initialize ClickHouse client - supports both Cloud (URL) and local (host-based) setups
 const client = (() => {
@@ -25,6 +27,13 @@ const client = (() => {
 
 export async function GET(req: NextRequest) {
   try {
+    // Authenticate user and get their authorized sites
+    const authResult = await authenticateAndAuthorize(req);
+
+    if (!authResult.isAuthorized) {
+      return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+    }
+
     const { searchParams } = new URL(req.url);
 
     // Required parameters
@@ -37,6 +46,19 @@ export async function GET(req: NextRequest) {
         { message: 'Missing required parameters: siteId, pagePath' },
         { status: 400 }
       );
+    }
+
+    // Validate siteId format (UUID)
+    if (!validators.isValidUUID(siteId)) {
+      return NextResponse.json(
+        { message: 'Invalid siteId format' },
+        { status: 400 }
+      );
+    }
+
+    // Check if user is authorized for this site
+    if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+      return createUnauthorizedResponse();
     }
 
     // Optional date range parameters
