@@ -118,20 +118,26 @@ export async function GET(req: NextRequest) {
           count DESC;
     `;
 
-    // Execute the query with parameterized values
-    const resultSet = await client.query({
-      query: query,
-      query_params: {
-        siteId: siteId,
-        pagePath: pagePath,
-        deviceType: deviceType,
-        startDate: startDate.toISOString().slice(0, 19).replace('T', ' '), // Format for ClickHouse DateTime
-        endDate: endDate.toISOString().slice(0, 19).replace('T', ' '),     // Format for ClickHouse DateTime
-      },
-      format: 'JSON', // Request results in JSON format
-    });
+    // Execute the query with parameterized values and timeout
+    console.log('[heatmap-clicks] Executing query with timeout...');
+    const resultSet = await Promise.race([
+      client.query({
+        query: query,
+        query_params: {
+          siteId: siteId,
+          pagePath: pagePath,
+          deviceType: deviceType,
+          startDate: startDate.toISOString().slice(0, 19).replace('T', ' '), // Format for ClickHouse DateTime
+          endDate: endDate.toISOString().slice(0, 19).replace('T', ' '),     // Format for ClickHouse DateTime
+        },
+        format: 'JSON', // Request results in JSON format
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('ClickHouse query timeout after 25 seconds')), 25000)
+      ),
+    ]);
 
-    const heatmapData = await resultSet.json(); // Get the JSON response
+    const heatmapData = await (resultSet as unknown as { json: () => Promise<unknown> }).json(); // Get the JSON response
 
     console.log(`[heatmap-clicks] Query result for siteId=${siteId}, pagePath=${pagePath}, deviceType=${deviceType}:`, JSON.stringify(heatmapData));
 
