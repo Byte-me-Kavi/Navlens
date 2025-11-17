@@ -1,4 +1,4 @@
-    import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
     import { NextRequest, NextResponse } from 'next/server';
 
     // Lazy initialize Supabase admin client to avoid errors at build time
@@ -18,20 +18,34 @@
 
     export async function POST(req: NextRequest) {
         try {
-            const { pageUrlToScreenshot, siteId, pagePath, deviceType } = await req.json();
+            const { siteId, pagePath, deviceType } = await req.json();
 
-            console.log(`Backend: Parsed pageUrlToScreenshot: ${pageUrlToScreenshot}`);
             console.log(`Backend: Parsed siteId: ${siteId}`);
             console.log(`Backend: Parsed pagePath: ${pagePath}`);
             console.log(`Backend: Parsed deviceType: ${deviceType}`);
 
-            if (!pageUrlToScreenshot || !siteId || !pagePath) {
+            if (!siteId || !pagePath) {
                 const missingParams = [];
-                if (!pageUrlToScreenshot) missingParams.push('pageUrlToScreenshot');
                 if (!siteId) missingParams.push('siteId');
                 if (!pagePath) missingParams.push('pagePath');
                 return NextResponse.json({ error: `Missing required parameters: ${missingParams.join(', ')}` }, { status: 400 });
             }
+
+            // Fetch the site domain from database using siteId
+            const supabase = getSupabaseAdminClient();
+            const { data: siteData, error: siteError } = await supabase
+                .from('sites')
+                .select('domain')
+                .eq('id', siteId)
+                .single();
+
+            if (siteError || !siteData) {
+                console.error('Error fetching site domain:', siteError);
+                return NextResponse.json({ error: `Site not found: ${siteId}` }, { status: 404 });
+            }
+
+            const pageUrlToScreenshot = (siteData as { domain: string }).domain;
+            console.log(`Backend: Retrieved domain from database: ${pageUrlToScreenshot}`);
 
             // Validate that pageUrlToScreenshot is a valid URL
             try {
@@ -115,7 +129,6 @@
             const filePath = `${siteId}/${pagePath === '/' ? 'homepage' : pagePath.replace(/^\//, '')}${deviceSuffix}.png`;
             console.log(`Uploading screenshot to Supabase at: ${filePath}`);
 
-            const supabase = getSupabaseAdminClient();
             const { error: uploadError } = await supabase.storage
                 .from('screenshots')
                 .upload(filePath, screenshotBuffer, {
