@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Access-Control-Allow-Headers",
-            value: "Content-Type", // Allow the 'application/json' header
+            value: "Content-Type", // Allow the 'application/json' headers
           },
         ],
       },
