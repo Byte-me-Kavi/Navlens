@@ -87,7 +87,16 @@ import { createClient } from '@supabase/supabase-js';
             // --- API Flash endpoint with viewport dimensions and user agent ---
             const encodedUrl = encodeURIComponent(pageUrlToScreenshot);
             const encodedUserAgent = encodeURIComponent(device.userAgent);
-            const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${API_FLASH_KEY}&url=${encodedUrl}&format=png&width=${device.width}&height=${device.height}&full_page=true&fresh=true&response_type=json&user_agent=${encodedUserAgent}`;
+            const antiAnimationCSS = `
+            * { 
+                opacity: 1 !important; 
+                visibility: visible !important; 
+                transform: none !important; 
+                transition: none !important; 
+                animation: none !important; 
+            }
+        `;
+            const apiFlashUrl = `https://api.apiflash.com/v1/urltoimage?access_key=${API_FLASH_KEY}&url=${encodedUrl}&format=png&width=${device.width}&height=${device.height}&full_page=true&fresh=true&response_type=json&scroll=true&css=${encodeURIComponent(antiAnimationCSS)}&user_agent=${encodedUserAgent}`;
             
             console.log("API Flash URL being called:", apiFlashUrl.replace(API_FLASH_KEY, '***'));
             console.log(`Using device profile: ${deviceType || 'desktop'} (${device.width}x${device.height})`);
