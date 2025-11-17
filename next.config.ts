@@ -2,19 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  experimental: {
-    serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
-  },
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      config.externals = config.externals || [];
-      config.externals.push({
-        'puppeteer-core': 'puppeteer-core',
-        '@sparticuz/chromium': '@sparticuz/chromium',
-      });
-    }
-    return config;
-  },
+  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
+  turbopack: {},
   async headers() {
     return [
       {
