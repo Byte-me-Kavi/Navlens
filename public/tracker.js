@@ -189,7 +189,7 @@
       element_text: target.textContent
         ? target.textContent.trim().substring(0, 255)
         : "",
-      smart_selector: getSmartSelector(target), // NEW: Smart selector that matches Puppeteer scraper
+      element_selector: getSmartSelector(target), // Smart selector that matches Puppeteer scraper
     });
     addEventToQueue(clickEvent);
   }

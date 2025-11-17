@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
     const endDate = rawEndDate ? new Date(rawEndDate) : new Date();
     const startDate = rawStartDate ? new Date(rawStartDate) : new Date(endDate.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
 
-    // ClickHouse query for aggregated click data by smart_selector
+    // ClickHouse query for aggregated click data by element_selector
     const query = `
       SELECT
-          smart_selector,
+          element_selector,
           COUNT() AS click_count
       FROM
           events
@@ -61,10 +61,10 @@ export async function GET(req: NextRequest) {
           AND device_type = {deviceType:String}
           AND timestamp >= {startDate:DateTime}
           AND timestamp <= {endDate:DateTime}
-          AND smart_selector IS NOT NULL
-          AND smart_selector != ''
+          AND element_selector IS NOT NULL
+          AND element_selector != ''
       GROUP BY
-          smart_selector
+          element_selector
       HAVING
           click_count > 0
       ORDER BY

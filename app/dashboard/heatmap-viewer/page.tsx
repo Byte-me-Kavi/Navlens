@@ -21,7 +21,7 @@ const CLIENT_DOMAIN = "https://navlens-rho.vercel.app";
 
 // DEFINITIVE SCREENSHOT PROFILES (Keep these)
 const DEVICE_PROFILES = {
-  desktop: { width: 1440, height: 1080, name: "Desktop", userAgent: "..." },
+  desktop: { width: 1465, height: 1060, name: "Desktop", userAgent: "..." },
   tablet: { width: 768, height: 1024, name: "Tablet", userAgent: "..." },
   mobile: { width: 375, height: 667, name: "Mobile", userAgent: "..." },
 };
@@ -267,8 +267,8 @@ export default function HeatmapViewer() {
         // Convert array to object keyed by selector
         const clicksBySelector: { [selector: string]: number } = {};
         (data.data || []).forEach(
-          (item: { smart_selector: string; click_count: number }) => {
-            clicksBySelector[item.smart_selector] = item.click_count;
+          (item: { element_selector: string; click_count: number }) => {
+            clicksBySelector[item.element_selector] = item.click_count;
           }
         );
         setElementClicks(clicksBySelector);
