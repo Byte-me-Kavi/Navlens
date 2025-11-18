@@ -95,28 +95,17 @@ export async function POST(req: NextRequest) {
         if (process.env.NODE_ENV === 'production') {
             // --- PRODUCTION (Vercel) ---
             console.log('[Smart Scraper] Production mode - Vercel deployment detected');
-            process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = 'true';
-            // Required polyfill for @sparticuz/chromium in Vercel serverless
-            process.env.AWS_LAMBDA_FUNCTION_VERSION = '1';
 
-            try {
-              const executablePath = await chromium.executablePath();
-              console.log('[Smart Scraper] Chromium path:', executablePath);
+            const executablePath = await chromium.executablePath();
 
-              // Use chromium with all optimizations for Vercel
-              browser = await puppeteer.launch({
-                executablePath,
-                args: chromium.args,
-                defaultViewport: device,
-                headless: true,
-              });
-              console.log('[Smart Scraper] Successfully launched Chromium on Vercel');
-            } catch (error) {
-              console.error('[Smart Scraper] Error launching Chromium:', error);
-              // Log more details for debugging
-              console.log('[Smart Scraper] Chromium args length:', chromium.args.length);
-              throw new Error(`Failed to launch Chromium: ${error instanceof Error ? error.message : String(error)}`);
-            }
+            browser = await puppeteer.launch({
+              executablePath,
+              args: chromium.args,
+              defaultViewport: device,
+              headless: true,
+            });
+
+            console.log('[Smart Scraper] Successfully launched Chromium on Vercel');
         } else {
             // --- LOCAL DEVELOPMENT (Windows/Mac) ---
             browser = await puppeteer.launch({
