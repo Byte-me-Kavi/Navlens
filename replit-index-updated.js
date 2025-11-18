@@ -382,7 +382,7 @@ app.post("/api/generate-screenshot", async (req, res) => {
     // 5. WAIT FOR NETWORK IDLE (Ensure images triggered by scroll are done)
     try {
       await page.waitForNetworkIdle({ idleTime: 500, timeout: 5000 });
-    } catch (e) {
+    } catch {
       console.log("[Smart Scraper] Network wait timeout (proceeding).");
     }
 

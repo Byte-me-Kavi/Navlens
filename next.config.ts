@@ -3,7 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   turbopack: {},
-  serverExternalPackages: ["puppeteer-core"],
   experimental: {
   },
   async headers() {

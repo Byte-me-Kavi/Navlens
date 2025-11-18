@@ -428,29 +428,6 @@ export default function HeatmapViewer() {
     setElementInsights(null);
   };
 
-  // Test if Replit server is responding
-  const testReplitConnection = async () => {
-    try {
-      console.log("[Health Check] Testing Replit connection...");
-      const response = await fetch(
-        "https://4186d157-4183-4c8f-b915-72f12242f634-00-3k6seu7re5d65.pike.replit.dev/api/generate-screenshot",
-        {
-          method: "OPTIONS",
-          mode: "cors",
-          headers: {
-            "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "content-type",
-          },
-        }
-      );
-      console.log("[Health Check] Response status:", response.status);
-      return response.ok;
-    } catch (error) {
-      console.error("[Health Check] Failed:", error);
-      return false;
-    }
-  };
-
   const handleRefreshScreenshot = async () => {
     setLoadingScreenshot(true);
     setError(null);
