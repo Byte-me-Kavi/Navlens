@@ -7,11 +7,5 @@
     "env": {
       "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true"
     }
-  },
-  "functions": {
-    "app/api/generate-screenshot/route.ts": {
-      "maxDuration": 25,
-      "memory": 1024
-    }
   }
 }

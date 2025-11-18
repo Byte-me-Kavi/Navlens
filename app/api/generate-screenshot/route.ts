@@ -4,8 +4,11 @@ import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import { validators } from '@/lib/validation';
 
+export const runtime = "nodejs";
+export const preferredRegion = "iad1";
+
 // Increase timeout for this route because launching a browser takes time
-export const maxDuration = 60; 
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 const supabaseAdmin = createClient(
@@ -97,41 +100,15 @@ export async function POST(req: NextRequest) {
             process.env.AWS_LAMBDA_FUNCTION_VERSION = '1';
 
             try {
-              const executablePath = await chromium.executablePath();
+              const executablePath = await chromium.executablePath;
               console.log('[Smart Scraper] Chromium path:', executablePath);
 
               // Use chromium with all optimizations for Vercel
               browser = await puppeteer.launch({
-                args: [
-                  ...chromium.args,
-                  '--no-sandbox',
-                  '--disable-setuid-sandbox',
-                  '--disable-dev-shm-usage',
-                  '--disable-gpu',
-                  '--disable-software-rasterizer',
-                  '--disable-accelerated-2d-canvas',
-                  '--disable-background-timer-throttling',
-                  '--disable-backgrounding-occluded-windows',
-                  '--disable-renderer-backgrounding',
-                  '--disable-features=TranslateUI',
-                  '--disable-ipc-flooding-protection',
-                  '--disable-extensions',
-                  '--disable-plugins',
-                  '--disable-default-apps',
-                  '--disable-sync',
-                  '--disable-translate',
-                  '--hide-scrollbars',
-                  '--metrics-recording-only',
-                  '--mute-audio',
-                  '--no-first-run',
-                  '--safebrowsing-disable-auto-update',
-                  '--single-process',
-                  '--disable-web-security',
-                  '--disable-features=VizDisplayCompositor',
-                ],
+                executablePath,
+                args: chromium.args,
                 defaultViewport: device,
-                executablePath: executablePath,
-                headless: true,
+                headless: chromium.headless,
               });
               console.log('[Smart Scraper] Successfully launched Chromium on Vercel');
             } catch (error) {
