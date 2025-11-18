@@ -1,7 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
 import { validators } from '@/lib/validation';
 
 export const runtime = "nodejs";
@@ -16,36 +14,24 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Browserless configuration
+const BROWSERLESS_ENDPOINT = "https://production-sfo.browserless.io/chromium/bql";
+const BROWSERLESS_TOKEN = process.env.BROWSERLESS_TOKEN;
+
 // Device viewports with proper mobile emulation (matching your frontend profiles)
 const DEVICE_PROFILES = {
     desktop: { 
         width: 1440, 
         height: 1080,
-        isMobile: false,
-        hasTouch: false,
-        deviceScaleFactor: 1
     },
     tablet: { 
         width: 768, 
         height: 1024,
-        isMobile: false,
-        hasTouch: true,
-        deviceScaleFactor: 1
     },
     mobile: { 
         width: 375, 
         height: 812, // iPhone X dimensions for better mobile experience
-        isMobile: true,
-        hasTouch: true,
-        deviceScaleFactor: 3 // Retina display quality
     },
-};
-
-// Mobile user agents for proper emulation
-const MOBILE_USER_AGENTS = {
-    mobile: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-    tablet: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-    desktop: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 };
 
 export async function POST(req: NextRequest) {
@@ -88,132 +74,74 @@ export async function POST(req: NextRequest) {
         const device = DEVICE_PROFILES[finalDeviceType as keyof typeof DEVICE_PROFILES] || DEVICE_PROFILES.desktop;
         console.log(`[Smart Scraper] Starting for ${pageUrlToScreenshot} on ${finalDeviceType}`);
 
-        // 1. Launch Browser (The "Pro" Move)
-        // We use sparticuz/chromium for production (Vercel) and local chrome for dev
-        let browser;
-        
-        if (process.env.NODE_ENV === 'production') {
-            // --- PRODUCTION (Vercel) ---
-            console.log('[Smart Scraper] Production mode - Vercel deployment detected');
+        // 1. Use Browserless GraphQL API
+        console.log('[Smart Scraper] Starting Browserless request for', pageUrlToScreenshot);
 
-            const executablePath = await chromium.executablePath();
-
-            browser = await puppeteer.launch({
-              executablePath : executablePath,
-              args: chromium.args,
-              defaultViewport: device,
-              headless: true,
-            });
-
-            console.log('[Smart Scraper] Successfully launched Chromium on Vercel');
-        } else {
-            // --- LOCAL DEVELOPMENT (Windows/Mac) ---
-            browser = await puppeteer.launch({
-                args: [],
-                defaultViewport: device,
-                // Path to your LOCAL Chrome. 
-                // On Windows, double check this path. It often requires double backslashes.
-                executablePath: process.env.LOCAL_CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-                headless: true,
-            });
-        }
-
-        const page = await browser.newPage();
-        
-        // Apply device-specific emulation for proper mobile behavior
-        const deviceProfile = DEVICE_PROFILES[deviceType as keyof typeof DEVICE_PROFILES] || DEVICE_PROFILES.desktop;
-        const userAgent = MOBILE_USER_AGENTS[deviceType as keyof typeof MOBILE_USER_AGENTS] || MOBILE_USER_AGENTS.desktop;
-        
-        await page.setViewport(deviceProfile);
-        await page.setUserAgent(userAgent);
-        
-        // 2. Navigate to page with proper wait conditions
-        await page.goto(pageUrlToScreenshot, { 
-            waitUntil: 'networkidle0', // Wait for network to be idle
-            timeout: 30000 // 30 second timeout
-        });
-        
-        // Additional wait for mobile devices to ensure dynamic content loads
-        if (deviceType === 'mobile') {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second additional wait for mobile-specific content
-        }
-
-        // Ensure page is scrolled to top before taking screenshot
-        await page.evaluate(() => {
-            window.scrollTo(0, 0);
-        });
-
-        // Wait a bit for any scroll-triggered content to load
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Log page dimensions for debugging
-        const pageDimensions = await page.evaluate(() => ({
-            scrollHeight: document.documentElement.scrollHeight,
-            clientHeight: document.documentElement.clientHeight,
-            scrollWidth: document.documentElement.scrollWidth,
-            clientWidth: document.documentElement.clientWidth,
-            viewportHeight: window.innerHeight,
-            viewportWidth: window.innerWidth
-        }));
-        console.log(`[Smart Scraper] Page dimensions:`, pageDimensions);
-
-        // 3. Inject Logic: Extract the "Smart Map" (DOM Elements)
-        // This runs INSIDE the browser page
-        const elementMap = await page.evaluate(() => {
-            // Helper to generate unique CSS selector
-            const getSelector = (el: Element): string => {
-                if (el.tagName === "BODY") return "BODY";
-                const parent = el.parentElement;
-                if (!parent) return el.tagName;
-                const children = Array.from(parent.children);
-                const index = children.indexOf(el) + 1;
-                return `${getSelector(parent)} > ${el.tagName}:nth-child(${index})`;
-            };
-
-            const elements = document.querySelectorAll('button, a, input, select, textarea, label, option, summary, details, img, [contenteditable], [role="button"], [role="link"], [role="tab"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="slider"], [role="textbox"], div[onclick], span[onclick], *[style*="cursor:pointer"], svg, svg *, video, audio, canvas');
-            const mapData: Array<{
-                selector: string;
-                tag: string;
-                text: string;
-                x: number;
-                y: number;
-                width: number;
-                height: number;
-                href: string | null;
-            }> = [];
-
-            elements.forEach((el) => {
+        const graphqlQuery = `
+        mutation ScrapePage($url: String!, $width: Int!, $height: Int!) {
+          goto(url: $url, waitUntil: networkidle2) {
+            status
+          }
+          setViewport(width: $width, height: $height) {
+            success
+          }
+          evaluate(expression: """
+            (() => {
+              const elements = document.querySelectorAll('button, a, input, select, textarea, label, option, summary, details, img, [contenteditable], [role="button"], [role="link"], [role="tab"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="slider"], [role="textbox"], div[onclick], span[onclick], *[style*="cursor:pointer"], svg, svg *, video, audio, canvas');
+              return elements.map(el => {
                 const rect = el.getBoundingClientRect();
-                // Only capture elements that are visible and have size
                 if (rect.width > 0 && rect.height > 0) {
-                    mapData.push({
-                        selector: getSelector(el),
-                        tag: el.tagName,
-                        text: ((el as HTMLElement).innerText || "").substring(0, 50), // Capture text for context
-                        x: Math.round(rect.x + window.scrollX), // Absolute X
-                        y: Math.round(rect.y + window.scrollY), // Absolute Y
-                        width: Math.round(rect.width),
-                        height: Math.round(rect.height),
-                        href: (el as HTMLAnchorElement).href || null
-                    });
+                  return {
+                    selector: el.tagName + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ').join('.') : ''),
+                    tag: el.tagName,
+                    text: el.innerText?.substring(0, 50) || '',
+                    x: Math.round(rect.x + window.scrollX),
+                    y: Math.round(rect.y + window.scrollY),
+                    width: Math.round(rect.width),
+                    height: Math.round(rect.height),
+                    href: el.href || null
+                  };
                 }
-            });
-            return mapData;
+                return null;
+              }).filter(Boolean);
+            })()
+          """) {
+            result
+          }
+          screenshot(type: png, fullPage: true) {
+            base64
+          }
+        }`;
+
+        const response = await fetch(`${BROWSERLESS_ENDPOINT}?token=${BROWSERLESS_TOKEN}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: graphqlQuery,
+            variables: {
+              url: pageUrlToScreenshot,
+              width: device.width,
+              height: device.height,
+            },
+          }),
         });
+
+        if (!response.ok) {
+          throw new Error(`Browserless API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('[Smart Scraper] Browserless response received');
+
+        const screenshotBase64 = data.data.screenshot.base64;
+        const elementMap = JSON.parse(data.data.evaluate.result);
 
         console.log(`[Smart Scraper] Found ${elementMap.length} interactive elements.`);
 
-        // 4. Take the Screenshot with device-specific options
-        const screenshotOptions = {
-            type: 'png' as const,
-            fullPage: true, // Always capture full page for complete mobile experience
-            // Note: PNG format doesn't support quality parameter (always lossless)
-            // Quality parameter is only for JPEG format
-        };
-        
-        const screenshotBuffer = await page.screenshot(screenshotOptions);
-
-        await browser.close();
+        // Convert base64 to buffer
+        const screenshotBuffer = Buffer.from(screenshotBase64, 'base64');
 
         // 5. Upload Screenshot to Supabase
         // Normalize path for filename (match frontend expectations)
