@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
             process.env.AWS_LAMBDA_FUNCTION_VERSION = '1';
 
             try {
-              const executablePath = await chromium.executablePath;
+              const executablePath = await chromium.executablePath();
               console.log('[Smart Scraper] Chromium path:', executablePath);
 
               // Use chromium with all optimizations for Vercel
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
                 executablePath,
                 args: chromium.args,
                 defaultViewport: device,
-                headless: chromium.headless,
+                headless: true,
               });
               console.log('[Smart Scraper] Successfully launched Chromium on Vercel');
             } catch (error) {
