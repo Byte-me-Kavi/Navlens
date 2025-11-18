@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
     const siteId = body.siteId;
     const pagePath = body.pagePath;
     const deviceType = body.deviceType || 'desktop'; // Default to desktop
+    const startDateStr = body.startDate;
+    const endDateStr = body.endDate;
     const startDate = body.startDate;
     const endDate = body.endDate;
 
@@ -90,8 +92,8 @@ export async function POST(req: NextRequest) {
 
     // Optional date range parameters
     // Default to last 24 hours if no specific date range is provided
-    const endDate = endDate ? new Date(endDate) : new Date();
-    const startDate = startDate ? new Date(startDate) : new Date(endDate.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
+    const endDate = endDateStr ? new Date(endDateStr) : new Date();
+    const startDate = startDateStr ? new Date(startDateStr) : new Date(endDate.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
 
     // ClickHouse query for aggregated click data filtered by device type
     const query = `
