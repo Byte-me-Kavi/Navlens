@@ -27,8 +27,8 @@ function getSupabaseAdminClient() {
     return supabaseAdmin;
 }
 
-// GET: Check if a path is excluded/deleted for a site
-export async function GET(req: NextRequest) {
+// POST: Check if a path is excluded/deleted for a site
+export async function POST(req: NextRequest) {
     try {
         // Authenticate user and get their authorized sites
         const authResult = await authenticateAndAuthorize(req);
@@ -37,8 +37,8 @@ export async function GET(req: NextRequest) {
             return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
         }
 
-        const { searchParams } = new URL(req.url);
-        const siteId = searchParams.get('siteId');
+        const body = await req.json();
+        const { siteId } = body;
 
         // Validate siteId parameter
         if (!siteId || typeof siteId !== 'string') {
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ excludedPaths }, { status: 200 });
     } catch (error: Error | unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error('[excluded-paths] GET Error:', error);
+        console.error('[excluded-paths] POST Error:', error);
         return NextResponse.json(
             { message: 'Failed to fetch excluded paths', error: errorMessage },
             { status: 500 }

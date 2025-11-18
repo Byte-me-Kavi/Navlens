@@ -26,8 +26,8 @@ const clickhouseClient = (() => {
     }
 })();
 
-// GET: Fetch all unique page paths for a site
-export async function GET(req: NextRequest) {
+// POST: Fetch page paths for a site OR add a new page path
+export async function POST(req: NextRequest) {
     try {
         // Authenticate user and get their authorized sites
         const authResult = await authenticateAndAuthorize(req);
@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
             return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
         }
 
-        const { searchParams } = new URL(req.url);
-        const siteId = searchParams.get('siteId');
+        const body = await req.json();
+        const { siteId, pagePath } = body;
 
         // Validate siteId parameter
         if (!siteId || typeof siteId !== 'string') {
@@ -60,6 +60,73 @@ export async function GET(req: NextRequest) {
             return createUnauthorizedResponse();
         }
 
+        // If pagePath is provided, this is an ADD operation
+        if (pagePath) {
+            // Validate path format
+            if (!pagePath.startsWith('/')) {
+                return NextResponse.json(
+                    { message: 'Page path must start with /' },
+                    { status: 400 }
+                );
+            }
+
+            // Check if path already exists
+            const checkQuery = `
+                SELECT COUNT() as count
+                FROM events
+                WHERE
+                    site_id = {siteId:String}
+                    AND page_path = {pagePath:String}
+                LIMIT 1
+            `;
+
+            const checkResult = await clickhouseClient.query({
+                query: checkQuery,
+                query_params: { siteId, pagePath },
+                format: 'JSON',
+            });
+
+            const checkData = await checkResult.json();
+            const pathExists = ((checkData.data?.[0] as CountResult)?.count || 0) > 0;
+
+            if (!pathExists) {
+                // Insert a marker event to add this path to the database
+                // This ensures the path will show up in future queries
+                const insertQuery = `
+                    INSERT INTO events (
+                        site_id,
+                        page_path,
+                        event_type,
+                        timestamp,
+                        device_type,
+                        x_relative,
+                        y_relative,
+                        scroll_depth
+                    ) VALUES (
+                        {siteId:String},
+                        {pagePath:String},
+                        'path_marker',
+                        now(),
+                        'unknown',
+                        0,
+                        0,
+                        0
+                    )
+                `;
+
+                await clickhouseClient.query({
+                    query: insertQuery,
+                    query_params: { siteId, pagePath },
+                });
+            }
+
+            return NextResponse.json(
+                { message: 'Page path added successfully', pagePath },
+                { status: 200 }
+            );
+        }
+
+        // If no pagePath provided, this is a FETCH operation
         // Get all unique page paths from events
         const query = `
             SELECT DISTINCT
@@ -86,114 +153,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ pagePaths }, { status: 200 });
     } catch (error: Error | unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error('[manage-page-paths] GET Error:', error);
-        return NextResponse.json(
-            { message: 'Failed to fetch page paths', error: errorMessage },
-            { status: 500 }
-        );
-    }
-}
-
-// POST: Add a new page path (creates an event marker in ClickHouse)
-export async function POST(req: NextRequest) {
-    try {
-        // Authenticate user and get their authorized sites
-        const authResult = await authenticateAndAuthorize(req);
-
-        if (!authResult.isAuthorized) {
-            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
-        }
-
-        const body = await req.json();
-        const { siteId, pagePath } = body;
-
-        if (!siteId || !pagePath) {
-            return NextResponse.json(
-                { message: 'Missing required parameters: siteId, pagePath' },
-                { status: 400 }
-            );
-        }
-
-        // Validate siteId format (UUID)
-        if (!validators.isValidUUID(siteId)) {
-            return NextResponse.json(
-                { message: 'Invalid siteId format' },
-                { status: 400 }
-            );
-        }
-
-        // Check if user is authorized for this site
-        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
-            return createUnauthorizedResponse();
-        }
-
-        // Validate path format
-        if (!pagePath.startsWith('/')) {
-            return NextResponse.json(
-                { message: 'Page path must start with /' },
-                { status: 400 }
-            );
-        }
-
-        // Check if path already exists
-        const checkQuery = `
-            SELECT COUNT() as count
-            FROM events
-            WHERE
-                site_id = {siteId:String}
-                AND page_path = {pagePath:String}
-            LIMIT 1
-        `;
-
-        const checkResult = await clickhouseClient.query({
-            query: checkQuery,
-            query_params: { siteId, pagePath },
-            format: 'JSON',
-        });
-
-        const checkData = await checkResult.json();
-        const pathExists = ((checkData.data?.[0] as CountResult)?.count || 0) > 0;
-
-        if (!pathExists) {
-            // Insert a marker event to add this path to the database
-            // This ensures the path will show up in future queries
-            const insertQuery = `
-                INSERT INTO events (
-                    site_id,
-                    page_path,
-                    event_type,
-                    timestamp,
-                    device_type,
-                    x_relative,
-                    y_relative,
-                    scroll_depth
-                ) VALUES (
-                    {siteId:String},
-                    {pagePath:String},
-                    'path_marker',
-                    now(),
-                    'unknown',
-                    0,
-                    0,
-                    0
-                )
-            `;
-
-            await clickhouseClient.query({
-                query: insertQuery,
-                query_params: { siteId, pagePath },
-            });
-        }
-
-        return NextResponse.json(
-            { message: 'Page path added successfully', pagePath },
-            { status: 200 }
-        );
-    } catch (error: Error | unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('[manage-page-paths] POST Error:', error);
         return NextResponse.json(
-            { message: 'Failed to add page path', error: errorMessage },
+            { message: 'Failed to process page paths request', error: errorMessage },
             { status: 500 }
         );
     }

@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { validators } from "@/lib/validation";
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  const { searchParams } = new URL(request.url);
-  const siteId = searchParams.get("siteId");
+  const body = await request.json();
+  const { siteId } = body;
 
   // Validate siteId parameter
   if (!siteId || typeof siteId !== 'string') {

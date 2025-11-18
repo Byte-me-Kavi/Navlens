@@ -206,7 +206,7 @@ export default function SiteManager({ sites }: SiteManagerProps) {
     // Set the site ID in context
     setSelectedSiteId(siteId);
     // Navigate to heatmap viewer without query params
-    router.push("/dashboard/heatmap-viewer");
+    router.push("/dashboard/heatmaps/heatmap-viewer");
   };
 
   const handleDelete = async (siteId: string, siteName: string) => {

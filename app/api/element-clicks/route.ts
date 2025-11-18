@@ -25,7 +25,7 @@ const client = (() => {
   }
 })();
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     // Authenticate user and get their authorized sites
     const authResult = await authenticateAndAuthorize(req);
@@ -34,12 +34,8 @@ export async function GET(req: NextRequest) {
       return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
     }
 
-    const { searchParams } = new URL(req.url);
-
-    // Required parameters
-    const siteId = searchParams.get('siteId');
-    const pagePath = searchParams.get('pagePath');
-    const deviceType = searchParams.get('deviceType') || 'desktop'; // Default to desktop
+    const body = await req.json();
+    const { siteId, pagePath, deviceType = 'desktop', startDate: rawStartDate, endDate: rawEndDate } = body;
 
     if (!siteId || !pagePath) {
       return NextResponse.json(
@@ -61,11 +57,7 @@ export async function GET(req: NextRequest) {
       return createUnauthorizedResponse();
     }
 
-    // Optional date range parameters
-    const rawStartDate = searchParams.get('startDate');
-    const rawEndDate = searchParams.get('endDate');
-
-    // Default to last 24 hours if no specific date range is provided
+    // Optional date range parameters (now from request body)
     const endDate = rawEndDate ? new Date(rawEndDate) : new Date();
     const startDate = rawStartDate ? new Date(rawStartDate) : new Date(endDate.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
 

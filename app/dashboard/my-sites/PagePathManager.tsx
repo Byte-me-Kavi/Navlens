@@ -31,7 +31,12 @@ export default function PagePathManager({
     const fetchPagePaths = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/manage-page-paths?siteId=${siteId}`);
+        // Use POST request to hide siteId from URL
+        const response = await fetch("/api/manage-page-paths", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ siteId }),
+        });
         if (!response.ok) throw new Error("Failed to fetch page paths");
         const data = await response.json();
         setPagePaths(data.pagePaths || []);

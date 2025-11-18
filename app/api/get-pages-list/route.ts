@@ -21,7 +21,7 @@ const clickhouseClient = (() => {
     }
 })();
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
     try {
         // Authenticate user and get their authorized sites
         const authResult = await authenticateAndAuthorize(req);
@@ -30,8 +30,9 @@ export async function GET(req: NextRequest) {
             return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
         }
 
-        const { searchParams } = new URL(req.url);
-        const siteId = searchParams.get('siteId');
+        // Parse siteId from request body instead of URL params
+        const body = await req.json();
+        const siteId = body.siteId;
 
         // Validate siteId parameter
         if (!siteId || typeof siteId !== 'string') {

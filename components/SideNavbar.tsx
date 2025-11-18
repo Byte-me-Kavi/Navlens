@@ -29,7 +29,7 @@ const navItems = [
   },
   {
     name: "Heatmaps",
-    href: "/dashboard/heatmap-viewer",
+    href: "/dashboard/heatmaps",
     icon: PresentationChartBarIcon,
   },
   {

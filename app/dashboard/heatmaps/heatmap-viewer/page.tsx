@@ -6,6 +6,7 @@ import h337 from "heatmap.js";
 import { createBrowserClient } from "@supabase/ssr";
 import { useSite } from "@/app/context/SiteContext";
 import ProgressBar from "@/components/ProgressBar";
+import { useRouter } from "next/navigation";
 
 interface SmartElement {
   tag: string;
@@ -20,7 +21,7 @@ interface SmartElement {
 const DEVICE_PROFILES = {
   desktop: { width: 1465, height: 1060, name: "Desktop", userAgent: "..." },
   tablet: { width: 786, height: 1024, name: "Tablet", userAgent: "..." },
-  mobile: { width: 395, height: 667, name: "Mobile", userAgent: "..." },
+  mobile: { width: 394, height: 667, name: "Mobile", userAgent: "..." },
 };
 
 type DeviceType = keyof typeof DEVICE_PROFILES;
@@ -49,6 +50,9 @@ const debounce = <T extends unknown[]>(
 
 export default function HeatmapViewer() {
   const { selectedSiteId: siteId } = useSite();
+  const router = useRouter();
+
+  console.log("[HeatmapViewer] Component mounted, siteId:", siteId);
 
   const [pagePaths, setPagePaths] = useState<string[]>([]);
   const [pagePath, setPagePath] = useState("/");
@@ -66,7 +70,6 @@ export default function HeatmapViewer() {
   const [isMobile, setIsMobile] = useState(false);
   const [siteDomain, setSiteDomain] = useState<string>("");
   const [siteName, setSiteName] = useState<string>("");
-  const [siteIdError, setSiteIdError] = useState<string | null>(null);
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // --- NEW STATE: Smart Elements ---
@@ -91,16 +94,21 @@ export default function HeatmapViewer() {
     totalElements: number;
   } | null>(null);
 
-  // Validate siteId on mount
+  const [mounted, setMounted] = useState(false);
+
+  // Set mounted flag after hydration
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Validate siteId on mount - only after hydration
+  useEffect(() => {
+    if (!mounted) return;
     if (!siteId) {
-      setSiteIdError(
-        "No site selected. Please select a site from the My Sites page."
-      );
-    } else {
-      setSiteIdError(null);
+      router.push("/dashboard/heatmaps");
+      return;
     }
-  }, [siteId]);
+  }, [siteId, router, mounted]);
 
   // Fetch site details (domain and name)
   useEffect(() => {
@@ -108,13 +116,18 @@ export default function HeatmapViewer() {
 
     const fetchSiteDetails = async () => {
       try {
-        const { data: siteData, error } = await supabase
-          .from("sites")
-          .select("domain, site_name")
-          .eq("id", siteId)
-          .single();
+        // Use POST request to API route to hide siteId from URL
+        const response = await fetch("/api/site-details", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ siteId }),
+        });
 
-        if (error) throw error;
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const siteData = await response.json();
 
         setSiteDomain(siteData.domain);
         setSiteName(siteData.site_name);
@@ -134,7 +147,8 @@ export default function HeatmapViewer() {
 
     const fetchPagePaths = async () => {
       try {
-        const response = await fetch("/api/get-pages-list", {
+        // Use POST to hide siteId from URL
+        const response = await fetch(`/api/get-pages-list`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ siteId }),
@@ -241,28 +255,58 @@ export default function HeatmapViewer() {
   );
 
   // --- NEW: Fetch Smart Map Data ---
-  const fetchSmartMap = async (url: string) => {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) {
-        // Don't throw error for missing smart maps - this is expected for new pages
-        if (res.status === 400 || res.status === 404) {
-          console.log(
-            "[Smart Map] No existing smart map found (expected for new pages)"
-          );
-          setSmartElements([]);
-          return;
+  const fetchSmartMap = useCallback(
+    async (path: string, deviceType: DeviceType) => {
+      try {
+        console.log("[Smart Map] Fetching smart map for:", {
+          siteId,
+          path,
+          deviceType,
+        });
+
+        // Use backend API instead of direct Supabase fetch
+        const response = await fetch("/api/smart-map", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ siteId, pagePath: path, deviceType }),
+        });
+
+        console.log(
+          "[Smart Map] Response status:",
+          response.status,
+          response.ok
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[Smart Map] Error response:", errorText);
+          throw new Error(`Failed to fetch smart map: ${response.status}`);
         }
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+        const data = await response.json();
+        console.log(
+          "[Smart Map] Raw response data:",
+          data,
+          "Type:",
+          typeof data,
+          "IsArray:",
+          Array.isArray(data)
+        );
+
+        if (Array.isArray(data) && data.length > 0) {
+          console.log("[Smart Map] Loaded elements:", data);
+          setSmartElements(data);
+        } else {
+          console.log("[Smart Map] No elements found or empty array");
+          setSmartElements([]);
+        }
+      } catch (e) {
+        console.error("[Smart Map] Could not load element map:", e);
+        setSmartElements([]);
       }
-      const data = await res.json();
-      console.log("[Smart Map] Loaded elements:", data);
-      setSmartElements(data);
-    } catch (e) {
-      console.warn("[Smart Map] Could not load element map:", e);
-      setSmartElements([]);
-    }
-  };
+    },
+    [siteId]
+  );
 
   const fetchHeatmapData = useCallback(
     async (path: string, deviceType: DeviceType) => {
@@ -307,11 +351,7 @@ export default function HeatmapViewer() {
     async (path: string, deviceType: DeviceType) => {
       if (!siteId) return;
       try {
-        console.log("[fetchElementClicks] Fetching element clicks for:", {
-          siteId,
-          pagePath: path,
-          deviceType,
-        });
+        // Use POST request to hide siteId from URL
         const response = await fetch("/api/element-clicks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -320,6 +360,11 @@ export default function HeatmapViewer() {
             pagePath: path,
             deviceType,
           }),
+        });
+        console.log("[fetchElementClicks] Fetching element clicks for:", {
+          siteId,
+          pagePath: path,
+          deviceType,
         });
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -383,11 +428,30 @@ export default function HeatmapViewer() {
     setElementInsights(null);
   };
 
+  // Test if Replit server is responding
+  const testReplitConnection = async () => {
+    try {
+      console.log("[Health Check] Testing Replit connection...");
+      const response = await fetch(
+        "https://4186d157-4183-4c8f-b915-72f12242f634-00-3k6seu7re5d65.pike.replit.dev/api/generate-screenshot",
+        {
+          method: "OPTIONS",
+          mode: "cors",
+          headers: {
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+          },
+        }
+      );
+      console.log("[Health Check] Response status:", response.status);
+      return response.ok;
+    } catch (error) {
+      console.error("[Health Check] Failed:", error);
+      return false;
+    }
+  };
+
   const handleRefreshScreenshot = async () => {
-    console.clear();
-    console.log("═══════════════════════════════════════════════════════════");
-    console.log("🔥🔥🔥 handleRefreshScreenshot STARTED 🔥🔥🔥");
-    console.log("═══════════════════════════════════════════════════════════");
     setLoadingScreenshot(true);
     setError(null);
     setImageLoaded(false);
@@ -400,20 +464,23 @@ export default function HeatmapViewer() {
 
     const pageUrlToScreenshot = siteDomain + pagePath;
 
-    console.log(
-      "[DEBUG] Sending request with siteId:",
-      siteId,
-      "pageUrlToScreenshot:",
-      pageUrlToScreenshot
-    );
-
     try {
+      console.log(
+        "[Screenshot Request] Starting screenshot generation for:",
+        pageUrlToScreenshot
+      );
+      console.log("[Screenshot Request] Sending to Replit API...");
+
       // Call Replit API instead of local API
       const response = await fetch(
         "https://4186d157-4183-4c8f-b915-72f12242f634-00-3k6seu7re5d65.pike.replit.dev/api/generate-screenshot",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
+          mode: "cors",
+          credentials: "omit",
           body: JSON.stringify({
             pageUrlToScreenshot,
             siteId: siteId,
@@ -421,21 +488,36 @@ export default function HeatmapViewer() {
             deviceType: selectedDevice,
           }),
         }
+      ).catch((fetchError) => {
+        console.error("[Screenshot Request] Fetch error:", fetchError.message);
+        throw new Error(
+          `Network error: ${fetchError.message}. Is the Replit server running?`
+        );
+      });
+
+      console.log(
+        "[Screenshot Response] Status:",
+        response.status,
+        "OK:",
+        response.ok
       );
 
-      console.log("[DEBUG] Response status:", response.status);
-      console.log("[DEBUG] Response ok:", response.ok);
-
       if (!response.ok) {
-        console.log("[DEBUG] Response not ok, trying to parse error...");
-        const err = await response.json();
-        console.log("[DEBUG] Error response:", err);
+        console.log("[Screenshot Response] Response not ok, parsing error...");
+        let err;
+        try {
+          err = await response.json();
+        } catch {
+          err = { error: `HTTP ${response.status}: ${response.statusText}` };
+        }
+        console.log("[Screenshot Response] Error:", err);
         throw new Error(err.error || "Failed to generate preview");
       }
 
       const data = await response.json();
+      console.log("[Screenshot Response] Success! Data:", data);
 
-      // More robust validation
+      // Validate response structure
       if (!data || typeof data !== "object") {
         console.error("[DEBUG] Data is not an object:", data);
         throw new Error("Invalid response format from screenshot service");
@@ -445,38 +527,37 @@ export default function HeatmapViewer() {
         console.error("[DEBUG] Success check failed:", {
           success: data.success,
           type: typeof data.success,
-          expected: true,
         });
         throw new Error(
           `Screenshot service failed: ${data.error || "Unknown error"}`
         );
       }
 
-      if (
-        !data.publicUrl ||
-        typeof data.publicUrl !== "string" ||
-        data.publicUrl.trim() === ""
-      ) {
+      if (!data.publicUrl || typeof data.publicUrl !== "string") {
         console.error("[DEBUG] PublicUrl check failed:", {
           publicUrl: data.publicUrl,
           type: typeof data.publicUrl,
-          length: data.publicUrl?.length,
         });
         throw new Error("Invalid or missing publicUrl in response");
       }
 
-      // The API now returns the public URL directly - no need to upload from frontend
-      // Force reload by appending timestamp
-      const timestamp = new Date().getTime();
-      setScreenshotUrl(`${data.publicUrl}?t=${timestamp}`);
+      // The Replit API should handle all uploads and return public URLs
+      // Update screenshot URL and smart elements from the response
+      if (data.publicUrl) {
+        // Force reload by appending timestamp
+        const timestamp = new Date().getTime();
+        setScreenshotUrl(`${data.publicUrl}?t=${timestamp}`);
+        console.log("[DEBUG] ✅ Screenshot set successfully");
+      }
 
       // Update smart elements from the response
       setSmartElements(data.elements || []);
-      console.log("[DEBUG] ✅ Screenshot refresh SUCCESS");
+      console.log(
+        "[DEBUG] ✅ Smart elements updated:",
+        data.elements?.length || 0
+      );
     } catch (err: Error | unknown) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
-      console.error("[DEBUG] ❌ CATCH BLOCK TRIGGERED - Error:", errorMsg);
-      console.error("[DEBUG] Full error object:", err);
       setError(errorMsg);
     } finally {
       setLoadingScreenshot(false);
@@ -634,21 +715,23 @@ export default function HeatmapViewer() {
     setError(null); // Clear any previous error
     heatmapInstance?.setData({ min: 0, max: 1, data: [] }); // Clear old heatmap
 
-    // Fetch smart map data too
-    const urls = getStorageUrls(siteId, pagePath, selectedDevice);
-    fetchSmartMap(urls.json);
+    // Clear smart elements and element clicks when switching pages/devices
+    setSmartElements([]);
+    setElementClicks({});
 
     // Set timeout for the new image - but shorter for first load (no screenshot exists yet)
-    // After 5 seconds, if still not loaded, show "no screenshot" message instead of error
-    console.log("Setting timeout for screenshot load");
+    // After timeout, if still not loaded, show "no screenshot" message instead of error
+    console.log("Setting timeout for screenshot load:", url);
     imageLoadTimeoutRef.current = setTimeout(() => {
-      console.log("Screenshot load timeout fired");
+      console.log(
+        "Screenshot load timeout fired - no image loaded in 15 seconds"
+      );
       setError(
         "No preview available for this page yet. Click 'Refresh Preview' to generate one."
       );
       // Force hide the loading spinner
       setImageLoaded(true);
-    }, 5000); // Shorter 5-second timeout for better UX
+    }, 15000); // Increased to 15 seconds to allow Supabase URLs to load
   }, [
     pagePath,
     selectedDevice,
@@ -661,6 +744,8 @@ export default function HeatmapViewer() {
   // --- Trigger initial heatmap render when instance and image are ready ---
   useEffect(() => {
     if (heatmapInstance && imageLoaded && screenshotImgRef.current) {
+      // Fetch smart map data when heatmap is ready to render
+      fetchSmartMap(pagePath, selectedDevice);
       debouncedRenderHeatmap();
     }
   }, [
@@ -669,22 +754,37 @@ export default function HeatmapViewer() {
     debouncedRenderHeatmap,
     pagePath,
     selectedDevice,
+    fetchSmartMap,
   ]);
 
   // --- Handle image load event ---
   const handleImageLoad = () => {
-    console.log("Image loaded successfully - clearing timeout");
+    console.log("✅ Image loaded successfully - clearing timeout");
     // Clear any pending timeout IMMEDIATELY
     if (imageLoadTimeoutRef.current) {
       clearTimeout(imageLoadTimeoutRef.current);
       imageLoadTimeoutRef.current = null;
     }
+    setError(null); // Clear any previous errors
     // Set imageLoaded immediately without setTimeout delay
     setImageLoaded(true);
     // Debounce the heatmap rendering
     setTimeout(() => {
       debouncedRenderHeatmap();
     }, 50);
+  };
+
+  // --- Handle image load error ---
+  const handleImageError = () => {
+    console.error("❌ Image failed to load from URL");
+    if (imageLoadTimeoutRef.current) {
+      clearTimeout(imageLoadTimeoutRef.current);
+      imageLoadTimeoutRef.current = null;
+    }
+    setError(
+      "Failed to load screenshot. The image URL may be broken or inaccessible."
+    );
+    setImageLoaded(true);
   };
 
   // --- Resize Observer ---
@@ -704,6 +804,11 @@ export default function HeatmapViewer() {
     };
   }, [imageLoaded, debouncedRenderHeatmap]);
 
+  // Show nothing while redirecting if no siteId
+  if (mounted && !siteId) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 via-blue-50/30 to-slate-50 p-3 sm:p-6">
       <Head>
@@ -713,38 +818,328 @@ export default function HeatmapViewer() {
         </title>
       </Head>
 
-      {/* Error state when no siteId is provided */}
-      {siteIdError ? (
-        <main className="container mx-auto max-w-2xl">
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-2 md:p-8">
-            <div className="flex flex-col items-center justify-center text-center space-y-6">
-              {/* Icon */}
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-10 h-10 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
+      <main className="container mx-auto bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-8">
+        {/* Header Section */}
+        <div className="mb-6 pb-4 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
+                {siteName || "Smart Heatmap Viewer"}
+              </h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {siteDomain ? (
+                  <>
+                    Visualizing user interactions on{" "}
+                    <a
+                      href={siteDomain}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-700 underline"
+                    >
+                      {siteDomain}
+                    </a>
+                  </>
+                ) : (
+                  "Visualize user interactions and detect interactive elements on your website"
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
 
-              <div className="space-y-2">
-                <h1 className="text-3xl font-bold text-slate-800">
-                  No Site Selected
-                </h1>
-                <p className="text-gray-600 text-lg">{siteIdError}</p>
-              </div>
+        {/* Loading spinners */}
+        {loadingData && (
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8">
+              <div className="flex flex-col items-center gap-5">
+                {/* Windows 11 loading animation */}
+                <div className="relative w-14 h-14">
+                  <style>{`
+                      @keyframes win11Spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                      }
+                      .win11Loader {
+                        animation: win11Spin 1.2s linear infinite;
+                      }
+                    `}</style>
 
-              <a
-                href="/dashboard/my-sites"
-                className="inline-flex items-center gap-2 px-8 py-3.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg font-medium"
+                  {/* Background ring */}
+                  <svg
+                    className="absolute inset-0"
+                    width="56"
+                    height="56"
+                    viewBox="0 0 56 56"
+                    fill="none"
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+                      const angle = (i * 45 - 90) * (Math.PI / 180);
+                      const x = 28 + 20 * Math.cos(angle);
+                      const y = 28 + 20 * Math.sin(angle);
+                      return (
+                        <circle
+                          key={`bg-${i}`}
+                          cx={x}
+                          cy={y}
+                          r="2.5"
+                          fill="rgba(200, 210, 220, 0.3)"
+                        />
+                      );
+                    })}
+                  </svg>
+
+                  {/* Animated ring */}
+                  <svg
+                    className="absolute inset-0 win11Loader"
+                    width="56"
+                    height="56"
+                    viewBox="0 0 56 56"
+                    fill="none"
+                  >
+                    {[0, 1, 2, 3].map((i) => {
+                      const angle = (i * 45 - 90) * (Math.PI / 180);
+                      const x = 28 + 20 * Math.cos(angle);
+                      const y = 28 + 20 * Math.sin(angle);
+                      const opacity = 1 - i * 0.25;
+                      return (
+                        <circle
+                          key={`active-${i}`}
+                          cx={x}
+                          cy={y}
+                          r="2.5"
+                          fill={`rgba(59, 130, 246, ${opacity})`}
+                        />
+                      );
+                    })}
+                  </svg>
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-gray-700 font-semibold">
+                    Loading heatmap data
+                  </p>
+                  <p className="text-gray-500 text-sm">Please wait...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {loadingScreenshot && (
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8 max-w-md">
+              <div className="flex flex-col items-center gap-6">
+                <ProgressBar isVisible={loadingScreenshot} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading spinner for image rendering - appears inside viewport while image loads */}
+        {screenshotUrl && !imageLoaded && !error && !loadingScreenshot && (
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8">
+              <div className="flex flex-col items-center gap-5">
+                {/* Windows 11 loading animation */}
+                <div className="relative w-14 h-14">
+                  <style>{`
+                      @keyframes win11Spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                      }
+                      .win11Loader {
+                        animation: win11Spin 1.2s linear infinite;
+                      }
+                    `}</style>
+
+                  {/* Background ring */}
+                  <svg
+                    className="absolute inset-0"
+                    width="56"
+                    height="56"
+                    viewBox="0 0 56 56"
+                    fill="none"
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+                      const angle = (i * 45 - 90) * (Math.PI / 180);
+                      const x = 28 + 20 * Math.cos(angle);
+                      const y = 28 + 20 * Math.sin(angle);
+                      return (
+                        <circle
+                          key={`bg-${i}`}
+                          cx={x}
+                          cy={y}
+                          r="2.5"
+                          fill="rgba(200, 210, 220, 0.3)"
+                        />
+                      );
+                    })}
+                  </svg>
+
+                  {/* Animated ring */}
+                  <svg
+                    className="absolute inset-0 win11Loader"
+                    width="56"
+                    height="56"
+                    viewBox="0 0 56 56"
+                    fill="none"
+                  >
+                    {[0, 1, 2, 3].map((i) => {
+                      const angle = (i * 45 - 90) * (Math.PI / 180);
+                      const x = 28 + 20 * Math.cos(angle);
+                      const y = 28 + 20 * Math.sin(angle);
+                      const opacity = 1 - i * 0.25;
+                      return (
+                        <circle
+                          key={`active-${i}`}
+                          cx={x}
+                          cy={y}
+                          r="2.5"
+                          fill={`rgba(59, 130, 246, ${opacity})`}
+                        />
+                      );
+                    })}
+                  </svg>
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-gray-700 font-semibold">Loading image</p>
+                  <p className="text-gray-500 text-sm">
+                    Rendering your screenshot...
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- CONTROLS --- */}
+        <div className="bg-linear-to-r from-slate-50 to-blue-50 rounded-xl p-4 sm:p-6 mb-12 border border-gray-200 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+            {/* Page Selection */}
+            <div className="flex-1">
+              <label
+                htmlFor="pagePathSelect"
+                className="block text-sm font-semibold text-slate-700 mb-4"
+              >
+                <span className="flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                  Select Page
+                </span>
+              </label>
+              <select
+                id="pagePathSelect"
+                className="block w-full md:w-1/2 pl-4 pr-10 py-2.5 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg bg-white shadow-sm transition-all"
+                value={pagePath}
+                onChange={(e) => setPagePath(e.target.value)}
+              >
+                {pagePaths.map((path) => (
+                  <option key={path} value={path}>
+                    {path === "/" ? "/homepage" : path}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* Device Selection */}
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-slate-700 mb-4">
+                <span className="flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                  Device Type
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(DEVICE_PROFILES).map(([key, profile]) => {
+                  // Hide desktop/tablet buttons on mobile - only show mobile option
+                  if (isMobile && key !== "mobile") {
+                    return null;
+                  }
+
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedDevice(key as DeviceType)}
+                      disabled={isMobile && key !== "mobile"}
+                      className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm ${
+                        selectedDevice === key
+                          ? "bg-blue-600 text-white shadow-md scale-105"
+                          : "bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300"
+                      } ${isMobile && key !== "mobile" ? "hidden" : ""}`}
+                    >
+                      {profile.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Refresh Button */}
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-slate-700 mb-4">
+                <span className="flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                  Capture Live Preview
+                </span>
+              </label>
+              <button
+                onClick={handleRefreshScreenshot}
+                disabled={loadingScreenshot}
+                className="px-6 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-md hover:shadow-lg font-semibold flex items-center justify-center gap-2 min-w-[180px]"
               >
                 <svg
                   className="w-5 h-5"
@@ -756,313 +1151,70 @@ export default function HeatmapViewer() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                   />
                 </svg>
-                Go to My Sites
-              </a>
+                {loadingScreenshot ? "Refreshing..." : "Refresh Preview"}
+              </button>
             </div>
           </div>
-        </main>
-      ) : (
-        <main className="container mx-auto bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-8">
-          {/* Header Section */}
-          <div className="mb-6 pb-4 border-b border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-              </div>
+
+          {/* Smart Elements Toggle */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
-                  {siteName || "Smart Heatmap Viewer"}
-                </h1>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {siteDomain ? (
-                    <>
-                      Visualizing user interactions on{" "}
-                      <a
-                        href={siteDomain}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-700 underline"
-                      >
-                        {siteDomain}
-                      </a>
-                    </>
-                  ) : (
-                    "Visualize user interactions and detect interactive elements on your website"
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                  <span className="flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                    Smart Elements
+                  </span>
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Highlight interactive elements detected on the page
+                  {smartElements.length === 0 && (
+                    <span className="block text-orange-600 mt-1">
+                      No elements detected ({smartElements.length}). Generate a
+                      screenshot first.
+                    </span>
+                  )}
+                  {smartElements.length > 0 && (
+                    <span className="block text-green-600 mt-1">
+                      {smartElements.length} elements loaded
+                    </span>
                   )}
                 </p>
               </div>
+              <button
+                onClick={() => setShowSmartMap(!showSmartMap)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm ${
+                  showSmartMap
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300"
+                }`}
+              >
+                {showSmartMap ? "Hide Elements" : "Show Elements"}
+              </button>
             </div>
-          </div>
 
-          {/* Loading spinners */}
-          {loadingData && (
-            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8">
-                <div className="flex flex-col items-center gap-5">
-                  {/* Windows 11 loading animation */}
-                  <div className="relative w-14 h-14">
-                    <style>{`
-                      @keyframes win11Spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                      }
-                      .win11Loader {
-                        animation: win11Spin 1.2s linear infinite;
-                      }
-                    `}</style>
-
-                    {/* Background ring */}
-                    <svg
-                      className="absolute inset-0"
-                      width="56"
-                      height="56"
-                      viewBox="0 0 56 56"
-                      fill="none"
-                    >
-                      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
-                        const angle = (i * 45 - 90) * (Math.PI / 180);
-                        const x = 28 + 20 * Math.cos(angle);
-                        const y = 28 + 20 * Math.sin(angle);
-                        return (
-                          <circle
-                            key={`bg-${i}`}
-                            cx={x}
-                            cy={y}
-                            r="2.5"
-                            fill="rgba(200, 210, 220, 0.3)"
-                          />
-                        );
-                      })}
-                    </svg>
-
-                    {/* Animated ring */}
-                    <svg
-                      className="absolute inset-0 win11Loader"
-                      width="56"
-                      height="56"
-                      viewBox="0 0 56 56"
-                      fill="none"
-                    >
-                      {[0, 1, 2, 3].map((i) => {
-                        const angle = (i * 45 - 90) * (Math.PI / 180);
-                        const x = 28 + 20 * Math.cos(angle);
-                        const y = 28 + 20 * Math.sin(angle);
-                        const opacity = 1 - i * 0.25;
-                        return (
-                          <circle
-                            key={`active-${i}`}
-                            cx={x}
-                            cy={y}
-                            r="2.5"
-                            fill={`rgba(59, 130, 246, ${opacity})`}
-                          />
-                        );
-                      })}
-                    </svg>
-                  </div>
-                  <div className="text-center space-y-1">
-                    <p className="text-gray-700 font-semibold">
-                      Loading heatmap data
-                    </p>
-                    <p className="text-gray-500 text-sm">Please wait...</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {loadingScreenshot && (
-            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8 max-w-md">
-                <div className="flex flex-col items-center gap-6">
-                  <ProgressBar isVisible={loadingScreenshot} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Loading spinner for image rendering - appears inside viewport while image loads */}
-          {screenshotUrl && !imageLoaded && !error && !loadingScreenshot && (
-            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8">
-                <div className="flex flex-col items-center gap-5">
-                  {/* Windows 11 loading animation */}
-                  <div className="relative w-14 h-14">
-                    <style>{`
-                      @keyframes win11Spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                      }
-                      .win11Loader {
-                        animation: win11Spin 1.2s linear infinite;
-                      }
-                    `}</style>
-
-                    {/* Background ring */}
-                    <svg
-                      className="absolute inset-0"
-                      width="56"
-                      height="56"
-                      viewBox="0 0 56 56"
-                      fill="none"
-                    >
-                      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
-                        const angle = (i * 45 - 90) * (Math.PI / 180);
-                        const x = 28 + 20 * Math.cos(angle);
-                        const y = 28 + 20 * Math.sin(angle);
-                        return (
-                          <circle
-                            key={`bg-${i}`}
-                            cx={x}
-                            cy={y}
-                            r="2.5"
-                            fill="rgba(200, 210, 220, 0.3)"
-                          />
-                        );
-                      })}
-                    </svg>
-
-                    {/* Animated ring */}
-                    <svg
-                      className="absolute inset-0 win11Loader"
-                      width="56"
-                      height="56"
-                      viewBox="0 0 56 56"
-                      fill="none"
-                    >
-                      {[0, 1, 2, 3].map((i) => {
-                        const angle = (i * 45 - 90) * (Math.PI / 180);
-                        const x = 28 + 20 * Math.cos(angle);
-                        const y = 28 + 20 * Math.sin(angle);
-                        const opacity = 1 - i * 0.25;
-                        return (
-                          <circle
-                            key={`active-${i}`}
-                            cx={x}
-                            cy={y}
-                            r="2.5"
-                            fill={`rgba(59, 130, 246, ${opacity})`}
-                          />
-                        );
-                      })}
-                    </svg>
-                  </div>
-                  <div className="text-center space-y-1">
-                    <p className="text-gray-700 font-semibold">Loading image</p>
-                    <p className="text-gray-500 text-sm">
-                      Rendering your screenshot...
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* --- CONTROLS --- */}
-          <div className="bg-linear-to-r from-slate-50 to-blue-50 rounded-xl p-4 sm:p-6 mb-12 border border-gray-200 shadow-sm">
-            <div className="flex flex-col lg:flex-row lg:items-end gap-4">
-              {/* Page Selection */}
-              <div className="flex-1">
-                <label
-                  htmlFor="pagePathSelect"
-                  className="block text-sm font-semibold text-slate-700 mb-4"
-                >
+            {/* Element Click Counts Toggle */}
+            <div className="flex items-center mt-4 justify-between p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">
                   <span className="flex items-center gap-2">
                     <svg
-                      className="w-4 h-4 text-blue-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                      />
-                    </svg>
-                    Select Page
-                  </span>
-                </label>
-                <select
-                  id="pagePathSelect"
-                  className="block w-full md:w-1/2 pl-4 pr-10 py-2.5 text-base border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg bg-white shadow-sm transition-all"
-                  value={pagePath}
-                  onChange={(e) => setPagePath(e.target.value)}
-                >
-                  {pagePaths.map((path) => (
-                    <option key={path} value={path}>
-                      {path === "/" ? "/homepage" : path}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {/* Device Selection */}
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-slate-700 mb-4">
-                  <span className="flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4 text-blue-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-                      />
-                    </svg>
-                    Device Type
-                  </span>
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(DEVICE_PROFILES).map(([key, profile]) => {
-                    // Hide desktop/tablet buttons on mobile - only show mobile option
-                    if (isMobile && key !== "mobile") {
-                      return null;
-                    }
-
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setSelectedDevice(key as DeviceType)}
-                        disabled={isMobile && key !== "mobile"}
-                        className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm ${
-                          selectedDevice === key
-                            ? "bg-blue-600 text-white shadow-md scale-105"
-                            : "bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300"
-                        } ${isMobile && key !== "mobile" ? "hidden" : ""}`}
-                      >
-                        {profile.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Refresh Button */}
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-slate-700 mb-4">
-                  <span className="flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4 text-blue-600"
+                      className="w-4 h-4 text-red-600"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1080,121 +1232,91 @@ export default function HeatmapViewer() {
                         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                       />
                     </svg>
-                    Capture Live Preview
+                    Click Counts
                   </span>
-                </label>
-                <button
-                  onClick={handleRefreshScreenshot}
-                  disabled={loadingScreenshot}
-                  className="px-6 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-md hover:shadow-lg font-semibold flex items-center justify-center gap-2 min-w-[180px]"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                  {loadingScreenshot ? "Refreshing..." : "Refresh Preview"}
-                </button>
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Show click counts on interactive elements
+                </p>
               </div>
+              <button
+                onClick={() => setShowElementClicks(!showElementClicks)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm ${
+                  showElementClicks
+                    ? "bg-red-600 text-white shadow-md"
+                    : "bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300"
+                }`}
+              >
+                {showElementClicks ? "Hide Counts" : "Show Counts"}
+              </button>
             </div>
+          </div>
+        </div>
 
-            {/* Smart Elements Toggle */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-2">
-                    <span className="flex items-center gap-2">
-                      <svg
-                        className="w-4 h-4 text-blue-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                        />
-                      </svg>
-                      Smart Elements
-                    </span>
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Highlight interactive elements detected on the page
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowSmartMap(!showSmartMap)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm ${
-                    showSmartMap
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300"
-                  }`}
-                >
-                  {showSmartMap ? "Hide Elements" : "Show Elements"}
-                </button>
-              </div>
-
-              {/* Element Click Counts Toggle */}
-              <div className="flex items-center mt-4 justify-between p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-2">
-                    <span className="flex items-center gap-2">
-                      <svg
-                        className="w-4 h-4 text-red-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                      Click Counts
-                    </span>
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Show click counts on interactive elements
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowElementClicks(!showElementClicks)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm ${
-                    showElementClicks
-                      ? "bg-red-600 text-white shadow-md"
-                      : "bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-300"
-                  }`}
-                >
-                  {showElementClicks ? "Hide Counts" : "Show Counts"}
-                </button>
+        {/* --- STATUS MESSAGES --- */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+            <div className="flex items-start gap-3">
+              <svg
+                className="w-5 h-5 text-red-500 mt-0.5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-red-800">Error</p>
+                <p className="text-sm text-red-700">{error}</p>
               </div>
             </div>
           </div>
+        )}
 
-          {/* --- STATUS MESSAGES --- */}
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
-              <div className="flex items-start gap-3">
+        {/* Full-width viewport with fixed height and vertical scrolling */}
+        <div
+          ref={heatmapViewportRef}
+          className="relative w-full mx-auto border-2 border-gray-300 bg-gray-50 rounded-lg shadow-lg overflow-hidden"
+          style={{
+            width: `${DEVICE_PROFILES[selectedDevice].width}px`,
+            height: "600px", // Fixed viewer height
+            maxWidth: "100%", // Allow it to shrink on small screens
+            overflowY: "scroll", // Allow vertical scrolling
+            overflowX: "hidden", // Prevent horizontal scrolling
+            position: "relative", // CRITICAL for inner absolute elements
+          }}
+        >
+          {/* Screenshot Image */}
+          {screenshotUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              ref={screenshotImgRef}
+              src={screenshotUrl}
+              alt={`Screenshot of ${pagePath}`}
+              className="w-full h-auto transition-opacity duration-300" // w-full ensures horizontal fit
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              style={{
+                opacity: imageLoaded ? 1 : 0,
+                pointerEvents: "none",
+                zIndex: 5,
+                position: "absolute", // CRITICAL: Absolute position for stacking
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "auto", // Allows image to be taller than viewport
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center z-0">
+              <div className="text-center space-y-3 p-8">
                 <svg
-                  className="w-5 h-5 text-red-500 mt-0.5 shrink-0"
+                  className="w-16 h-16 text-gray-300 mx-auto"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1203,68 +1325,152 @@ export default function HeatmapViewer() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
-                <div>
-                  <p className="text-sm font-semibold text-red-800">Error</p>
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
+                <p className="text-gray-500 font-medium text-lg">
+                  No preview available
+                </p>
+                <p className="text-gray-400 text-sm">
+                  Click &quot;Refresh Preview&quot; to capture your page
+                </p>
               </div>
             </div>
           )}
 
-          {/* Full-width viewport with fixed height and vertical scrolling */}
-          <div
-            ref={heatmapViewportRef}
-            className="relative w-full mx-auto border-2 border-gray-300 bg-gray-50 rounded-lg shadow-lg overflow-hidden"
-            style={{
-              width: `${DEVICE_PROFILES[selectedDevice].width}px`,
-              height: "600px", // Fixed viewer height
-              maxWidth: "100%", // Allow it to shrink on small screens
-              overflowY: "scroll", // Allow vertical scrolling
-              overflowX: "hidden", // Prevent horizontal scrolling
-              position: "relative", // CRITICAL for inner absolute elements
-            }}
-          >
-            {/* Screenshot Image */}
-            {screenshotUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                ref={screenshotImgRef}
-                src={screenshotUrl}
-                alt={`Screenshot of ${pagePath}`}
-                className="w-full h-auto transition-opacity duration-300" // w-full ensures horizontal fit
-                onLoad={handleImageLoad}
-                onError={() => {
-                  // Clear timeout on error
-                  if (imageLoadTimeoutRef.current) {
-                    clearTimeout(imageLoadTimeoutRef.current);
-                    imageLoadTimeoutRef.current = null;
-                  }
-                  setImageLoaded(true); // Hide spinner
-                  heatmapInstance?.setData({ min: 0, max: 1, data: [] });
-                  // Show user-friendly message for 404 (no screenshot yet)
-                  setError(
-                    "No preview available for this page yet. Click 'Capture Live Preview' to generate one."
-                  );
-                }}
-                style={{
-                  opacity: imageLoaded ? 1 : 0,
-                  pointerEvents: "none",
-                  zIndex: 5,
-                  position: "absolute", // CRITICAL: Absolute position for stacking
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "auto", // Allows image to be taller than viewport
-                }}
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center z-0">
+          {/* Heatmap overlay container - Only show for current device */}
+          {((isMobile && selectedDevice === "mobile") ||
+            (!isMobile &&
+              (selectedDevice === "desktop" ||
+                selectedDevice === "tablet"))) && (
+            <div
+              ref={heatmapContainerRef}
+              className="absolute top-0 left-0 w-full z-10 transition-opacity duration-300"
+              style={{
+                opacity: imageLoaded ? 1 : 0,
+                pointerEvents: "none",
+              }}
+            ></div>
+          )}
+
+          {/* --- Smart Elements Overlay (v2.0 Feature) --- */}
+          {showSmartMap && imageLoaded && (
+            <div className="absolute top-0 left-0 w-full h-auto z-20 pointer-events-none">
+              {smartElements.length === 0 ? (
+                <div className="absolute top-4 left-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-2 rounded-lg shadow-lg">
+                  <p className="text-sm font-medium">No smart elements found</p>
+                  <p className="text-xs">
+                    Generate a screenshot to detect interactive elements
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {smartElements.map((el: SmartElement, i: number) => {
+                    // Calculate scaling based on current displayed width vs original screenshot width
+                    // We assume the image takes up 100% of the container width
+                    const currentWidth =
+                      heatmapViewportRef.current?.offsetWidth ||
+                      DEVICE_PROFILES[selectedDevice].width;
+                    const scale =
+                      currentWidth / DEVICE_PROFILES[selectedDevice].width;
+
+                    const clickCount = elementClicks[el.selector] || 0;
+                    const hasClicks = clickCount > 0;
+
+                    return (
+                      <div
+                        key={i}
+                        title={`${el.tag}: ${el.text}\nSelector: ${el.selector}\nClicks: ${clickCount}`}
+                        className={`absolute border-2 rounded-sm pointer-events-auto transition-all duration-200 ${
+                          hasClicks
+                            ? "border-red-500/60 bg-red-500/15 hover:bg-red-500/25 hover:border-red-500"
+                            : "border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500"
+                        }`}
+                        style={{
+                          // Scale the coordinates from the JSON to match the current view
+                          left: `${el.x * scale}px`,
+                          top: `${el.y * scale}px`,
+                          width: `${el.width * scale}px`,
+                          height: `${el.height * scale}px`,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openElementInsights(el);
+                        }}
+                        onMouseEnter={(e) => {
+                          const target = e.currentTarget as HTMLElement;
+                          if (hasClicks) {
+                            target.style.borderColor = "rgb(239 68 68 / 0.8)";
+                            target.style.backgroundColor =
+                              "rgb(239 68 68 / 0.2)";
+                          } else {
+                            target.style.borderColor = "rgb(59 130 246 / 0.8)";
+                            target.style.backgroundColor =
+                              "rgb(59 130 246 / 0.15)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          const target = e.currentTarget as HTMLElement;
+                          if (hasClicks) {
+                            target.style.borderColor = "rgb(239 68 68 / 0.6)";
+                            target.style.backgroundColor =
+                              "rgb(239 68 68 / 0.15)";
+                          } else {
+                            target.style.borderColor = "rgb(59 130 246 / 0.4)";
+                            target.style.backgroundColor =
+                              "rgb(59 130 246 / 0.1)";
+                          }
+                        }}
+                      >
+                        {/* Click count badge */}
+                        {showElementClicks && hasClicks && (
+                          <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                            {clickCount}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Hide heatmap overlay for wrong device on mobile */}
+          {isMobile && selectedDevice !== "mobile" && (
+            <div className="absolute inset-0 flex items-center justify-center z-20 bg-yellow-50/95 backdrop-blur-sm">
+              <div className="text-center space-y-2 p-6">
+                <svg
+                  className="w-12 h-12 text-yellow-600 mx-auto"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+                <p className="text-yellow-700 font-semibold">Limited View</p>
+                <p className="text-yellow-600 text-sm">
+                  Heatmap only available for Mobile view on this device
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Text to show if no heatmap data */}
+          {!loadingData &&
+            !error &&
+            imageLoaded &&
+            heatmapInstance &&
+            heatmapInstance.getData?.()?.data?.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center z-20 bg-white/80 backdrop-blur-sm">
                 <div className="text-center space-y-3 p-8">
                   <svg
-                    className="w-16 h-16 text-gray-300 mx-auto"
+                    className="w-16 h-16 text-gray-400 mx-auto"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1273,165 +1479,22 @@ export default function HeatmapViewer() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                     />
                   </svg>
-                  <p className="text-gray-500 font-medium text-lg">
-                    No preview available
-                  </p>
-                  <p className="text-gray-400 text-sm">
-                    Click &quot;Refresh Preview&quot; to capture your page
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Heatmap overlay container - Only show for current device */}
-            {((isMobile && selectedDevice === "mobile") ||
-              (!isMobile &&
-                (selectedDevice === "desktop" ||
-                  selectedDevice === "tablet"))) && (
-              <div
-                ref={heatmapContainerRef}
-                className="absolute top-0 left-0 w-full z-10 transition-opacity duration-300"
-                style={{
-                  opacity: imageLoaded ? 1 : 0,
-                  pointerEvents: "none",
-                }}
-              ></div>
-            )}
-
-            {/* --- Smart Elements Overlay (v2.0 Feature) --- */}
-            {showSmartMap && imageLoaded && smartElements.length > 0 && (
-              <div className="absolute top-0 left-0 w-full h-auto z-20 pointer-events-none">
-                {smartElements.map((el: SmartElement, i: number) => {
-                  // Calculate scaling based on current displayed width vs original screenshot width
-                  // We assume the image takes up 100% of the container width
-                  const currentWidth =
-                    heatmapViewportRef.current?.offsetWidth ||
-                    DEVICE_PROFILES[selectedDevice].width;
-                  const scale =
-                    currentWidth / DEVICE_PROFILES[selectedDevice].width;
-
-                  const clickCount = elementClicks[el.selector] || 0;
-                  const hasClicks = clickCount > 0;
-
-                  return (
-                    <div
-                      key={i}
-                      title={`${el.tag}: ${el.text}\nSelector: ${el.selector}\nClicks: ${clickCount}`}
-                      className={`absolute border-2 rounded-sm pointer-events-auto transition-all duration-200 ${
-                        hasClicks
-                          ? "border-red-500/60 bg-red-500/15 hover:bg-red-500/25 hover:border-red-500"
-                          : "border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500"
-                      }`}
-                      style={{
-                        // Scale the coordinates from the JSON to match the current view
-                        left: `${el.x * scale}px`,
-                        top: `${el.y * scale}px`,
-                        width: `${el.width * scale}px`,
-                        height: `${el.height * scale}px`,
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openElementInsights(el);
-                      }}
-                      onMouseEnter={(e) => {
-                        const target = e.currentTarget as HTMLElement;
-                        if (hasClicks) {
-                          target.style.borderColor = "rgb(239 68 68 / 0.8)";
-                          target.style.backgroundColor = "rgb(239 68 68 / 0.2)";
-                        } else {
-                          target.style.borderColor = "rgb(59 130 246 / 0.8)";
-                          target.style.backgroundColor =
-                            "rgb(59 130 246 / 0.15)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        const target = e.currentTarget as HTMLElement;
-                        if (hasClicks) {
-                          target.style.borderColor = "rgb(239 68 68 / 0.6)";
-                          target.style.backgroundColor =
-                            "rgb(239 68 68 / 0.15)";
-                        } else {
-                          target.style.borderColor = "rgb(59 130 246 / 0.4)";
-                          target.style.backgroundColor =
-                            "rgb(59 130 246 / 0.1)";
-                        }
-                      }}
-                    >
-                      {/* Click count badge */}
-                      {showElementClicks && hasClicks && (
-                        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                          {clickCount}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Hide heatmap overlay for wrong device on mobile */}
-            {isMobile && selectedDevice !== "mobile" && (
-              <div className="absolute inset-0 flex items-center justify-center z-20 bg-yellow-50/95 backdrop-blur-sm">
-                <div className="text-center space-y-2 p-6">
-                  <svg
-                    className="w-12 h-12 text-yellow-600 mx-auto"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                  </svg>
-                  <p className="text-yellow-700 font-semibold">Limited View</p>
-                  <p className="text-yellow-600 text-sm">
-                    Heatmap only available for Mobile view on this device
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Text to show if no heatmap data */}
-            {!loadingData &&
-              !error &&
-              imageLoaded &&
-              heatmapInstance &&
-              heatmapInstance.getData?.()?.data?.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center z-20 bg-white/80 backdrop-blur-sm">
-                  <div className="text-center space-y-3 p-8">
-                    <svg
-                      className="w-16 h-16 text-gray-400 mx-auto"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                      />
-                    </svg>
-                    <div>
-                      <p className="text-gray-600 font-semibold text-lg">
-                        No heatmap data available
-                      </p>
-                      <p className="text-gray-500 text-sm mt-1">
-                        There are no interactions recorded for this page yet
-                      </p>
-                    </div>
+                  <div>
+                    <p className="text-gray-600 font-semibold text-lg">
+                      No heatmap data available
+                    </p>
+                    <p className="text-gray-500 text-sm mt-1">
+                      There are no interactions recorded for this page yet
+                    </p>
                   </div>
                 </div>
-              )}
-          </div>
-        </main>
-      )}
+              </div>
+            )}
+        </div>
+      </main>
 
       {/* Element Insights Modal */}
       {selectedElement && elementInsights && (

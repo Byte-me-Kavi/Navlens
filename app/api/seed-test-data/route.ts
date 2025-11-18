@@ -55,7 +55,7 @@ export async function POST() {
                     site_id: SITE_ID,
                     event_type: 'click',
                     timestamp: new Date(now.getTime() - Math.random() * 3600000).toISOString().slice(0, 19).replace('T', ' '),
-                    page_url: `https://navlens-rho.vercel.app${PAGE_PATH}`,
+                    page_url: `https://navlens-git-v2-smartheatmap-kavishas-projects-947ef8e4.vercel.app${PAGE_PATH}`,
                     page_path: PAGE_PATH,
                     referrer: '',
                     user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
