@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   turbopack: {},
+  experimental: {
+    serverComponentsExternalPackages: ["@sparticuz/chromium"],
+  },
   async headers() {
     return [
       {
