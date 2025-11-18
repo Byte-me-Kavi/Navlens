@@ -15,14 +15,14 @@ const supabaseAdmin = createClient(
 );
 
 // Browserless configuration
-const BROWSERLESS_ENDPOINT = "https://production-sfo.browserless.io/chromium/bql";
+const BROWSERLESS_ENDPOINT = "https://production-sfo.browserless.io";
 const BROWSERLESS_TOKEN = process.env.BROWSERLESS_TOKEN;
 
 // Device viewports with proper mobile emulation (matching your frontend profiles)
 const DEVICE_PROFILES = {
     desktop: { 
-        width: 1440, 
-        height: 1080,
+        width: 1470, 
+        height: 1070,
     },
     tablet: { 
         width: 768, 
@@ -74,88 +74,120 @@ export async function POST(req: NextRequest) {
         const device = DEVICE_PROFILES[finalDeviceType as keyof typeof DEVICE_PROFILES] || DEVICE_PROFILES.desktop;
         console.log(`[Smart Scraper] Starting for ${pageUrlToScreenshot} on ${finalDeviceType}`);
 
-        // 1. Use Browserless GraphQL API
+        // 1. Use Browserless REST API
         console.log('[Smart Scraper] Starting Browserless request for', pageUrlToScreenshot);
 
-        const graphqlQuery = `
-        mutation ScrapePage($url: String!, $width: Int!, $height: Int!) {
-          goto(url: $url, waitUntil: networkidle2) {
-            status
-          }
-          setViewport(width: $width, height: $height) {
-            success
-          }
-          evaluate(expression: """
-            (() => {
-              const elements = document.querySelectorAll('button, a, input, select, textarea, label, option, summary, details, img, [contenteditable], [role="button"], [role="link"], [role="tab"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="slider"], [role="textbox"], div[onclick], span[onclick], *[style*="cursor:pointer"], svg, svg *, video, audio, canvas');
-              return elements.map(el => {
-                const rect = el.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) {
-                  return {
-                    selector: el.tagName + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ').join('.') : ''),
-                    tag: el.tagName,
-                    text: el.innerText?.substring(0, 50) || '',
-                    x: Math.round(rect.x + window.scrollX),
-                    y: Math.round(rect.y + window.scrollY),
-                    width: Math.round(rect.width),
-                    height: Math.round(rect.height),
-                    href: el.href || null
-                  };
-                }
-                return null;
-              }).filter(Boolean);
-            })()
-          """) {
-            result
-          }
-          screenshot(type: png, fullPage: true) {
-            base64
-          }
-        }`;
+        const functionCode = `
+          export default async function ({ page }) {
+            try {
+              await page.setViewport({ width: ${device.width}, height: ${device.height} });
+              await page.goto('${pageUrlToScreenshot}', { waitUntil: 'networkidle2' });
 
-        const response = await fetch(`${BROWSERLESS_ENDPOINT}?token=${BROWSERLESS_TOKEN}`, {
+              // Trigger scroll animations and lazy loading
+              await page.evaluate(async () => {
+                const scrollHeight = document.body.scrollHeight;
+                const viewportHeight = window.innerHeight;
+                
+                // Scroll down in steps to trigger animations
+                for (let y = 0; y < scrollHeight; y += viewportHeight / 2) {
+                  window.scrollTo(0, y);
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                // Scroll back to top
+                window.scrollTo(0, 0);
+                await new Promise(resolve => setTimeout(resolve, 500));
+              });
+
+              const elements = await page.evaluate(() => {
+                const getSelector = (el) => {
+                  if (el.tagName === "BODY") return "BODY";
+                  const parent = el.parentElement;
+                  if (!parent) return el.tagName;
+                  const children = Array.from(parent.children);
+                  const index = children.indexOf(el) + 1;
+                  return getSelector(parent) + " > " + el.tagName + ":nth-child(" + index + ")";
+                };
+
+                const elements = document.querySelectorAll('button, a, input, select, textarea, label, option, summary, details, img, [contenteditable], [role="button"], [role="link"], [role="tab"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="slider"], [role="textbox"], div[onclick], span[onclick], *[style*="cursor:pointer"], svg, svg *, video, audio, canvas');
+                console.log('Found ' + elements.length + ' raw elements');
+                
+                const processedElements = Array.from(elements).map(el => {
+                  const rect = el.getBoundingClientRect();
+                  if (rect.width > 0 && rect.height > 0) {
+                    return {
+                      selector: getSelector(el),
+                      tag: el.tagName,
+                      text: (el.innerText || '').substring(0, 50),
+                      x: Math.round(rect.x + window.scrollX),
+                      y: Math.round(rect.y + window.scrollY),
+                      width: Math.round(rect.width),
+                      height: Math.round(rect.height),
+                      href: el.href || null
+                    };
+                  }
+                  return null;
+                }).filter(Boolean);
+                
+                console.log('Processed ' + processedElements.length + ' valid elements');
+                return processedElements;
+              });
+
+              const screenshot = await page.screenshot({ 
+                fullPage: true, 
+                type: 'png', 
+                encoding: 'base64' 
+              });
+
+              console.log('Function completed: ' + elements.length + ' elements, screenshot length: ' + screenshot.length);
+
+              return {
+                data: {
+                  screenshot: screenshot,
+                  elements: elements
+                },
+                type: 'application/json'
+              };
+            } catch (error) {
+              console.error('Function error:', error);
+              return {
+                data: {
+                  screenshot: '',
+                  elements: [],
+                  error: error.message
+                },
+                type: 'application/json'
+              };
+            }
+          }
+        `;        const response = await fetch(`${BROWSERLESS_ENDPOINT}/function?token=${BROWSERLESS_TOKEN}`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/javascript',
           },
-          body: JSON.stringify({
-            query: graphqlQuery,
-            variables: {
-              url: pageUrlToScreenshot,
-              width: device.width,
-              height: device.height,
-            },
-          }),
+          body: functionCode,
         });
 
         if (!response.ok) {
-          throw new Error(`Browserless API error: ${response.status}`);
+          const errorText = await response.text();
+          console.error('[Smart Scraper] Browserless error response:', errorText);
+          throw new Error(`Browserless API error: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
         const data = await response.json();
-        console.log('[Smart Scraper] Browserless response:', JSON.stringify(data, null, 2));
+        console.log('[Smart Scraper] Browserless response received');
+        console.log('[Smart Scraper] Response structure:', JSON.stringify(data, null, 2));
 
-        if (data.errors) {
-          throw new Error(`Browserless GraphQL errors: ${JSON.stringify(data.errors)}`);
+        const screenshotBase64 = data.data.screenshot;
+        const elementMap = data.data.elements;
+
+        console.log(`[Smart Scraper] Screenshot base64 length: ${screenshotBase64?.length || 0}`);
+        console.log(`[Smart Scraper] Elements found: ${elementMap?.length || 0}`);
+        console.log(`[Smart Scraper] First element sample:`, elementMap?.[0]);
+
+        if (!screenshotBase64 || screenshotBase64.length === 0) {
+          throw new Error('Screenshot generation failed - no base64 data received');
         }
-
-        if (!data.data) {
-          throw new Error('Browserless returned no data');
-        }
-
-        const screenshotBase64 = data.data.screenshot?.base64;
-        if (!screenshotBase64) {
-          throw new Error('Browserless did not return screenshot');
-        }
-
-        const evaluateResult = data.data.evaluate?.result;
-        if (!evaluateResult) {
-          throw new Error('Browserless did not return evaluate result');
-        }
-
-        const elementMap = JSON.parse(evaluateResult);
-
-        console.log(`[Smart Scraper] Found ${elementMap.length} interactive elements.`);
 
         // Convert base64 to buffer
         const screenshotBuffer = Buffer.from(screenshotBase64, 'base64');
@@ -183,6 +215,12 @@ export async function POST(req: NextRequest) {
 
         // 6. Upload "Smart Map" JSON to Supabase
         const jsonPath = `${siteId}/${normalizedPath}-${deviceType}.json`;
+        
+        if (!elementMap || !Array.isArray(elementMap) || elementMap.length === 0) {
+          console.error('[Smart Scraper] No elements found, cannot create JSON map');
+          throw new Error('No interactive elements found on the page');
+        }
+        
         const jsonBuffer = Buffer.from(JSON.stringify(elementMap, null, 2), 'utf-8');
 
         const { error: jsonError } = await supabaseAdmin.storage
