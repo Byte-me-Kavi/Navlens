@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   turbopack: {},
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
   experimental: {
-    serverComponentsExternalPackages: ["@sparticuz/chromium"],
   },
   async headers() {
     return [
