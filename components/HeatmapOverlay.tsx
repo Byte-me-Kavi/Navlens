@@ -66,11 +66,18 @@ const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(
-          `/api/heatmap-clicks?siteId=${siteId}&pagePath=${pagePath}&startDate=${new Date(
-            Date.now() - 24 * 60 * 60 * 1000
-          ).toISOString()}&endDate=${new Date().toISOString()}`
-        );
+        const response = await fetch('/api/heatmap-clicks', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            siteId,
+            pagePath,
+            startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            endDate: new Date().toISOString(),
+          }),
+        });
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

@@ -94,7 +94,7 @@ export async function GET() {
     const siteIds = userSites.map(s => s.id);
     const totalSites = siteIds.length;
 
-    console.log('[Dashboard Stats] Fetching click data for sites:', siteIds);
+    console.log('[Dashboard Stats] Fetching click data for sites');
 
     // 5. Get Total Clicks from ClickHouse (Filtered by Site IDs)
     const totalClicksQuery = `

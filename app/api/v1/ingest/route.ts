@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Analytics data received for site: ${siteId}, owned by user: ${siteData.user_id}`);
+    console.log(`Analytics data received and processed for site`);
 
     // Additional rate limiting per site to prevent abuse
     if (!checkSiteRateLimit(siteId)) {

@@ -42,7 +42,7 @@
   }
 
   // Secure API endpoint (no sensitive data exposed)
-  const API_COLLECT_ENDPOINT = `${API_HOST}/api/analytics/collect`;
+  const API_COLLECT_ENDPOINT = `${API_HOST}/api/v1/ingest`;
   const THROTTLE_SCROLL_MS = 100; // How often to send scroll events (ms)
   const THROTTLE_RESIZE_MS = 300; // How often to send resize events (ms)
   const CLICK_THROTTLE_MS = 50; // Ignore successive clicks faster than 50ms (prevents rage-click spam)

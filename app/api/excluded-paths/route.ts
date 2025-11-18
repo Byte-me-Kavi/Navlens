@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
         const body: ExcludedPathRequest = await req.json();
         const { siteId, pagePath } = body;
 
-        console.log(`[excluded-paths] POST: Adding path "${pagePath}" for site "${siteId}"`);
+        console.log(`[excluded-paths] POST: Adding path for site`);
 
         // Validate required parameters
         if (!siteId || typeof siteId !== 'string') {
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
             throw error;
         }
 
-        console.log(`[excluded-paths] POST: Path "${pagePath}" successfully added for site "${siteId}"`);
+        console.log(`[excluded-paths] POST: Path successfully added for site`);
         return NextResponse.json(
             { message: 'Path added to exclusion list', pagePath },
             { status: 200 }

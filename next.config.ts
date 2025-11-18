@@ -3,15 +3,15 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   turbopack: {},
-  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+  serverExternalPackages: ["puppeteer-core"],
   experimental: {
   },
   async headers() {
     return [
       {
         // We want to apply these headers to our API route
-        // This will match /api/analytics/collect
-        source: "/api/analytics/collect",
+        // This will match /api/v1/ingest
+        source: "/api/v1/ingest",
         headers: [
           {
             key: "Access-Control-Allow-Origin",

@@ -256,11 +256,17 @@ export default function HeatmapViewer() {
       setLoadingData(true);
       setError(null);
       try {
-        const url = `/api/heatmap-clicks?siteId=${siteId}&pagePath=${encodeURIComponent(
-          path
-        )}&deviceType=${deviceType}`;
-        console.log("[fetchHeatmapData] Fetching from URL:", url);
-        const response = await fetch(url);
+        const response = await fetch('/api/heatmap-clicks', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            siteId,
+            pagePath: path,
+            deviceType,
+          }),
+        });
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();

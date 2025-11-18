@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
 
     const elementClickData = await resultSet.json(); // Get the JSON response
 
-    console.log(`[element-clicks] Query result for siteId=${siteId}, pagePath=${pagePath}, deviceType=${deviceType}:`, JSON.stringify(elementClickData));
+    console.log(`[element-clicks] Query executed successfully for pagePath=${pagePath}, deviceType=${deviceType}`);
 
     return NextResponse.json(elementClickData, { status: 200 });
 
