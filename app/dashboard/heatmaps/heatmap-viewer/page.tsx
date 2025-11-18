@@ -70,6 +70,7 @@ export default function HeatmapViewer() {
   const [isMobile, setIsMobile] = useState(false);
   const [siteDomain, setSiteDomain] = useState<string>("");
   const [siteName, setSiteName] = useState<string>("");
+  const [siteIdError, setSiteIdError] = useState<string | null>(null);
   const imageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // --- NEW STATE: Smart Elements ---
