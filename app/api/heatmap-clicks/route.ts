@@ -42,8 +42,6 @@ export async function POST(req: NextRequest) {
     const deviceType = body.deviceType || 'desktop'; // Default to desktop
     const startDateStr = body.startDate;
     const endDateStr = body.endDate;
-    const startDate = body.startDate;
-    const endDate = body.endDate;
 
     // Validate required parameters
     if (!siteId || typeof siteId !== 'string') {
