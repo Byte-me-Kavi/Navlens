@@ -133,10 +133,27 @@ export async function POST(req: NextRequest) {
         }
 
         const data = await response.json();
-        console.log('[Smart Scraper] Browserless response received');
+        console.log('[Smart Scraper] Browserless response:', JSON.stringify(data, null, 2));
 
-        const screenshotBase64 = data.data.screenshot.base64;
-        const elementMap = JSON.parse(data.data.evaluate.result);
+        if (data.errors) {
+          throw new Error(`Browserless GraphQL errors: ${JSON.stringify(data.errors)}`);
+        }
+
+        if (!data.data) {
+          throw new Error('Browserless returned no data');
+        }
+
+        const screenshotBase64 = data.data.screenshot?.base64;
+        if (!screenshotBase64) {
+          throw new Error('Browserless did not return screenshot');
+        }
+
+        const evaluateResult = data.data.evaluate?.result;
+        if (!evaluateResult) {
+          throw new Error('Browserless did not return evaluate result');
+        }
+
+        const elementMap = JSON.parse(evaluateResult);
 
         console.log(`[Smart Scraper] Found ${elementMap.length} interactive elements.`);
 
