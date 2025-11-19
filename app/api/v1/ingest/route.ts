@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createClickHouseClient } from '@clickhouse/client';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabaseClient';
 import { validators, ValidationError, validateRequestSize, ValidatedEventData } from '@/lib/validation';
 
 // Create admin Supabase client for server-side operations

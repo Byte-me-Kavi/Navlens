@@ -21,6 +21,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // Use a ref to track if we've processed the login toast in this mount instance
   const processedLoginToast = useRef(false);
 
+  // Track if component has mounted on client
+  const [mounted, setMounted] = useState(false);
+
   // Calculate initial loading state synchronously - only on client side
   const getInitialLoadingState = () => {
     // Check if we're on the client side
@@ -42,6 +45,12 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   const [isLoading, setIsLoading] = useState(getInitialLoadingState);
+
+  // Set mounted on client
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     // Prevent running this logic multiple times if component re-renders
@@ -132,7 +141,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  if (isLoading) {
+  if (isLoading || !mounted) {
     return (
       <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-50 transition-opacity duration-500 ease-out">
         <LoadingSpinner message="Loading dashboard..." />

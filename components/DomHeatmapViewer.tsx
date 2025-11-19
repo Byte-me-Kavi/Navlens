@@ -21,7 +21,8 @@ export default function DomHeatmapViewer({
   deviceType,
 }: DomHeatmapViewerProps) {
   const iframeContainerRef = useRef<HTMLDivElement>(null);
-  const [snapshotData, setSnapshotData] = useState<any>(null);
+  const [snapshotData, setSnapshotData] = useState<unknown>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
 
   // 1. Fetch the DOM Snapshot JSON

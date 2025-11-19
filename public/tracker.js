@@ -20,9 +20,6 @@
     return;
   }
 
-  // Generate a unique session ID for this user session
-  const SESSION_ID = generateSessionId();
-
   const SNAPSHOT_ENDPOINT = `${API_HOST}/api/dom-snapshot`; // New Endpoint!
 
   // --- Optimized Constants ---
@@ -34,12 +31,6 @@
   const SNAPSHOT_CACHE_DAYS = 1; // Cache snapshots for 1 day
 
   // --- Utility Functions ---
-  function generateSessionId() {
-    return (
-      "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9)
-    );
-  }
-
   function generateUserId() {
     let userId = localStorage.getItem("navlens_user_id");
     if (!userId) {
