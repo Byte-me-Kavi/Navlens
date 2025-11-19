@@ -11,6 +11,18 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Type definitions for rrweb data
+interface RrwebEvent {
+  type: number;
+  data?: Record<string, unknown>;
+  timestamp?: number;
+}
+
+interface RrwebRecord {
+  events: RrwebEvent[] | string;
+  // Add other fields as needed
+}
+
 export default function DomHeatmapViewer() {
   const { selectedSiteId: siteId } = useSite();
   const [selectedPage, setSelectedPage] = useState("/");
@@ -59,26 +71,23 @@ export default function DomHeatmapViewer() {
           selectedPage === "/" ? "homepage" : selectedPage.replace(/\//g, "_");
         const filePath = `${siteId}/${selectedDevice}/${path}.json`;
 
-        const { data } = supabase.storage
+        const { data, error } = await supabase.storage
           .from("snapshots")
-          .getPublicUrl(filePath);
+          .download(filePath);
 
-        const res = await fetch(data.publicUrl);
-        if (res.ok) {
-          const json = await res.json();
-          setSnapshotData(json);
-          console.log(
-            "[Heatmap Viewer] Snapshot loaded successfully from:",
-            filePath
-          );
-        } else {
-          console.warn(
-            "[Heatmap Viewer] Snapshot not found at:",
-            filePath,
-            "Status:",
-            res.status
-          );
+        if (error) {
+          console.error("[Heatmap Viewer] Error downloading snapshot:", error);
+          return;
         }
+
+        // Convert blob to JSON
+        const text = await data.text();
+        const json = JSON.parse(text);
+        setSnapshotData(json);
+        console.log(
+          "[Heatmap Viewer] Snapshot loaded successfully from:",
+          filePath
+        );
       } catch (err) {
         console.error("[Heatmap Viewer] Error fetching snapshot:", err);
       } finally {
@@ -92,79 +101,219 @@ export default function DomHeatmapViewer() {
   useEffect(() => {
     if (!snapshotData || !iframeContainerRef.current) return;
 
-    // Clear previous
-    iframeContainerRef.current.innerHTML = "";
+    try {
+      // Clear previous
+      iframeContainerRef.current.innerHTML = "";
 
-    // Create full snapshot event for rrweb
-    const events = [
-      {
-        type: 2, // Full snapshot event
-        data: snapshotData,
-        timestamp: Date.now(),
-      },
-    ];
+      // Create events for rrweb
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let events: any[] = [];
 
-    // Initialize Replayer (it reconstructs the HTML)
-    const replayer = new Replayer(events, {
-      root: iframeContainerRef.current,
-      unpackFn: unpack, // Handles compression if used
-    });
+      if (Array.isArray(snapshotData)) {
+        // If it's already an array of events, use it directly
+        events = snapshotData;
+      } else if (snapshotData && typeof snapshotData === "object") {
+        // If it's a single snapshot object, wrap it as a full snapshot event
+        // But first validate that it has the required structure
+        if ("childNodes" in snapshotData || "type" in snapshotData) {
+          events = [
+            {
+              type: 4, // Meta event - required for rrweb
+              data: {
+                href: window.location.href,
+                width: window.innerWidth,
+                height: window.innerHeight,
+              },
+              timestamp: Date.now() - 100,
+            },
+            {
+              type: 2, // Full snapshot event
+              data: snapshotData,
+              timestamp: Date.now(),
+            },
+          ];
+        } else {
+          console.warn(
+            "[Heatmap Viewer] Snapshot data does not appear to be valid rrweb format"
+          );
+          console.log(
+            "[Heatmap Viewer] Snapshot structure:",
+            Object.keys(snapshotData).slice(0, 20)
+          );
+          return;
+        }
+      }
 
-    // "Play" the single frame to render it
-    replayer.play();
-    // Pause immediately so it stays static
-    setTimeout(() => replayer.pause(), 10);
+      console.log(
+        "[Heatmap Viewer] Events:",
+        events.length,
+        "Event types:",
+        events.map((e: RrwebEvent) => e?.type || "unknown")
+      );
 
-    // 3. Initialize Heatmap on top of the Rebuilt DOM
-    const instance = h337.create({
-      container: iframeContainerRef.current, // Draw ON TOP of the rebuilt HTML
-      radius: 30,
-      maxOpacity: 0.6,
-    });
-    setHeatmapInstance(instance);
+      if (events.length < 1) {
+        console.warn("[Heatmap Viewer] No valid events for Replayer");
+        return;
+      }
+
+      console.log(
+        "[Heatmap Viewer] Initializing Replayer with first event type:",
+        events[0]?.type
+      );
+
+      // Initialize Replayer (it reconstructs the HTML)
+      const replayer = new Replayer(events, {
+        root: iframeContainerRef.current,
+        unpackFn: unpack, // Handles compression if used
+        triggerFocus: false,
+      });
+
+      // "Play" the single frame to render it
+      replayer.play();
+      // Pause immediately so it stays static
+      setTimeout(() => replayer.pause(), 50);
+
+      console.log("[Heatmap Viewer] DOM rebuilt successfully");
+
+      // 3. Initialize Heatmap on top of the Rebuilt DOM
+      const instance = h337.create({
+        container: iframeContainerRef.current, // Draw ON TOP of the rebuilt HTML
+        radius: 30,
+        maxOpacity: 0.6,
+      });
+      setHeatmapInstance(instance);
+    } catch (error) {
+      console.error("[Heatmap Viewer] Error rebuilding DOM:", error);
+      if (error instanceof Error) {
+        console.error("[Heatmap Viewer] Stack:", error.stack);
+      }
+      console.log("[Heatmap Viewer] Snapshot analysis:", {
+        type: typeof snapshotData,
+        isArray: Array.isArray(snapshotData),
+        firstItemType:
+          Array.isArray(snapshotData) && snapshotData.length > 0
+            ? typeof snapshotData[0]
+            : "N/A",
+        keys:
+          snapshotData &&
+          typeof snapshotData === "object" &&
+          !Array.isArray(snapshotData)
+            ? Object.keys(snapshotData).slice(0, 10)
+            : null,
+      });
+    }
   }, [snapshotData]);
 
-  // 4. Fetch & Render Heatmap Data (Same as your old logic)
+  // 4. Fetch & Render Heatmap Data from rrweb events
   useEffect(() => {
-    if (!heatmapInstance) return;
-    // ... fetch clickhouse data ...
-    // ... heatmapInstance.setData(...) ...
+    if (!heatmapInstance || !siteId || !selectedPage) return;
 
-    // NOTE: You don't need complex scaling anymore!
-    // The Replayer recreates the page at the original size.
-    // x=500 is x=500.
-  }, [heatmapInstance]);
+    const fetchHeatmapData = async () => {
+      try {
+        // Fetch rrweb events for this page
+        const { data: rrwebData, error } = await supabase
+          .from("rrweb_events")
+          .select("events")
+          .eq("site_id", siteId)
+          .eq("page_path", selectedPage)
+          .order("timestamp", { ascending: false })
+          .limit(10); // Get recent sessions
+
+        if (error) {
+          console.error("[Heatmap Viewer] Error fetching rrweb events:", error);
+          return;
+        }
+
+        // Extract mouse positions and clicks from rrweb events
+        const heatmapPoints: Array<{ x: number; y: number; value: number }> =
+          [];
+
+        rrwebData?.forEach((record: RrwebRecord) => {
+          const events =
+            typeof record.events === "string"
+              ? JSON.parse(record.events)
+              : record.events;
+
+          events.forEach((event: RrwebEvent) => {
+            if (event.type === 5 && event.data) {
+              // Mouse events
+              // Mouse movements have positions
+              if (event.data.x !== undefined && event.data.y !== undefined) {
+                heatmapPoints.push({
+                  x: event.data.x as number,
+                  y: event.data.y as number,
+                  value: 1, // Low intensity for movements
+                });
+              }
+            } else if (
+              event.type === 3 &&
+              event.data &&
+              (event.data.source as number) === 1
+            ) {
+              // Click events
+              // Mouse interactions (clicks)
+              if (event.data.x !== undefined && event.data.y !== undefined) {
+                heatmapPoints.push({
+                  x: event.data.x as number,
+                  y: event.data.y as number,
+                  value: 10, // High intensity for clicks
+                });
+              }
+            }
+          });
+        });
+
+        console.log(
+          `[Heatmap Viewer] Found ${heatmapPoints.length} interaction points`
+        );
+
+        // Apply heatmap data
+        if (heatmapPoints.length > 0) {
+          heatmapInstance.setData({
+            max: 10,
+            data: heatmapPoints,
+          });
+        }
+      } catch (error) {
+        console.error("[Heatmap Viewer] Error processing heatmap data:", error);
+      }
+    };
+
+    fetchHeatmapData();
+  }, [heatmapInstance, siteId, selectedPage]);
 
   const recaptureSnapshot = async () => {
     if (!siteId || !selectedPage || !selectedDevice) return;
 
     setLoading(true);
     try {
-      const response = await fetch("/api/generate-screenshot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          siteId,
-          pagePath: selectedPage,
-          deviceType: selectedDevice,
-        }),
-      });
-      if (response.ok) {
-        // Refresh the snapshot data
-        const path =
-          selectedPage === "/" ? "homepage" : selectedPage.replace(/\//g, "_");
-        const filePath = `${siteId}/${selectedDevice}/${path}.json`;
-        const { data } = supabase.storage
-          .from("snapshots")
-          .getPublicUrl(filePath);
-        const res = await fetch(data.publicUrl);
-        if (res.ok) {
-          const json = await res.json();
-          setSnapshotData(json);
-        }
+      // For recapture, we need to trigger snapshot capture on the actual site
+      // Since we can't do that from here, we'll show a message
+      alert(
+        "To recapture the snapshot, please visit the actual page and refresh. The tracker will automatically capture a new snapshot."
+      );
+
+      // Alternatively, we could try to refresh the existing data
+      // For now, just reload the current snapshot
+      const path =
+        selectedPage === "/" ? "homepage" : selectedPage.replace(/\//g, "_");
+      const filePath = `${siteId}/${selectedDevice}/${path}.json`;
+      const { data, error } = await supabase.storage
+        .from("snapshots")
+        .download(filePath);
+
+      if (error) {
+        console.error("[Heatmap Viewer] Error downloading snapshot:", error);
+        return;
       }
+
+      // Convert blob to JSON
+      const text = await data.text();
+      const json = JSON.parse(text);
+      setSnapshotData(json);
+      console.log("[Heatmap Viewer] Refreshed snapshot data");
     } catch (error) {
-      console.error("Failed to recapture snapshot:", error);
+      console.error("Failed to refresh snapshot:", error);
     } finally {
       setLoading(false);
     }

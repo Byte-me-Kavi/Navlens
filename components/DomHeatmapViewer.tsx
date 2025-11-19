@@ -32,15 +32,19 @@ export default function DomHeatmapViewer({
       const path = pagePath === "/" ? "homepage" : pagePath.replace(/^\//, "");
       const filePath = `${siteId}/${deviceType}/${path}.json`;
 
-      const { data } = supabase.storage
+      const { data, error } = await supabase.storage
         .from("snapshots")
-        .getPublicUrl(filePath);
+        .download(filePath);
 
-      const res = await fetch(data.publicUrl);
-      if (res.ok) {
-        const json = await res.json();
-        setSnapshotData(json);
+      if (error) {
+        console.error("Error downloading snapshot:", error);
+        return;
       }
+
+      // Convert blob to JSON
+      const text = await data.text();
+      const json = JSON.parse(text);
+      setSnapshotData(json);
     };
     fetchSnapshot();
   }, [siteId, pagePath, deviceType]);

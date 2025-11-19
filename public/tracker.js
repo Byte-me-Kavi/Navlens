@@ -22,13 +22,126 @@
 
   const SNAPSHOT_ENDPOINT = `${API_HOST}/api/dom-snapshot`; // New Endpoint!
 
-  // --- Optimized Constants ---
-  const THROTTLE_SCROLL_MS = 150; // Increased for better performance
-  const THROTTLE_RESIZE_MS = 500; // Increased for better performance
-  const CLICK_THROTTLE_MS = 100; // Increased to reduce spam
-  const BATCH_SIZE = 10; // Reduced for faster sends
-  const BATCH_FLUSH_INTERVAL = 8000; // Increased interval
-  const SNAPSHOT_CACHE_DAYS = 1; // Cache snapshots for 1 day
+  // --- rrweb Recording Setup ---
+  let rrwebStopRecording = null;
+  const recordedEvents = [];
+  const RRWEB_BATCH_SIZE = 50; // Send rrweb events in batches
+
+  // Performance metrics
+  let domReadyTime = null;
+  let loadTime = null;
+
+  // Capture DOM ready time
+  document.addEventListener("DOMContentLoaded", () => {
+    domReadyTime = performance.now();
+  });
+
+  // Capture load time
+  window.addEventListener("load", () => {
+    loadTime = performance.now();
+  });
+
+  function startRrwebRecording() {
+    if (typeof rrweb === "undefined" || typeof rrweb.record === "undefined") {
+      console.warn("rrweb not available for recording");
+      return;
+    }
+
+    console.log("Starting rrweb recording for mouse and scroll events");
+
+    rrwebStopRecording = rrweb.record({
+      emit(event) {
+        // Store events
+        recordedEvents.push(event);
+
+        // Send in batches for mouse/scroll events
+        if (recordedEvents.length >= RRWEB_BATCH_SIZE) {
+          sendRrwebEvents();
+        }
+      },
+      // Record mouse movements and scroll events
+      recordMouseMovement: true,
+      recordScroll: true,
+      // Don't record canvas or other heavy elements
+      recordCanvas: false,
+      recordWebGL: false,
+      // Sampling for performance
+      sampling: {
+        mouseMove: 10, // Only record every 10th mouse movement
+        scroll: 150, // Throttle scroll events
+      },
+    });
+  }
+
+  function stopRrwebRecording() {
+    if (rrwebStopRecording) {
+      rrwebStopRecording();
+      rrwebStopRecording = null;
+      // Send any remaining events
+      if (recordedEvents.length > 0) {
+        sendRrwebEvents();
+      }
+      console.log("Stopped rrweb recording");
+    }
+  }
+
+  function sendRrwebEvents() {
+    if (recordedEvents.length === 0) return;
+
+    const eventsToSend = [...recordedEvents];
+    recordedEvents.length = 0; // Clear the array
+
+    // Detect device type
+    const ua = navigator.userAgent;
+    let deviceType = "desktop";
+    if (/Mobile|Android|iP(hone|od|ad)/.test(ua)) {
+      deviceType = "mobile";
+    } else if (/Tablet|iPad/.test(ua)) {
+      deviceType = "tablet";
+    }
+
+    const payload = JSON.stringify({
+      site_id: SITE_ID,
+      page_path: window.location.pathname,
+      session_id: getSessionId(),
+      visitor_id: generateUserId(),
+      events: eventsToSend,
+      timestamp: Date.now(),
+      user_agent: navigator.userAgent,
+      screen_width: window.screen.width,
+      screen_height: window.screen.height,
+      language: navigator.language,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      referrer: document.referrer,
+      viewport_width: window.innerWidth,
+      viewport_height: window.innerHeight,
+      device_pixel_ratio: window.devicePixelRatio,
+      platform: navigator.platform,
+      cookie_enabled: navigator.cookieEnabled,
+      online: navigator.onLine,
+      device_type: deviceType,
+      load_time: loadTime,
+      dom_ready_time: domReadyTime,
+    });
+
+    // Use sendBeacon for rrweb events
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(RRWEB_EVENTS_ENDPOINT, payload);
+      console.log(`✓ Sent ${eventsToSend.length} rrweb events via sendBeacon`);
+    } else {
+      fetch(RRWEB_EVENTS_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      })
+        .then(() => console.log(`✓ Sent ${eventsToSend.length} rrweb events`))
+        .catch((error) => {
+          console.error("Failed to send rrweb events:", error);
+          // Re-queue events on failure
+          recordedEvents.unshift(...eventsToSend);
+        });
+    }
+  }
 
   // --- Utility Functions ---
   function generateUserId() {
@@ -43,6 +156,7 @@
 
   // Secure API endpoint (no sensitive data exposed)
   const API_COLLECT_ENDPOINT = `${API_HOST}/api/v1/ingest`;
+  const RRWEB_EVENTS_ENDPOINT = `${API_HOST}/api/rrweb-events`; // New endpoint for rrweb events
   let eventQueue = [];
   let isProcessing = false;
   let flushTimer = null;
@@ -401,8 +515,12 @@
   }
   window.addEventListener("resize", handleResize);
 
+  // Start rrweb recording for mouse and scroll events
+  startRrwebRecording();
+
   // Cleanup on unload
   window.addEventListener("beforeunload", () => {
+    stopRrwebRecording();
     flushEventQueue();
     if (flushTimer) clearInterval(flushTimer);
   });
