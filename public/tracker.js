@@ -380,7 +380,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: payloadStr,
-        keepalive: true, // Allows request to complete even if page unloads
+        // keepalive: true, // Removed to avoid issues
       })
         .then((res) => {
           if (res.ok) {

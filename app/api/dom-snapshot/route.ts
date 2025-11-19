@@ -16,7 +16,9 @@ export const config = {
 
 export async function POST(req: NextRequest) {
     try {
+        console.log('DOM snapshot POST received');
         const { site_id, page_path, device_type, snapshot } = await req.json();
+        console.log('Parsed JSON, site_id:', site_id, 'page_path:', page_path, 'device_type:', device_type);
 
         if (!site_id || !snapshot) {
             return NextResponse.json({ error: 'Missing data' }, { status: 400 });
@@ -27,11 +29,13 @@ export async function POST(req: NextRequest) {
         
         // File path: site_id/desktop/homepage.json
         const filePath = `${site_id}/${device_type}/${normalizedPath}.json`;
+        console.log('File path:', filePath);
 
         // Upload JSON to Supabase Storage (snapshots bucket)
         // Note: We assume the bucket 'snapshots' is already created as private in your Supabase dashboard.
         // If not, create it manually or uncomment the bucket creation logic (which is slower).
         
+        console.log('Uploading to Supabase...');
         const { error } = await supabase.storage
             .from('snapshots')
             .upload(filePath, JSON.stringify(snapshot), {
@@ -44,6 +48,7 @@ export async function POST(req: NextRequest) {
              throw error;
         }
 
+        console.log('Upload successful');
         return NextResponse.json({ success: true });
 
     } catch (error: unknown) {
