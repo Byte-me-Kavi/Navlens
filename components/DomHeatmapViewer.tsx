@@ -37,6 +37,14 @@ export default function DomHeatmapViewer({
         .download(filePath);
 
       if (error) {
+        // Handle missing bucket/file gracefully
+        if (
+          error.message?.includes("not found") ||
+          error.message?.includes("bucket")
+        ) {
+          console.warn("Snapshot not found:", filePath);
+          return;
+        }
         console.error("Error downloading snapshot:", error);
         return;
       }

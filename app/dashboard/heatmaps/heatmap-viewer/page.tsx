@@ -71,11 +71,23 @@ export default function DomHeatmapViewer() {
           selectedPage === "/" ? "homepage" : selectedPage.replace(/\//g, "_");
         const filePath = `${siteId}/${selectedDevice}/${path}.json`;
 
+        // First, try to download the file
         const { data, error } = await supabase.storage
           .from("snapshots")
           .download(filePath);
 
         if (error) {
+          // If bucket doesn't exist or file not found, handle gracefully
+          if (
+            error.message?.includes("not found") ||
+            error.message?.includes("bucket")
+          ) {
+            console.warn("[Heatmap Viewer] Snapshot not found:", filePath);
+            console.log(
+              "[Heatmap Viewer] This is normal if no snapshots have been captured yet"
+            );
+            return;
+          }
           console.error("[Heatmap Viewer] Error downloading snapshot:", error);
           return;
         }
