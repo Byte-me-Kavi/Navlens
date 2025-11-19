@@ -20,8 +20,8 @@ const SITE_NAME_REGEX = /^[a-zA-Z0-9\s\-_]{1,100}$/;
 // Event type validation
 const EVENT_TYPE_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]{0,49}$/;
 
-// Session ID validation (alphanumeric + hyphens)
-const SESSION_ID_REGEX = /^[a-zA-Z0-9\-]{1,128}$/;
+// Session ID validation (alphanumeric + hyphens + underscores)
+const SESSION_ID_REGEX = /^[a-zA-Z0-9\-_]{1,128}$/;
 
 // Page path validation (allow common URL path characters)
 const PAGE_PATH_REGEX = /^\/[a-zA-Z0-9\-._~!$&'()*+,;=:@%\/]*$/;

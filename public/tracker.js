@@ -293,7 +293,7 @@
     return {
       site_id: SITE_ID,
       event_type: eventType,
-      timestamp: new Date().toISOString().slice(0, 19).replace("T", " "),
+      timestamp: Date.now(), // Numeric timestamp in milliseconds
       page_url: window.location.href,
       page_path: window.location.pathname,
       referrer: document.referrer,
