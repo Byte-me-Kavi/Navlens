@@ -175,7 +175,6 @@
 
   // --- Optimized DOM Snapshot Capture ---
   let rrwebLoaded = false;
-  let snapshotCaptured = false;
 
   // Lazy load rrweb-snapshot only after page load
   function loadRrwebSnapshot() {
@@ -187,8 +186,8 @@
       "https://cdn.jsdelivr.net/npm/rrweb-snapshot@latest/dist/rrweb-snapshot.min.js";
     script.onload = () => {
       console.log("Navlens: rrweb-snapshot loaded");
-      // Capture snapshot after a short delay to ensure DOM is stable
-      setTimeout(captureSnapshot, 1000);
+      // Capture snapshots for all device types
+      setTimeout(() => captureSnapshotsForAllDevices(), 1000);
     };
     script.onerror = () => {
       console.warn("Navlens: Failed to load rrweb-snapshot");
@@ -196,24 +195,21 @@
     document.head.appendChild(script);
   }
 
-  function captureSnapshot() {
-    if (snapshotCaptured || typeof rrwebSnapshot === "undefined") return;
+  function captureSnapshotForDevice(deviceType) {
+    if (typeof rrwebSnapshot === "undefined") return;
 
     try {
       const snap = rrwebSnapshot.snapshot(document);
-      snapshotCaptured = true;
 
-      // Enhanced caching with device and viewport
-      const cacheKey = `navlens_snap_${
-        window.location.pathname
-      }_${getDeviceType(window.innerWidth)}_${window.innerWidth}x${
-        window.innerHeight
-      }`;
+      // Enhanced caching with device type
+      const cacheKey = `navlens_snap_${window.location.pathname}_${deviceType}`;
       const lastSnap = localStorage.getItem(cacheKey);
       const CACHE_DURATION = SNAPSHOT_CACHE_DAYS * 24 * 60 * 60 * 1000;
 
-      if (lastSnap && Date.now() - parseInt(lastSnap) < CACHE_DURATION) {
-        console.log("Navlens: Snapshot already cached for this page.");
+      const isCached =
+        lastSnap && Date.now() - parseInt(lastSnap) < CACHE_DURATION;
+      if (isCached) {
+        console.log(`Navlens: Snapshot already cached for ${deviceType}`);
         return;
       }
 
@@ -223,10 +219,12 @@
       const payload = {
         site_id: SITE_ID,
         page_path: window.location.pathname,
-        device_type: getDeviceType(window.innerWidth),
+        device_type: deviceType,
         snapshot: compressedSnap,
-        width: window.innerWidth,
-        height: window.innerHeight,
+        width:
+          deviceType === "desktop" ? 1440 : deviceType === "tablet" ? 768 : 375,
+        height:
+          deviceType === "desktop" ? 900 : deviceType === "tablet" ? 1024 : 667,
         timestamp: Date.now(),
       };
 
@@ -236,7 +234,9 @@
         // sendBeacon limit
         navigator.sendBeacon(SNAPSHOT_ENDPOINT, payloadStr);
         localStorage.setItem(cacheKey, Date.now().toString());
-        console.log("Navlens: DOM Snapshot sent via sendBeacon");
+        console.log(
+          `Navlens: DOM Snapshot sent via sendBeacon for ${deviceType}`
+        );
       } else {
         fetch(SNAPSHOT_ENDPOINT, {
           method: "POST",
@@ -246,16 +246,31 @@
           .then((res) => {
             if (res.ok) {
               localStorage.setItem(cacheKey, Date.now().toString());
-              console.log("Navlens: DOM Snapshot uploaded successfully.");
+              console.log(
+                `Navlens: DOM Snapshot uploaded successfully for ${deviceType}`
+              );
             }
           })
           .catch(() => {
-            console.warn("Navlens: Failed to upload DOM snapshot");
+            console.warn(
+              `Navlens: Failed to upload DOM snapshot for ${deviceType}`
+            );
           });
       }
     } catch (error) {
-      console.warn("Navlens: Error capturing snapshot:", error);
+      console.warn(
+        `Navlens: Error capturing snapshot for ${deviceType}:`,
+        error
+      );
     }
+  }
+
+  // Capture snapshots for all device types
+  function captureSnapshotsForAllDevices() {
+    const devices = ["desktop", "tablet", "mobile"];
+    devices.forEach((device, index) => {
+      setTimeout(() => captureSnapshotForDevice(device), index * 500); // Stagger captures
+    });
   }
 
   // Compress snapshot by removing redundant data

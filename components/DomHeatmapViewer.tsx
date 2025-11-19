@@ -28,12 +28,12 @@ export default function DomHeatmapViewer({
   // 1. Fetch the DOM Snapshot JSON
   useEffect(() => {
     const fetchSnapshot = async () => {
-      // Construct URL (matches your storage logic)
+      // Construct URL (matches your storage logic: siteId/deviceType/path.json)
       const path = pagePath === "/" ? "homepage" : pagePath.replace(/^\//, "");
-      const filePath = `${siteId}/${path}-${deviceType}.json`;
+      const filePath = `${siteId}/${deviceType}/${path}.json`;
 
       const { data } = supabase.storage
-        .from("screenshots")
+        .from("snapshots")
         .getPublicUrl(filePath);
 
       const res = await fetch(data.publicUrl);
