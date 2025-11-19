@@ -97,6 +97,11 @@ export default function DomHeatmapViewer({
     // Create full snapshot event for rrweb
     const events = [
       {
+        type: 0, // Meta event
+        data: {},
+        timestamp: Date.now() - 1000,
+      },
+      {
         type: 2, // Full snapshot event
         data: snapshotData,
         timestamp: Date.now(),

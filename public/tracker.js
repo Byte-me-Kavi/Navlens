@@ -357,13 +357,13 @@
       }
 
       // Compress snapshot data (remove unnecessary properties)
-      const compressedSnap = compressSnapshot(snap);
+      // const compressedSnap = compressSnapshot(snap);
 
       const payload = {
         site_id: SITE_ID,
         page_path: window.location.pathname,
         device_type: deviceType,
-        snapshot: compressedSnap,
+        snapshot: snap, // compressedSnap,
         width:
           deviceType === "desktop" ? 1440 : deviceType === "tablet" ? 768 : 375,
         height:
@@ -410,7 +410,7 @@
 
   // Capture snapshots for all device types
   function captureSnapshotsForAllDevices() {
-    const devices = ["desktop"]; // Only desktop for now
+    const devices = ["desktop", "tablet", "mobile"];
     devices.forEach((device, index) => {
       setTimeout(() => captureSnapshotForDevice(device), index * 500); // Stagger captures
     });
@@ -422,7 +422,8 @@
     function cleanNode(node) {
       if (node.attributes) {
         delete node.attributes.style;
-        delete node.attributes.class; // Keep classes for selectors
+        // Keep class for selectors
+        // delete node.attributes.class;
       }
       if (node.childNodes) {
         node.childNodes.forEach(cleanNode);
