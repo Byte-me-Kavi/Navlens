@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@clickhouse/client';
+import { createClient as createClickHouseClient } from '@clickhouse/client';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import { validators, ValidationError, validateRequestSize, ValidatedEventData } from '@/lib/validation';
 
+// Create admin Supabase client for server-side operations
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 // Initialize ClickHouse client
-const clickhouse = createClient({
+const clickhouse = createClickHouseClient({
   host: process.env.CLICKHOUSE_HOST!,
   username: process.env.CLICKHOUSE_USERNAME!,
   password: process.env.CLICKHOUSE_PASSWORD!,
@@ -118,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     // Validate siteId exists in our system and is active
     // This prevents unauthorized data collection for non-existent or inactive sites
-    const { data: siteData, error: siteError } = await supabase
+    const { data: siteData, error: siteError } = await supabaseAdmin
       .from('sites')
       .select('id, user_id')
       .eq('id', siteId)
