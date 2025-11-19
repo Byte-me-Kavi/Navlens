@@ -15,29 +15,15 @@ export async function POST(req: NextRequest) {
         }
 
         // Normalize path
-        const normalizedPath = page_path === '/' ? 'homepage' : page_path.replace(/^\//, '');
+        const normalizedPath = page_path === '/' ? 'homepage' : page_path.replace(/^\//, '').replace(/\//g, '_');
         
         // File path: site_id/desktop/homepage.json
         const filePath = `${site_id}/${device_type}/${normalizedPath}.json`;
 
-        // Ensure the snapshots bucket exists
-        const { data: buckets } = await supabase.storage.listBuckets();
-        const snapshotsBucket = buckets?.find(b => b.name === 'snapshots');
-
-        if (!snapshotsBucket) {
-            console.log('[DOM Snapshot] Creating snapshots bucket...');
-            const { error: createError } = await supabase.storage.createBucket('snapshots', {
-                public: false, // Private bucket
-                allowedMimeTypes: ['application/json'],
-                fileSizeLimit: 10485760 // 10MB
-            });
-            if (createError) {
-                console.error('[DOM Snapshot] Failed to create bucket:', createError);
-                return NextResponse.json({ error: 'Failed to create storage bucket' }, { status: 500 });
-            }
-        }
-
-        // Upload JSON to Supabase Storage
+        // Upload JSON to Supabase Storage (snapshots bucket)
+        // Note: We assume the bucket 'snapshots' is already created as private in your Supabase dashboard.
+        // If not, create it manually or uncomment the bucket creation logic (which is slower).
+        
         const { error } = await supabase.storage
             .from('snapshots')
             .upload(filePath, JSON.stringify(snapshot), {
@@ -45,7 +31,10 @@ export async function POST(req: NextRequest) {
                 upsert: true
             });
 
-        if (error) throw error;
+        if (error) {
+             console.error('Snapshot upload failed:', error);
+             throw error;
+        }
 
         return NextResponse.json({ success: true });
 

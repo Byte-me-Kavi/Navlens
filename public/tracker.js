@@ -1,4 +1,4 @@
-// public/tracker.js - v3.1 (Optimized DOM Snapshot Edition)
+// public/tracker.js - v3.2 (Enhanced rrweb Events with Rich Metadata)
 
 (function () {
   // --- Configuration ---
@@ -20,7 +20,8 @@
     return;
   }
 
-  const SNAPSHOT_ENDPOINT = `${API_HOST}/api/dom-snapshot`; // New Endpoint!
+  const RRWEB_EVENTS_ENDPOINT = `${API_HOST}/api/rrweb-events`; // rrweb events endpoint
+  const SNAPSHOT_ENDPOINT = `${API_HOST}/api/dom-snapshot`; // DOM snapshot endpoint
 
   // --- rrweb Recording Setup ---
   let rrwebStopRecording = null;
@@ -52,6 +53,26 @@
   window.addEventListener("load", () => {
     loadTime = performance.now();
   });
+
+  // --- 1. Helper: Generate/Get Persistent Visitor ID ---
+  function getVisitorId() {
+    let vid = localStorage.getItem("navlens_vid");
+    if (!vid) {
+      vid = "v-" + Math.random().toString(36).substr(2, 9) + "-" + Date.now();
+      localStorage.setItem("navlens_vid", vid);
+    }
+    return vid;
+  }
+
+  // --- 2. Helper: Get Session ID ---
+  function getSessionId() {
+    let sid = sessionStorage.getItem("navlens_sid");
+    if (!sid) {
+      sid = "s-" + Math.random().toString(36).substr(2, 9) + "-" + Date.now();
+      sessionStorage.setItem("navlens_sid", sid);
+    }
+    return sid;
+  }
 
   function startRrwebRecording() {
     if (typeof rrweb === "undefined" || typeof rrweb.record === "undefined") {
@@ -104,55 +125,61 @@
     recordedEvents.length = 0; // Clear the array
 
     // Detect device type
-    const ua = navigator.userAgent;
-    let deviceType = "desktop";
-    if (/Mobile|Android|iP(hone|od|ad)/.test(ua)) {
-      deviceType = "mobile";
-    } else if (/Tablet|iPad/.test(ua)) {
-      deviceType = "tablet";
-    }
+    const width = window.innerWidth;
+    const deviceType =
+      width < 768 ? "mobile" : width < 1024 ? "tablet" : "desktop";
 
-    const payload = JSON.stringify({
+    // Prepare the payload matching the Database Schema with rich metadata
+    const payload = {
       site_id: SITE_ID,
       page_path: window.location.pathname,
       session_id: getSessionId(),
-      visitor_id: generateUserId(),
-      events: eventsToSend,
-      timestamp: Date.now(),
+      visitor_id: getVisitorId(),
+      events: eventsToSend, // The raw rrweb JSON
+      timestamp: new Date().toISOString(), // Current time
+
+      // Browser/Device Metadata
       user_agent: navigator.userAgent,
       screen_width: window.screen.width,
       screen_height: window.screen.height,
+      viewport_width: window.innerWidth,
+      viewport_height: window.innerHeight,
+      device_pixel_ratio: window.devicePixelRatio || 1,
       language: navigator.language,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       referrer: document.referrer,
-      viewport_width: window.innerWidth,
-      viewport_height: window.innerHeight,
-      device_pixel_ratio: window.devicePixelRatio,
       platform: navigator.platform,
       cookie_enabled: navigator.cookieEnabled,
       online: navigator.onLine,
       device_type: deviceType,
-      load_time: loadTime,
-      dom_ready_time: domReadyTime,
-    });
 
-    // Use sendBeacon for rrweb events
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(RRWEB_EVENTS_ENDPOINT, payload);
-      console.log(`✓ Sent ${eventsToSend.length} rrweb events via sendBeacon`);
-    } else {
-      fetch(RRWEB_EVENTS_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payload,
-      })
-        .then(() => console.log(`✓ Sent ${eventsToSend.length} rrweb events`))
-        .catch((error) => {
-          console.error("Failed to send rrweb events:", error);
-          // Re-queue events on failure
+      // Performance Metrics
+      load_time: loadTime > 0 ? loadTime : null,
+      dom_ready_time: domReadyTime > 0 ? domReadyTime : null,
+    };
+
+    // Use fetch with keepalive for proper JSON handling
+    fetch(RRWEB_EVENTS_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    })
+      .then((res) => {
+        if (res.ok) {
+          console.log(
+            `✓ Sent ${eventsToSend.length} rrweb events successfully`
+          );
+        } else {
+          console.error(`Failed to send rrweb events - HTTP ${res.status}`);
           recordedEvents.unshift(...eventsToSend);
-        });
-    }
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to send rrweb events:", error);
+        // Re-queue events on failure
+        recordedEvents.unshift(...eventsToSend);
+      });
   }
 
   // --- Utility Functions ---
@@ -168,11 +195,11 @@
 
   // Secure API endpoint (no sensitive data exposed)
   const API_COLLECT_ENDPOINT = `${API_HOST}/api/v1/ingest`;
-  const RRWEB_EVENTS_ENDPOINT = `${API_HOST}/api/rrweb-events`; // New endpoint for rrweb events
   let eventQueue = [];
   let isProcessing = false;
   let flushTimer = null;
   let lastClickTime = 0;
+  let lastScrollTime = 0;
 
   function addEventToQueue(event) {
     eventQueue.push(event);
@@ -269,16 +296,6 @@
     return clientId;
   }
 
-  function getSessionId() {
-    let sessionId = sessionStorage.getItem("session_id");
-    if (!sessionId) {
-      sessionId =
-        "session-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
-      sessionStorage.setItem("session_id", sessionId);
-    }
-    return sessionId;
-  }
-
   function getDeviceType(viewportWidth) {
     if (viewportWidth < 768) return "mobile";
     if (viewportWidth < 1024) return "tablet";
@@ -354,35 +371,32 @@
         timestamp: Date.now(),
       };
 
-      // Use sendBeacon for large payloads
+      // Use fetch with proper JSON content type (sendBeacon doesn't support application/json)
       const payloadStr = JSON.stringify(payload);
-      if (navigator.sendBeacon && payloadStr.length < 64000) {
-        // sendBeacon limit
-        navigator.sendBeacon(SNAPSHOT_ENDPOINT, payloadStr);
-        localStorage.setItem(cacheKey, Date.now().toString());
-        console.log(
-          `Navlens: DOM Snapshot sent via sendBeacon for ${deviceType}`
-        );
-      } else {
-        fetch(SNAPSHOT_ENDPOINT, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: payloadStr,
-        })
-          .then((res) => {
-            if (res.ok) {
-              localStorage.setItem(cacheKey, Date.now().toString());
-              console.log(
-                `Navlens: DOM Snapshot uploaded successfully for ${deviceType}`
-              );
-            }
-          })
-          .catch(() => {
-            console.warn(
-              `Navlens: Failed to upload DOM snapshot for ${deviceType}`
+      fetch(SNAPSHOT_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payloadStr,
+        keepalive: true, // Allows request to complete even if page unloads
+      })
+        .then((res) => {
+          if (res.ok) {
+            localStorage.setItem(cacheKey, Date.now().toString());
+            console.log(
+              `Navlens: DOM Snapshot uploaded successfully for ${deviceType}`
             );
-          });
-      }
+          } else {
+            console.error(
+              `Navlens: Failed to upload snapshot - HTTP ${res.status}`
+            );
+          }
+        })
+        .catch((err) => {
+          console.error(
+            `Navlens: Failed to upload DOM snapshot for ${deviceType}:`,
+            err
+          );
+        });
     } catch (error) {
       console.warn(
         `Navlens: Error capturing snapshot for ${deviceType}:`,
@@ -487,7 +501,6 @@
   document.addEventListener("click", handleClick, { passive: true });
 
   // Scroll Event with passive listener
-  let lastScrollTime = 0;
   function handleScroll() {
     const now = Date.now();
     if (now - lastScrollTime < THROTTLE_SCROLL_MS) return;
