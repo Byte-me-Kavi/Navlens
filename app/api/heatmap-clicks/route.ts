@@ -1,14 +1,38 @@
 // app/api/heatmap-clicks/route.ts
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createClickHouseClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Initialize ClickHouse client
+function createClickHouseConfig() {
+  const url = process.env.CLICKHOUSE_URL;
+  if (url) {
+    // Parse ClickHouse URL: https://username:password@host:port/database
+    const urlPattern = /^https?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/;
+    const match = url.match(urlPattern);
+    if (match) {
+      const [, username, password, host, port, database] = match;
+      return {
+        host: `https://${host}:${port}`,
+        username,
+        password,
+        database,
+      };
+    }
+  }
+
+  // Fallback to individual env vars
+  return {
+    host: process.env.CLICKHOUSE_HOST!,
+    username: process.env.CLICKHOUSE_USERNAME!,
+    password: process.env.CLICKHOUSE_PASSWORD!,
+    database: process.env.CLICKHOUSE_DATABASE!,
+  };
+}
+
+const clickhouse = createClickHouseClient(createClickHouseConfig());
 
 export async function GET(req: NextRequest) {
   try {
@@ -69,41 +93,55 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 1. Fetch aggregated events from Supabase
-    // We look for sessions that match the site, page, and device.
-    const { data: rrwebData, error } = await supabase
-      .from('rrweb_events')
-      .select('events')
-      .eq('site_id', siteId)
-      .eq('page_path', pagePath)
-      .eq('device_type', deviceType)
-      .limit(50); // Start with 50 recent sessions for performance
+    // Query ClickHouse for aggregated click data
+    // Optimized query for heatmap click aggregation
+    const query = `
+      SELECT
+        x,
+        y,
+        COUNT(*) as value
+      FROM events
+      WHERE site_id = {siteId:String}
+        AND page_path = {pagePath:String}
+        AND (device_type = {deviceType:String} OR (device_type = '' AND {deviceType:String} = 'desktop'))
+        AND event_type = 'click'
+        AND timestamp >= now() - INTERVAL 30 DAY
+        AND x > 0
+        AND y > 0
+      GROUP BY x, y
+      ORDER BY value DESC
+      LIMIT 1000
+    `;
 
-    if (error) throw error;
+    console.log('Executing ClickHouse query for heatmap clicks');
+    console.log('Query params:', { siteId, pagePath, deviceType });
 
-    // 2. Extract Clicks
-    const clickPoints: { x: number, y: number, value: number }[] = [];
-
-    rrwebData?.forEach((row) => {
-      // events might be a JSON string or object depending on how it's stored
-      const events = typeof row.events === 'string' ? JSON.parse(row.events) : row.events;
-
-      if (Array.isArray(events)) {
-          events.forEach((e: any) => {
-            // rrweb event type 3 is 'IncrementalSnapshot'
-            // data.source 1 is 'MouseInteraction'
-            // data.type 2 is 'Click'
-            if (e.type === 3 && e.data?.source === 1 && e.data?.type === 2) {
-                 clickPoints.push({
-                     x: e.data.x,
-                     y: e.data.y,
-                     value: 1
-                 });
-            }
-          });
-      }
+    const result = await clickhouse.query({
+      query,
+      query_params: {
+        siteId,
+        pagePath,
+        deviceType, // Keep for future use if needed
+      },
+      format: 'JSONEachRow',
     });
 
+    const rows = await result.json();
+    console.log('ClickHouse returned', rows.length, 'aggregated click points');
+
+    // Transform to expected format
+    interface ClickRow {
+      x: string;
+      y: string;
+      value: string;
+    }
+    const clickPoints = rows.map((row: ClickRow) => ({
+      x: parseInt(row.x),
+      y: parseInt(row.y),
+      value: parseInt(row.value),
+    }));
+
+    console.log('Returning', clickPoints.length, 'click points to frontend');
     return NextResponse.json({ clicks: clickPoints }, { status: 200 });
 
   } catch (error: Error | unknown) {

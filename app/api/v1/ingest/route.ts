@@ -10,12 +10,25 @@ const supabaseAdmin = createClient(
 );
 
 // Initialize ClickHouse client
-const clickhouse = createClickHouseClient({
-  host: process.env.CLICKHOUSE_HOST!,
-  username: process.env.CLICKHOUSE_USERNAME!,
-  password: process.env.CLICKHOUSE_PASSWORD!,
-  database: process.env.CLICKHOUSE_DATABASE!,
-});
+function createClickHouseConfig() {
+  const url = process.env.CLICKHOUSE_URL;
+  if (url) {
+    // Parse ClickHouse URL: https://username:password@host:port/database
+    const urlPattern = /^https?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/;
+    const match = url.match(urlPattern);
+    if (match) {
+      const [, username, password, host, port, database] = match;
+      return {
+        host: `https://${host}:${port}`,
+        username,
+        password,
+        database,
+      };
+    }
+  }
+}
+
+const clickhouse = createClickHouseClient(createClickHouseConfig());
 
 // Rate limiting store (in production, use Redis)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();

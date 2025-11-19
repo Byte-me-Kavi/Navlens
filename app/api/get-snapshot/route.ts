@@ -8,7 +8,7 @@ const supabase = createClient(
 
 export async function GET(req: NextRequest) {
     try {
-        console.log('Get snapshot GET received');
+        console.log('=== Get Snapshot API Called ===');
         const { searchParams } = new URL(req.url);
         const siteId = searchParams.get('siteId');
         const pagePath = searchParams.get('pagePath');
@@ -16,34 +16,53 @@ export async function GET(req: NextRequest) {
         console.log('Params:', { siteId, pagePath, deviceType });
 
         if (!siteId || !pagePath || !deviceType) {
+            console.error('Missing required parameters');
             return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
         }
 
         // Normalize path to match upload logic
         const normalizedPath = pagePath === '/' ? 'homepage' : pagePath.replace(/^\//, '').replace(/\//g, '_');
         const filePath = `${siteId}/${deviceType}/${normalizedPath}.json`;
-        console.log('File path:', filePath);
+        console.log('Constructed file path:', filePath);
 
         // Download the JSON file
-        console.log('Downloading from Supabase...');
+        console.log('Attempting to download from Supabase storage bucket: snapshots');
         const { data, error } = await supabase.storage
             .from('snapshots')
             .download(filePath);
 
         if (error) {
             console.error('Snapshot download error:', error);
-            return NextResponse.json({ error: 'Snapshot not found' }, { status: 404 });
+            console.error('Error details:', JSON.stringify(error, null, 2));
+            return NextResponse.json({ 
+                error: 'Snapshot not found', 
+                details: error.message,
+                filePath 
+            }, { status: 404 });
         }
+
+        console.log('Downloaded successfully, data size:', data.size);
 
         // Parse the Blob/File into JSON
         const text = await data.text();
         console.log('Downloaded text length:', text.length);
+        console.log('Text preview:', text.substring(0, 200));
+        
         const json = JSON.parse(text);
+        console.log('JSON parsed successfully, keys:', Object.keys(json));
 
-        console.log('Returning snapshot');
-        return NextResponse.json(json, { status: 200 });
+        console.log('Returning snapshot data');
+        const response = NextResponse.json(json, { status: 200 });
+        response.headers.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+        return response;
 
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error('Get snapshot error:', err);
+        console.error('Error stack:', err.stack);
+        return NextResponse.json({ 
+            error: 'Internal server error', 
+            details: error.message 
+        }, { status: 500 });
     }
 }

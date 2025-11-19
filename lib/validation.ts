@@ -30,7 +30,7 @@ const PAGE_PATH_REGEX = /^\/[a-zA-Z0-9\-._~!$&'()*+,;=:@%\/]*$/;
 const USER_AGENT_MAX_LENGTH = 500;
 
 // IP address validation
-const IP_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+// Regular expressions for validation
 
 export interface EventData {
   type: string;
@@ -122,10 +122,21 @@ export const validators = {
   },
 
   /**
-   * Validate IP address
+   * Validate IP address (IPv4, IPv6, or localhost)
    */
   isValidIP: (value: string): boolean => {
-    return typeof value === 'string' && IP_REGEX.test(value);
+    if (typeof value !== 'string') return false;
+
+    // Allow localhost IPv6
+    if (value === '::1') return true;
+
+    // IPv4 regex
+    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (ipv4Regex.test(value)) return true;
+
+    // Basic IPv6 validation (simplified)
+    const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){1,7}[0-9a-fA-F]{1,4}$/;
+    return ipv6Regex.test(value);
   },
 
   /**

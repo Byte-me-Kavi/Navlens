@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState } from "react";
 import h337 from "heatmap.js";
 
@@ -20,45 +20,46 @@ export default function DomHeatmapViewer({
   deviceType,
 }: DomHeatmapViewerProps) {
   const iframeContainerRef = useRef<HTMLDivElement>(null);
+  const [snapshotData, setSnapshotData] = useState<unknown>(null);
   const [clickData, setClickData] = useState<ClickData[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
-  const [siteUrl, setSiteUrl] = useState<string>("");
 
-  // Fetch site URL
+  // 1. Fetch the DOM Snapshot JSON via API
   useEffect(() => {
-    const fetchSiteUrl = async () => {
+    const fetchSnapshot = async () => {
       try {
-        const response = await fetch("/api/site-details", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ siteId }),
-        });
-        const data = await response.json();
-        if (data.domain) {
-          // Ensure the domain has https://
-          const url = data.domain.startsWith("http")
-            ? data.domain
-            : `https://${data.domain}`;
-          setSiteUrl(url);
-        } else {
-          // Fallback to a test URL for development
-          console.warn("No domain found, using fallback URL");
-          setSiteUrl("https://navlens-rho.vercel.app");
+        const response = await fetch(
+          `/api/get-snapshot?siteId=${encodeURIComponent(
+            siteId
+          )}&pagePath=${encodeURIComponent(
+            pagePath
+          )}&deviceType=${encodeURIComponent(deviceType)}`
+        );
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.warn("Snapshot not found for:", {
+              siteId,
+              pagePath,
+              deviceType,
+            });
+            return;
+          }
+          throw new Error(`Failed to fetch snapshot: ${response.status}`);
         }
+
+        const json = await response.json();
+        setSnapshotData(json);
       } catch (error) {
-        console.error("Failed to fetch site details:", error);
-        // Fallback to a test URL for development
-        setSiteUrl("https://navlens-rho.vercel.app");
+        console.error("Error fetching snapshot:", error);
       }
     };
 
-    if (siteId) {
-      fetchSiteUrl();
-    }
-  }, [siteId]);
+    fetchSnapshot();
+  }, [siteId, pagePath, deviceType]);
 
-  // 1. Fetch Click Data via API or use mock data
+  // 2. Fetch Click Data via API
   useEffect(() => {
     const fetchClickData = async () => {
       try {
@@ -72,106 +73,213 @@ export default function DomHeatmapViewer({
 
         if (!response.ok) {
           console.error("Failed to fetch click data:", response.status);
-          // Use mock data if API fails
-          setClickData(generateMockClickData());
           return;
         }
 
         const data = await response.json();
-        setClickData(data.clicks || generateMockClickData());
+        setClickData(data.clicks || []);
       } catch (error) {
         console.error("Error fetching click data:", error);
-        // Use mock data on error
-        setClickData(generateMockClickData());
       }
     };
 
     fetchClickData();
   }, [siteId, pagePath, deviceType]);
 
-  // Generate mock click data
-  const generateMockClickData = (): ClickData[] => {
-    const mockClicks: ClickData[] = [];
-    const numPoints = 50 + Math.random() * 50; // 50-100 points
-
-    for (let i = 0; i < numPoints; i++) {
-      // Generate random positions across the page
-      // Bias towards common click areas: navigation, buttons, links
-      let x, y;
-
-      const rand = Math.random();
-      if (rand < 0.2) {
-        // Top navigation/header area
-        x = Math.random() * 1200; // Assuming desktop width
-        y = 20 + Math.random() * 80;
-      } else if (rand < 0.5) {
-        // Left sidebar or navigation
-        x = 20 + Math.random() * 200;
-        y = 100 + Math.random() * 600;
-      } else if (rand < 0.8) {
-        // Main content area
-        x = 250 + Math.random() * 700;
-        y = 150 + Math.random() * 500;
-      } else {
-        // Footer or bottom area
-        x = Math.random() * 1200;
-        y = 650 + Math.random() * 150;
-      }
-
-      // Adjust for device type
-      if (deviceType === "mobile") {
-        x = x * 0.8; // Narrower on mobile
-        y = y * 0.9 + 50; // More bottom-focused
-      } else if (deviceType === "tablet") {
-        x = x * 0.9;
-        y = y * 0.95;
-      }
-
-      mockClicks.push({
-        x: Math.round(x),
-        y: Math.round(y),
-        value: Math.floor(Math.random() * 20) + 1, // Values from 1-20
-      });
-    }
-
-    return mockClicks;
-  };
-
-  // 2. Load the page in iframe and overlay heatmap
+  // 3. Rebuild the DOM with rrweb-snapshot rebuild
   useEffect(() => {
-    if (!iframeContainerRef.current || !siteUrl) return;
+    if (!snapshotData || !iframeContainerRef.current) return;
 
-    // Clear previous content
-    iframeContainerRef.current.innerHTML = "";
+    console.log("=== Starting DOM Rebuild ===");
+    console.log("Snapshot data structure:", snapshotData);
 
-    // Create iframe
-    const iframe = document.createElement("iframe");
-    iframe.src = `${siteUrl}${pagePath}`;
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    iframe.style.border = "none";
-    iframe.scrolling = "yes";
-    iframe.sandbox = "allow-scripts allow-same-origin";
+    // Clear previous content and set up structure
+    const containerDiv = iframeContainerRef.current;
+    containerDiv.innerHTML = "";
 
-    iframe.onload = () => {
-      // Initialize Heatmap overlay on the iframe
-      const instance = h337.create({
-        container: iframeContainerRef.current!, // Draw ON TOP of the iframe
-        radius: 50,
-        maxOpacity: 0.8,
-        blur: 0.75,
-      });
-      setHeatmapInstance(instance);
-    };
+    try {
+      console.log("Starting DOM reconstruction with snapshot");
 
-    iframeContainerRef.current.appendChild(iframe);
-  }, [pagePath, siteUrl]);
+      // Create an iframe wrapper to contain iframe and heatmap canvas
+      const wrapper = document.createElement("div");
+      wrapper.style.position = "relative";
+      wrapper.style.width = "100%";
+      wrapper.style.height = "100%";
+      wrapper.style.overflow = "hidden";
 
-  // 3. Render Heatmap Data
+      // Create an iframe and set it to display the snapshot HTML
+      const iframe = document.createElement("iframe");
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      iframe.style.border = "none";
+      iframe.style.display = "block";
+      iframe.style.position = "absolute";
+      iframe.style.top = "0";
+      iframe.style.left = "0";
+      iframe.style.zIndex = "1";
+
+      wrapper.appendChild(iframe);
+      containerDiv.appendChild(wrapper);
+      console.log("Iframe created and appended");
+
+      // Convert snapshot to HTML string and write to iframe
+      setTimeout(() => {
+        try {
+          const doc = iframe.contentDocument;
+          if (doc && snapshotData) {
+            console.log("Reconstructing DOM from snapshot");
+
+            interface SnapshotNode {
+              type: number;
+              tagName?: string;
+              attributes?: Record<string, unknown>;
+              childNodes?: SnapshotNode[];
+              textContent?: string;
+            }
+            const snapshotAsAny = snapshotData as SnapshotNode;
+
+            // Function to convert snapshot node to HTML string
+            const nodeToHTML = (sn: SnapshotNode): string => {
+              if (sn.type === 0) {
+                // Document node
+                return "";
+              } else if (sn.type === 1) {
+                // Document type node
+                return "<!DOCTYPE html>";
+              } else if (sn.type === 2) {
+                // Element node
+                let html = `<${sn.tagName}`;
+
+                // Add attributes
+                if (sn.attributes) {
+                  Object.entries(sn.attributes).forEach(
+                    ([key, value]: [string, unknown]) => {
+                      try {
+                        const attrValue =
+                          typeof value === "string"
+                            ? value
+                            : JSON.stringify(value);
+                        const escaped = attrValue
+                          .replace(/"/g, "&quot;")
+                          .replace(/</g, "&lt;")
+                          .replace(/>/g, "&gt;");
+                        html += ` ${key}="${escaped}"`;
+                      } catch (error: unknown) {
+                        console.warn(`Could not add attribute ${key}`, error);
+                      }
+                    }
+                  );
+                }
+
+                html += ">";
+
+                // Add children
+                if (sn.childNodes && Array.isArray(sn.childNodes)) {
+                  sn.childNodes.forEach((child: SnapshotNode) => {
+                    html += nodeToHTML(child);
+                  });
+                }
+
+                // Close tag (skip void elements)
+                const voidElements = [
+                  "br",
+                  "hr",
+                  "img",
+                  "input",
+                  "meta",
+                  "link",
+                ];
+                if (!voidElements.includes(sn.tagName?.toLowerCase())) {
+                  html += `</${sn.tagName}>`;
+                }
+
+                return html;
+              } else if (sn.type === 3) {
+                // Text node
+                return (sn.textContent || "")
+                  .replace(/&/g, "&amp;")
+                  .replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;");
+              }
+              return "";
+            };
+
+            // Convert entire snapshot to HTML
+            let htmlContent = "";
+            if (
+              snapshotAsAny.childNodes &&
+              Array.isArray(snapshotAsAny.childNodes)
+            ) {
+              snapshotAsAny.childNodes.forEach((child: SnapshotNode) => {
+                htmlContent += nodeToHTML(child);
+              });
+            }
+
+            // Write HTML to document
+            doc.open();
+            doc.write(htmlContent);
+            doc.close();
+
+            // Inject default styles
+            const style = doc.createElement("style");
+            style.textContent = `
+              * { box-sizing: border-box; }
+              html, body { 
+                margin: 0; 
+                padding: 0;
+                width: 100%;
+                height: auto;
+                overflow-x: hidden;
+              }
+            `;
+            doc.head?.appendChild(style);
+
+            console.log("DOM reconstruction complete");
+            console.log("HTML content length:", htmlContent.length);
+            console.log("HTML preview:", htmlContent.substring(0, 500));
+            console.log(
+              "Iframe body HTML:",
+              doc.body?.innerHTML.substring(0, 500)
+            );
+          }
+        } catch (e) {
+          console.error("Error reconstructing DOM:", e);
+          console.error("Stack:", (e as Error).stack);
+        }
+      }, 50);
+
+      // Initialize Heatmap overlay
+      setTimeout(() => {
+        // Create a canvas container for the heatmap overlay
+        const canvasContainer = document.createElement("div");
+        canvasContainer.style.position = "absolute";
+        canvasContainer.style.top = "0";
+        canvasContainer.style.left = "0";
+        canvasContainer.style.width = "100%";
+        canvasContainer.style.height = "100%";
+        canvasContainer.style.zIndex = "2";
+        canvasContainer.style.pointerEvents = "none"; // Allow clicks to pass through
+
+        wrapper.appendChild(canvasContainer);
+
+        const instance = h337.create({
+          container: canvasContainer,
+          radius: 30,
+          maxOpacity: 0.6,
+        });
+        setHeatmapInstance(instance);
+        console.log("Heatmap instance created");
+      }, 200);
+    } catch (error) {
+      console.error("ERROR during DOM reconstruction:", error);
+      console.error("Stack:", (error as Error).stack);
+    }
+  }, [snapshotData]);
+
+  // 5. Render Heatmap Data
   useEffect(() => {
     if (!heatmapInstance || clickData.length === 0) return;
 
-    // Convert click data to heatmap format
     const heatmapData = {
       max: Math.max(...clickData.map((d) => d.value)),
       data: clickData.map((point) => ({
@@ -185,17 +293,12 @@ export default function DomHeatmapViewer({
   }, [heatmapInstance, clickData]);
 
   return (
-    <div className="relative w-full h-full">
-      {!siteUrl ? (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-gray-500">Loading site details...</div>
-        </div>
-      ) : (
-        <div
-          ref={iframeContainerRef}
-          className="relative w-full h-screen overflow-auto border border-gray-300"
-        />
-      )}
-    </div>
+    <div
+      ref={iframeContainerRef}
+      className="w-full bg-white border border-gray-300"
+      style={{
+        height: "600px",
+      }}
+    />
   );
 }

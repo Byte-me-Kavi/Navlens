@@ -11,7 +11,8 @@
   // Read parameters from the script tag attributes
   const SITE_ID = SCRIPT_TAG.getAttribute("data-site-id");
   const API_HOST =
-    SCRIPT_TAG.getAttribute("data-api-host") || window.location.origin;
+    SCRIPT_TAG.getAttribute("data-api-host") ||
+    "https://navlens-git-v2-dom-recreation-kavishas-projects-947ef8e4.vercel.app";
 
   if (!SITE_ID) {
     console.warn(
@@ -22,6 +23,13 @@
 
   const RRWEB_EVENTS_ENDPOINT = `${API_HOST}/api/rrweb-events`; // rrweb events endpoint
   const SNAPSHOT_ENDPOINT = `${API_HOST}/api/dom-snapshot`; // DOM snapshot endpoint
+
+  console.log("Navlens Tracker Config:", {
+    SITE_ID,
+    API_HOST,
+    RRWEB_EVENTS_ENDPOINT,
+    currentOrigin: window.location.origin,
+  });
 
   // --- rrweb Recording Setup ---
   let rrwebStopRecording = null;
@@ -191,6 +199,17 @@
     };
 
     // Use fetch with keepalive for proper JSON handling
+    console.log(
+      `Sending ${eventsToSend.length} rrweb events to:`,
+      RRWEB_EVENTS_ENDPOINT
+    );
+    console.log(
+      "Payload site_id:",
+      payload.site_id,
+      "events count:",
+      payload.events.length
+    );
+
     fetch(RRWEB_EVENTS_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -198,17 +217,31 @@
       keepalive: true,
     })
       .then((res) => {
+        console.log("rrweb API response status:", res.status);
         if (res.ok) {
-          console.log(
-            `✓ Sent ${eventsToSend.length} rrweb events successfully`
-          );
+          return res.json().then((data) => {
+            console.log(
+              `✓ Sent ${eventsToSend.length} rrweb events successfully`,
+              data
+            );
+          });
         } else {
-          console.error(`Failed to send rrweb events - HTTP ${res.status}`);
-          recordedEvents.unshift(...eventsToSend);
+          return res.text().then((text) => {
+            console.error(
+              `Failed to send rrweb events - HTTP ${res.status}:`,
+              text
+            );
+            recordedEvents.unshift(...eventsToSend);
+          });
         }
       })
       .catch((error) => {
         console.error("Failed to send rrweb events:", error);
+        console.error("Error details:", {
+          message: error.message,
+          stack: error.stack,
+          endpoint: RRWEB_EVENTS_ENDPOINT,
+        });
         // Re-queue events on failure
         recordedEvents.unshift(...eventsToSend);
       });
@@ -449,6 +482,7 @@
   }
 
   // Compress snapshot by removing redundant data
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function compressSnapshot(snap) {
     // Remove style attributes that are not needed for heatmaps
     function cleanNode(node) {
