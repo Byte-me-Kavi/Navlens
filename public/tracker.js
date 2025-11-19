@@ -28,6 +28,29 @@
   const recordedEvents = [];
   const RRWEB_BATCH_SIZE = 50; // Send rrweb events in batches
 
+  // Load rrweb library dynamically
+  function loadRrweb() {
+    return new Promise((resolve, reject) => {
+      if (typeof rrweb !== "undefined") {
+        resolve(rrweb);
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.jsdelivr.net/npm/rrweb@2.0.0-alpha.11/dist/rrweb.min.js";
+      script.onload = () => {
+        console.log("rrweb library loaded successfully");
+        resolve(rrweb);
+      };
+      script.onerror = () => {
+        console.warn("Failed to load rrweb library");
+        reject(new Error("Failed to load rrweb"));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
   // --- Event Batching Constants ---
   const BATCH_SIZE = 10; // Send regular events in batches of 10
   const BATCH_FLUSH_INTERVAL = 5000; // Flush batch every 5 seconds
@@ -75,35 +98,44 @@
   }
 
   function startRrwebRecording() {
-    if (typeof rrweb === "undefined" || typeof rrweb.record === "undefined") {
-      console.warn("rrweb not available for recording");
-      return;
-    }
-
-    console.log("Starting rrweb recording for mouse and scroll events");
-
-    rrwebStopRecording = rrweb.record({
-      emit(event) {
-        // Store events
-        recordedEvents.push(event);
-
-        // Send in batches for mouse/scroll events
-        if (recordedEvents.length >= RRWEB_BATCH_SIZE) {
-          sendRrwebEvents();
+    loadRrweb()
+      .then(() => {
+        if (
+          typeof rrweb === "undefined" ||
+          typeof rrweb.record === "undefined"
+        ) {
+          console.warn("rrweb not available for recording");
+          return;
         }
-      },
-      // Record mouse movements and scroll events
-      recordMouseMovement: true,
-      recordScroll: true,
-      // Don't record canvas or other heavy elements
-      recordCanvas: false,
-      recordWebGL: false,
-      // Sampling for performance
-      sampling: {
-        mouseMove: 10, // Only record every 10th mouse movement
-        scroll: 150, // Throttle scroll events
-      },
-    });
+
+        console.log("Starting rrweb recording for mouse and scroll events");
+
+        rrwebStopRecording = rrweb.record({
+          emit(event) {
+            // Store events
+            recordedEvents.push(event);
+
+            // Send in batches for mouse/scroll events
+            if (recordedEvents.length >= RRWEB_BATCH_SIZE) {
+              sendRrwebEvents();
+            }
+          },
+          // Record mouse movements and scroll events
+          recordMouseMovement: true,
+          recordScroll: true,
+          // Don't record canvas or other heavy elements
+          recordCanvas: false,
+          recordWebGL: false,
+          // Sampling for performance
+          sampling: {
+            mouseMove: 10, // Only record every 10th mouse movement
+            scroll: 150, // Throttle scroll events
+          },
+        });
+      })
+      .catch((error) => {
+        console.warn("Failed to start rrweb recording:", error);
+      });
   }
 
   function stopRrwebRecording() {
