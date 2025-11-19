@@ -9,6 +9,7 @@ import { Toast } from "@/components/Toast";
 import { createBrowserClient } from "@supabase/ssr";
 import { SiteProvider } from "@/app/context/SiteContext";
 import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
+import { usePathname } from "next/navigation";
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const supabase = createBrowserClient(
@@ -17,6 +18,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isNavigating } = useNavigation();
+  const pathname = usePathname();
+
+  // Check if we're on heatmap viewer page
+  const isHeatmapViewer = pathname === "/dashboard/heatmaps/heatmap-viewer";
 
   // Use a ref to track if we've processed the login toast in this mount instance
   const processedLoginToast = useRef(false);
@@ -152,31 +157,44 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <Toast>
       <div className="flex h-screen bg-gray-50">
-        {/* Desktop Sidebar */}
-        <div className="hidden md:block">
-          <SideNavbar />
-        </div>
+        {/* Desktop Sidebar - hide on heatmap viewer */}
+        {!isHeatmapViewer && (
+          <div className="hidden md:block">
+            <SideNavbar />
+          </div>
+        )}
 
-        {/* Mobile Sidebar Overlay */}
-        {sidebarOpen && (
+        {/* Mobile Sidebar Overlay - hide on heatmap viewer */}
+        {!isHeatmapViewer && sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-40 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Mobile Sidebar Drawer */}
-        <div
-          className={`fixed top-0 left-0 h-screen w-64 z-50 md:hidden transform transition-transform duration-300 ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          <SideNavbar onClose={() => setSidebarOpen(false)} />
-        </div>
+        {/* Mobile Sidebar Drawer - hide on heatmap viewer */}
+        {!isHeatmapViewer && (
+          <div
+            className={`fixed top-0 left-0 h-screen w-64 z-50 md:hidden transform transition-transform duration-300 ${
+              sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+          >
+            <SideNavbar onClose={() => setSidebarOpen(false)} />
+          </div>
+        )}
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-          <main className="flex-1 p-5 overflow-x-hidden">{children}</main>
+          {/* Header - hide on heatmap viewer */}
+          {!isHeatmapViewer && (
+            <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
+          )}
+          <main
+            className={`flex-1 overflow-x-hidden ${
+              isHeatmapViewer ? "p-0" : "p-5"
+            }`}
+          >
+            {children}
+          </main>
         </div>
       </div>
       {isNavigating && (
