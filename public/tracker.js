@@ -50,7 +50,8 @@
     return userId;
   }
 
-  // --- Event Queue with Compression ---
+  // Secure API endpoint (no sensitive data exposed)
+  const API_COLLECT_ENDPOINT = `${API_HOST}/api/v1/ingest`;
   let eventQueue = [];
   let isProcessing = false;
   let flushTimer = null;
@@ -190,7 +191,7 @@
     if (snapshotCaptured || typeof rrwebSnapshot === "undefined") return;
 
     try {
-      const [snap] = rrwebSnapshot.snapshot(document);
+      const snap = rrwebSnapshot.snapshot(document);
       snapshotCaptured = true;
 
       // Enhanced caching with device and viewport
