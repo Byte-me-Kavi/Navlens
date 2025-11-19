@@ -27,6 +27,18 @@
   const recordedEvents = [];
   const RRWEB_BATCH_SIZE = 50; // Send rrweb events in batches
 
+  // --- Event Batching Constants ---
+  const BATCH_SIZE = 10; // Send regular events in batches of 10
+  const BATCH_FLUSH_INTERVAL = 5000; // Flush batch every 5 seconds
+
+  // --- Throttling Constants ---
+  const CLICK_THROTTLE_MS = 100; // Throttle clicks to 100ms
+  const THROTTLE_SCROLL_MS = 150; // Throttle scroll events to 150ms
+  const THROTTLE_RESIZE_MS = 200; // Throttle resize events to 200ms
+
+  // --- Caching Constants ---
+  const SNAPSHOT_CACHE_DAYS = 7; // Cache snapshots for 7 days
+
   // Performance metrics
   let domReadyTime = null;
   let loadTime = null;

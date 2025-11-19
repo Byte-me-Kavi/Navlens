@@ -32,6 +32,23 @@ export async function POST(req: NextRequest) {
       return createUnauthorizedResponse();
     }
 
+    // Check if screenshots bucket exists, create if not
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const screenshotsBucket = buckets?.find(b => b.name === 'screenshots');
+
+    if (!screenshotsBucket) {
+        console.log('[Smart Map] Creating screenshots bucket...');
+        const { error: createError } = await supabase.storage.createBucket('screenshots', {
+            public: false, // Private bucket
+            allowedMimeTypes: ['application/json', 'image/png'],
+            fileSizeLimit: 10485760 // 10MB
+        });
+        if (createError) {
+            console.error('[Smart Map] Failed to create bucket:', createError);
+            return NextResponse.json({ error: 'Failed to create storage bucket' }, { status: 500 });
+        }
+    }
+
     // Build the filename from pagePath and deviceType
     // Normalize path: "/" -> "homepage", "/about" -> "about"
     const normalizedPath = pagePath === '/' ? 'homepage' : pagePath.replace(/^\//, '').replace(/\//g, '-');

@@ -125,6 +125,23 @@ export async function GET() {
     // Note: This assumes your folders are named after site_ids.
     let totalHeatmaps = 0;
     try {
+      // Ensure screenshots bucket exists
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const screenshotsBucket = buckets?.find(b => b.name === 'screenshots');
+
+      if (!screenshotsBucket) {
+        console.log('[Dashboard Stats] Creating screenshots bucket...');
+        const { error: createError } = await supabase.storage.createBucket('screenshots', {
+          public: false, // Private bucket
+          allowedMimeTypes: ['application/json', 'image/png'],
+          fileSizeLimit: 10485760 // 10MB
+        });
+        if (createError) {
+          console.error('[Dashboard Stats] Failed to create bucket:', createError);
+          // Continue with totalHeatmaps = 0
+        }
+      }
+
       const { data: fileList, error: storageError } = await supabase.storage
         .from('screenshots')
         .list();
