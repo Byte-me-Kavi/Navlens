@@ -23,7 +23,7 @@
   // Generate a unique session ID for this user session
   const SESSION_ID = generateSessionId();
 
-  const SNAPSHOT_ENDPOINT = `${API_HOST}/api/snapshot`; // New Endpoint!
+  const SNAPSHOT_ENDPOINT = `${API_HOST}/api/dom-snapshot`; // New Endpoint!
 
   // --- Optimized Constants ---
   const THROTTLE_SCROLL_MS = 150; // Increased for better performance
