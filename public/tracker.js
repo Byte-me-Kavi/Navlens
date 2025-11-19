@@ -73,13 +73,31 @@
 
     const payload = JSON.stringify({
       events: eventsToSend.map((event) => ({
-        ...event,
-        session_id: SESSION_ID,
+        type: event.event_type, // Rename event_type to type
+        timestamp: event.timestamp,
+        session_id: event.session_id,
         user_id: generateUserId(),
-        page_url: window.location.href,
-        page_path: window.location.pathname,
-        user_agent: navigator.userAgent,
-        timestamp: Date.now(),
+        page_url: event.page_url,
+        page_path: event.page_path,
+        user_agent: event.user_agent,
+        // Additional fields for context (stored in data object)
+        data: {
+          viewport_width: event.viewport_width,
+          viewport_height: event.viewport_height,
+          screen_width: event.screen_width,
+          screen_height: event.screen_height,
+          device_type: event.device_type,
+          x: event.x,
+          y: event.y,
+          x_relative: event.x_relative,
+          y_relative: event.y_relative,
+          element_id: event.element_id,
+          element_classes: event.element_classes,
+          element_tag: event.element_tag,
+          element_text: event.element_text,
+          element_selector: event.element_selector,
+          scroll_depth: event.scroll_depth,
+        },
       })),
       siteId: SITE_ID,
     });

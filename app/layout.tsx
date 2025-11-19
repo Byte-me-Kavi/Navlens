@@ -33,10 +33,7 @@ export default function RootLayout({
           data-api-key="69e4dce7-5f3b-44c9-a0e1-aea13097e8a1"
           data-api-host="https://navlens-git-v2-dom-recreation-kavishas-projects-947ef8e4.vercel.app"
         ></script>
-        <script
-          async
-          src="https://t.contentsquare.net/uxa/7e0bb10da0b7c.js"
-        ></script>
+        
       </body>
     </html>
   );
