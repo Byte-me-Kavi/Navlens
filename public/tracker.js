@@ -1,4 +1,4 @@
-// public/tracker.js
+// public/tracker.js - v3.1 (Optimized DOM Snapshot Edition)
 
 (function () {
   // --- Configuration ---
@@ -23,6 +23,16 @@
   // Generate a unique session ID for this user session
   const SESSION_ID = generateSessionId();
 
+  const SNAPSHOT_ENDPOINT = `${API_HOST}/api/snapshot`; // New Endpoint!
+
+  // --- Optimized Constants ---
+  const THROTTLE_SCROLL_MS = 150; // Increased for better performance
+  const THROTTLE_RESIZE_MS = 500; // Increased for better performance
+  const CLICK_THROTTLE_MS = 100; // Increased to reduce spam
+  const BATCH_SIZE = 10; // Reduced for faster sends
+  const BATCH_FLUSH_INTERVAL = 8000; // Increased interval
+  const SNAPSHOT_CACHE_DAYS = 1; // Cache snapshots for 1 day
+
   // --- Utility Functions ---
   function generateSessionId() {
     return (
@@ -31,7 +41,6 @@
   }
 
   function generateUserId() {
-    // Check if user ID exists in localStorage, if not create one
     let userId = localStorage.getItem("navlens_user_id");
     if (!userId) {
       userId =
@@ -41,20 +50,11 @@
     return userId;
   }
 
-  // Secure API endpoint (no sensitive data exposed)
-  const API_COLLECT_ENDPOINT = `${API_HOST}/api/v1/ingest`;
-  const THROTTLE_SCROLL_MS = 100; // How often to send scroll events (ms)
-  const THROTTLE_RESIZE_MS = 300; // How often to send resize events (ms)
-  const CLICK_THROTTLE_MS = 50; // Ignore successive clicks faster than 50ms (prevents rage-click spam)
-  const BATCH_SIZE = 15; // Send events when queue reaches this size
-  const BATCH_FLUSH_INTERVAL = 5000; // Send queued events every 5 seconds
-
-  // --- Event Queue ---
+  // --- Event Queue with Compression ---
   let eventQueue = [];
   let isProcessing = false;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let flushTimer = null;
-  let lastClickTime = 0; // Track last click time for throttling
+  let lastClickTime = 0;
 
   function addEventToQueue(event) {
     eventQueue.push(event);
@@ -83,31 +83,38 @@
       siteId: SITE_ID,
     });
 
-    // Try using fetch with keepalive for best reliability
-    fetch(API_COLLECT_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: payload,
-      keepalive: true, // Ensures request completes even if page unloads
-    })
-      .then(() => {
-        console.log(`✓ Sent ${eventsToSend.length} events to Navlens`);
+    // Use sendBeacon for better reliability on page unload
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(API_COLLECT_ENDPOINT, payload);
+      console.log(`✓ Sent ${eventsToSend.length} events via sendBeacon`);
+      isProcessing = false;
+    } else {
+      // Fallback to fetch
+      fetch(API_COLLECT_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: payload,
+        keepalive: true,
       })
-      .catch((error) => {
-        console.error("Failed to send batched events:", error);
-        // Re-add events on failure if queue isn't too large
-        if (eventQueue.length < BATCH_SIZE * 2) {
-          eventQueue.unshift(...eventsToSend);
-        }
-      })
-      .finally(() => {
-        isProcessing = false;
-      });
+        .then(() => {
+          console.log(`✓ Sent ${eventsToSend.length} events to Navlens`);
+        })
+        .catch((error) => {
+          console.error("Failed to send batched events:", error);
+          if (eventQueue.length < BATCH_SIZE * 2) {
+            eventQueue.unshift(...eventsToSend);
+          }
+        })
+        .finally(() => {
+          isProcessing = false;
+        });
+    }
   }
 
   function startFlushTimer() {
+    if (flushTimer) clearInterval(flushTimer);
     flushTimer = setInterval(() => {
       if (eventQueue.length > 0) {
         flushEventQueue();
@@ -127,7 +134,6 @@
   }
 
   function getSessionId() {
-    // A simple session ID, resets on page refresh/new session if no existing session in sessionStorage
     let sessionId = sessionStorage.getItem("session_id");
     if (!sessionId) {
       sessionId =
@@ -143,33 +149,132 @@
     return "desktop";
   }
 
-  // NEW: Smart Selector that matches Puppeteer Scraper's logic
+  // Optimized Smart Selector
   function getSmartSelector(el) {
     if (!el || el.tagName === "BODY") return "BODY";
-    // If it has an ID, use it (fastest)
     if (el.id) return `#${el.id}`;
+    if (el.className) return `${el.tagName}.${el.className.split(" ")[0]}`;
 
-    // Otherwise generate path
     const parent = el.parentElement;
     if (!parent) return el.tagName;
 
-    const children = Array.from(parent.children);
-    const index = children.indexOf(el) + 1;
-
+    const siblings = Array.from(parent.children);
+    const index = siblings.indexOf(el) + 1;
     return `${getSmartSelector(parent)} > ${el.tagName}:nth-child(${index})`;
   }
 
-  // --- Core Event Creation Function (no longer sends immediately) ---
+  // --- Optimized DOM Snapshot Capture ---
+  let rrwebLoaded = false;
+  let snapshotCaptured = false;
+
+  // Lazy load rrweb-snapshot only after page load
+  function loadRrwebSnapshot() {
+    if (rrwebLoaded) return;
+    rrwebLoaded = true;
+
+    const script = document.createElement("script");
+    script.src =
+      "https://cdn.jsdelivr.net/npm/rrweb-snapshot@latest/dist/rrweb-snapshot.min.js";
+    script.onload = () => {
+      console.log("Navlens: rrweb-snapshot loaded");
+      // Capture snapshot after a short delay to ensure DOM is stable
+      setTimeout(captureSnapshot, 1000);
+    };
+    script.onerror = () => {
+      console.warn("Navlens: Failed to load rrweb-snapshot");
+    };
+    document.head.appendChild(script);
+  }
+
+  function captureSnapshot() {
+    if (snapshotCaptured || typeof rrwebSnapshot === "undefined") return;
+
+    try {
+      const [snap] = rrwebSnapshot.snapshot(document);
+      snapshotCaptured = true;
+
+      // Enhanced caching with device and viewport
+      const cacheKey = `navlens_snap_${
+        window.location.pathname
+      }_${getDeviceType(window.innerWidth)}_${window.innerWidth}x${
+        window.innerHeight
+      }`;
+      const lastSnap = localStorage.getItem(cacheKey);
+      const CACHE_DURATION = SNAPSHOT_CACHE_DAYS * 24 * 60 * 60 * 1000;
+
+      if (lastSnap && Date.now() - parseInt(lastSnap) < CACHE_DURATION) {
+        console.log("Navlens: Snapshot already cached for this page.");
+        return;
+      }
+
+      // Compress snapshot data (remove unnecessary properties)
+      const compressedSnap = compressSnapshot(snap);
+
+      const payload = {
+        site_id: SITE_ID,
+        page_path: window.location.pathname,
+        device_type: getDeviceType(window.innerWidth),
+        snapshot: compressedSnap,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        timestamp: Date.now(),
+      };
+
+      // Use sendBeacon for large payloads
+      const payloadStr = JSON.stringify(payload);
+      if (navigator.sendBeacon && payloadStr.length < 64000) {
+        // sendBeacon limit
+        navigator.sendBeacon(SNAPSHOT_ENDPOINT, payloadStr);
+        localStorage.setItem(cacheKey, Date.now().toString());
+        console.log("Navlens: DOM Snapshot sent via sendBeacon");
+      } else {
+        fetch(SNAPSHOT_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payloadStr,
+        })
+          .then((res) => {
+            if (res.ok) {
+              localStorage.setItem(cacheKey, Date.now().toString());
+              console.log("Navlens: DOM Snapshot uploaded successfully.");
+            }
+          })
+          .catch(() => {
+            console.warn("Navlens: Failed to upload DOM snapshot");
+          });
+      }
+    } catch (error) {
+      console.warn("Navlens: Error capturing snapshot:", error);
+    }
+  }
+
+  // Compress snapshot by removing redundant data
+  function compressSnapshot(snap) {
+    // Remove style attributes that are not needed for heatmaps
+    function cleanNode(node) {
+      if (node.attributes) {
+        delete node.attributes.style;
+        delete node.attributes.class; // Keep classes for selectors
+      }
+      if (node.childNodes) {
+        node.childNodes.forEach(cleanNode);
+      }
+    }
+    cleanNode(snap);
+    return snap;
+  }
+
+  // --- Core Event Creation Function ---
   function createEvent(eventType, payload = {}) {
     const viewportWidth =
       window.innerWidth || document.documentElement.clientWidth;
     const viewportHeight =
       window.innerHeight || document.documentElement.clientHeight;
 
-    const baseEvent = {
+    return {
       site_id: SITE_ID,
       event_type: eventType,
-      timestamp: new Date().toISOString().slice(0, 19).replace("T", " "), // YYYY-MM-DD HH:MM:SS format
+      timestamp: new Date().toISOString().slice(0, 19).replace("T", " "),
       page_url: window.location.href,
       page_path: window.location.pathname,
       referrer: document.referrer,
@@ -182,109 +287,106 @@
       device_type: getDeviceType(viewportWidth),
       session_id: getSessionId(),
       client_id: getClientId(),
+      ...payload,
     };
-
-    return { ...baseEvent, ...payload };
   }
 
-  // --- Event Listeners ---
+  // --- Optimized Event Listeners ---
 
-  // Page View / Load Event
+  // Page View Event - delayed to avoid blocking
   function handlePageView() {
-    const event = createEvent("page_view", {
-      load_time: performance.now(),
-    });
-    addEventToQueue(event);
+    setTimeout(() => {
+      addEventToQueue(
+        createEvent("page_view", {
+          load_time: performance.now(),
+        })
+      );
+      // Start loading rrweb after page load
+      loadRrwebSnapshot();
+    }, 100);
   }
   window.addEventListener("load", handlePageView);
 
-  // Click Event
+  // Click Event with improved throttling
   function handleClick(event) {
     const now = Date.now();
-    if (now - lastClickTime < CLICK_THROTTLE_MS) {
-      return; // Ignore rapid successive clicks
-    }
+    if (now - lastClickTime < CLICK_THROTTLE_MS) return;
     lastClickTime = now;
 
     const target = event.target;
-
-    // Get the full size of the document (the entire scrollable page)
     const docWidth = document.documentElement.scrollWidth;
     const docHeight = document.documentElement.scrollHeight;
 
-    const clickEvent = createEvent("click", {
-      // Use pageX/pageY which are relative to the DOCUMENT (includes scroll)
-      x: event.pageX,
-      y: event.pageY,
-
-      // Calculate relative position based on the ENTIRE DOCUMENT, not the viewport
-      x_relative: event.pageX / docWidth,
-      y_relative: event.pageY / docHeight,
-
-      element_id: target.id || "",
-      element_classes: Array.from(target.classList || []).join(" ") || "",
-      element_tag: target.tagName || "",
-      element_text: target.textContent
-        ? target.textContent.trim().substring(0, 255)
-        : "",
-      element_selector: getSmartSelector(target), // Smart selector that matches Puppeteer scraper
-    });
-    addEventToQueue(clickEvent);
+    addEventToQueue(
+      createEvent("click", {
+        x: event.pageX,
+        y: event.pageY,
+        x_relative: event.pageX / docWidth,
+        y_relative: event.pageY / docHeight,
+        element_id: target.id || "",
+        element_classes: Array.from(target.classList).join(" ") || "",
+        element_tag: target.tagName,
+        element_text: target.textContent
+          ? target.textContent.trim().substring(0, 100)
+          : "",
+        element_selector: getSmartSelector(target),
+      })
+    );
   }
-  document.addEventListener("click", handleClick);
+  document.addEventListener("click", handleClick, { passive: true });
 
-  // Scroll Event (Throttled)
+  // Scroll Event with passive listener
   let lastScrollTime = 0;
   function handleScroll() {
     const now = Date.now();
-    if (now - lastScrollTime < THROTTLE_SCROLL_MS) {
-      return;
-    }
+    if (now - lastScrollTime < THROTTLE_SCROLL_MS) return;
     lastScrollTime = now;
 
     const currentScrollY = window.scrollY;
     const documentHeight =
       document.documentElement.scrollHeight -
       document.documentElement.clientHeight;
-    let scrollDepth = 0;
-    if (documentHeight > 0) {
-      scrollDepth = currentScrollY / documentHeight;
-    }
+    const scrollDepth =
+      documentHeight > 0
+        ? Math.min(1, Math.max(0, currentScrollY / documentHeight))
+        : 0;
 
-    const scrollEvent = createEvent("scroll", {
-      x: window.scrollX,
-      y: window.scrollY,
-      scroll_depth: Math.min(1, Math.max(0, scrollDepth)),
-    });
-    addEventToQueue(scrollEvent);
+    addEventToQueue(
+      createEvent("scroll", {
+        x: window.scrollX,
+        y: window.scrollY,
+        scroll_depth: scrollDepth,
+      })
+    );
   }
-  window.addEventListener("scroll", handleScroll);
+  window.addEventListener("scroll", handleScroll, { passive: true });
 
-  // Resize Event (Throttled)
+  // Resize Event
   let resizeTimeout;
   function handleResize() {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      const resizeEvent = createEvent("viewport_resize", {
-        viewport_width: window.innerWidth,
-        viewport_height: window.innerHeight,
-      });
-      addEventToQueue(resizeEvent);
+      addEventToQueue(
+        createEvent("viewport_resize", {
+          viewport_width: window.innerWidth,
+          viewport_height: window.innerHeight,
+        })
+      );
     }, THROTTLE_RESIZE_MS);
   }
   window.addEventListener("resize", handleResize);
 
-  // On page unload, flush any remaining events
+  // Cleanup on unload
   window.addEventListener("beforeunload", () => {
     flushEventQueue();
+    if (flushTimer) clearInterval(flushTimer);
   });
 
-  // Start the flush timer on initialization
+  // Start the flush timer
   startFlushTimer();
 
-  // Expose trackEvent globally for custom events
+  // Expose trackEvent globally
   window.trackEvent = function (eventType, payload) {
-    const event = createEvent(eventType, payload);
-    addEventToQueue(event);
+    addEventToQueue(createEvent(eventType, payload));
   };
 })();
