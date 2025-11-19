@@ -373,6 +373,9 @@
 
       // Use fetch with proper JSON content type (sendBeacon doesn't support application/json)
       const payloadStr = JSON.stringify(payload);
+      console.log(
+        `Navlens: Uploading snapshot for ${deviceType}, size: ${payloadStr.length} bytes`
+      );
       fetch(SNAPSHOT_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -407,7 +410,7 @@
 
   // Capture snapshots for all device types
   function captureSnapshotsForAllDevices() {
-    const devices = ["desktop", "tablet", "mobile"];
+    const devices = ["desktop"]; // Only desktop for now
     devices.forEach((device, index) => {
       setTimeout(() => captureSnapshotForDevice(device), index * 500); // Stagger captures
     });
