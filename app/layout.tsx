@@ -29,11 +29,10 @@ export default function RootLayout({
         <script
           async
           src="https://navlens-git-v2-dom-recreation-kavishas-projects-947ef8e4.vercel.app/tracker.js"
-          data-site-id="a2a95f61-1024-40f8-af7e-4c4df2fcbd01"
+          data-site-id="52db6643-bda5-4b02-9a38-658b14f7f29a"
           data-api-key="69e4dce7-5f3b-44c9-a0e1-aea13097e8a1"
           data-api-host="https://navlens-git-v2-dom-recreation-kavishas-projects-947ef8e4.vercel.app"
         ></script>
-        
       </body>
     </html>
   );
