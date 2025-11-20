@@ -34,21 +34,7 @@ export async function POST(req: NextRequest) {
 
     // Check if screenshots bucket exists, create if not
     const { data: buckets } = await supabase.storage.listBuckets();
-    const screenshotsBucket = buckets?.find(b => b.name === 'screenshots');
     const snapshotsBucket = buckets?.find(b => b.name === 'snapshots');
-
-    if (!screenshotsBucket) {
-        console.log('[Smart Map] Creating screenshots bucket...');
-        const { error: createError } = await supabase.storage.createBucket('screenshots', {
-            public: false, // Private bucket
-            allowedMimeTypes: ['application/json', 'image/png'],
-            fileSizeLimit: 10485760 // 10MB
-        });
-        if (createError) {
-            console.error('[Smart Map] Failed to create screenshots bucket:', createError);
-            return NextResponse.json({ error: 'Failed to create storage bucket' }, { status: 500 });
-        }
-    }
 
     if (!snapshotsBucket) {
         console.log('[Smart Map] Creating snapshots bucket...');

@@ -61,28 +61,33 @@ export async function POST(req: NextRequest) {
     const endDate = rawEndDate ? new Date(rawEndDate) : new Date();
     const startDate = rawStartDate ? new Date(rawStartDate) : new Date(endDate.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
 
-    // ClickHouse query for aggregated click data by element_selector
+    // ClickHouse query for aggregated click data by element_selector with centroid calculation
     const query = `
       SELECT
-          element_selector,
-          COUNT() AS click_count
-      FROM
-          events
-      WHERE
-          event_type = 'click'
-          AND site_id = {siteId:String}
-          AND page_path = {pagePath:String}
-          AND device_type = {deviceType:String}
-          AND timestamp >= {startDate:DateTime}
-          AND timestamp <= {endDate:DateTime}
-          AND element_selector IS NOT NULL
-          AND element_selector != ''
+        element_selector as selector,
+        element_tag as tag,
+        element_text as text,
+        element_id,
+        element_classes,
+        -- Calculate the centroid of clicks on this element
+        round(avg(x), 2) as x,
+        round(avg(y), 2) as y,
+        count(*) as click_count
+      FROM events
+      WHERE site_id = {siteId:String}
+        AND page_path = {pagePath:String}
+        AND device_type = {deviceType:String}
+        AND event_type = 'click'
+        AND timestamp >= {startDate:DateTime}
+        AND timestamp <= {endDate:DateTime}
+        AND element_selector != ''
       GROUP BY
-          element_selector
-      HAVING
-          click_count > 0
-      ORDER BY
-          click_count DESC;
+        element_selector,
+        element_tag,
+        element_text,
+        element_id,
+        element_classes
+      ORDER BY click_count DESC
     `;
 
     // Execute the query with parameterized values
@@ -95,14 +100,44 @@ export async function POST(req: NextRequest) {
         startDate: startDate.toISOString().slice(0, 19).replace('T', ' '), // Format for ClickHouse DateTime
         endDate: endDate.toISOString().slice(0, 19).replace('T', ' '),     // Format for ClickHouse DateTime
       },
-      format: 'JSON', // Request results in JSON format
+      format: 'JSONEachRow', // Request results in JSONEachRow format
     });
 
-    const elementClickData = await resultSet.json(); // Get the JSON response
+    const elementRows = await resultSet.json(); // Get the JSON response as array
 
-    console.log(`[element-clicks] Query executed successfully for pagePath=${pagePath}, deviceType=${deviceType}`);
+    console.log(`[element-clicks] Query executed successfully for pagePath=${pagePath}, deviceType=${deviceType}, returned ${elementRows.length} rows`);
 
-    return NextResponse.json(elementClickData, { status: 200 });
+    // Transform to ElementNode format with click data
+    interface ElementClickRow {
+      selector: string;
+      tag: string;
+      text: string;
+      element_id: string;
+      element_classes: string;
+      x: string;
+      y: string;
+      click_count: string;
+    }
+
+    // Calculate total clicks for percentage calculation
+    const totalClicks = elementRows.reduce((sum: number, row: any) => sum + parseInt(row.click_count), 0);
+
+    const elementClicks = (elementRows as ElementClickRow[]).map((row) => ({
+      selector: row.selector,
+      tag: row.tag,
+      text: row.text || '',
+      x: Math.round(parseFloat(row.x)), // Already rounded in query, ensure integer
+      y: Math.round(parseFloat(row.y)), // Already rounded in query, ensure integer
+      width: 0, // Will be calculated from DOM
+      height: 0, // Will be calculated from DOM
+      href: undefined, // Could be added later if needed
+      clickCount: parseInt(row.click_count),
+      percentage: totalClicks > 0 ? parseFloat((parseInt(row.click_count) * 100.0 / totalClicks).toFixed(1)) : 0,
+      elementId: row.element_id || '',
+      elementClasses: row.element_classes || '',
+    }));
+
+    return NextResponse.json(elementClicks, { status: 200 });
 
   } catch (error: Error | unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

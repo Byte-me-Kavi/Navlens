@@ -129,7 +129,44 @@ export default function DomHeatmapViewer({
   useEffect(() => {
     const fetchClickData = async () => {
       try {
-        const response = await fetch(
+        // Fetch element clicks data
+        const endDate = new Date();
+        const startDate = new Date(
+          endDate.getTime() - 30 * 24 * 60 * 60 * 1000
+        ); // 30 days ago
+
+        const elementResponse = await fetch("/api/element-clicks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            siteId,
+            pagePath,
+            deviceType,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+          }),
+        });
+
+        if (!elementResponse.ok) {
+          console.error(
+            "Failed to fetch element click data:",
+            elementResponse.status
+          );
+          setElementClicks([]);
+        } else {
+          const elementData = await elementResponse.json();
+          console.log(
+            "Fetched element click data:",
+            elementData.length || 0,
+            "elements"
+          );
+          setElementClicks(elementData || []);
+        }
+
+        // Fetch heatmap click points
+        const heatmapResponse = await fetch(
           `/api/heatmap-clicks?siteId=${encodeURIComponent(
             siteId
           )}&pagePath=${encodeURIComponent(
@@ -137,21 +174,25 @@ export default function DomHeatmapViewer({
           )}&deviceType=${encodeURIComponent(deviceType)}`
         );
 
-        if (!response.ok) {
-          console.error("Failed to fetch click data:", response.status);
-          return;
+        if (!heatmapResponse.ok) {
+          console.error(
+            "Failed to fetch heatmap click data:",
+            heatmapResponse.status
+          );
+          setClickData([]);
+        } else {
+          const heatmapData = await heatmapResponse.json();
+          console.log(
+            "Fetched heatmap click data:",
+            heatmapData.clicks?.length || 0,
+            "points"
+          );
+          setClickData(heatmapData.clicks || []);
         }
-
-        const data = await response.json();
-        console.log("Fetched click data:", {
-          elements: data.elements?.length || 0,
-          clicks: data.clicks?.length || 0,
-        });
-        setElementClicks(data.elements || []);
-        // Keep old format for backward compatibility
-        setClickData(data.clicks || []);
       } catch (error) {
         console.error("Error fetching click data:", error);
+        setElementClicks([]);
+        setClickData([]);
       }
     };
 
