@@ -410,7 +410,12 @@
     if (typeof rrwebSnapshot === "undefined") return;
 
     try {
-      const snap = rrwebSnapshot.snapshot(document);
+      // Capture snapshot with inlineStylesheet: true to ensure CSS content is included
+      // This forces external stylesheets to be fetched and inlined as text in the snapshot
+      const snap = rrwebSnapshot.snapshot(document, {
+        inlineStylesheet: true, // Critical: Inlines all stylesheet content into the snapshot
+        recordCanvas: false,
+      });
 
       // Extract CSS from the page
       const styles = [];

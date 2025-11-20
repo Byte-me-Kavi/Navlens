@@ -240,45 +240,56 @@ export default function DomHeatmapViewer({
             doc.write(htmlContent);
             doc.close();
 
-            // Apply captured CSS to the iframe
-            if (styles && Array.isArray(styles)) {
-              (styles as unknown[]).forEach((style: unknown) => {
-                const styleObj = style as {
-                  type: string;
-                  content?: string;
-                  href?: string;
-                };
+            // Wait a moment for the document to be fully parsed
+            setTimeout(() => {
+              // Apply captured CSS from styles array to ensure all styles are present
+              if (styles && Array.isArray(styles)) {
+                (styles as unknown[]).forEach((style: unknown) => {
+                  const styleObj = style as {
+                    type: string;
+                    content?: string;
+                    href?: string;
+                  };
 
-                if (styleObj.type === "inline" && styleObj.content) {
-                  // Inline <style> tag
-                  const styleTag = doc.createElement("style");
-                  styleTag.textContent = styleObj.content;
-                  doc.head?.appendChild(styleTag);
-                  console.log("Applied inline CSS");
-                } else if (styleObj.type === "external" && styleObj.href) {
-                  // External <link> stylesheet
-                  const linkTag = doc.createElement("link");
-                  linkTag.rel = "stylesheet";
-                  linkTag.href = styleObj.href;
-                  doc.head?.appendChild(linkTag);
-                  console.log("Applied external CSS:", styleObj.href);
-                }
-              });
-            }
-
-            // Inject default styles for layout and spacing
-            const defaultStyle = doc.createElement("style");
-            defaultStyle.textContent = `
-              * { box-sizing: border-box; }
-              html, body { 
-                margin: 0; 
-                padding: 0;
-                width: 100%;
-                height: auto;
-                overflow-x: hidden;
+                  if (styleObj.type === "inline" && styleObj.content) {
+                    // Create and inject inline CSS
+                    const styleTag = doc.createElement("style");
+                    styleTag.textContent = styleObj.content;
+                    doc.head?.appendChild(styleTag);
+                    console.log("✓ Applied inline CSS from styles array");
+                  }
+                  // Note: External CSS URLs are skipped intentionally as they won't
+                  // resolve in iframe context. The inlineStylesheet: true option in
+                  // tracker.js ensures external CSS is fetched and converted to inline.
+                });
               }
-            `;
-            doc.head?.appendChild(defaultStyle);
+
+              // Ensure all captured <style> tags with inlined content are active
+              // These come from rrweb's inlineStylesheet feature
+              const existingStyleTags = doc.querySelectorAll(
+                "style[data-href], style"
+              );
+              console.log(
+                `Found ${existingStyleTags.length} style tags in iframe document`
+              );
+
+              // Inject essential layout and display styles to ensure proper rendering
+              const defaultStyle = doc.createElement("style");
+              defaultStyle.textContent = `
+                * { box-sizing: border-box; }
+                html, body { 
+                  margin: 0; 
+                  padding: 0;
+                  width: 100%;
+                  height: auto;
+                  overflow-x: hidden;
+                  font-family: system-ui, -apple-system, sans-serif;
+                }
+                img { max-width: 100%; height: auto; }
+              `;
+              doc.head?.appendChild(defaultStyle);
+              console.log("✓ Applied default layout styles");
+            }, 10);
 
             console.log("DOM reconstruction complete");
             console.log("HTML content length:", htmlContent.length);
