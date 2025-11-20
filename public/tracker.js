@@ -406,18 +406,15 @@
     document.head.appendChild(script);
   }
 
-  function captureSnapshotForDevice(deviceType) {
+  async function captureSnapshotForDevice(deviceType, captureId = 1) {
     if (typeof rrwebSnapshot === "undefined") return;
 
     try {
-      // Capture snapshot with inlineStylesheet: true to ensure CSS content is included
-      // This forces external stylesheets to be fetched and inlined as text in the snapshot
+      // Take the snapshot directly - rrweb captures full DOM regardless of visibility
       const snap = rrwebSnapshot.snapshot(document, {
         inlineStylesheet: true, // Critical: Inlines all stylesheet content into the snapshot
         recordCanvas: false,
-      });
-
-      // Extract CSS - OPTIMIZED for Next.js/React compatibility
+      }); // Extract CSS - OPTIMIZED for Next.js/React compatibility
       const styles = [];
       let adoptedStyleSheetCount = 0;
 

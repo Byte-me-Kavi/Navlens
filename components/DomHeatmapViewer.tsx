@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import h337 from "heatmap.js";
 import * as rrwebSnapshot from "rrweb-snapshot";
+import { ElementClick } from "@/types/smart-map";
 
 // Type declarations for rrweb-snapshot global
 declare global {
@@ -64,6 +65,7 @@ export default function DomHeatmapViewer({
   const [styles, setStyles] = useState<unknown[]>([]);
   const [origin, setOrigin] = useState<string>("");
   const [clickData, setClickData] = useState<ClickData[]>([]);
+  const [elementClicks, setElementClicks] = useState<ElementClick[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
 
@@ -139,6 +141,8 @@ export default function DomHeatmapViewer({
         }
 
         const data = await response.json();
+        setElementClicks(data.elements || []);
+        // Keep old format for backward compatibility
         setClickData(data.clicks || []);
       } catch (error) {
         console.error("Error fetching click data:", error);
@@ -510,22 +514,63 @@ export default function DomHeatmapViewer({
               );
             }
 
-            // Inject default styles
-            const defaultStyle = doc.createElement("style");
-            defaultStyle.textContent = `
+            // 5. Inject "Force Visibility" Styles (The Magic Fix)
+            const visibilityStyle = doc.createElement("style");
+            visibilityStyle.textContent = `
+                /* 1. Reset Layout & Scroll */
                 * { box-sizing: border-box; }
-                html, body { 
-                  margin: 0; 
-                  padding: 0;
-                  width: 100%;
-                  height: auto;
-                  overflow-x: hidden;
-                  font-family: system-ui, -apple-system, sans-serif;
+                html, body {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: auto;
+                    overflow-x: hidden;
+                    font-family: system-ui, -apple-system, sans-serif;
                 }
-                img { max-width: 100%; height: auto; display: block; }
-              `;
-            doc.head?.appendChild(defaultStyle);
-            console.log("✓ Applied default layout styles");
+
+                /* 2. NUCLEAR OPTION: Stop Animations & Force Visibility */
+                /* This overrides opacity:0 from scroll libraries like AOS, Framer Motion, etc. */
+
+                [data-aos],
+                .aos-animate,
+                [data-scroll],
+                .reveal,
+                .fade-in,
+                .lazyload,
+                .lazyloaded,
+                [style*="opacity: 0"],
+                [style*="opacity:0"] {
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    transform: none !important; /* Reset slide-in transforms */
+                    transition: none !important;
+                    animation: none !important;
+                }
+
+                /* 3. Force Images to Show */
+                img {
+                    opacity: 1 !important;
+                    display: block; /* Fixes inline image spacing bugs */
+                }
+            `;
+            doc.head?.appendChild(visibilityStyle);
+            console.log("✓ Applied Force-Visibility styles");
+
+            // 6. JS Fix for Lazy Loaded Images
+            // Even with CSS, some images need the 'loading' attribute changed to trigger the network request
+            const images = doc.querySelectorAll("img");
+            images.forEach((img) => {
+              // Force browser to load it immediately
+              img.setAttribute("loading", "eager");
+              img.setAttribute("decoding", "sync");
+
+              // If the src is empty but data-src exists (common lazy load pattern), swap them
+              const dataSrc = img.getAttribute("data-src");
+              if (dataSrc && !img.src) {
+                img.src = dataSrc;
+              }
+            });
+            console.log(`✓ Forced eager loading on ${images.length} images`);
           }, 1000);
         } catch (e) {
           console.error("Error in rrweb rebuild:", e);
@@ -620,9 +665,10 @@ export default function DomHeatmapViewer({
         console.log("✓ Fallback manual reconstruction completed");
       };
 
-      // Initialize Heatmap overlay
+      // Initialize Heatmap overlay for all clicks
       setTimeout(() => {
         const canvasContainer = document.createElement("div");
+        canvasContainer.id = "heatmap-canvas-container";
         canvasContainer.style.position = "absolute";
         canvasContainer.style.top = "0";
         canvasContainer.style.left = "0";
@@ -635,11 +681,34 @@ export default function DomHeatmapViewer({
 
         const instance = h337.create({
           container: canvasContainer,
-          radius: 30,
-          maxOpacity: 0.6,
+          radius: 25,
+          maxOpacity: 0.7,
+          minOpacity: 0,
+          blur: 0.8,
+          gradient: {
+            "0.0": "blue",
+            "0.25": "cyan",
+            "0.5": "lime",
+            "0.75": "yellow",
+            "1.0": "red",
+          },
         });
         setHeatmapInstance(instance);
-        console.log("Heatmap instance created");
+        console.log("Heatmap instance created for all clicks");
+
+        // Create element click overlay on top of heatmap
+        const overlayContainer = document.createElement("div");
+        overlayContainer.id = "element-click-overlay";
+        overlayContainer.style.position = "absolute";
+        overlayContainer.style.top = "0";
+        overlayContainer.style.left = "0";
+        overlayContainer.style.width = "100%";
+        overlayContainer.style.height = "100%";
+        overlayContainer.style.zIndex = "3"; // Above heatmap
+        overlayContainer.style.pointerEvents = "none";
+
+        wrapper.appendChild(overlayContainer);
+        console.log("Element click overlay container created");
       }, 200);
     } catch (error) {
       console.error("ERROR during DOM reconstruction:", error);
@@ -647,7 +716,89 @@ export default function DomHeatmapViewer({
     }
   }, [snapshotData, styles, origin]);
 
-  // 5. Render Heatmap Data
+  // 5. Render Element Click Overlays
+  useEffect(() => {
+    if (elementClicks.length === 0) return;
+
+    const overlayContainer = document.getElementById("element-click-overlay");
+    if (!overlayContainer) return;
+
+    // Clear previous overlays
+    overlayContainer.innerHTML = "";
+
+    // Create overlay elements for each clicked element
+    elementClicks.forEach((element, index) => {
+      const elementDiv = document.createElement("div");
+      elementDiv.style.position = "absolute";
+      elementDiv.style.left = `${element.x - 10}px`; // Center the indicator
+      elementDiv.style.top = `${element.y - 10}px`;
+      elementDiv.style.width = "20px";
+      elementDiv.style.height = "20px";
+      elementDiv.style.borderRadius = "50%";
+      elementDiv.style.backgroundColor = "rgba(255, 0, 0, 0.8)";
+      elementDiv.style.border = "2px solid white";
+      elementDiv.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+      elementDiv.style.cursor = "pointer";
+      elementDiv.style.pointerEvents = "auto";
+      elementDiv.style.zIndex = "10";
+      elementDiv.title = `${
+        element.clickCount
+      } clicks (${element.percentage.toFixed(1)}%) - ${
+        element.tag
+      }: ${element.text.substring(0, 50)}`;
+
+      // Create tooltip
+      const tooltip = document.createElement("div");
+      tooltip.style.position = "absolute";
+      tooltip.style.bottom = "25px";
+      tooltip.style.left = "50%";
+      tooltip.style.transform = "translateX(-50%)";
+      tooltip.style.backgroundColor = "rgba(0, 0, 0, 0.9)";
+      tooltip.style.color = "white";
+      tooltip.style.padding = "8px 12px";
+      tooltip.style.borderRadius = "4px";
+      tooltip.style.fontSize = "12px";
+      tooltip.style.whiteSpace = "nowrap";
+      tooltip.style.opacity = "0";
+      tooltip.style.transition = "opacity 0.2s";
+      tooltip.style.pointerEvents = "none";
+      tooltip.style.zIndex = "11";
+
+      tooltip.innerHTML = `
+        <div style="font-weight: bold; margin-bottom: 4px;">${
+          element.clickCount
+        } clicks (${element.percentage.toFixed(1)}%)</div>
+        <div style="font-size: 11px; color: #ccc;">${element.tag.toUpperCase()}: ${element.text.substring(
+        0,
+        30
+      )}${element.text.length > 30 ? "..." : ""}</div>
+        ${
+          element.href
+            ? `<div style="font-size: 11px; color: #aaa;">${element.href.substring(
+                0,
+                40
+              )}${element.href.length > 40 ? "..." : ""}</div>`
+            : ""
+        }
+      `;
+
+      elementDiv.appendChild(tooltip);
+
+      // Show/hide tooltip on hover
+      elementDiv.addEventListener("mouseenter", () => {
+        tooltip.style.opacity = "1";
+      });
+      elementDiv.addEventListener("mouseleave", () => {
+        tooltip.style.opacity = "0";
+      });
+
+      overlayContainer.appendChild(elementDiv);
+    });
+
+    console.log(`Rendered ${elementClicks.length} element click overlays`);
+  }, [elementClicks]);
+
+  // Keep old heatmap rendering for backward compatibility
   useEffect(() => {
     if (!heatmapInstance || clickData.length === 0) return;
 

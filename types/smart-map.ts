@@ -16,3 +16,10 @@ export interface SmartScreenshotResult {
   mapUrl: string;        // URL to the .json map in Supabase
   device: string;        // "desktop", "mobile"
 }
+
+export interface ElementClick extends ElementNode {
+  clickCount: number;    // Number of clicks on this element
+  percentage: number;    // Percentage of total clicks
+  elementId: string;     // Element ID if available
+  elementClasses: string; // Element classes if available
+}

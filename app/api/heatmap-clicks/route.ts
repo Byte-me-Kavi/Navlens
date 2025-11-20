@@ -93,9 +93,36 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Query ClickHouse for aggregated click data
-    // Optimized query for heatmap click aggregation
-    const query = `
+    // Query ClickHouse for element-specific click data
+    const elementQuery = `
+      SELECT
+        element_selector as selector,
+        element_tag as tag,
+        element_text as text,
+        element_id as element_id,
+        element_classes as element_classes,
+        href,
+        ROUND(AVG(x), 5) as x,
+        ROUND(AVG(y), 5) as y,
+        COUNT(*) as click_count,
+        COUNT(*) * 100.0 / SUM(COUNT(*)) OVER () as percentage
+      FROM events
+      WHERE site_id = {siteId:String}
+        AND page_path = {pagePath:String}
+        AND (device_type = {deviceType:String} OR (device_type = '' AND {deviceType:String} = 'desktop'))
+        AND event_type = 'click'
+        AND timestamp >= now() - INTERVAL 30 DAY
+        AND element_selector != ''
+        AND x > 0
+        AND y > 0
+      GROUP BY element_selector, element_tag, element_text, element_id, element_classes, href
+      HAVING COUNT(*) >= 1
+      ORDER BY click_count DESC
+      LIMIT 100
+    `;
+
+    // Query for all click points (traditional heatmap)
+    const allClicksQuery = `
       SELECT
         x,
         y,
@@ -110,39 +137,86 @@ export async function GET(req: NextRequest) {
         AND y > 0
       GROUP BY x, y
       ORDER BY value DESC
-      LIMIT 1000
+      LIMIT 2000
     `;
 
-    console.log('Executing ClickHouse query for heatmap clicks');
+    console.log('Executing ClickHouse queries for heatmap clicks');
     console.log('Query params:', { siteId, pagePath, deviceType });
 
-    const result = await clickhouse.query({
-      query,
+    // Execute element clicks query
+    const elementResult = await clickhouse.query({
+      query: elementQuery,
       query_params: {
         siteId,
         pagePath,
-        deviceType, // Keep for future use if needed
+        deviceType,
       },
       format: 'JSONEachRow',
     });
 
-    const rows = await result.json();
-    console.log('ClickHouse returned', rows.length, 'aggregated click points');
+    // Execute all clicks query
+    const allClicksResult = await clickhouse.query({
+      query: allClicksQuery,
+      query_params: {
+        siteId,
+        pagePath,
+        deviceType,
+      },
+      format: 'JSONEachRow',
+    });
 
-    // Transform to expected format
+    const elementRows = await elementResult.json();
+    const allClicksRows = await allClicksResult.json();
+
+    console.log('ClickHouse returned', elementRows.length, 'element click groups');
+    console.log('ClickHouse returned', allClicksRows.length, 'all click points');
+
+    // Transform to ElementNode format with click data
+    interface ElementClickRow {
+      selector: string;
+      tag: string;
+      text: string;
+      element_id: string;
+      element_classes: string;
+      href?: string;
+      x: string;
+      y: string;
+      click_count: string;
+      percentage: string;
+    }
+
+    const elementClicks = (elementRows as ElementClickRow[]).map((row) => ({
+      selector: row.selector,
+      tag: row.tag,
+      text: row.text || '',
+      x: parseFloat(row.x), // Keep as float for high precision positioning
+      y: parseFloat(row.y), // Keep as float for high precision positioning
+      width: 0, // Will be calculated from DOM
+      height: 0, // Will be calculated from DOM
+      href: row.href || undefined,
+      clickCount: parseInt(row.click_count),
+      percentage: parseFloat(row.percentage),
+      elementId: row.element_id || '',
+      elementClasses: row.element_classes || '',
+    }));
+
+    // Transform all click points
     interface ClickRow {
       x: string;
       y: string;
       value: string;
     }
-    const clickPoints = (rows as ClickRow[]).map((row) => ({
+    const clickPoints = (allClicksRows as ClickRow[]).map((row) => ({
       x: parseInt(row.x),
       y: parseInt(row.y),
       value: parseInt(row.value),
     }));
 
-    console.log('Returning', clickPoints.length, 'click points to frontend');
-    return NextResponse.json({ clicks: clickPoints }, { status: 200 });
+    console.log('Returning', elementClicks.length, 'element click data and', clickPoints.length, 'click points to frontend');
+    return NextResponse.json({
+      elements: elementClicks,
+      clicks: clickPoints
+    }, { status: 200 });
 
   } catch (error: Error | unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
