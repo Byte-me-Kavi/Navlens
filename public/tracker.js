@@ -413,6 +413,7 @@
       // Take the snapshot directly - rrweb captures full DOM regardless of visibility
       const snap = rrwebSnapshot.snapshot(document, {
         inlineStylesheet: true, // Critical: Inlines all stylesheet content into the snapshot
+        inlineImages: true, // <--- ADD THIS: Converts images to Base64 data strings
         recordCanvas: false,
       }); // Extract CSS - OPTIMIZED for Next.js/React compatibility
       const styles = [];

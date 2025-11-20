@@ -25,6 +25,7 @@ interface DomHeatmapViewerProps {
   siteId: string;
   pagePath: string;
   deviceType: string;
+  dataType: string;
 }
 
 interface ClickData {
@@ -59,6 +60,7 @@ export default function DomHeatmapViewer({
   siteId,
   pagePath,
   deviceType,
+  dataType,
 }: DomHeatmapViewerProps) {
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const [snapshotData, setSnapshotData] = useState<unknown>(null);
@@ -141,6 +143,10 @@ export default function DomHeatmapViewer({
         }
 
         const data = await response.json();
+        console.log("Fetched click data:", {
+          elements: data.elements?.length || 0,
+          clicks: data.clicks?.length || 0,
+        });
         setElementClicks(data.elements || []);
         // Keep old format for backward compatibility
         setClickData(data.clicks || []);
@@ -207,9 +213,9 @@ export default function DomHeatmapViewer({
       iframe.style.zIndex = "1";
       iframe.setAttribute(
         "sandbox",
-        "allow-same-origin allow-scripts allow-popups"
+        "allow-scripts" // Only allow scripts for DOM reconstruction, no external access
       );
-      iframe.setAttribute("referrerpolicy", "no-referrer-when-downgrade");
+      iframe.setAttribute("referrerpolicy", "no-referrer");
 
       wrapper.appendChild(iframe);
       containerDiv.appendChild(wrapper);
@@ -225,12 +231,12 @@ export default function DomHeatmapViewer({
           }
           clearInterval(checkIframeReady);
 
-          // Inject <base> tag FIRST before any reconstruction
-          const baseHref = origin || window.location.origin;
+          // CRITICAL: Set base href to about:blank to prevent ANY external resource loading
+          const baseHref = "about:blank";
           const baseTag = doc.createElement("base");
           baseTag.href = baseHref;
           doc.head?.insertBefore(baseTag, doc.head.firstChild);
-          console.log(`✓ Base tag injected: ${baseHref}`);
+          console.log(`✓ Base tag injected: ${baseHref} (completely isolated)`);
 
           if (!rrwebSnapshot.buildNodeWithSN) {
             console.error("rrwebSnapshot.buildNodeWithSN not available");
@@ -369,113 +375,26 @@ export default function DomHeatmapViewer({
             }
 
             console.log(
-              "✓ rrweb buildNodeWithSN completed - images should now be in DOM"
+              "✓ rrweb buildNodeWithSN completed - Base64 images embedded in DOM"
             );
 
-            // After DOM is built, check for images and fix visibility
+            // After DOM is built, ensure Base64 images are visible
             setTimeout(() => {
               const allImages = doc.querySelectorAll("img");
               console.log(
-                `Found ${allImages.length} IMG elements in iframe DOM`
+                `Found ${allImages.length} Base64 IMG elements in iframe DOM`
               );
               allImages.forEach((img, i) => {
-                // Remove the "color: transparent" inline style that Next.js Image sets
-                // This style is used during loading but prevents images from showing
-                const currentStyle = img.getAttribute("style");
-                if (
-                  currentStyle &&
-                  currentStyle.includes("color: transparent")
-                ) {
-                  const newStyle = currentStyle.replace(
-                    /color:\s*transparent;?\s*/g,
-                    ""
-                  );
-                  if (newStyle.trim()) {
-                    img.setAttribute("style", newStyle);
-                  } else {
-                    img.removeAttribute("style");
-                  }
-                  console.log(`✓ Removed "color: transparent" from image ${i}`);
-                }
-
-                // FIX: Handle Next.js Image loading issues in iframe
-                // 1. Force eager loading to bypass lazy loading issues in iframe
-                img.setAttribute("loading", "eager");
-                img.removeAttribute("decoding");
-                // Set referrer policy to avoid blocking by the source server
-                img.setAttribute("referrerpolicy", "no-referrer");
-
-                // 2. Remove srcset to simplify loading and avoid resolution issues
-                // Next.js images rely on srcset, but in a reconstructed iframe, it might fail
-                if (img.hasAttribute("srcset")) {
-                  img.removeAttribute("srcset");
-                }
-
-                // 3. Attach load/error listeners to debug
-                img.onerror = () => {
-                  console.error(`❌ Image ${i} failed to load:`, img.src);
-                };
+                // Base64 images should load automatically, just ensure visibility
                 img.onload = () => {
-                  console.log(`✅ Image ${i} loaded successfully`);
+                  console.log(`✅ Base64 Image ${i} loaded successfully`);
                 };
-
-                // 4. Re-trigger load by resetting src, and bypass Next.js optimization if possible
-                const src = img.getAttribute("src");
-                if (src) {
-                  // Check if it's a Next.js optimized image URL
-                  if (src.includes("/_next/image") && src.includes("url=")) {
-                    try {
-                      const urlObj = new URL(src);
-                      const originalUrlParam = urlObj.searchParams.get("url");
-                      if (originalUrlParam) {
-                        // If the original URL is relative, we need to resolve it against the origin of the current src
-                        // (which is the site where the snapshot was taken)
-                        let newSrc = originalUrlParam;
-                        if (originalUrlParam.startsWith("/")) {
-                          newSrc = urlObj.origin + originalUrlParam;
-                        }
-
-                        console.log(
-                          `🔄 Attempting to bypass Next.js optimization for image ${i}:`,
-                          {
-                            old: src,
-                            new: newSrc,
-                          }
-                        );
-
-                        img.src = newSrc;
-                      } else {
-                        img.src = src;
-                      }
-                    } catch (e) {
-                      console.error("Error parsing image URL:", e);
-                      img.src = src;
-                    }
-                  } else {
-                    img.src = src;
-                  }
-                }
-
-                // Force image visibility by ensuring no hidden styles
-                const computedStyle = window.getComputedStyle(img);
-                console.log(`Image ${i}:`, {
-                  src: img.getAttribute("src"),
-                  srcset: img.getAttribute("srcset"),
-                  tagName: img.tagName,
-                  parentTag: img.parentElement?.tagName,
-                  display:
-                    (img as HTMLElement).style.display || computedStyle.display,
-                  visibility:
-                    (img as HTMLElement).style.visibility ||
-                    computedStyle.visibility,
-                  width: (img as HTMLElement).offsetWidth,
-                  height: (img as HTMLElement).offsetHeight,
-                  naturalWidth: img.naturalWidth,
-                  naturalHeight: img.naturalHeight,
-                  complete: img.complete,
-                  currentSrc: img.currentSrc,
-                  finalStyle: img.getAttribute("style"),
-                });
+                img.onerror = () => {
+                  console.warn(
+                    `⚠️ Base64 Image ${i} failed to load:`,
+                    img.src?.substring(0, 50)
+                  );
+                };
               });
             }, 500);
           } else {
@@ -547,30 +466,108 @@ export default function DomHeatmapViewer({
                     animation: none !important;
                 }
 
-                /* 3. Force Images to Show */
-                img {
-                    opacity: 1 !important;
-                    display: block; /* Fixes inline image spacing bugs */
+                /* 3. Block all external resources - iframe should only show embedded content */
+                img:not([src^="data:"]) {
+                    display: none !important; /* Hide any non-embedded images */
+                }
+                link[rel="stylesheet"]:not([href^="data:"]) {
+                    display: none !important; /* Hide external stylesheets */
+                }
+                script:not([src^="data:"]) {
+                    display: none !important; /* Hide external scripts */
                 }
             `;
             doc.head?.appendChild(visibilityStyle);
             console.log("✓ Applied Force-Visibility styles");
 
-            // 6. JS Fix for Lazy Loaded Images
-            // Even with CSS, some images need the 'loading' attribute changed to trigger the network request
+            // 6. Images are now embedded as Base64 - minimal handling needed
             const images = doc.querySelectorAll("img");
             images.forEach((img) => {
-              // Force browser to load it immediately
+              // Base64 images should load automatically, just ensure they're visible
               img.setAttribute("loading", "eager");
               img.setAttribute("decoding", "sync");
-
-              // If the src is empty but data-src exists (common lazy load pattern), swap them
-              const dataSrc = img.getAttribute("data-src");
-              if (dataSrc && !img.src) {
-                img.src = dataSrc;
-              }
             });
-            console.log(`✓ Forced eager loading on ${images.length} images`);
+            console.log(`✓ Base64 images ready: ${images.length} images`);
+
+            // 7. AGGRESSIVE BLOCKING - Prevent ANY external resource loading
+            const navigationBlocker = doc.createElement("script");
+            navigationBlocker.textContent = `
+              // Override fetch and XMLHttpRequest to block external requests
+              const originalFetch = window.fetch;
+              window.fetch = function() {
+                console.log('Blocked fetch request');
+                return Promise.reject(new Error('External requests blocked'));
+              };
+
+              const originalXMLHttpRequest = window.XMLHttpRequest;
+              window.XMLHttpRequest = function() {
+                console.log('Blocked XMLHttpRequest');
+                throw new Error('External requests blocked');
+              };
+
+              // Block all external navigation and form submissions
+              document.addEventListener('click', function(e) {
+                const target = e.target.closest('a');
+                if (target && target.href) {
+                  console.log('Blocked link click to:', target.href);
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return false;
+                }
+              }, true);
+
+              // Block form submissions
+              document.addEventListener('submit', function(e) {
+                console.log('Blocked form submission');
+                e.preventDefault();
+                return false;
+              }, true);
+
+              // Block programmatic navigation
+              const originalAssign = window.location.assign;
+              const originalReplace = window.location.replace;
+              const originalHref = window.location.href;
+
+              window.location.assign = function(url) {
+                console.log('Blocked location.assign to:', url);
+              };
+              window.location.replace = function(url) {
+                console.log('Blocked location.replace to:', url);
+              };
+
+              Object.defineProperty(window.location, 'href', {
+                get: function() { return originalHref; },
+                set: function(url) {
+                  console.log('Blocked location.href assignment to:', url);
+                }
+              });
+
+              // Block dynamic script/style loading
+              const originalCreateElement = document.createElement;
+              document.createElement = function(tagName) {
+                const element = originalCreateElement.call(document, tagName);
+                if (tagName.toLowerCase() === 'script' || tagName.toLowerCase() === 'link') {
+                  // Monitor for external src/href
+                  const setter = Object.getOwnPropertyDescriptor(Element.prototype, tagName === 'script' ? 'src' : 'href')?.set;
+                  if (setter) {
+                    Object.defineProperty(element, tagName === 'script' ? 'src' : 'href', {
+                      set: function(value) {
+                        if (value && (value.startsWith('http') || value.startsWith('//'))) {
+                          console.log('Blocked external', tagName, 'loading:', value);
+                          return;
+                        }
+                        setter.call(this, value);
+                      }
+                    });
+                  }
+                }
+                return element;
+              };
+
+              console.log('✓ Aggressive external resource blocking active');
+            `;
+            doc.head?.appendChild(navigationBlocker);
+            console.log("✓ Injected aggressive resource blocker script");
           }, 1000);
         } catch (e) {
           console.error("Error in rrweb rebuild:", e);
@@ -718,10 +715,36 @@ export default function DomHeatmapViewer({
 
   // 5. Render Element Click Overlays
   useEffect(() => {
+    console.log(
+      "Element overlay effect running, elementClicks:",
+      elementClicks.length,
+      "dataType:",
+      dataType
+    );
+
     if (elementClicks.length === 0) return;
 
+    // Only show element overlays for clicks data type
+    if (dataType !== "clicks" && dataType !== "both") {
+      const overlayContainer = document.getElementById("element-click-overlay");
+      if (overlayContainer) {
+        overlayContainer.innerHTML = "";
+        console.log("Cleared element overlays for dataType:", dataType);
+      }
+      return;
+    }
+
     const overlayContainer = document.getElementById("element-click-overlay");
-    if (!overlayContainer) return;
+    if (!overlayContainer) {
+      console.log("Element overlay container not found");
+      return;
+    }
+
+    console.log(
+      "Creating element overlays for",
+      elementClicks.length,
+      "elements"
+    );
 
     // Clear previous overlays
     overlayContainer.innerHTML = "";
@@ -796,31 +819,50 @@ export default function DomHeatmapViewer({
     });
 
     console.log(`Rendered ${elementClicks.length} element click overlays`);
-  }, [elementClicks]);
+  }, [elementClicks, dataType]);
 
   // Keep old heatmap rendering for backward compatibility
   useEffect(() => {
-    if (!heatmapInstance || clickData.length === 0) return;
+    console.log(
+      "Heatmap rendering effect running, heatmapInstance:",
+      !!heatmapInstance,
+      "clickData:",
+      clickData.length,
+      "dataType:",
+      dataType
+    );
 
-    const heatmapData = {
-      max: Math.max(...clickData.map((d) => d.value)),
-      data: clickData.map((point) => ({
-        x: point.x,
-        y: point.y,
-        value: point.value,
-      })),
-    };
+    if (!heatmapInstance) return;
 
-    heatmapInstance.setData(heatmapData);
-  }, [heatmapInstance, clickData]);
+    // Only render heatmap for clicks data type
+    if (dataType === "clicks" || dataType === "both") {
+      if (clickData.length === 0) {
+        console.log("No click data to render heatmap");
+        return;
+      }
+
+      const heatmapData = {
+        max: Math.max(...clickData.map((d) => d.value)),
+        data: clickData.map((point) => ({
+          x: point.x,
+          y: point.y,
+          value: point.value,
+        })),
+      };
+
+      console.log("Setting heatmap data:", heatmapData);
+      heatmapInstance.setData(heatmapData);
+    } else {
+      // Clear heatmap for other data types
+      console.log("Clearing heatmap for dataType:", dataType);
+      heatmapInstance.setData({ max: 0, data: [] });
+    }
+  }, [heatmapInstance, clickData, dataType]);
 
   return (
     <div
       ref={iframeContainerRef}
-      className="w-full bg-white border border-gray-300"
-      style={{
-        height: "600px",
-      }}
+      className="w-full h-full bg-white border border-gray-300"
     />
   );
 }
