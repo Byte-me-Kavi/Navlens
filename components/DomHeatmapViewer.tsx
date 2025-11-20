@@ -1,6 +1,24 @@
 ﻿"use client";
 import { useEffect, useRef, useState } from "react";
 import h337 from "heatmap.js";
+import * as rrwebSnapshot from "rrweb-snapshot";
+
+// Type declarations for rrweb-snapshot global
+declare global {
+  interface Window {
+    rrwebSnapshot: {
+      buildNodeWithSN: (
+        node: any,
+        options: {
+          doc: Document;
+          hackCss: boolean;
+          skipChild: boolean;
+          newlyAddedElement: boolean;
+        }
+      ) => Element | null;
+    };
+  }
+}
 
 interface DomHeatmapViewerProps {
   siteId: string;
@@ -19,6 +37,21 @@ interface SnapshotWithOrigin {
   styles?: unknown[];
   origin?: string;
   [key: string]: unknown;
+}
+
+interface StyleObject {
+  type: string;
+  content?: string;
+  href?: string;
+  source?: string;
+}
+
+interface SnapshotNode {
+  type: number;
+  tagName?: string;
+  attributes?: Record<string, unknown>;
+  childNodes?: SnapshotNode[];
+  textContent?: string;
 }
 
 export default function DomHeatmapViewer({
@@ -60,15 +93,25 @@ export default function DomHeatmapViewer({
 
         const json = await response.json();
 
+        console.log("=== Snapshot Retrieved from API ===");
+        console.log("Response keys:", Object.keys(json));
+        console.log("Has snapshot:", !!json.snapshot);
+        console.log("Has styles:", !!json.styles);
+        console.log("Styles length:", json.styles?.length);
+        console.log("Has origin:", !!json.origin);
+        console.log("Origin value:", json.origin);
+
         // Handle both old format (direct snapshot) and new format (snapshot + styles + origin)
         if (json.snapshot) {
           setSnapshotData(json.snapshot);
           setStyles(json.styles || []);
           setOrigin(json.origin || window.location.origin);
+          console.log("✓ Using new format (snapshot + styles + origin)");
         } else {
           setSnapshotData(json);
           setStyles([]);
           setOrigin(window.location.origin);
+          console.log("⚠️ Using old format (direct snapshot, no styles)");
         }
       } catch (error) {
         console.error("Error fetching snapshot:", error);
@@ -109,15 +152,15 @@ export default function DomHeatmapViewer({
   useEffect(() => {
     if (!snapshotData || !iframeContainerRef.current) return;
 
-    console.log("=== Starting DOM Rebuild ===");
-    console.log("Snapshot data structure:", snapshotData);
+    console.log("=== Starting DOM Rebuild with rrweb ===");
+    console.log("Snapshot data:", snapshotData);
 
     // Clear previous content and set up structure
     const containerDiv = iframeContainerRef.current;
     containerDiv.innerHTML = "";
 
     try {
-      console.log("Starting DOM reconstruction with snapshot");
+      console.log("Starting DOM reconstruction with rrweb");
 
       // Create an iframe wrapper to contain iframe and heatmap canvas
       const wrapper = document.createElement("div");
@@ -141,165 +184,139 @@ export default function DomHeatmapViewer({
       containerDiv.appendChild(wrapper);
       console.log("Iframe created and appended");
 
-      // Convert snapshot to HTML string and write to iframe
-      setTimeout(() => {
+      // Use rrweb-snapshot to rebuild the DOM
+      // Wait for iframe to be ready (contentDocument available)
+      const checkIframeReady = setInterval(() => {
         try {
           const doc = iframe.contentDocument;
-          if (doc && snapshotData) {
-            console.log("Reconstructing DOM from snapshot");
+          if (!doc) {
+            return; // Iframe not ready yet, keep checking
+          }
+          clearInterval(checkIframeReady);
 
-            interface SnapshotNode {
-              type: number;
-              tagName?: string;
-              attributes?: Record<string, unknown>;
-              childNodes?: SnapshotNode[];
-              textContent?: string;
-            }
-            const snapshotAsAny = snapshotData as SnapshotNode;
+          if (!rrwebSnapshot.buildNodeWithSN) {
+            console.error("rrwebSnapshot.buildNodeWithSN not available");
+            fallbackManualReconstruction(doc);
+            return;
+          }
 
-            // Function to convert snapshot node to HTML string
-            const nodeToHTML = (sn: SnapshotNode): string => {
-              if (sn.type === 0) {
-                // Document node
-                return "";
-              } else if (sn.type === 1) {
-                // Document type node
-                return "<!DOCTYPE html>";
-              } else if (sn.type === 2) {
-                // Element node
-                // Skip problematic tags that can cause issues in iframe context
-                const tagName = sn.tagName?.toLowerCase();
-                if (tagName === "script" || tagName === "link") {
-                  // Don't include script tags (would execute with wrong context)
-                  // Don't include link tags (would load external resources with CORS issues)
-                  return "";
-                }
+          // Use rrweb-snapshot's buildNodeWithSN to properly rebuild the DOM with CSS
+          if (rrwebSnapshot.buildNodeWithSN) {
+            console.log("Using rrwebSnapshot.buildNodeWithSN to rebuild DOM");
 
-                let html = `<${sn.tagName}`;
+            // Create mirror and cache for buildNodeWithSN
+            const mirror = rrwebSnapshot.createMirror();
+            const cache = rrwebSnapshot.createCache();
 
-                // Add attributes
-                if (sn.attributes) {
-                  Object.entries(sn.attributes).forEach(
-                    ([key, value]: [string, unknown]) => {
-                      try {
-                        const attrValue =
-                          typeof value === "string"
-                            ? value
-                            : JSON.stringify(value);
-                        const escaped = attrValue
-                          .replace(/"/g, "&quot;")
-                          .replace(/</g, "&lt;")
-                          .replace(/>/g, "&gt;");
-                        html += ` ${key}="${escaped}"`;
-                      } catch (error: unknown) {
-                        console.warn(`Could not add attribute ${key}`, error);
-                      }
-                    }
-                  );
-                }
+            // Clear the iframe document
+            doc.open();
+            doc.write("<!DOCTYPE html><html><head></head><body></body></html>");
+            doc.close();
 
-                html += ">";
+            // Inject <base> tag for relative URL resolution
+            const baseHref = origin || window.location.origin;
+            const baseTag = doc.createElement("base");
+            baseTag.href = baseHref;
+            doc.head?.insertBefore(baseTag, doc.head.firstChild);
+            console.log(`✓ Base tag injected: ${baseHref}`);
 
-                // Add children
-                if (sn.childNodes && Array.isArray(sn.childNodes)) {
-                  sn.childNodes.forEach((child: SnapshotNode) => {
-                    html += nodeToHTML(child);
-                  });
-                }
+            // Rebuild each node from the snapshot
+            const buildNode = (node: any) => {
+              if (!node) return null;
 
-                // Close tag (skip void elements)
-                const voidElements = [
-                  "br",
-                  "hr",
-                  "img",
-                  "input",
-                  "meta",
-                  "link",
-                ];
-                if (
-                  sn.tagName &&
-                  !voidElements.includes(sn.tagName.toLowerCase())
-                ) {
-                  html += `</${sn.tagName}>`;
-                }
-
-                return html;
-              } else if (sn.type === 3) {
-                // Text node
-                return (sn.textContent || "")
-                  .replace(/&/g, "&amp;")
-                  .replace(/</g, "&lt;")
-                  .replace(/>/g, "&gt;");
+              try {
+                const element = rrwebSnapshot.buildNodeWithSN(node, {
+                  doc,
+                  mirror,
+                  cache,
+                  hackCss: true,
+                  skipChild: false,
+                });
+                return element;
+              } catch (e) {
+                console.warn("Error building node:", e);
+                return null;
               }
-              return "";
             };
 
-            // Convert entire snapshot to HTML
-            let htmlContent = "";
+            // If snapshot is the root node
+            const snapshotAsNode = snapshotData as SnapshotNode;
             if (
-              snapshotAsAny.childNodes &&
-              Array.isArray(snapshotAsAny.childNodes)
+              snapshotAsNode.childNodes &&
+              Array.isArray(snapshotAsNode.childNodes)
             ) {
-              snapshotAsAny.childNodes.forEach((child: SnapshotNode) => {
-                htmlContent += nodeToHTML(child);
+              snapshotAsNode.childNodes.forEach((childNode: SnapshotNode) => {
+                const builtNode = buildNode(childNode);
+                if (builtNode) {
+                  if (
+                    builtNode.nodeType === 1 &&
+                    (builtNode as Element).tagName === "HTML"
+                  ) {
+                    // For HTML nodes, extract and append their children
+                    const htmlElement = builtNode as Element;
+                    const headChildren = Array.from(
+                      htmlElement.querySelectorAll("head > *")
+                    );
+                    const bodyChildren = Array.from(
+                      htmlElement.querySelectorAll("body > *")
+                    );
+
+                    // Move head children
+                    headChildren.forEach((child) => {
+                      doc.head?.appendChild(child.cloneNode(true));
+                    });
+
+                    // Move body children
+                    bodyChildren.forEach((child) => {
+                      doc.body?.appendChild(child.cloneNode(true));
+                    });
+                  } else if (builtNode.nodeType === 1) {
+                    doc.body?.appendChild(builtNode);
+                  }
+                }
               });
             }
 
-            // Write HTML to document
-            doc.open();
-            doc.write(htmlContent);
-            doc.close();
+            console.log("✓ rrweb buildNodeWithSN completed");
+          } else {
+            console.warn(
+              "rrwebSnapshot.buildNodeWithSN not available, falling back to manual reconstruction"
+            );
+            fallbackManualReconstruction(doc);
+          }
 
-            // Inject <base> tag FIRST (Critical for relative fonts/images inside CSS)
-            // This tells the iframe to resolve all relative URLs relative to the client's origin
-            const baseTag = doc.createElement("base");
-            baseTag.href = origin || window.location.origin; // Use captured origin or fall back to current
-            if (doc.head) {
-              doc.head.insertBefore(baseTag, doc.head.firstChild);
-              console.log(`✓ Injected <base> tag: ${baseTag.href}`);
-            }
+          // Inject CSS if available
+          setTimeout(() => {
+            if (styles && Array.isArray(styles) && styles.length > 0) {
+              console.log("=== Injecting styles ===");
+              let inlineCount = 0;
+              let linkCount = 0;
 
-            // Wait a moment for the document to be fully parsed
-            setTimeout(() => {
-              console.log("Injecting styles into iframe document...");
-
-              // Apply captured CSS from styles array (both inline and link tags)
-              if (styles && Array.isArray(styles)) {
-                let inlineCount = 0;
-                let linkCount = 0;
-
-                (styles as unknown[]).forEach((style: unknown) => {
-                  const styleObj = style as {
-                    type: string;
-                    content?: string;
-                    href?: string;
-                  };
-
+              (styles as StyleObject[]).forEach(
+                (styleObj: StyleObject, index: number) => {
                   if (styleObj.type === "inline" && styleObj.content) {
-                    // Inject inline CSS directly
                     const styleTag = doc.createElement("style");
                     styleTag.textContent = styleObj.content;
                     doc.head?.appendChild(styleTag);
                     inlineCount++;
                   } else if (styleObj.type === "link" && styleObj.href) {
-                    // Inject link tag with absolute URL so it loads from original domain
                     const linkTag = doc.createElement("link");
                     linkTag.rel = "stylesheet";
-                    linkTag.href = styleObj.href; // This is now an absolute URL
+                    linkTag.href = styleObj.href;
                     doc.head?.appendChild(linkTag);
-                    console.log(`  → Loading external CSS: ${styleObj.href}`);
                     linkCount++;
                   }
-                });
+                }
+              );
 
-                console.log(
-                  `✓ Injected ${inlineCount} inline styles and ${linkCount} external stylesheets`
-                );
-              }
+              console.log(
+                `✓ Injected ${inlineCount} inline styles and ${linkCount} external stylesheets`
+              );
+            }
 
-              // Inject essential layout and display styles to ensure proper rendering
-              const defaultStyle = doc.createElement("style");
-              defaultStyle.textContent = `
+            // Inject default styles
+            const defaultStyle = doc.createElement("style");
+            defaultStyle.textContent = `
                 * { box-sizing: border-box; }
                 html, body { 
                   margin: 0; 
@@ -311,29 +328,104 @@ export default function DomHeatmapViewer({
                 }
                 img { max-width: 100%; height: auto; }
               `;
-              doc.head?.appendChild(defaultStyle);
-              console.log("✓ Applied default layout styles");
-            }, 10);
-
-            console.log("DOM reconstruction complete");
-            console.log("HTML content length:", htmlContent.length);
-            console.log("HTML preview:", htmlContent.substring(0, 500));
-            console.log(
-              "Iframe body HTML:",
-              doc.body?.innerHTML
-                ? doc.body.innerHTML.substring(0, 500)
-                : "Body element not ready"
-            );
-          }
+            doc.head?.appendChild(defaultStyle);
+            console.log("✓ Applied default layout styles");
+          }, 1000);
         } catch (e) {
-          console.error("Error reconstructing DOM:", e);
-          console.error("Stack:", (e as Error).stack);
+          console.error("Error in rrweb rebuild:", e);
+          const doc = iframe.contentDocument;
+          if (doc) fallbackManualReconstruction(doc);
         }
-      }, 50);
+      }, 100); // Check every 100ms
+
+      // Fallback manual reconstruction function
+      const fallbackManualReconstruction = (doc: Document | null) => {
+        if (!doc) return;
+
+        interface SnapshotNode {
+          type: number;
+          tagName?: string;
+          attributes?: Record<string, unknown>;
+          childNodes?: SnapshotNode[];
+          textContent?: string;
+        }
+
+        const nodeToHTML = (sn: SnapshotNode): string => {
+          if (sn.type === 0) return "";
+          if (sn.type === 1) return "<!DOCTYPE html>";
+          if (sn.type === 2) {
+            const tagName = sn.tagName?.toLowerCase();
+            if (tagName === "script") return "";
+            if (tagName === "link" && sn.attributes?.rel === "stylesheet")
+              return "";
+
+            let html = `<${sn.tagName}`;
+            if (sn.attributes) {
+              Object.entries(sn.attributes).forEach(([key, value]) => {
+                const attrValue =
+                  typeof value === "string" ? value : JSON.stringify(value);
+                const escaped = attrValue
+                  .replace(/"/g, "&quot;")
+                  .replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;");
+                html += ` ${key}="${escaped}"`;
+              });
+            }
+            html += ">";
+
+            if (sn.childNodes && Array.isArray(sn.childNodes)) {
+              sn.childNodes.forEach((child) => {
+                html += nodeToHTML(child);
+              });
+            }
+
+            const voidElements = ["br", "hr", "img", "input", "meta", "link"];
+            if (
+              sn.tagName &&
+              !voidElements.includes(sn.tagName.toLowerCase())
+            ) {
+              html += `</${sn.tagName}>`;
+            }
+            return html;
+          }
+          if (sn.type === 3) {
+            return (sn.textContent || "")
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;");
+          }
+          return "";
+        };
+
+        let htmlContent = "";
+        const snapshotAsAny = snapshotData as SnapshotNode;
+        if (
+          snapshotAsAny.childNodes &&
+          Array.isArray(snapshotAsAny.childNodes)
+        ) {
+          snapshotAsAny.childNodes.forEach((child) => {
+            htmlContent += nodeToHTML(child);
+          });
+        }
+
+        const baseHref = origin || window.location.origin;
+        const headCloseIndex = htmlContent.indexOf("</head>");
+        if (headCloseIndex !== -1) {
+          htmlContent =
+            htmlContent.slice(0, headCloseIndex) +
+            `<base href="${baseHref}">` +
+            htmlContent.slice(headCloseIndex);
+        }
+
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+
+        console.log("✓ Fallback manual reconstruction completed");
+      };
 
       // Initialize Heatmap overlay
       setTimeout(() => {
-        // Create a canvas container for the heatmap overlay
         const canvasContainer = document.createElement("div");
         canvasContainer.style.position = "absolute";
         canvasContainer.style.top = "0";
@@ -341,7 +433,7 @@ export default function DomHeatmapViewer({
         canvasContainer.style.width = "100%";
         canvasContainer.style.height = "100%";
         canvasContainer.style.zIndex = "2";
-        canvasContainer.style.pointerEvents = "none"; // Allow clicks to pass through
+        canvasContainer.style.pointerEvents = "none";
 
         wrapper.appendChild(canvasContainer);
 
