@@ -225,31 +225,31 @@ export default function DomHeatmapViewer({
       if (!doc) return;
 
       try {
-        // FIX 1: Do NOT write <html><body>... in the open/write phase.
-        // Only write the Doctype. This prevents the HierarchyRequestError.
-        doc.open();
-        doc.write("<!DOCTYPE html>");
-        doc.close();
-
         console.log("Rebuilding with rrweb...");
 
-        // FIX 2: Rebuild the node
+        // Create a temporary document for rebuilding (avoid circular references)
+        const rebuildDoc = document.implementation.createHTMLDocument();
+        
+        // Rebuild the node in the temporary document
         const rebuiltNode = rrwebSnapshot.rebuild(snapshotData as any, {
-          doc,
+          doc: rebuildDoc,
         });
 
-        // FIX 3: Insert the node safely
         if (rebuiltNode) {
           const tagName = (rebuiltNode as Element).tagName?.toLowerCase();
-
+          
           if (tagName === "html") {
-            // If snapshot is a full document, replace the empty root
-            doc.replaceChild(rebuiltNode, doc.documentElement);
+            // Clone and replace entire HTML element
+            const clonedHtml = doc.importNode(rebuiltNode, true);
+            doc.replaceChild(clonedHtml, doc.documentElement);
           } else {
-            // Otherwise append to whatever exists (usually just creates body)
-            doc.body
-              ? doc.body.appendChild(rebuiltNode)
-              : doc.documentElement.appendChild(rebuiltNode);
+            // Clone and append content
+            const clonedNode = doc.importNode(rebuiltNode, true);
+            if (doc.body) {
+              doc.body.appendChild(clonedNode);
+            } else {
+              doc.documentElement.appendChild(clonedNode);
+            }
           }
         }
 
@@ -263,6 +263,9 @@ export default function DomHeatmapViewer({
       // This ensures that even if rebuild hiccups, we kill the interactive scripts
       const scripts = doc.querySelectorAll("script");
       scripts.forEach((s) => s.remove());
+
+      const noscripts = doc.querySelectorAll("noscript");
+      noscripts.forEach((n) => n.remove());
 
       const preloads = doc.querySelectorAll(
         'link[rel="preload"], link[rel="modulepreload"]'
@@ -296,24 +299,89 @@ export default function DomHeatmapViewer({
         });
       }
 
-      // 7. UI Cleanup (Hide broken things, force visibility)
+      // 7. UI Cleanup + Surgical CSS to Force Hidden Animations (No script execution allowed)
       const style = doc.createElement("style");
       style.textContent = `
         html, body { min-height: 100%; margin: 0; height: auto; overflow: auto; }
         a, button, input, select { pointer-events: none !important; cursor: default !important; }
         
-        /* Force elements to show */
-        [data-aos], .aos-animate, [style*="opacity: 0"] { 
-           opacity: 1 !important; visibility: visible !important; transform: none !important; 
-        }
+        /* Target ONLY elements that are hidden by animation libraries */
+        [data-aos] { opacity: 1 !important; transform: none !important; animation: none !important; }
+        .aos-animate { opacity: 1 !important; transform: none !important; }
+        .wow { opacity: 1 !important; animation: none !important; }
+        .animate__animated { opacity: 1 !important; animation: none !important; }
+        .fadeIn, .fadeInUp, .fadeInDown, .fadeInLeft, .fadeInRight { opacity: 1 !important; animation: none !important; }
+        .slideIn, .slideUp, .slideDown { transform: none !important; opacity: 1 !important; animation: none !important; }
+        .zoomIn { transform: none !important; opacity: 1 !important; animation: none !important; }
+        [class*="bounceIn"] { transform: none !important; opacity: 1 !important; animation: none !important; }
+        
+        /* Force visibility on elements with opacity 0 in inline styles */
+        [style*="opacity: 0"] { opacity: 1 !important; }
+        [style*="opacity:0"] { opacity: 1 !important; }
+        
+        /* Override display: none and visibility: hidden ONLY in inline styles */
+        [style*="display: none"] { display: block !important; }
+        [style*="display:none"] { display: block !important; }
+        [style*="visibility: hidden"] { visibility: visible !important; }
+        [style*="visibility:hidden"] { visibility: visible !important; }
+        
+        /* Override height: 0 patterns (common in accordion/tabs) */
+        [style*="height: 0"] { height: auto !important; }
+        [style*="height:0"] { height: auto !important; }
+        [style*="max-height: 0"] { max-height: 100% !important; }
+        [style*="max-height:0"] { max-height: 100% !important; }
         
         /* Hide broken images gracefully */
-        img { opacity: 1; transition: opacity 0.3s; }
-        img:not([src]) { visibility: hidden; }
+        img:not([src]) { visibility: hidden !important; }
       `;
       head.appendChild(style);
 
-      // 8. Initialize Overlays
+      // 8. Force-remove all hiding attributes (DO NOT execute scripts)
+      try {
+        // Remove inline style display:none, visibility:hidden, opacity:0
+        doc.querySelectorAll("[style]").forEach((el) => {
+          const styleAttr = el.getAttribute("style") || "";
+          if (
+            styleAttr.includes("display") ||
+            styleAttr.includes("visibility") ||
+            styleAttr.includes("opacity")
+          ) {
+            const cleaned = styleAttr
+              .replace(/display\s*:\s*none/gi, "display: block")
+              .replace(/visibility\s*:\s*hidden/gi, "visibility: visible")
+              .replace(/opacity\s*:\s*0/gi, "opacity: 1");
+            el.setAttribute("style", cleaned);
+          }
+        });
+
+        // Remove height: 0, max-height: 0 patterns
+        doc
+          .querySelectorAll(
+            '[style*="height: 0"], [style*="max-height: 0"], [style*="min-height: 0"]'
+          )
+          .forEach((el) => {
+            const styleAttr = el.getAttribute("style") || "";
+            const cleaned = styleAttr
+              .replace(/height\s*:\s*0[^;]*/gi, "height: auto")
+              .replace(/max-height\s*:\s*0[^;]*/gi, "max-height: 100%")
+              .replace(/min-height\s*:\s*0[^;]*/gi, "min-height: auto");
+            el.setAttribute("style", cleaned);
+          });
+
+        // Force data-aos elements to be visible
+        doc.querySelectorAll("[data-aos]").forEach((el) => {
+          el.classList.add("aos-animate");
+          if (el.style) {
+            el.style.opacity = "1";
+            el.style.visibility = "visible";
+            el.style.transform = "none";
+          }
+        });
+      } catch (e) {
+        console.warn("Style cleanup failed:", e);
+      }
+
+      // 9. Initialize Overlays
       const canvasContainer = document.createElement("div");
       canvasContainer.id = "heatmap-canvas-container";
       canvasContainer.style.cssText =
@@ -464,25 +532,44 @@ export default function DomHeatmapViewer({
       dataType
     );
 
-    if (!heatmapInstance) return;
+    if (!heatmapInstance) {
+      console.log("No heatmap instance yet");
+      return;
+    }
 
     // Only render heatmap for clicks data type
     if (dataType === "clicks" || dataType === "both") {
+      console.log("Rendering heatmap, data points:", clickData.length);
+
       if (clickData.length === 0) {
         console.log("No click data to render heatmap");
+        heatmapInstance.setData({ max: 0, data: [] });
         return;
       }
 
+      const maxValue = Math.max(...clickData.map((d) => d.value));
       const heatmapData = {
-        max: Math.max(...clickData.map((d) => d.value)),
+        max: maxValue,
         data: clickData.map((point) => ({
-          x: point.x,
-          y: point.y,
+          x: Math.round(point.x),
+          y: Math.round(point.y),
           value: point.value,
         })),
       };
 
-      console.log("Setting heatmap data:", heatmapData);
+      console.log("Setting heatmap data:", {
+        max: heatmapData.max,
+        points: heatmapData.data.length,
+      });
+
+      // Force canvas to be visible
+      const canvas = document.querySelector("#heatmap-canvas-container canvas");
+      if (canvas) {
+        console.log("Canvas element found, forcing visibility");
+        (canvas as HTMLElement).style.opacity = "1";
+        (canvas as HTMLElement).style.display = "block";
+      }
+
       heatmapInstance.setData(heatmapData);
     } else {
       // Clear heatmap for other data types
