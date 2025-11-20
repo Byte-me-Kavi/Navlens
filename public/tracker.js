@@ -417,32 +417,81 @@
         recordCanvas: false,
       });
 
-      // Extract CSS from the page
+      // Extract CSS - OPTIMIZED for Next.js/React compatibility
       const styles = [];
+      let adoptedStyleSheetCount = 0;
 
-      // Collect all <style> tags
-      document.querySelectorAll("style").forEach((styleTag) => {
-        if (styleTag.textContent) {
-          styles.push({
-            type: "inline",
-            content: styleTag.textContent,
-          });
+      // 1. Collect all <style> tags (Inline CSS & CSS-in-JS) using CSSOM
+      // Use document.styleSheets for better access to dynamic styles
+      Array.from(document.styleSheets).forEach((sheet) => {
+        try {
+          // Check if it's an inline style tag (no href)
+          if (sheet.ownerNode && sheet.ownerNode.tagName === "STYLE") {
+            // Accessing cssRules directly is better than textContent for dynamic styles
+            const rules = Array.from(sheet.cssRules || [])
+              .map((r) => r.cssText)
+              .join("\n");
+            if (rules) {
+              styles.push({ type: "inline", content: rules });
+            } else if (sheet.ownerNode.textContent) {
+              // Fallback to text content if rules are inaccessible
+              styles.push({
+                type: "inline",
+                content: sheet.ownerNode.textContent,
+              });
+            }
+          }
+        } catch (e) {
+          // SecurityError (CORS) might happen if we try to read rules from a cross-origin sheet
+          console.warn("Navlens: Could not read inline style rules", e);
         }
       });
 
-      // Collect all <link> stylesheets
-      document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
-        const href = link.getAttribute("href");
-        if (href) {
-          styles.push({
-            type: "external",
-            href: href,
-          });
+      // 1b. Capture Constructed Stylesheets (document.adoptedStyleSheets) - Modern React/Angular apps
+      // These are invisible to querySelectorAll and document.styleSheets
+      if (
+        document.adoptedStyleSheets &&
+        Array.isArray(document.adoptedStyleSheets)
+      ) {
+        document.adoptedStyleSheets.forEach((sheet) => {
+          try {
+            const rules = Array.from(sheet.cssRules || [])
+              .map((r) => r.cssText)
+              .join("\n");
+            if (rules) {
+              styles.push({
+                type: "inline",
+                content: rules,
+                source: "adoptedStyleSheet",
+              });
+              adoptedStyleSheetCount++;
+            }
+          } catch (e) {
+            console.warn("Navlens: Could not read adoptedStyleSheet rules", e);
+          }
+        });
+      }
+
+      // 2. Collect all <link> stylesheets (External CSS) with ABSOLUTE URLs
+      Array.from(document.querySelectorAll('link[rel="stylesheet"]')).forEach(
+        (link) => {
+          // Use the browser's resolved absolute URL property
+          if (link.href) {
+            styles.push({
+              type: "link",
+              href: link.href, // This is ALWAYS absolute (e.g., https://site.com/_next/...)
+              originalHref: link.getAttribute("href"), // Keep original for debugging
+            });
+          }
         }
-      });
+      );
 
       console.log(
-        `Navlens: Extracted ${styles.length} CSS sources for ${deviceType}`
+        `Navlens: Extracted ${styles.length} CSS sources (${
+          styles.filter((s) => s.type === "inline").length
+        } inline, ${
+          styles.filter((s) => s.type === "link").length
+        } links, ${adoptedStyleSheetCount} adopted) for ${deviceType}`
       );
 
       // Enhanced caching with device type
@@ -466,6 +515,7 @@
         device_type: deviceType,
         snapshot: snap, // compressedSnap,
         styles: styles, // Include extracted CSS
+        origin: window.location.origin, // Include origin for base tag in iframe
         width:
           deviceType === "desktop" ? 1440 : deviceType === "tablet" ? 768 : 375,
         height:

@@ -17,8 +17,8 @@ export const config = {
 export async function POST(req: NextRequest) {
     try {
         console.log('DOM snapshot POST received');
-        const { site_id, page_path, device_type, snapshot, styles } = await req.json();
-        console.log('Parsed JSON, site_id:', site_id, 'page_path:', page_path, 'device_type:', device_type);
+        const { site_id, page_path, device_type, snapshot, styles, origin } = await req.json();
+        console.log('Parsed JSON, site_id:', site_id, 'page_path:', page_path, 'device_type:', device_type, 'origin:', origin);
 
         if (!site_id || !snapshot) {
             return NextResponse.json({ error: 'Missing data' }, { status: 400 });
@@ -37,15 +37,16 @@ export async function POST(req: NextRequest) {
         
         console.log('Uploading to Supabase...');
         
-        // Combine snapshot and styles into a single object
-        const snapshotWithStyles = {
+        // Combine snapshot, styles, and origin into a single object
+        const snapshotWithMetadata = {
             snapshot,
             styles: styles || [], // Include extracted CSS
+            origin: origin || '', // Include origin for base tag in iframe
         };
         
         const { error } = await supabase.storage
             .from('snapshots')
-            .upload(filePath, JSON.stringify(snapshotWithStyles), {
+            .upload(filePath, JSON.stringify(snapshotWithMetadata), {
                 contentType: 'application/json',
                 upsert: true
             });

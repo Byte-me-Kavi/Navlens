@@ -14,6 +14,13 @@ interface ClickData {
   value: number;
 }
 
+interface SnapshotWithOrigin {
+  snapshot?: unknown;
+  styles?: unknown[];
+  origin?: string;
+  [key: string]: unknown;
+}
+
 export default function DomHeatmapViewer({
   siteId,
   pagePath,
@@ -22,6 +29,7 @@ export default function DomHeatmapViewer({
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const [snapshotData, setSnapshotData] = useState<unknown>(null);
   const [styles, setStyles] = useState<unknown[]>([]);
+  const [origin, setOrigin] = useState<string>("");
   const [clickData, setClickData] = useState<ClickData[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
@@ -52,13 +60,15 @@ export default function DomHeatmapViewer({
 
         const json = await response.json();
 
-        // Handle both old format (direct snapshot) and new format (snapshot + styles)
+        // Handle both old format (direct snapshot) and new format (snapshot + styles + origin)
         if (json.snapshot) {
           setSnapshotData(json.snapshot);
           setStyles(json.styles || []);
+          setOrigin(json.origin || window.location.origin);
         } else {
           setSnapshotData(json);
           setStyles([]);
+          setOrigin(window.location.origin);
         }
       } catch (error) {
         console.error("Error fetching snapshot:", error);
@@ -240,10 +250,24 @@ export default function DomHeatmapViewer({
             doc.write(htmlContent);
             doc.close();
 
+            // Inject <base> tag FIRST (Critical for relative fonts/images inside CSS)
+            // This tells the iframe to resolve all relative URLs relative to the client's origin
+            const baseTag = doc.createElement("base");
+            baseTag.href = origin || window.location.origin; // Use captured origin or fall back to current
+            if (doc.head) {
+              doc.head.insertBefore(baseTag, doc.head.firstChild);
+              console.log(`✓ Injected <base> tag: ${baseTag.href}`);
+            }
+
             // Wait a moment for the document to be fully parsed
             setTimeout(() => {
-              // Apply captured CSS from styles array to ensure all styles are present
+              console.log("Injecting styles into iframe document...");
+
+              // Apply captured CSS from styles array (both inline and link tags)
               if (styles && Array.isArray(styles)) {
+                let inlineCount = 0;
+                let linkCount = 0;
+
                 (styles as unknown[]).forEach((style: unknown) => {
                   const styleObj = style as {
                     type: string;
@@ -252,26 +276,26 @@ export default function DomHeatmapViewer({
                   };
 
                   if (styleObj.type === "inline" && styleObj.content) {
-                    // Create and inject inline CSS
+                    // Inject inline CSS directly
                     const styleTag = doc.createElement("style");
                     styleTag.textContent = styleObj.content;
                     doc.head?.appendChild(styleTag);
-                    console.log("✓ Applied inline CSS from styles array");
+                    inlineCount++;
+                  } else if (styleObj.type === "link" && styleObj.href) {
+                    // Inject link tag with absolute URL so it loads from original domain
+                    const linkTag = doc.createElement("link");
+                    linkTag.rel = "stylesheet";
+                    linkTag.href = styleObj.href; // This is now an absolute URL
+                    doc.head?.appendChild(linkTag);
+                    console.log(`  → Loading external CSS: ${styleObj.href}`);
+                    linkCount++;
                   }
-                  // Note: External CSS URLs are skipped intentionally as they won't
-                  // resolve in iframe context. The inlineStylesheet: true option in
-                  // tracker.js ensures external CSS is fetched and converted to inline.
                 });
-              }
 
-              // Ensure all captured <style> tags with inlined content are active
-              // These come from rrweb's inlineStylesheet feature
-              const existingStyleTags = doc.querySelectorAll(
-                "style[data-href], style"
-              );
-              console.log(
-                `Found ${existingStyleTags.length} style tags in iframe document`
-              );
+                console.log(
+                  `✓ Injected ${inlineCount} inline styles and ${linkCount} external stylesheets`
+                );
+              }
 
               // Inject essential layout and display styles to ensure proper rendering
               const defaultStyle = doc.createElement("style");
@@ -333,7 +357,7 @@ export default function DomHeatmapViewer({
       console.error("ERROR during DOM reconstruction:", error);
       console.error("Stack:", (error as Error).stack);
     }
-  }, [snapshotData, styles]);
+  }, [snapshotData, styles, origin]);
 
   // 5. Render Heatmap Data
   useEffect(() => {
