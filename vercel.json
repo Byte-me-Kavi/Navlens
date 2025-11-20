@@ -18,5 +18,13 @@
         }
       ]
     }
-  ]
+  ],
+  "public": true,
+  "bypassToken": {
+    "exempt": [
+      "/api/v1/ingest",
+      "/api/rrweb-events",
+      "/tracker.js"
+    ]
+  }
 }
