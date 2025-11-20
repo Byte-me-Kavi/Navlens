@@ -157,6 +157,14 @@ export default function DomHeatmapViewer({
                 return "<!DOCTYPE html>";
               } else if (sn.type === 2) {
                 // Element node
+                // Skip problematic tags that can cause issues in iframe context
+                const tagName = sn.tagName?.toLowerCase();
+                if (tagName === "script" || tagName === "link") {
+                  // Don't include script tags (would execute with wrong context)
+                  // Don't include link tags (would load external resources with CORS issues)
+                  return "";
+                }
+
                 let html = `<${sn.tagName}`;
 
                 // Add attributes
@@ -277,7 +285,9 @@ export default function DomHeatmapViewer({
             console.log("HTML preview:", htmlContent.substring(0, 500));
             console.log(
               "Iframe body HTML:",
-              doc.body?.innerHTML.substring(0, 500)
+              doc.body?.innerHTML
+                ? doc.body.innerHTML.substring(0, 500)
+                : "Body element not ready"
             );
           }
         } catch (e) {
