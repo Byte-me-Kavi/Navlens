@@ -21,6 +21,7 @@ export default function DomHeatmapViewer({
 }: DomHeatmapViewerProps) {
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const [snapshotData, setSnapshotData] = useState<unknown>(null);
+  const [styles, setStyles] = useState<unknown[]>([]);
   const [clickData, setClickData] = useState<ClickData[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
@@ -50,7 +51,15 @@ export default function DomHeatmapViewer({
         }
 
         const json = await response.json();
-        setSnapshotData(json);
+
+        // Handle both old format (direct snapshot) and new format (snapshot + styles)
+        if (json.snapshot) {
+          setSnapshotData(json.snapshot);
+          setStyles(json.styles || []);
+        } else {
+          setSnapshotData(json);
+          setStyles([]);
+        }
       } catch (error) {
         console.error("Error fetching snapshot:", error);
       }
@@ -223,9 +232,35 @@ export default function DomHeatmapViewer({
             doc.write(htmlContent);
             doc.close();
 
-            // Inject default styles
-            const style = doc.createElement("style");
-            style.textContent = `
+            // Apply captured CSS to the iframe
+            if (styles && Array.isArray(styles)) {
+              (styles as unknown[]).forEach((style: unknown) => {
+                const styleObj = style as {
+                  type: string;
+                  content?: string;
+                  href?: string;
+                };
+
+                if (styleObj.type === "inline" && styleObj.content) {
+                  // Inline <style> tag
+                  const styleTag = doc.createElement("style");
+                  styleTag.textContent = styleObj.content;
+                  doc.head?.appendChild(styleTag);
+                  console.log("Applied inline CSS");
+                } else if (styleObj.type === "external" && styleObj.href) {
+                  // External <link> stylesheet
+                  const linkTag = doc.createElement("link");
+                  linkTag.rel = "stylesheet";
+                  linkTag.href = styleObj.href;
+                  doc.head?.appendChild(linkTag);
+                  console.log("Applied external CSS:", styleObj.href);
+                }
+              });
+            }
+
+            // Inject default styles for layout and spacing
+            const defaultStyle = doc.createElement("style");
+            defaultStyle.textContent = `
               * { box-sizing: border-box; }
               html, body { 
                 margin: 0; 
@@ -235,7 +270,7 @@ export default function DomHeatmapViewer({
                 overflow-x: hidden;
               }
             `;
-            doc.head?.appendChild(style);
+            doc.head?.appendChild(defaultStyle);
 
             console.log("DOM reconstruction complete");
             console.log("HTML content length:", htmlContent.length);
@@ -277,7 +312,7 @@ export default function DomHeatmapViewer({
       console.error("ERROR during DOM reconstruction:", error);
       console.error("Stack:", (error as Error).stack);
     }
-  }, [snapshotData]);
+  }, [snapshotData, styles]);
 
   // 5. Render Heatmap Data
   useEffect(() => {

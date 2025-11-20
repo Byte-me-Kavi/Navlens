@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
         if (!site_id || !events) {
             const response = NextResponse.json({ error: 'Missing required data' }, { status: 400 });
             response.headers.set('Access-Control-Allow-Origin', '*');
+            response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+            response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
             return response;
         }
 
@@ -70,6 +72,7 @@ export async function POST(req: NextRequest) {
             page_path: string;
             events: unknown;
             timestamp: string;
+            user_id?: string;
             device_type?: string;
             ip_address?: string;
             country?: string;
@@ -96,6 +99,9 @@ export async function POST(req: NextRequest) {
             page_path,
             events, // The big JSON blob
             timestamp: timestamp || new Date().toISOString(),
+
+            // Add user_id if found
+            ...(ownerUserId && { user_id: ownerUserId }),
 
             // Metadata
             ip_address: ip,
@@ -138,6 +144,8 @@ export async function POST(req: NextRequest) {
                     code: error.code 
                 }, { status: 500 });
                 response.headers.set('Access-Control-Allow-Origin', '*');
+                response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+                response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
                 return response;
             }
 
@@ -145,6 +153,8 @@ export async function POST(req: NextRequest) {
             console.log('Returning success response');
             const response = NextResponse.json({ success: true });
             response.headers.set('Access-Control-Allow-Origin', '*');
+            response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+            response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
             return response;
         } catch (dbError) {
             console.error('Database operation failed:', dbError);
@@ -153,6 +163,8 @@ export async function POST(req: NextRequest) {
                 details: dbError instanceof Error ? dbError.message : 'Unknown error'
             }, { status: 500 });
             response.headers.set('Access-Control-Allow-Origin', '*');
+            response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+            response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
             return response;
         }
 
@@ -161,6 +173,8 @@ export async function POST(req: NextRequest) {
         console.error('RRWeb Event Error:', err);
         const response = NextResponse.json({ error: err.message }, { status: 500 });
         response.headers.set('Access-Control-Allow-Origin', '*');
+        response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
         return response;
     }
 }
@@ -172,6 +186,7 @@ export async function OPTIONS() {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
         },
     });
 }

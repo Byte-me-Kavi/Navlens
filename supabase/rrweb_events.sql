@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS rrweb_events (
     site_id TEXT NOT NULL,
     page_path TEXT NOT NULL,
     session_id TEXT NOT NULL,
-    user_id UUID NOT NULL, -- Site owner's user ID
+    user_id UUID, -- Site owner's user ID (nullable for unregistered sites)
     visitor_id TEXT, -- Visitor's anonymous ID
     events JSONB NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL,

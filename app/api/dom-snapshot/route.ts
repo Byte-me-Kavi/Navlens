@@ -17,7 +17,7 @@ export const config = {
 export async function POST(req: NextRequest) {
     try {
         console.log('DOM snapshot POST received');
-        const { site_id, page_path, device_type, snapshot } = await req.json();
+        const { site_id, page_path, device_type, snapshot, styles } = await req.json();
         console.log('Parsed JSON, site_id:', site_id, 'page_path:', page_path, 'device_type:', device_type);
 
         if (!site_id || !snapshot) {
@@ -36,9 +36,16 @@ export async function POST(req: NextRequest) {
         // If not, create it manually or uncomment the bucket creation logic (which is slower).
         
         console.log('Uploading to Supabase...');
+        
+        // Combine snapshot and styles into a single object
+        const snapshotWithStyles = {
+            snapshot,
+            styles: styles || [], // Include extracted CSS
+        };
+        
         const { error } = await supabase.storage
             .from('snapshots')
-            .upload(filePath, JSON.stringify(snapshot), {
+            .upload(filePath, JSON.stringify(snapshotWithStyles), {
                 contentType: 'application/json',
                 upsert: true
             });

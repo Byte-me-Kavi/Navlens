@@ -12,7 +12,10 @@
   const SITE_ID = SCRIPT_TAG.getAttribute("data-site-id");
   const API_HOST =
     SCRIPT_TAG.getAttribute("data-api-host") ||
-    "https://navlens-git-v2-dom-recreation-kavishas-projects-947ef8e4.vercel.app";
+    (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+      ? "http://localhost:3000"
+      : "https://navlens-git-v2-dom-recreation-kavishas-projects-947ef8e4.vercel.app");
 
   if (!SITE_ID) {
     console.warn(
@@ -214,7 +217,7 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      keepalive: true,
+      // Removed keepalive: true to allow proper CORS preflight handling
     })
       .then((res) => {
         console.log("rrweb API response status:", res.status);
@@ -409,6 +412,34 @@
     try {
       const snap = rrwebSnapshot.snapshot(document);
 
+      // Extract CSS from the page
+      const styles = [];
+
+      // Collect all <style> tags
+      document.querySelectorAll("style").forEach((styleTag) => {
+        if (styleTag.textContent) {
+          styles.push({
+            type: "inline",
+            content: styleTag.textContent,
+          });
+        }
+      });
+
+      // Collect all <link> stylesheets
+      document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+        const href = link.getAttribute("href");
+        if (href) {
+          styles.push({
+            type: "external",
+            href: href,
+          });
+        }
+      });
+
+      console.log(
+        `Navlens: Extracted ${styles.length} CSS sources for ${deviceType}`
+      );
+
       // Enhanced caching with device type
       const cacheKey = `navlens_snap_${window.location.pathname}_${deviceType}`;
       const lastSnap = localStorage.getItem(cacheKey);
@@ -429,6 +460,7 @@
         page_path: window.location.pathname,
         device_type: deviceType,
         snapshot: snap, // compressedSnap,
+        styles: styles, // Include extracted CSS
         width:
           deviceType === "desktop" ? 1440 : deviceType === "tablet" ? 768 : 375,
         height:
