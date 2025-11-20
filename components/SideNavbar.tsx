@@ -103,8 +103,31 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         throw error;
       }
 
-      sessionStorage.clear();
-      localStorage.clear();
+      // Only clear Supabase auth keys, preserve tracking and other session data
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key.startsWith("sb-") ||
+            key.startsWith("supabase") ||
+            key.startsWith("profile_image_"))
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
+
+      // Clear session storage auth keys
+      const sessionKeysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.startsWith("sb-") || key.startsWith("supabase"))) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+      sessionKeysToRemove.forEach((key) => sessionStorage.removeItem(key));
+
       navigateTo("/");
     } catch (error) {
       console.error("Logout failed:", error);
