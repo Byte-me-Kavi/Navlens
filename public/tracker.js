@@ -591,6 +591,16 @@
     const viewportHeight =
       window.innerHeight || document.documentElement.clientHeight;
 
+    // Debug viewport and screen sizes
+    console.log("Navlens: Event metadata:", {
+      eventType,
+      viewportWidth,
+      viewportHeight,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      deviceType: getDeviceType(viewportWidth),
+    });
+
     return {
       site_id: SITE_ID,
       event_type: eventType,
@@ -627,25 +637,76 @@
   }
   window.addEventListener("load", handlePageView);
 
-  // Click Event with improved throttling
+  // Click Event with improved throttling and coordinate capture
   function handleClick(event) {
     const now = Date.now();
     if (now - lastClickTime < CLICK_THROTTLE_MS) return;
     lastClickTime = now;
 
     const target = event.target;
-    const docWidth = document.documentElement.scrollWidth;
-    const docHeight = document.documentElement.scrollHeight;
+
+    // Improved coordinate capture for cross-browser compatibility
+    let x, y;
+
+    // For touch devices, pageX/pageY might not be available on click events
+    // Use clientX/clientY + scroll offsets as fallback
+    if (
+      event.pageX !== undefined &&
+      event.pageY !== undefined &&
+      event.pageX !== 0 &&
+      event.pageY !== 0
+    ) {
+      x = event.pageX;
+      y = event.pageY;
+    } else {
+      // Fallback for mobile devices where pageX/pageY might be 0
+      x = event.clientX + window.scrollX;
+      y = event.clientY + window.scrollY;
+    }
+
+    // Ensure coordinates are valid numbers
+    if (
+      typeof x !== "number" ||
+      typeof y !== "number" ||
+      isNaN(x) ||
+      isNaN(y) ||
+      x < 0 ||
+      y < 0
+    ) {
+      console.warn("Invalid click coordinates captured:", {
+        x,
+        y,
+        pageX: event.pageX,
+        pageY: event.pageY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+      return; // Skip invalid clicks
+    }
+
+    const docWidth = document.documentElement.scrollWidth || window.innerWidth;
+    const docHeight =
+      document.documentElement.scrollHeight || window.innerHeight;
+
+    console.log("Navlens: Click captured:", {
+      x: Math.round(x),
+      y: Math.round(y),
+      x_relative: docWidth > 0 ? parseFloat((x / docWidth).toFixed(4)) : 0,
+      y_relative: docHeight > 0 ? parseFloat((y / docHeight).toFixed(4)) : 0,
+      target: target.tagName,
+      id: target.id,
+      classes: target.className,
+    });
 
     addEventToQueue(
       createEvent("click", {
-        x: event.pageX,
-        y: event.pageY,
-        x_relative: event.pageX / docWidth,
-        y_relative: event.pageY / docHeight,
+        x: Math.round(x), // Round to avoid float precision issues
+        y: Math.round(y),
+        x_relative: docWidth > 0 ? parseFloat((x / docWidth).toFixed(4)) : 0,
+        y_relative: docHeight > 0 ? parseFloat((y / docHeight).toFixed(4)) : 0,
         element_id: target.id || "",
         element_classes: Array.from(target.classList).join(" ") || "",
-        element_tag: target.tagName,
+        element_tag: target.tagName || "",
         element_text: target.textContent
           ? target.textContent.trim().substring(0, 100)
           : "",

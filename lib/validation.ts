@@ -39,7 +39,16 @@ export interface EventData {
   user_id?: string | null;
   page_url?: string;
   page_path?: string;
+  referrer?: string;
   user_agent?: string;
+  user_language?: string;
+  viewport_width?: number;
+  viewport_height?: number;
+  screen_width?: number;
+  screen_height?: number;
+  device_type?: string;
+  client_id?: string;
+  load_time?: number;
   data?: Record<string, unknown>;
 }
 
@@ -50,7 +59,16 @@ export interface ValidatedEventData {
   user_id: string | null;
   page_url: string;
   page_path: string;
+  referrer: string;
   user_agent: string;
+  user_language: string;
+  viewport_width: number;
+  viewport_height: number;
+  screen_width: number;
+  screen_height: number;
+  device_type: string;
+  client_id: string;
+  load_time: number;
   data: Record<string, unknown>;
 }
 
@@ -188,7 +206,16 @@ export const validators = {
       user_id: event.user_id ? validators.sanitizeString(event.user_id, 128) : null,
       page_url: event.page_url ? validators.sanitizeString(event.page_url, 2000) : '',
       page_path: event.page_path ? validators.sanitizeString(event.page_path, 1000) : '',
+      referrer: event.referrer ? validators.sanitizeString(event.referrer, 2000) : '',
       user_agent: event.user_agent ? validators.sanitizeString(event.user_agent, USER_AGENT_MAX_LENGTH) : '',
+      user_language: event.user_language ? validators.sanitizeString(event.user_language, 10) : '',
+      viewport_width: typeof event.viewport_width === 'number' ? event.viewport_width : 0,
+      viewport_height: typeof event.viewport_height === 'number' ? event.viewport_height : 0,
+      screen_width: typeof event.screen_width === 'number' ? event.screen_width : 0,
+      screen_height: typeof event.screen_height === 'number' ? event.screen_height : 0,
+      device_type: event.device_type ? validators.sanitizeString(event.device_type, 20) : '',
+      client_id: event.client_id ? validators.sanitizeString(event.client_id, 128) : '',
+      load_time: typeof event.load_time === 'number' ? event.load_time : 0,
       data: event.data || {}
     };
 
