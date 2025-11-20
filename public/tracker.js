@@ -291,14 +291,18 @@
         user_id: generateUserId(),
         page_url: event.page_url,
         page_path: event.page_path,
+        referrer: event.referrer,
         user_agent: event.user_agent,
+        user_language: event.user_language,
+        viewport_width: event.viewport_width,
+        viewport_height: event.viewport_height,
+        screen_width: event.screen_width,
+        screen_height: event.screen_height,
+        device_type: event.device_type,
+        client_id: event.client_id,
+        load_time: event.load_time,
         // Additional fields for context (stored in data object)
         data: {
-          viewport_width: event.viewport_width,
-          viewport_height: event.viewport_height,
-          screen_width: event.screen_width,
-          screen_height: event.screen_height,
-          device_type: event.device_type,
           x: event.x,
           y: event.y,
           x_relative: event.x_relative,
@@ -406,16 +410,133 @@
     document.head.appendChild(script);
   }
 
+  // Custom image loader to handle CORS and 400 errors gracefully
+  function createImageLoader() {
+    const originalImage = window.Image;
+
+    // Override Image constructor to handle loading errors
+    window.Image = function (width, height) {
+      const img = new originalImage(width, height);
+
+      // Store original src setter
+      const originalSrcSetter = Object.getOwnPropertyDescriptor(
+        originalImage.prototype,
+        "src"
+      ).set;
+
+      // Override src setter to handle errors
+      Object.defineProperty(img, "src", {
+        set: function (value) {
+          if (
+            value &&
+            (value.startsWith("http://") || value.startsWith("https://"))
+          ) {
+            // For external URLs, try to fetch first
+            fetch(value, {
+              method: "GET",
+              mode: "cors",
+              credentials: "omit",
+              headers: {
+                Accept: "image/*,*/*",
+                "Cache-Control": "no-cache",
+              },
+            })
+              .then((response) => {
+                if (
+                  response.ok &&
+                  response.headers.get("content-type")?.startsWith("image/")
+                ) {
+                  // If fetch succeeds and it's actually an image, load it
+                  return response.blob().then((blob) => {
+                    const objectUrl = URL.createObjectURL(blob);
+                    originalSrcSetter.call(this, objectUrl);
+                    // Clean up object URL after image loads
+                    this.addEventListener(
+                      "load",
+                      () => URL.revokeObjectURL(objectUrl),
+                      { once: true }
+                    );
+                  });
+                } else {
+                  console.warn(
+                    `Navlens: Skipping non-image or failed response (${response.status}) for: ${value}`
+                  );
+                  this._navlens_skip = true;
+                }
+              })
+              .catch((error) => {
+                console.warn(
+                  `Navlens: Image fetch failed for ${value}:`,
+                  error.message
+                );
+                this._navlens_skip = true;
+              });
+          } else {
+            // For relative URLs, data URLs, or other cases, use original setter
+            originalSrcSetter.call(this, value);
+          }
+        },
+        get: function () {
+          return this._src || "";
+        },
+      });
+
+      return img;
+    };
+
+    // Copy prototype
+    window.Image.prototype = originalImage.prototype;
+
+    return {
+      restore: () => {
+        window.Image = originalImage;
+      },
+    };
+  }
+
   async function captureSnapshotForDevice(deviceType, captureId = 1) {
-    if (typeof rrwebSnapshot === "undefined") return;
+    if (typeof rrwebSnapshot === "undefined") {
+      console.warn(
+        `Navlens: rrwebSnapshot not loaded, skipping ${deviceType} snapshot`
+      );
+      return;
+    }
 
     try {
-      // Take the snapshot directly - rrweb captures full DOM regardless of visibility
-      const snap = rrwebSnapshot.snapshot(document, {
-        inlineStylesheet: true, // Critical: Inlines all stylesheet content into the snapshot
-        inlineImages: true, // <--- ADD THIS: Converts images to Base64 data strings
-        recordCanvas: false,
-      }); // Extract CSS - OPTIMIZED for Next.js/React compatibility
+      console.log(`Navlens: Starting DOM snapshot capture for ${deviceType}`);
+
+      // Install custom image loader to handle 400 errors gracefully
+      const imageLoader = createImageLoader();
+
+      // Add timeout wrapper for snapshot capture to prevent hanging on slow images
+      const snapshotPromise = new Promise((resolve, reject) => {
+        try {
+          const snap = rrwebSnapshot.snapshot(document, {
+            inlineStylesheet: true, // Critical: Inlines all stylesheet content into the snapshot
+            inlineImages: true, // Re-enabled: Converts images to Base64 data strings
+            recordCanvas: false,
+          });
+          resolve(snap);
+        } catch (error) {
+          reject(error);
+        }
+      });
+
+      // Timeout after 15 seconds to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Snapshot timeout")), 15000);
+      });
+
+      const snap = await Promise.race([snapshotPromise, timeoutPromise]);
+
+      // Restore original Image constructor
+      imageLoader.restore();
+
+      console.log(
+        `Navlens: DOM snapshot captured for ${deviceType}, size: ${
+          JSON.stringify(snap).length
+        } bytes`
+      ); // Extract CSS - OPTIMIZED for Next.js/React compatibility
       const styles = [];
       let adoptedStyleSheetCount = 0;
 
@@ -551,10 +672,24 @@
           );
         });
     } catch (error) {
-      console.warn(
-        `Navlens: Error capturing snapshot for ${deviceType}:`,
-        error
-      );
+      // Restore original Image constructor in case of error
+      try {
+        imageLoader.restore();
+      } catch (e) {
+        // Ignore restore errors
+      }
+
+      if (error.message === "Snapshot timeout") {
+        console.warn(
+          `Navlens: Snapshot capture timed out for ${deviceType} (likely due to slow image loading). Skipping this snapshot.`
+        );
+      } else {
+        console.warn(
+          `Navlens: Error capturing snapshot for ${deviceType}:`,
+          error
+        );
+      }
+      // Continue with other device types even if one fails
     }
   }
 
@@ -616,7 +751,7 @@
       screen_height: screen.height,
       device_type: getDeviceType(viewportWidth),
       session_id: getSessionId(),
-      client_id: getClientId(),
+      client_id: getVisitorId(), // Use same ID as visitor_id
       ...payload,
     };
   }
