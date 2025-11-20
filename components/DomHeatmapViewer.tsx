@@ -189,7 +189,10 @@ export default function DomHeatmapViewer({
                   "meta",
                   "link",
                 ];
-                if (!voidElements.includes(sn.tagName?.toLowerCase())) {
+                if (
+                  sn.tagName &&
+                  !voidElements.includes(sn.tagName.toLowerCase())
+                ) {
                   html += `</${sn.tagName}>`;
                 }
 

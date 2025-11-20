@@ -60,9 +60,9 @@ export async function GET(req: NextRequest) {
         const err = error instanceof Error ? error : new Error(String(error));
         console.error('Get snapshot error:', err);
         console.error('Error stack:', err.stack);
-        return NextResponse.json({ 
-            error: 'Internal server error', 
-            details: error.message 
+        return NextResponse.json({
+            error: 'Internal server error',
+            details: err.message
         }, { status: 500 });
     }
 }

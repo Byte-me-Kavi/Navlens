@@ -73,6 +73,20 @@ export async function POST(req: NextRequest) {
             device_type?: string;
             ip_address?: string;
             country?: string;
+            user_agent?: string;
+            language?: string;
+            timezone?: string;
+            referrer?: string;
+            platform?: string;
+            screen_width?: number | null;
+            screen_height?: number | null;
+            viewport_width?: number | null;
+            viewport_height?: number | null;
+            device_pixel_ratio?: number | null;
+            cookie_enabled?: boolean;
+            online?: boolean;
+            load_time?: number | null;
+            dom_ready_time?: number | null;
         }
         const insertData: InsertData = {
             // Primary Data

@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
       y: string;
       value: string;
     }
-    const clickPoints = rows.map((row: ClickRow) => ({
+    const clickPoints = (rows as ClickRow[]).map((row) => ({
       x: parseInt(row.x),
       y: parseInt(row.y),
       value: parseInt(row.value),
