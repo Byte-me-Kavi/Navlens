@@ -155,6 +155,28 @@ export default function DomHeatmapViewer({
     console.log("=== Starting DOM Rebuild with rrweb ===");
     console.log("Snapshot data:", snapshotData);
 
+    // Deep inspection of snapshot structure for images
+    const findImages = (node: any, depth = 0, path = ""): void => {
+      if (!node) return;
+      const indent = "  ".repeat(depth);
+
+      if (node.tagName && node.tagName.toLowerCase() === "img") {
+        console.log(`${indent}🖼️ IMG FOUND at ${path}:`, {
+          tagName: node.tagName,
+          attributes: node.attributes,
+          textContent: node.textContent,
+        });
+      }
+
+      if (node.childNodes && Array.isArray(node.childNodes)) {
+        node.childNodes.forEach((child: any, i: number) => {
+          findImages(child, depth + 1, `${path}[${i}]`);
+        });
+      }
+    };
+
+    findImages(snapshotData, 0, "root");
+
     // Clear previous content and set up structure
     const containerDiv = iframeContainerRef.current;
     containerDiv.innerHTML = "";
@@ -179,6 +201,11 @@ export default function DomHeatmapViewer({
       iframe.style.top = "0";
       iframe.style.left = "0";
       iframe.style.zIndex = "1";
+      iframe.setAttribute(
+        "sandbox",
+        "allow-same-origin allow-scripts allow-popups"
+      );
+      iframe.setAttribute("referrerpolicy", "no-referrer-when-downgrade");
 
       wrapper.appendChild(iframe);
       containerDiv.appendChild(wrapper);
@@ -194,6 +221,13 @@ export default function DomHeatmapViewer({
           }
           clearInterval(checkIframeReady);
 
+          // Inject <base> tag FIRST before any reconstruction
+          const baseHref = origin || window.location.origin;
+          const baseTag = doc.createElement("base");
+          baseTag.href = baseHref;
+          doc.head?.insertBefore(baseTag, doc.head.firstChild);
+          console.log(`✓ Base tag injected: ${baseHref}`);
+
           if (!rrwebSnapshot.buildNodeWithSN) {
             console.error("rrwebSnapshot.buildNodeWithSN not available");
             fallbackManualReconstruction(doc);
@@ -208,30 +242,81 @@ export default function DomHeatmapViewer({
             const mirror = rrwebSnapshot.createMirror();
             const cache = rrwebSnapshot.createCache();
 
-            // Clear the iframe document
-            doc.open();
-            doc.write("<!DOCTYPE html><html><head></head><body></body></html>");
-            doc.close();
-
-            // Inject <base> tag for relative URL resolution
-            const baseHref = origin || window.location.origin;
-            const baseTag = doc.createElement("base");
-            baseTag.href = baseHref;
-            doc.head?.insertBefore(baseTag, doc.head.firstChild);
-            console.log(`✓ Base tag injected: ${baseHref}`);
-
-            // Rebuild each node from the snapshot
-            const buildNode = (node: any) => {
+            // Recursively build all nodes including deeply nested children
+            const buildNodeRecursive = (
+              node: any,
+              parentElement: Element | null = null
+            ): Node | null => {
               if (!node) return null;
 
               try {
+                // Log what we're building
+                if (node.tagName) {
+                  console.log(`Building node: ${node.tagName.toUpperCase()}`, {
+                    hasChildren: node.childNodes?.length > 0,
+                    attributes: node.attributes,
+                  });
+                }
+
+                // Build the current node WITHOUT auto-building children (skipChild: true)
                 const element = rrwebSnapshot.buildNodeWithSN(node, {
                   doc,
                   mirror,
                   cache,
                   hackCss: true,
-                  skipChild: false,
-                });
+                  skipChild: true, // IMPORTANT: We'll handle children manually
+                }) as Node;
+
+                if (!element) return null;
+
+                // If this is an img element, log it and trigger load
+                if ((element as Element).tagName === "IMG") {
+                  const imgEl = element as HTMLImageElement;
+                  console.log("🖼️ Image element BUILT:", {
+                    src: imgEl.getAttribute("src"),
+                    srcset: imgEl.getAttribute("srcset"),
+                    currentSrc: imgEl.currentSrc,
+                  });
+
+                  // Force image to load by recreating the img element with same attributes
+                  // This triggers the browser's image loading mechanism
+                  const newImg = doc.createElement("img");
+                  Array.from(imgEl.attributes).forEach((attr) => {
+                    newImg.setAttribute(attr.name, attr.value);
+                  });
+
+                  // Copy styles
+                  if (imgEl.style.cssText) {
+                    newImg.style.cssText = imgEl.style.cssText;
+                  }
+
+                  // Replace in DOM
+                  (element as Element).parentNode?.replaceChild(
+                    newImg,
+                    element as Element
+                  );
+
+                  console.log("🖼️ Image recreated to trigger load:", {
+                    newSrc: newImg.getAttribute("src"),
+                    newSrcset: newImg.getAttribute("srcset"),
+                  });
+
+                  return newImg;
+                }
+
+                // NOW manually build and append all children
+                if (node.childNodes && Array.isArray(node.childNodes)) {
+                  node.childNodes.forEach((childNode: any) => {
+                    const childElement = buildNodeRecursive(
+                      childNode,
+                      element as Element
+                    );
+                    if (childElement) {
+                      (element as Element).appendChild(childElement);
+                    }
+                  });
+                }
+
                 return element;
               } catch (e) {
                 console.warn("Error building node:", e);
@@ -246,7 +331,7 @@ export default function DomHeatmapViewer({
               Array.isArray(snapshotAsNode.childNodes)
             ) {
               snapshotAsNode.childNodes.forEach((childNode: SnapshotNode) => {
-                const builtNode = buildNode(childNode);
+                const builtNode = buildNodeRecursive(childNode);
                 if (builtNode) {
                   if (
                     builtNode.nodeType === 1 &&
@@ -261,9 +346,11 @@ export default function DomHeatmapViewer({
                       htmlElement.querySelectorAll("body > *")
                     );
 
-                    // Move head children
+                    // Move head children (but skip base tag if already added)
                     headChildren.forEach((child) => {
-                      doc.head?.appendChild(child.cloneNode(true));
+                      if ((child as Element).tagName !== "BASE") {
+                        doc.head?.appendChild(child.cloneNode(true));
+                      }
                     });
 
                     // Move body children
@@ -277,7 +364,116 @@ export default function DomHeatmapViewer({
               });
             }
 
-            console.log("✓ rrweb buildNodeWithSN completed");
+            console.log(
+              "✓ rrweb buildNodeWithSN completed - images should now be in DOM"
+            );
+
+            // After DOM is built, check for images and fix visibility
+            setTimeout(() => {
+              const allImages = doc.querySelectorAll("img");
+              console.log(
+                `Found ${allImages.length} IMG elements in iframe DOM`
+              );
+              allImages.forEach((img, i) => {
+                // Remove the "color: transparent" inline style that Next.js Image sets
+                // This style is used during loading but prevents images from showing
+                const currentStyle = img.getAttribute("style");
+                if (
+                  currentStyle &&
+                  currentStyle.includes("color: transparent")
+                ) {
+                  const newStyle = currentStyle.replace(
+                    /color:\s*transparent;?\s*/g,
+                    ""
+                  );
+                  if (newStyle.trim()) {
+                    img.setAttribute("style", newStyle);
+                  } else {
+                    img.removeAttribute("style");
+                  }
+                  console.log(`✓ Removed "color: transparent" from image ${i}`);
+                }
+
+                // FIX: Handle Next.js Image loading issues in iframe
+                // 1. Force eager loading to bypass lazy loading issues in iframe
+                img.setAttribute("loading", "eager");
+                img.removeAttribute("decoding");
+                // Set referrer policy to avoid blocking by the source server
+                img.setAttribute("referrerpolicy", "no-referrer");
+
+                // 2. Remove srcset to simplify loading and avoid resolution issues
+                // Next.js images rely on srcset, but in a reconstructed iframe, it might fail
+                if (img.hasAttribute("srcset")) {
+                  img.removeAttribute("srcset");
+                }
+
+                // 3. Attach load/error listeners to debug
+                img.onerror = () => {
+                  console.error(`❌ Image ${i} failed to load:`, img.src);
+                };
+                img.onload = () => {
+                  console.log(`✅ Image ${i} loaded successfully`);
+                };
+
+                // 4. Re-trigger load by resetting src, and bypass Next.js optimization if possible
+                const src = img.getAttribute("src");
+                if (src) {
+                  // Check if it's a Next.js optimized image URL
+                  if (src.includes("/_next/image") && src.includes("url=")) {
+                    try {
+                      const urlObj = new URL(src);
+                      const originalUrlParam = urlObj.searchParams.get("url");
+                      if (originalUrlParam) {
+                        // If the original URL is relative, we need to resolve it against the origin of the current src
+                        // (which is the site where the snapshot was taken)
+                        let newSrc = originalUrlParam;
+                        if (originalUrlParam.startsWith("/")) {
+                          newSrc = urlObj.origin + originalUrlParam;
+                        }
+
+                        console.log(
+                          `🔄 Attempting to bypass Next.js optimization for image ${i}:`,
+                          {
+                            old: src,
+                            new: newSrc,
+                          }
+                        );
+
+                        img.src = newSrc;
+                      } else {
+                        img.src = src;
+                      }
+                    } catch (e) {
+                      console.error("Error parsing image URL:", e);
+                      img.src = src;
+                    }
+                  } else {
+                    img.src = src;
+                  }
+                }
+
+                // Force image visibility by ensuring no hidden styles
+                const computedStyle = window.getComputedStyle(img);
+                console.log(`Image ${i}:`, {
+                  src: img.getAttribute("src"),
+                  srcset: img.getAttribute("srcset"),
+                  tagName: img.tagName,
+                  parentTag: img.parentElement?.tagName,
+                  display:
+                    (img as HTMLElement).style.display || computedStyle.display,
+                  visibility:
+                    (img as HTMLElement).style.visibility ||
+                    computedStyle.visibility,
+                  width: (img as HTMLElement).offsetWidth,
+                  height: (img as HTMLElement).offsetHeight,
+                  naturalWidth: img.naturalWidth,
+                  naturalHeight: img.naturalHeight,
+                  complete: img.complete,
+                  currentSrc: img.currentSrc,
+                  finalStyle: img.getAttribute("style"),
+                });
+              });
+            }, 500);
           } else {
             console.warn(
               "rrwebSnapshot.buildNodeWithSN not available, falling back to manual reconstruction"
@@ -326,7 +522,7 @@ export default function DomHeatmapViewer({
                   overflow-x: hidden;
                   font-family: system-ui, -apple-system, sans-serif;
                 }
-                img { max-width: 100%; height: auto; }
+                img { max-width: 100%; height: auto; display: block; }
               `;
             doc.head?.appendChild(defaultStyle);
             console.log("✓ Applied default layout styles");
