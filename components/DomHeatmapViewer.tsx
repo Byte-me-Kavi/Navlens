@@ -212,12 +212,46 @@ export default function DomHeatmapViewer({
     wrapper.style.cssText = "position: relative; width: 100%; height: 100%;";
     container.appendChild(wrapper);
 
-    // 2. Create Iframe
+    // 2. Create Iframe (lower z-index)
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "width: 100%; height: 100%; border: none;";
+    iframe.style.cssText =
+      "width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; z-index: 1;";
     // Strict sandbox: allow-same-origin only. NO allow-scripts.
     iframe.setAttribute("sandbox", "allow-same-origin");
     wrapper.appendChild(iframe);
+
+    // 3. Create Canvas Container (higher z-index, positioned after iframe)
+    const canvasContainer = document.createElement("div");
+    canvasContainer.id = "heatmap-canvas-container";
+    canvasContainer.style.cssText =
+      "position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; pointer-events:none; background:transparent;";
+    wrapper.appendChild(canvasContainer);
+
+    // 4. Create Element Click Overlay (highest z-index)
+    const overlayContainer = document.createElement("div");
+    overlayContainer.id = "element-click-overlay";
+    overlayContainer.style.cssText =
+      "position:absolute; top:0; left:0; width:100%; height:100%; z-index:101; pointer-events:none;";
+    wrapper.appendChild(overlayContainer);
+    console.log("✓ Overlay containers created");
+
+    // 5. Initialize Heatmap Instance
+    const instance = h337.create({
+      container: canvasContainer,
+      radius: 25,
+      maxOpacity: 0.7,
+      minOpacity: 0,
+      blur: 0.8,
+      gradient: {
+        "0.0": "blue",
+        "0.25": "cyan",
+        "0.5": "lime",
+        "0.75": "yellow",
+        "1.0": "red",
+      },
+    });
+    setHeatmapInstance(instance);
+    console.log("✓ Heatmap instance created");
 
     // 3. Rebuild Content
     setTimeout(() => {
@@ -225,31 +259,33 @@ export default function DomHeatmapViewer({
       if (!doc) return;
 
       try {
+        // FIX 1: Do NOT write <html><body>... in the open/write phase.
+        // Only write the Doctype. This prevents the HierarchyRequestError.
+        doc.open();
+        doc.write("<!DOCTYPE html>");
+        doc.close();
+
         console.log("Rebuilding with rrweb...");
 
-        // Create a temporary document for rebuilding (avoid circular references)
-        const rebuildDoc = document.implementation.createHTMLDocument();
-        
-        // Rebuild the node in the temporary document
+        // FIX 2: Rebuild the node
         const rebuiltNode = rrwebSnapshot.rebuild(snapshotData as any, {
-          doc: rebuildDoc,
+          doc,
         });
 
+        // FIX 3: Insert the node safely using cloneNode to avoid circular refs
         if (rebuiltNode) {
           const tagName = (rebuiltNode as Element).tagName?.toLowerCase();
-          
+
           if (tagName === "html") {
-            // Clone and replace entire HTML element
-            const clonedHtml = doc.importNode(rebuiltNode, true);
+            // Clone the HTML node to avoid circular references
+            const clonedHtml = (rebuiltNode as Element).cloneNode(true);
             doc.replaceChild(clonedHtml, doc.documentElement);
           } else {
-            // Clone and append content
-            const clonedNode = doc.importNode(rebuiltNode, true);
-            if (doc.body) {
-              doc.body.appendChild(clonedNode);
-            } else {
-              doc.documentElement.appendChild(clonedNode);
-            }
+            // Clone and append to body/documentElement
+            const clonedNode = (rebuiltNode as Element).cloneNode(true);
+            doc.body
+              ? doc.body.appendChild(clonedNode)
+              : doc.documentElement.appendChild(clonedNode);
           }
         }
 
@@ -257,9 +293,7 @@ export default function DomHeatmapViewer({
       } catch (error) {
         console.warn("Rebuild warning:", error);
         // Even if it fails, we continue to cleanup so the page isn't "live"
-      }
-
-      // FIX 4: Cleanup Scripts (Run this OUTSIDE the try block or after rebuild)
+      } // FIX 4: Cleanup Scripts (Run this OUTSIDE the try block or after rebuild)
       // This ensures that even if rebuild hiccups, we kill the interactive scripts
       const scripts = doc.querySelectorAll("script");
       scripts.forEach((s) => s.remove());
@@ -377,40 +411,60 @@ export default function DomHeatmapViewer({
             el.style.transform = "none";
           }
         });
+
+        // Inject heatmap canvas directly into iframe document for natural scrolling
+        const heatmapCanvas = document.createElement("div");
+        heatmapCanvas.id = "iframe-heatmap-canvas";
+        heatmapCanvas.style.cssText = `
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 9999;
+          background: transparent;
+        `;
+        doc.body.style.position = "relative"; // Ensure body is positioned for absolute positioning
+        doc.body.appendChild(heatmapCanvas);
+
+        // Create iframe heatmap instance
+        const iframeHeatmap = (window as any).h337.create({
+          container: heatmapCanvas,
+          radius: 25,
+          maxOpacity: 0.7,
+          minOpacity: 0,
+          blur: 0.8,
+          gradient: {
+            "0.0": "blue",
+            "0.25": "cyan",
+            "0.5": "lime",
+            "0.75": "yellow",
+            "1.0": "red",
+          },
+        });
+
+        // Sync external canvas position with iframe scroll
+        const syncCanvasPosition = () => {
+          const scrollTop = doc.documentElement.scrollTop || doc.body.scrollTop;
+          const scrollLeft =
+            doc.documentElement.scrollLeft || doc.body.scrollLeft;
+          canvasContainer.style.transform = `translate(${-scrollLeft}px, ${-scrollTop}px)`;
+        };
+
+        // Listen to iframe scroll events
+        iframe.contentWindow?.addEventListener("scroll", syncCanvasPosition);
+        doc.addEventListener("scroll", syncCanvasPosition);
+
+        // Initial sync
+        syncCanvasPosition();
       } catch (e) {
         console.warn("Style cleanup failed:", e);
       }
 
-      // 9. Initialize Overlays
-      const canvasContainer = document.createElement("div");
-      canvasContainer.id = "heatmap-canvas-container";
-      canvasContainer.style.cssText =
-        "position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; pointer-events:none;";
-      wrapper.appendChild(canvasContainer);
-
-      const instance = h337.create({
-        container: canvasContainer,
-        radius: 25,
-        maxOpacity: 0.7,
-        minOpacity: 0,
-        blur: 0.8,
-        gradient: {
-          "0.0": "blue",
-          "0.25": "cyan",
-          "0.5": "lime",
-          "0.75": "yellow",
-          "1.0": "red",
-        },
-      });
-      setHeatmapInstance(instance);
-      console.log("✓ Heatmap instance created");
-
-      const overlayContainer = document.createElement("div");
-      overlayContainer.id = "element-click-overlay";
-      overlayContainer.style.cssText =
-        "position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;";
-      wrapper.appendChild(overlayContainer);
-      console.log("✓ Element click overlay container created");
+      // 8. Initialize Overlays (Inside wrapper, layered over iframe)
+      // Note: Canvas and overlay containers are already created above
+      console.log("✓ All overlays initialized");
     }, 100);
   }, [snapshotData, styles, origin]);
   // 5. Render Element Click Overlays
@@ -524,18 +578,11 @@ export default function DomHeatmapViewer({
   // Keep old heatmap rendering for backward compatibility
   useEffect(() => {
     console.log(
-      "Heatmap rendering effect running, heatmapInstance:",
-      !!heatmapInstance,
-      "clickData:",
+      "Heatmap rendering effect running, clickData:",
       clickData.length,
       "dataType:",
       dataType
     );
-
-    if (!heatmapInstance) {
-      console.log("No heatmap instance yet");
-      return;
-    }
 
     // Only render heatmap for clicks data type
     if (dataType === "clicks" || dataType === "both") {
@@ -543,7 +590,10 @@ export default function DomHeatmapViewer({
 
       if (clickData.length === 0) {
         console.log("No click data to render heatmap");
-        heatmapInstance.setData({ max: 0, data: [] });
+        // Clear both heatmap instances
+        if (heatmapInstance) heatmapInstance.setData({ max: 0, data: [] });
+        if ((window as any).iframeHeatmapInstance)
+          (window as any).iframeHeatmapInstance.setData({ max: 0, data: [] });
         return;
       }
 
@@ -562,21 +612,26 @@ export default function DomHeatmapViewer({
         points: heatmapData.data.length,
       });
 
-      // Force canvas to be visible
-      const canvas = document.querySelector("#heatmap-canvas-container canvas");
-      if (canvas) {
-        console.log("Canvas element found, forcing visibility");
-        (canvas as HTMLElement).style.opacity = "1";
-        (canvas as HTMLElement).style.display = "block";
+      // Set data on external heatmap (this will scroll with content via sync)
+      if (heatmapInstance) {
+        heatmapInstance.setData(heatmapData);
+        console.log("✓ External heatmap data set (with scroll sync)");
+      } else {
+        console.warn("External heatmap instance not found");
       }
 
-      heatmapInstance.setData(heatmapData);
+      // Also set on iframe heatmap as fallback
+      if ((window as any).iframeHeatmapInstance) {
+        (window as any).iframeHeatmapInstance.setData(heatmapData);
+      }
     } else {
       // Clear heatmap for other data types
       console.log("Clearing heatmap for dataType:", dataType);
-      heatmapInstance.setData({ max: 0, data: [] });
+      if (heatmapInstance) heatmapInstance.setData({ max: 0, data: [] });
+      if ((window as any).iframeHeatmapInstance)
+        (window as any).iframeHeatmapInstance.setData({ max: 0, data: [] });
     }
-  }, [heatmapInstance, clickData, dataType]);
+  }, [clickData, dataType, heatmapInstance]);
 
   return (
     <div
