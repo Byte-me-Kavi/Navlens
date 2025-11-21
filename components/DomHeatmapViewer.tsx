@@ -34,28 +34,6 @@ interface ClickData {
   value: number;
 }
 
-interface SnapshotWithOrigin {
-  snapshot?: unknown;
-  styles?: unknown[];
-  origin?: string;
-  [key: string]: unknown;
-}
-
-interface StyleObject {
-  type: string;
-  content?: string;
-  href?: string;
-  source?: string;
-}
-
-interface SnapshotNode {
-  type: number;
-  tagName?: string;
-  attributes?: Record<string, unknown>;
-  childNodes?: SnapshotNode[];
-  textContent?: string;
-}
-
 export default function DomHeatmapViewer({
   siteId,
   pagePath,
@@ -85,11 +63,7 @@ export default function DomHeatmapViewer({
 
         if (!response.ok) {
           if (response.status === 404) {
-            console.warn("Snapshot not found for:", {
-              siteId,
-              pagePath,
-              deviceType,
-            });
+            console.warn("Snapshot not found");
             return;
           }
           throw new Error(`Failed to fetch snapshot: ${response.status}`);
@@ -97,25 +71,14 @@ export default function DomHeatmapViewer({
 
         const json = await response.json();
 
-        console.log("=== Snapshot Retrieved from API ===");
-        console.log("Response keys:", Object.keys(json));
-        console.log("Has snapshot:", !!json.snapshot);
-        console.log("Has styles:", !!json.styles);
-        console.log("Styles length:", json.styles?.length);
-        console.log("Has origin:", !!json.origin);
-        console.log("Origin value:", json.origin);
-
-        // Handle both old format (direct snapshot) and new format (snapshot + styles + origin)
         if (json.snapshot) {
           setSnapshotData(json.snapshot);
           setStyles(json.styles || []);
           setOrigin(json.origin || window.location.origin);
-          console.log("? Using new format (snapshot + styles + origin)");
         } else {
           setSnapshotData(json);
           setStyles([]);
           setOrigin(window.location.origin);
-          console.log("?? Using old format (direct snapshot, no styles)");
         }
       } catch (error) {
         console.error("Error fetching snapshot:", error);
@@ -129,17 +92,14 @@ export default function DomHeatmapViewer({
   useEffect(() => {
     const fetchClickData = async () => {
       try {
-        // Fetch element clicks data
         const endDate = new Date();
         const startDate = new Date(
           endDate.getTime() - 30 * 24 * 60 * 60 * 1000
-        ); // 30 days ago
+        );
 
         const elementResponse = await fetch("/api/element-clicks", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             siteId,
             pagePath,
@@ -149,23 +109,11 @@ export default function DomHeatmapViewer({
           }),
         });
 
-        if (!elementResponse.ok) {
-          console.error(
-            "Failed to fetch element click data:",
-            elementResponse.status
-          );
-          setElementClicks([]);
-        } else {
+        if (elementResponse.ok) {
           const elementData = await elementResponse.json();
-          console.log(
-            "Fetched element click data:",
-            elementData.length || 0,
-            "elements"
-          );
           setElementClicks(elementData || []);
         }
 
-        // Fetch heatmap click points
         const heatmapResponse = await fetch(
           `/api/heatmap-clicks?siteId=${encodeURIComponent(
             siteId
@@ -174,32 +122,19 @@ export default function DomHeatmapViewer({
           )}&deviceType=${encodeURIComponent(deviceType)}`
         );
 
-        if (!heatmapResponse.ok) {
-          console.error(
-            "Failed to fetch heatmap click data:",
-            heatmapResponse.status
-          );
-          setClickData([]);
-        } else {
+        if (heatmapResponse.ok) {
           const heatmapData = await heatmapResponse.json();
-          console.log(
-            "Fetched heatmap click data:",
-            heatmapData.clicks?.length || 0,
-            "points"
-          );
           setClickData(heatmapData.clicks || []);
         }
       } catch (error) {
         console.error("Error fetching click data:", error);
-        setElementClicks([]);
-        setClickData([]);
       }
     };
 
     fetchClickData();
   }, [siteId, pagePath, deviceType]);
 
-  // 3. Rebuild the DOM (Corrected - prevents HierarchyRequestError)
+  // 3. Rebuild the DOM
   useEffect(() => {
     if (!snapshotData || !iframeContainerRef.current) return;
 
@@ -216,7 +151,8 @@ export default function DomHeatmapViewer({
     const iframe = document.createElement("iframe");
     iframe.style.cssText =
       "width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; z-index: 1;";
-    // Strict sandbox: allow-same-origin only. NO allow-scripts.
+    // Removed scrolling="no" to ensure iframe allows scrolling if that's what you prefer,
+    // but kept sandbox as requested.
     iframe.setAttribute("sandbox", "allow-same-origin");
     wrapper.appendChild(iframe);
 
@@ -233,7 +169,6 @@ export default function DomHeatmapViewer({
     overlayContainer.style.cssText =
       "position:absolute; top:0; left:0; width:100%; height:100%; z-index:101; pointer-events:none;";
     wrapper.appendChild(overlayContainer);
-    console.log("✓ Overlay containers created");
 
     // 5. Initialize Heatmap Instance
     const instance = h337.create({
@@ -251,7 +186,6 @@ export default function DomHeatmapViewer({
       },
     });
     setHeatmapInstance(instance);
-    console.log("✓ Heatmap instance created");
 
     // 3. Rebuild Content
     setTimeout(() => {
@@ -259,15 +193,10 @@ export default function DomHeatmapViewer({
       if (!doc) return;
 
       try {
-        // FIX 1: Do NOT write <html><body>... in the open/write phase.
-        // Only write the Doctype. This prevents the HierarchyRequestError.
         doc.open();
         doc.write("<!DOCTYPE html>");
         doc.close();
 
-        console.log("Rebuilding with rrweb...");
-
-        // FIX 2: Rebuild the node
         const mirror = new rrwebSnapshot.Mirror();
         const cache = {
           stylesWithHoverClass: new Map(),
@@ -279,42 +208,31 @@ export default function DomHeatmapViewer({
           cache,
         });
 
-        // FIX 3: Insert the node safely using cloneNode to avoid circular refs
         if (rebuiltNode) {
           const tagName = (rebuiltNode as Element).tagName?.toLowerCase();
-
           if (tagName === "html") {
-            // Clone the HTML node to avoid circular references
             const clonedHtml = (rebuiltNode as Element).cloneNode(true);
             doc.replaceChild(clonedHtml, doc.documentElement);
           } else {
-            // Clone and append to body/documentElement
             const clonedNode = (rebuiltNode as Element).cloneNode(true);
             doc.body
               ? doc.body.appendChild(clonedNode)
               : doc.documentElement.appendChild(clonedNode);
           }
         }
-
-        console.log("✓ DOM Structure Recreated");
       } catch (error) {
         console.warn("Rebuild warning:", error);
-        // Even if it fails, we continue to cleanup so the page isn't "live"
-      } // FIX 4: Cleanup Scripts (Run this OUTSIDE the try block or after rebuild)
-      // This ensures that even if rebuild hiccups, we kill the interactive scripts
+      }
+
+      // Cleanup Scripts
       const scripts = doc.querySelectorAll("script");
       scripts.forEach((s) => s.remove());
-
       const noscripts = doc.querySelectorAll("noscript");
       noscripts.forEach((n) => n.remove());
-
-      const preloads = doc.querySelectorAll(
-        'link[rel="preload"], link[rel="modulepreload"]'
-      );
+      const preloads = doc.querySelectorAll('link[rel="preload"], link[rel="modulepreload"]');
       preloads.forEach((l) => l.remove());
 
-      // 5. Inject Base HREF (For images)
-      // Check if head exists, if not create it (snapshot might be partial)
+      // Inject Base HREF
       let head = doc.head;
       if (!head) {
         head = doc.createElement("head");
@@ -324,7 +242,7 @@ export default function DomHeatmapViewer({
       base.href = origin || window.location.origin;
       head.insertBefore(base, head.firstChild);
 
-      // 6. Inject Custom Styles
+      // Inject Custom Styles
       if (styles && Array.isArray(styles)) {
         styles.forEach((styleObj: any) => {
           if (styleObj.type === "inline" && styleObj.content) {
@@ -340,182 +258,81 @@ export default function DomHeatmapViewer({
         });
       }
 
-      // 7. UI Cleanup + Surgical CSS to Force Hidden Animations (No script execution allowed)
+      // UI Cleanup
       const style = doc.createElement("style");
       style.textContent = `
         html, body { min-height: 100%; margin: 0; height: auto; overflow: auto; }
         a, button, input, select { pointer-events: none !important; cursor: default !important; }
-        
-        /* Target ONLY elements that are hidden by animation libraries */
         [data-aos] { opacity: 1 !important; transform: none !important; animation: none !important; }
         .aos-animate { opacity: 1 !important; transform: none !important; }
         .wow { opacity: 1 !important; animation: none !important; }
-        .animate__animated { opacity: 1 !important; animation: none !important; }
-        .fadeIn, .fadeInUp, .fadeInDown, .fadeInLeft, .fadeInRight { opacity: 1 !important; animation: none !important; }
-        .slideIn, .slideUp, .slideDown { transform: none !important; opacity: 1 !important; animation: none !important; }
-        .zoomIn { transform: none !important; opacity: 1 !important; animation: none !important; }
-        [class*="bounceIn"] { transform: none !important; opacity: 1 !important; animation: none !important; }
-        
-        /* Force visibility on elements with opacity 0 in inline styles */
-        [style*="opacity: 0"] { opacity: 1 !important; }
-        [style*="opacity:0"] { opacity: 1 !important; }
-        
-        /* Override display: none and visibility: hidden ONLY in inline styles */
-        [style*="display: none"] { display: block !important; }
-        [style*="display:none"] { display: block !important; }
-        [style*="visibility: hidden"] { visibility: visible !important; }
-        [style*="visibility:hidden"] { visibility: visible !important; }
-        
-        /* Override height: 0 patterns (common in accordion/tabs) */
-        [style*="height: 0"] { height: auto !important; }
-        [style*="height:0"] { height: auto !important; }
-        [style*="max-height: 0"] { max-height: 100% !important; }
-        [style*="max-height:0"] { max-height: 100% !important; }
-        
-        /* Hide broken images gracefully */
         img:not([src]) { visibility: hidden !important; }
       `;
       head.appendChild(style);
 
-      // 8. Force-remove all hiding attributes (DO NOT execute scripts)
-      try {
-        // Remove inline style display:none, visibility:hidden, opacity:0
-        doc.querySelectorAll("[style]").forEach((el) => {
-          const styleAttr = el.getAttribute("style") || "";
-          if (
-            styleAttr.includes("display") ||
-            styleAttr.includes("visibility") ||
-            styleAttr.includes("opacity")
-          ) {
-            const cleaned = styleAttr
-              .replace(/display\s*:\s*none/gi, "display: block")
-              .replace(/visibility\s*:\s*hidden/gi, "visibility: visible")
-              .replace(/opacity\s*:\s*0/gi, "opacity: 1");
-            el.setAttribute("style", cleaned);
-          }
-        });
+      // Force-remove hiding attributes
+      doc.querySelectorAll("[style]").forEach((el) => {
+        const styleAttr = el.getAttribute("style") || "";
+        if (styleAttr.includes("display") || styleAttr.includes("visibility") || styleAttr.includes("opacity")) {
+          const cleaned = styleAttr
+            .replace(/display\s*:\s*none/gi, "display: block")
+            .replace(/visibility\s*:\s*hidden/gi, "visibility: visible")
+            .replace(/opacity\s*:\s*0/gi, "opacity: 1");
+          el.setAttribute("style", cleaned);
+        }
+      });
 
-        // Remove height: 0, max-height: 0 patterns
-        doc
-          .querySelectorAll(
-            '[style*="height: 0"], [style*="max-height: 0"], [style*="min-height: 0"]'
-          )
-          .forEach((el) => {
-            const styleAttr = el.getAttribute("style") || "";
-            const cleaned = styleAttr
-              .replace(/height\s*:\s*0[^;]*/gi, "height: auto")
-              .replace(/max-height\s*:\s*0[^;]*/gi, "max-height: 100%")
-              .replace(/min-height\s*:\s*0[^;]*/gi, "min-height: auto");
-            el.setAttribute("style", cleaned);
-          });
+      // === THE FIX: SCROLL SYNCHRONIZATION ===
+      // We target BOTH the canvasContainer AND the overlayContainer
+      const syncScroll = () => {
+        const scrollTop = doc.documentElement.scrollTop || doc.body.scrollTop;
+        const scrollLeft = doc.documentElement.scrollLeft || doc.body.scrollLeft;
+        
+        const transformValue = `translate(${-scrollLeft}px, ${-scrollTop}px)`;
 
-        // Force data-aos elements to be visible
-        doc.querySelectorAll("[data-aos]").forEach((el) => {
-          el.classList.add("aos-animate");
-          const htmlEl = el as HTMLElement;
-          if (htmlEl.style) {
-            htmlEl.style.opacity = "1";
-            htmlEl.style.visibility = "visible";
-            htmlEl.style.transform = "none";
-          }
-        });
+        // 1. Move Heatmap
+        if (canvasContainer) {
+            canvasContainer.style.transform = transformValue;
+        }
+        
+        // 2. Move Element Overlays (This was missing/broken in your original)
+        // We re-fetch it by ID to be absolutely sure we have the element
+        const elOverlay = document.getElementById("element-click-overlay");
+        if (elOverlay) {
+            elOverlay.style.transform = transformValue;
+        }
+      };
 
-        // Inject heatmap canvas directly into iframe document for natural scrolling
-        const heatmapCanvas = document.createElement("div");
-        heatmapCanvas.id = "iframe-heatmap-canvas";
-        heatmapCanvas.style.cssText = `
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-          z-index: 9999;
-          background: transparent;
-        `;
-        doc.body.style.position = "relative"; // Ensure body is positioned for absolute positioning
-        doc.body.appendChild(heatmapCanvas);
+      // Listen to iframe scroll
+      iframe.contentWindow?.addEventListener("scroll", syncScroll);
+      doc.addEventListener("scroll", syncScroll);
 
-        // Create iframe heatmap instance
-        const iframeHeatmap = (window as any).h337.create({
-          container: heatmapCanvas,
-          radius: 25,
-          maxOpacity: 0.7,
-          minOpacity: 0,
-          blur: 0.8,
-          gradient: {
-            "0.0": "blue",
-            "0.25": "cyan",
-            "0.5": "lime",
-            "0.75": "yellow",
-            "1.0": "red",
-          },
-        });
+      // Initial sync
+      syncScroll();
 
-        // Sync external canvas position with iframe scroll
-        const syncCanvasPosition = () => {
-          const scrollTop = doc.documentElement.scrollTop || doc.body.scrollTop;
-          const scrollLeft =
-            doc.documentElement.scrollLeft || doc.body.scrollLeft;
-          canvasContainer.style.transform = `translate(${-scrollLeft}px, ${-scrollTop}px)`;
-        };
-
-        // Listen to iframe scroll events
-        iframe.contentWindow?.addEventListener("scroll", syncCanvasPosition);
-        doc.addEventListener("scroll", syncCanvasPosition);
-
-        // Initial sync
-        syncCanvasPosition();
-      } catch (e) {
-        console.warn("Style cleanup failed:", e);
-      }
-
-      // 8. Initialize Overlays (Inside wrapper, layered over iframe)
-      // Note: Canvas and overlay containers are already created above
-      console.log("✓ All overlays initialized");
+      console.log("✓ DOM Structure Recreated & Sync Active");
     }, 100);
   }, [snapshotData, styles, origin]);
+
   // 5. Render Element Click Overlays
   useEffect(() => {
-    console.log(
-      "Element overlay effect running, elementClicks:",
-      elementClicks.length,
-      "dataType:",
-      dataType
-    );
-
     if (elementClicks.length === 0) return;
 
-    // Only show element overlays for clicks data type
     if (dataType !== "clicks" && dataType !== "both") {
       const overlayContainer = document.getElementById("element-click-overlay");
-      if (overlayContainer) {
-        overlayContainer.innerHTML = "";
-        console.log("Cleared element overlays for dataType:", dataType);
-      }
+      if (overlayContainer) overlayContainer.innerHTML = "";
       return;
     }
 
     const overlayContainer = document.getElementById("element-click-overlay");
-    if (!overlayContainer) {
-      console.log("Element overlay container not found");
-      return;
-    }
+    if (!overlayContainer) return;
 
-    console.log(
-      "Creating element overlays for",
-      elementClicks.length,
-      "elements"
-    );
-
-    // Clear previous overlays
     overlayContainer.innerHTML = "";
 
-    // Create overlay elements for each clicked element
-    elementClicks.forEach((element, index) => {
+    elementClicks.forEach((element) => {
       const elementDiv = document.createElement("div");
       elementDiv.style.position = "absolute";
-      elementDiv.style.left = `${element.x - 10}px`; // Center the indicator
+      elementDiv.style.left = `${element.x - 10}px`;
       elementDiv.style.top = `${element.y - 10}px`;
       elementDiv.style.width = "20px";
       elementDiv.style.height = "20px";
@@ -526,13 +343,7 @@ export default function DomHeatmapViewer({
       elementDiv.style.cursor = "pointer";
       elementDiv.style.pointerEvents = "auto";
       elementDiv.style.zIndex = "10";
-      elementDiv.title = `${
-        element.clickCount
-      } clicks (${element.percentage.toFixed(1)}%) - ${
-        element.tag
-      }: ${element.text.substring(0, 50)}`;
 
-      // Create tooltip
       const tooltip = document.createElement("div");
       tooltip.style.position = "absolute";
       tooltip.style.bottom = "25px";
@@ -550,58 +361,22 @@ export default function DomHeatmapViewer({
       tooltip.style.zIndex = "11";
 
       tooltip.innerHTML = `
-        <div style="font-weight: bold; margin-bottom: 4px;">${
-          element.clickCount
-        } clicks (${element.percentage.toFixed(1)}%)</div>
-        <div style="font-size: 11px; color: #ccc;">${element.tag.toUpperCase()}: ${element.text.substring(
-        0,
-        30
-      )}${element.text.length > 30 ? "..." : ""}</div>
-        ${
-          element.href
-            ? `<div style="font-size: 11px; color: #aaa;">${element.href.substring(
-                0,
-                40
-              )}${element.href.length > 40 ? "..." : ""}</div>`
-            : ""
-        }
+        <div style="font-weight: bold;">${element.clickCount} clicks</div>
+        <div style="font-size: 11px; color: #ccc;">${element.tag}: ${element.text.substring(0, 20)}</div>
       `;
-
       elementDiv.appendChild(tooltip);
-
-      // Show/hide tooltip on hover
-      elementDiv.addEventListener("mouseenter", () => {
-        tooltip.style.opacity = "1";
-      });
-      elementDiv.addEventListener("mouseleave", () => {
-        tooltip.style.opacity = "0";
-      });
+      elementDiv.addEventListener("mouseenter", () => { tooltip.style.opacity = "1"; });
+      elementDiv.addEventListener("mouseleave", () => { tooltip.style.opacity = "0"; });
 
       overlayContainer.appendChild(elementDiv);
     });
-
-    console.log(`Rendered ${elementClicks.length} element click overlays`);
   }, [elementClicks, dataType]);
 
-  // Keep old heatmap rendering for backward compatibility
+  // Heatmap Rendering
   useEffect(() => {
-    console.log(
-      "Heatmap rendering effect running, clickData:",
-      clickData.length,
-      "dataType:",
-      dataType
-    );
-
-    // Only render heatmap for clicks data type
     if (dataType === "clicks" || dataType === "both") {
-      console.log("Rendering heatmap, data points:", clickData.length);
-
-      if (clickData.length === 0) {
-        console.log("No click data to render heatmap");
-        // Clear both heatmap instances
+      if (clickData.length === 0 || !heatmapInstance) {
         if (heatmapInstance) heatmapInstance.setData({ max: 0, data: [] });
-        if ((window as any).iframeHeatmapInstance)
-          (window as any).iframeHeatmapInstance.setData({ max: 0, data: [] });
         return;
       }
 
@@ -614,30 +389,9 @@ export default function DomHeatmapViewer({
           value: point.value,
         })),
       };
-
-      console.log("Setting heatmap data:", {
-        max: heatmapData.max,
-        points: heatmapData.data.length,
-      });
-
-      // Set data on external heatmap (this will scroll with content via sync)
-      if (heatmapInstance) {
-        heatmapInstance.setData(heatmapData);
-        console.log("✓ External heatmap data set (with scroll sync)");
-      } else {
-        console.warn("External heatmap instance not found");
-      }
-
-      // Also set on iframe heatmap as fallback
-      if ((window as any).iframeHeatmapInstance) {
-        (window as any).iframeHeatmapInstance.setData(heatmapData);
-      }
+      if (heatmapInstance) heatmapInstance.setData(heatmapData);
     } else {
-      // Clear heatmap for other data types
-      console.log("Clearing heatmap for dataType:", dataType);
       if (heatmapInstance) heatmapInstance.setData({ max: 0, data: [] });
-      if ((window as any).iframeHeatmapInstance)
-        (window as any).iframeHeatmapInstance.setData({ max: 0, data: [] });
     }
   }, [clickData, dataType, heatmapInstance]);
 
