@@ -42,8 +42,8 @@ const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({
     if (heatmapRef.current && !heatmapInstance) {
       const instance = h337.create({
         container: heatmapRef.current,
-        radius: 12, // Adjust radius to control "spread" of heatmap points
-        maxOpacity: 0.5,
+        radius: 5, // Adjust radius to control "spread" of heatmap points
+        maxOpacity: 0.7,
         minOpacity: 0,
         blur: 0.3,
         // gradient: { // Customize gradient if desired

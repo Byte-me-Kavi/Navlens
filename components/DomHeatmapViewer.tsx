@@ -41,6 +41,9 @@ export default function DomHeatmapViewer({
   dataType,
 }: DomHeatmapViewerProps) {
   const iframeContainerRef = useRef<HTMLDivElement>(null);
+  const prevPropsRef = useRef({ siteId, pagePath, deviceType });
+  const lastResizeTimeRef = useRef<number>(0);
+  const lastResizeDimensionsRef = useRef({ width: 0, height: 0 });
   const [snapshotData, setSnapshotData] = useState<unknown>(null);
   const [styles, setStyles] = useState<unknown[]>([]);
   const [origin, setOrigin] = useState<string>("");
@@ -70,6 +73,28 @@ export default function DomHeatmapViewer({
       setElementAnalysis(null);
     }
   }, [selectedElement]);
+
+  // Reset state when props change (page/device/site changes)
+  useEffect(() => {
+    // Check if any prop changed
+    if (
+      prevPropsRef.current.siteId !== siteId ||
+      prevPropsRef.current.pagePath !== pagePath ||
+      prevPropsRef.current.deviceType !== deviceType
+    ) {
+      // Reset all state to force fresh reload
+      setSnapshotData(null);
+      setClickData([]);
+      setElementClicks([]);
+      setHeatmapInstance(null);
+      setCanvasSized(false);
+      setSelectedElement(null);
+      setElementAnalysis(null);
+
+      // Update the ref
+      prevPropsRef.current = { siteId, pagePath, deviceType };
+    }
+  }, [siteId, pagePath, deviceType]);
 
   // Copy CSS to clipboard function
   const copyToClipboard = async (css: string) => {
@@ -205,6 +230,9 @@ export default function DomHeatmapViewer({
 
     // 5. Initialize Heatmap Instance (moved here - will be created after dimensions are known)
     // Heatmap instance creation is now deferred until after content dimensions are calculated
+
+    // Track scroll handlers for cleanup
+    const scrollHandlers: { [key: string]: () => void } = {};
 
     // 3. Rebuild Content
     setTimeout(() => {
@@ -344,6 +372,9 @@ export default function DomHeatmapViewer({
         }
       };
 
+      // Store reference for cleanup
+      scrollHandlers["syncScroll"] = syncScroll;
+
       // === EXPAND CONTAINERS TO FULL CONTENT SIZE ===
       if (contentHeight > 0) {
         // Expand canvas container to full content size
@@ -380,7 +411,91 @@ export default function DomHeatmapViewer({
 
       console.log("✓ DOM Structure Recreated & Sync Active");
     }, 100);
-  }, [snapshotData, styles, origin]);
+
+    // === RESIZE OBSERVER FOR IFRAME CONTAINER ===
+    // This detects when the iframe container changes size and triggers a reload
+    let resizeTimeout: NodeJS.Timeout;
+    const resizeObserver = new ResizeObserver((entries) => {
+      // Only trigger if there's a significant size change and enough time has passed
+      const entry = entries[0];
+      if (!entry) return;
+
+      const newWidth = entry.contentRect.width;
+      const newHeight = entry.contentRect.height;
+      const now = Date.now();
+
+      // Check if dimensions changed significantly (more than 20px) and 2+ seconds have passed since last resize
+      const widthChanged =
+        Math.abs(newWidth - lastResizeDimensionsRef.current.width) > 20;
+      const heightChanged =
+        Math.abs(newHeight - lastResizeDimensionsRef.current.height) > 20;
+      const enoughTimePassed = now - lastResizeTimeRef.current > 2000;
+
+      if ((widthChanged || heightChanged) && enoughTimePassed) {
+        lastResizeTimeRef.current = now;
+        lastResizeDimensionsRef.current = {
+          width: newWidth,
+          height: newHeight,
+        };
+
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          console.log(
+            `Container resized to ${newWidth}x${newHeight}, triggering reload`
+          );
+          // Force a re-fetch of snapshot which will rebuild everything with new dimensions
+          const fetchSnapshot = async () => {
+            try {
+              const response = await fetch(
+                `/api/get-snapshot?siteId=${encodeURIComponent(
+                  siteId
+                )}&pagePath=${encodeURIComponent(
+                  pagePath
+                )}&deviceType=${encodeURIComponent(deviceType)}`
+              );
+
+              if (!response.ok) {
+                if (response.status === 404) {
+                  console.warn("Snapshot not found");
+                  return;
+                }
+                throw new Error(`Failed to fetch snapshot: ${response.status}`);
+              }
+
+              const json = await response.json();
+
+              if (json.snapshot) {
+                setSnapshotData(json.snapshot);
+                setStyles(json.styles || []);
+                setOrigin(json.origin || window.location.origin);
+              } else {
+                setSnapshotData(json);
+                setStyles([]);
+                setOrigin(window.location.origin);
+              }
+            } catch (error) {
+              console.error("Error re-fetching snapshot on resize:", error);
+            }
+          };
+
+          fetchSnapshot();
+        }, 300); // Small delay to batch resize events
+      }
+    });
+
+    // Start observing the container for size changes
+    if (container) {
+      resizeObserver.observe(container);
+    }
+
+    // Cleanup function
+    return () => {
+      resizeObserver.disconnect();
+      clearTimeout(resizeTimeout);
+      // Note: Removing scroll listeners from iframe is handled when DOM is rebuilt
+      // The syncScroll handler is scoped to each rebuild, so cleanup happens naturally
+    };
+  }, [snapshotData, styles, origin, siteId, pagePath, deviceType]);
 
   // 5. Render Element Click Overlays
   useEffect(() => {

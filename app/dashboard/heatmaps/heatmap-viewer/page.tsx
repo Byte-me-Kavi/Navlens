@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import DomHeatmapViewer from "@/components/DomHeatmapViewer";
@@ -156,6 +157,7 @@ const ChevronLeftIcon = () => (
 );
 
 export default function HeatmapViewerPage() {
+  const router = useRouter();
   const { selectedSiteId: siteId } = useSite();
   const [selectedPage, setSelectedPage] = useState("/");
   const [selectedDevice, setSelectedDevice] = useState("desktop");
@@ -163,6 +165,44 @@ export default function HeatmapViewerPage() {
   const [availablePages, setAvailablePages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Redirect to dashboard if site context is lost (page refresh scenario)
+  useEffect(() => {
+    if (!siteId) {
+      // Check if this is a page refresh by looking at sessionStorage
+      const hasVisitedBefore = sessionStorage.getItem("heatmap-viewer-visited");
+
+      if (hasVisitedBefore) {
+        // This is likely a refresh - redirect to dashboard
+        console.log("Site context lost, redirecting to dashboard");
+        router.push("/dashboard/heatmaps");
+        return;
+      }
+
+      // First visit - wait a bit to see if context loads
+      const timeout = setTimeout(() => {
+        if (!siteId) {
+          console.log(
+            "Site context not available after timeout, redirecting to dashboard"
+          );
+          router.push("/dashboard/heatmaps");
+        }
+      }, 3000); // 3 second timeout
+
+      return () => clearTimeout(timeout);
+    } else {
+      // Mark that we've visited this page
+      sessionStorage.setItem("heatmap-viewer-visited", "true");
+    }
+  }, [siteId, router]);
+
+  // Cleanup sessionStorage on unmount
+  useEffect(() => {
+    return () => {
+      // Clear the visited flag when component unmounts properly
+      sessionStorage.removeItem("heatmap-viewer-visited");
+    };
+  }, []);
 
   // Fetch available pages
   useEffect(() => {
@@ -187,20 +227,10 @@ export default function HeatmapViewerPage() {
     fetchPages();
   }, [siteId]);
 
-  if (loading) {
+  if (loading || !siteId) {
     return (
       <div className="flex items-center justify-center h-screen">
         <LoadingSpinner message="Loading heatmap viewer..." />
-      </div>
-    );
-  }
-
-  if (!siteId) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center text-gray-500">
-          <p>No site selected. Please select a site from the dashboard.</p>
-        </div>
       </div>
     );
   }
