@@ -268,8 +268,15 @@ export default function DomHeatmapViewer({
         console.log("Rebuilding with rrweb...");
 
         // FIX 2: Rebuild the node
+        const mirror = new rrwebSnapshot.Mirror();
+        const cache = {
+          stylesWithHoverClass: new Map(),
+          cssRulesWithHoverClass: new Set(),
+        };
         const rebuiltNode = rrwebSnapshot.rebuild(snapshotData as any, {
           doc,
+          mirror,
+          cache,
         });
 
         // FIX 3: Insert the node safely using cloneNode to avoid circular refs
@@ -405,10 +412,11 @@ export default function DomHeatmapViewer({
         // Force data-aos elements to be visible
         doc.querySelectorAll("[data-aos]").forEach((el) => {
           el.classList.add("aos-animate");
-          if (el.style) {
-            el.style.opacity = "1";
-            el.style.visibility = "visible";
-            el.style.transform = "none";
+          const htmlEl = el as HTMLElement;
+          if (htmlEl.style) {
+            htmlEl.style.opacity = "1";
+            htmlEl.style.visibility = "visible";
+            htmlEl.style.transform = "none";
           }
         });
 
