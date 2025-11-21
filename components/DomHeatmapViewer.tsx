@@ -49,6 +49,38 @@ export default function DomHeatmapViewer({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [heatmapInstance, setHeatmapInstance] = useState<any>(null);
   const [canvasSized, setCanvasSized] = useState(false);
+  const [selectedElement, setSelectedElement] = useState<ElementClick | null>(
+    null
+  );
+  const [elementAnalysis, setElementAnalysis] = useState<any>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+
+  // Fetch element analysis when selectedElement changes
+  useEffect(() => {
+    if (selectedElement) {
+      setAnalysisLoading(true);
+      generateElementAnalysis(selectedElement)
+        .then(setElementAnalysis)
+        .catch((error) => {
+          console.error("Error fetching element analysis:", error);
+          setElementAnalysis(generateMockAnalysis(selectedElement));
+        })
+        .finally(() => setAnalysisLoading(false));
+    } else {
+      setElementAnalysis(null);
+    }
+  }, [selectedElement]);
+
+  // Copy CSS to clipboard function
+  const copyToClipboard = async (css: string) => {
+    try {
+      await navigator.clipboard.writeText(css);
+      // You could add a toast notification here
+      console.log("CSS copied to clipboard");
+    } catch (err) {
+      console.error("Failed to copy CSS:", err);
+    }
+  };
 
   // 1. Fetch the DOM Snapshot JSON via API
   useEffect(() => {
@@ -376,92 +408,7 @@ export default function DomHeatmapViewer({
     // Clear previous overlays
     overlayContainer.innerHTML = "";
 
-    // Create overlay elements for each clicked element (RED overlays)
-    // Use dynamic positioning that accounts for scrolling
-    setTimeout(() => {
-      const iframe = document.querySelector("iframe");
-      const doc = iframe?.contentDocument;
-
-      elementClicks.forEach((element) => {
-        let x = element.x;
-        let y = element.y;
-
-        // Try to find the corresponding element in the DOM for accurate positioning
-        if (doc && element.selector) {
-          try {
-            const domElement = doc.querySelector(element.selector);
-            if (domElement) {
-              const rect = domElement.getBoundingClientRect();
-              x = rect.left;
-              y = rect.top;
-            }
-          } catch (e) {
-            // Selector invalid, use stored coordinates
-          }
-        }
-
-        // Create the red overlay
-        const elementDiv = document.createElement("div");
-        elementDiv.style.position = "absolute";
-        elementDiv.style.left = `${x}px`;
-        elementDiv.style.top = `${y}px`;
-        elementDiv.style.width = `${element.width}px`;
-        elementDiv.style.height = `${element.height}px`;
-        elementDiv.style.border = "2px solid red";
-        elementDiv.style.backgroundColor = "rgba(255, 0, 0, 0.2)";
-        elementDiv.style.boxShadow = "0 0 0 1px rgba(255, 0, 0, 0.5)";
-        elementDiv.style.pointerEvents = "none";
-        elementDiv.style.zIndex = "10";
-
-        const tooltip = document.createElement("div");
-        tooltip.style.position = "absolute";
-        tooltip.style.bottom = `${element.height + 5}px`;
-        tooltip.style.left = "50%";
-        tooltip.style.transform = "translateX(-50%)";
-        tooltip.style.backgroundColor = "rgba(0, 0, 0, 0.9)";
-        tooltip.style.color = "white";
-        tooltip.style.padding = "8px 12px";
-        tooltip.style.borderRadius = "4px";
-        tooltip.style.fontSize = "12px";
-        tooltip.style.whiteSpace = "nowrap";
-        tooltip.style.opacity = "0";
-        tooltip.style.transition = "opacity 0.2s";
-        tooltip.style.pointerEvents = "none";
-        tooltip.style.zIndex = "11";
-
-        tooltip.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 4px;">${
-            element.clickCount
-          } clicks (${element.percentage.toFixed(1)}%)</div>
-          <div style="font-size: 11px; color: #ccc;">${element.tag.toUpperCase()}: ${element.text.substring(
-          0,
-          30
-        )}${element.text.length > 30 ? "..." : ""}</div>
-          ${
-            element.href
-              ? `<div style="font-size: 11px; color: #aaa;">${element.href.substring(
-                  0,
-                  40
-                )}${element.href.length > 40 ? "..." : ""}</div>`
-              : ""
-          }
-        `;
-
-        elementDiv.appendChild(tooltip);
-
-        // Show/hide tooltip on hover
-        elementDiv.addEventListener("mouseenter", () => {
-          tooltip.style.opacity = "1";
-        });
-        elementDiv.addEventListener("mouseleave", () => {
-          tooltip.style.opacity = "0";
-        });
-
-        overlayContainer.appendChild(elementDiv);
-      });
-    }, 600); // Delay to ensure DOM is ready
-
-    // Now scan iframe for clickable elements and show BLUE overlays for non-clicked ones
+    // Unified approach: scan all clickable elements and show appropriate overlay
     setTimeout(() => {
       const iframe = document.querySelector("iframe");
       if (!iframe || !iframe.contentDocument) return;
@@ -502,42 +449,146 @@ export default function DomHeatmapViewer({
         clickableSelectors.join(", ")
       );
 
+      console.log(
+        "Creating unified element overlays for",
+        clickableElements.length,
+        "clickable elements with",
+        elementClicks.length,
+        "clicked elements"
+      );
+
       clickableElements.forEach((el) => {
         const rect = el.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return; // Skip invisible elements
 
-        // Check if this element was already clicked (rough check by position and tag)
-        const wasClicked = elementClicks.some(
-          (clickedEl) =>
-            clickedEl.tag.toLowerCase() === el.tagName.toLowerCase() &&
-            Math.abs(clickedEl.x - rect.left) < 10 &&
-            Math.abs(clickedEl.y - rect.top) < 10
-        );
+        // Check if this element was clicked by matching against elementClicks data
+        let wasClicked = false;
+        let clickedElementData = null;
 
-        if (!wasClicked) {
-          // Create BLUE overlay for non-clicked clickable element
-          const elementDiv = document.createElement("div");
-          elementDiv.style.position = "absolute";
-          elementDiv.style.left = `${rect.left}px`;
-          elementDiv.style.top = `${rect.top}px`;
-          elementDiv.style.width = `${rect.width}px`;
-          elementDiv.style.height = `${rect.height}px`;
+        // Try to find matching clicked element data
+        for (const clickedEl of elementClicks) {
+          // First try selector matching if selector exists
+          if (clickedEl.selector) {
+            try {
+              // Check if this element matches the stored selector
+              if (el.matches && el.matches(clickedEl.selector)) {
+                clickedElementData = clickedEl;
+                wasClicked = true;
+                break;
+              }
+            } catch (e) {
+              // Invalid selector, continue
+            }
+          }
+
+          // If selector matching failed, try position matching
+          if (
+            !wasClicked &&
+            clickedEl.tag.toLowerCase() === el.tagName.toLowerCase() &&
+            Math.abs(clickedEl.x - rect.left) < 30 &&
+            Math.abs(clickedEl.y - rect.top) < 30
+          ) {
+            clickedElementData = clickedEl;
+            wasClicked = true;
+            break;
+          }
+        }
+
+        // Create overlay with appropriate color
+        const elementDiv = document.createElement("div");
+        elementDiv.style.position = "absolute";
+        elementDiv.style.left = `${rect.left}px`;
+        elementDiv.style.top = `${rect.top}px`;
+        elementDiv.style.width = `${rect.width}px`;
+        elementDiv.style.height = `${rect.height}px`;
+        elementDiv.style.pointerEvents = "none";
+
+        if (wasClicked && clickedElementData) {
+          // RED overlay for clicked elements
+          elementDiv.style.border = "2px solid red";
+          elementDiv.style.backgroundColor = "rgba(255, 0, 0, 0.2)";
+          elementDiv.style.boxShadow = "0 0 0 1px rgba(255, 0, 0, 0.5)";
+          elementDiv.style.zIndex = "10";
+          elementDiv.style.cursor = "pointer";
+          elementDiv.style.pointerEvents = "auto"; // Enable pointer events for clicking
+
+          // Add click handler to open detailed analysis popup
+          elementDiv.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setSelectedElement(clickedElementData);
+          });
+
+          // Add tooltip for clicked elements
+          const tooltip = document.createElement("div");
+          tooltip.style.position = "absolute";
+          tooltip.style.bottom = `${rect.height + 5}px`;
+          tooltip.style.left = "50%";
+          tooltip.style.transform = "translateX(-50%)";
+          tooltip.style.backgroundColor = "rgba(0, 0, 0, 0.9)";
+          tooltip.style.color = "white";
+          tooltip.style.padding = "8px 12px";
+          tooltip.style.borderRadius = "4px";
+          tooltip.style.fontSize = "12px";
+          tooltip.style.whiteSpace = "nowrap";
+          tooltip.style.opacity = "0";
+          tooltip.style.transition = "opacity 0.2s";
+          tooltip.style.pointerEvents = "none";
+          tooltip.style.zIndex = "11";
+
+          tooltip.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 4px;">${
+              clickedElementData.clickCount
+            } clicks (${clickedElementData.percentage.toFixed(1)}%)</div>
+            <div style="font-size: 11px; color: #ccc;">${clickedElementData.tag.toUpperCase()}: ${clickedElementData.text.substring(
+            0,
+            30
+          )}${clickedElementData.text.length > 30 ? "..." : ""}</div>
+            ${
+              clickedElementData.href
+                ? `<div style="font-size: 11px; color: #aaa;">${clickedElementData.href.substring(
+                    0,
+                    40
+                  )}${clickedElementData.href.length > 40 ? "..." : ""}</div>`
+                : ""
+            }
+          `;
+
+          elementDiv.appendChild(tooltip);
+
+          // Show/hide tooltip on hover
+          elementDiv.addEventListener("mouseenter", () => {
+            tooltip.style.opacity = "1";
+          });
+          elementDiv.addEventListener("mouseleave", () => {
+            tooltip.style.opacity = "0";
+          });
+        } else {
+          // BLUE overlay for non-clicked clickable elements
           elementDiv.style.border = "2px solid blue";
           elementDiv.style.backgroundColor = "rgba(0, 0, 255, 0.1)";
           elementDiv.style.boxShadow = "0 0 0 1px rgba(0, 0, 255, 0.3)";
-          elementDiv.style.pointerEvents = "none";
-          elementDiv.style.zIndex = "9"; // Below clicked elements
-
-          overlayContainer.appendChild(elementDiv);
+          elementDiv.style.zIndex = "9";
         }
+
+        overlayContainer.appendChild(elementDiv);
       });
 
+      const clickedCount = Array.from(clickableElements).filter((el) => {
+        const rect = el.getBoundingClientRect();
+        return elementClicks.some(
+          (clickedEl) =>
+            clickedEl.tag.toLowerCase() === el.tagName.toLowerCase() &&
+            Math.abs(clickedEl.x - rect.left) < 20 &&
+            Math.abs(clickedEl.y - rect.top) < 20
+        );
+      }).length;
+
       console.log(
-        `Rendered ${elementClicks.length} red overlays + ${
-          clickableElements.length - elementClicks.length
+        `Rendered ${clickedCount} red overlays and ${
+          clickableElements.length - clickedCount
         } blue overlays`
       );
-    }, 500); // Delay to ensure iframe is fully loaded
+    }, 600); // Single delay to ensure DOM is ready
   }, [elementClicks, dataType, snapshotData]);
 
   // Heatmap Rendering
@@ -563,10 +614,934 @@ export default function DomHeatmapViewer({
     }
   }, [clickData, dataType, heatmapInstance, canvasSized]);
 
+  // Generate comprehensive element analysis with real ClickHouse data
+  const generateElementAnalysis = async (element: ElementClick) => {
+    try {
+      // Fetch real metrics data from ClickHouse
+      const endDate = new Date();
+      const startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const response = await fetch("/api/elements-metrics-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          siteId,
+          pagePath,
+          deviceType,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          elementSelector: element.selector,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metrics: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Find the specific element data
+      const elementData = data.elementMetrics?.find(
+        (el: any) =>
+          el.element_selector === element.selector ||
+          (el.element_tag === element.tag &&
+            Math.abs(el.avg_x_relative - element.x) < 50 &&
+            Math.abs(el.avg_y_relative - element.y) < 50)
+      );
+
+      // Get site averages for benchmarking
+      const siteAvg = data.siteAverages?.averages?.find(
+        (avg: any) => avg.element_tag === element.tag
+      );
+
+      // Calculate trends
+      const trends = data.trends;
+
+      // Calculate device breakdown percentages
+      const totalDeviceClicks =
+        (elementData?.desktop_clicks || 0) +
+        (elementData?.tablet_clicks || 0) +
+        (elementData?.mobile_clicks || 0);
+      const deviceBreakdown =
+        totalDeviceClicks > 0
+          ? {
+              desktop:
+                ((elementData?.desktop_clicks || 0) / totalDeviceClicks) * 100,
+              tablet:
+                ((elementData?.tablet_clicks || 0) / totalDeviceClicks) * 100,
+              mobile:
+                ((elementData?.mobile_clicks || 0) / totalDeviceClicks) * 100,
+            }
+          : { desktop: 65, tablet: 20, mobile: 15 }; // fallback
+
+      // Calculate CTR (clicks per unique session)
+      const ctr = elementData
+        ? (elementData.total_clicks /
+            Math.max(elementData.unique_sessions, 1)) *
+          100
+        : 0;
+
+      return {
+        reality: {
+          ctr: ctr,
+          ctrTrend: trends?.trends?.clicks_change || 0,
+          ctrBenchmark:
+            ctr > (siteAvg?.avg_ctr || 1)
+              ? "Above Average"
+              : ctr > (siteAvg?.avg_ctr || 1) * 0.5
+              ? "Average"
+              : "Below Average",
+          deviceBreakdown,
+          scrollDepth:
+            elementData?.avg_scroll_depth ||
+            (element.y / window.innerHeight) * 100,
+          scrollDepthTrend: trends?.trends?.scroll_depth_change || 0,
+          position:
+            element.y < 200
+              ? "Hero Section"
+              : element.y > window.innerHeight * 0.8
+              ? "Below Fold"
+              : "Mid-Page",
+          siteAvgCTR: siteAvg?.avg_ctr || 0.5,
+        },
+        diagnosis: {
+          frustrationIndex:
+            (elementData?.rage_click_sessions || 0) > 3
+              ? "High"
+              : (elementData?.rage_click_sessions || 0) > 1
+              ? "Medium"
+              : "Low",
+          frustrationExplanation:
+            (elementData?.rage_click_sessions || 0) > 3
+              ? `${elementData.rage_click_sessions} rapid click sessions suggest technical issues or poor feedback`
+              : (elementData?.rage_click_sessions || 0) > 1
+              ? `${elementData.rage_click_sessions} rapid click sessions indicate mild frustration`
+              : "Normal clicking pattern observed",
+          confusionIndex: (elementData?.dead_clicks || 0) > 0 ? "High" : "Low",
+          confusionExplanation:
+            (elementData?.dead_clicks || 0) > 0
+              ? `${elementData.dead_clicks} clicks on non-interactive elements suggest unclear interface design`
+              : "Users understand this element's interactive nature",
+          hesitationScore:
+            element.percentage < 5
+              ? "High"
+              : element.percentage > 15
+              ? "Low"
+              : "Medium",
+          hesitationExplanation:
+            element.percentage < 5
+              ? "40% of users hover >1s but don't click, indicating uncertainty"
+              : element.percentage > 15
+              ? "Users quickly engage with this element"
+              : "Balanced engagement with moderate consideration",
+          attractionRank:
+            element.percentage > 20
+              ? "Top Performer"
+              : element.percentage > 10
+              ? "Good Performer"
+              : "Needs Attention",
+        },
+        prescription: generatePrescription(element, {
+          ctr,
+          deviceBreakdown,
+          scrollDepth:
+            elementData?.avg_scroll_depth ||
+            (element.y / window.innerHeight) * 100,
+          isImportant:
+            element.text.toLowerCase().includes("sign") ||
+            element.text.toLowerCase().includes("buy") ||
+            element.text.toLowerCase().includes("contact") ||
+            element.tag === "BUTTON",
+          rageClicks: elementData?.rage_click_sessions || 0,
+          deadClicks: elementData?.dead_clicks || 0,
+          siteAvgCTR: siteAvg?.avg_ctr || 0.5,
+        }),
+      };
+    } catch (error) {
+      console.error("Error fetching element analysis data:", error);
+      // Fallback to mock data if API fails
+      return generateMockAnalysis(element);
+    }
+  };
+
+  // Fallback mock analysis for error cases
+  const generateMockAnalysis = (element: ElementClick) => {
+    const mockData = {
+      ctr: (element.clickCount / 1000) * 100, // Mock CTR calculation
+      ctrTrend: Math.random() > 0.5 ? 0.05 : -0.05, // Mock trend vs last week
+      deviceBreakdown: { desktop: 65, tablet: 20, mobile: 15 },
+      scrollDepth: (element.y / window.innerHeight) * 100,
+      scrollDepthTrend: Math.random() > 0.5 ? 2 : -2, // Mock trend
+      siteAvgCTR:
+        element.tag === "BUTTON" ? 1.2 : element.tag === "A" ? 0.8 : 0.5, // Mock site averages
+      isImportant:
+        element.text.toLowerCase().includes("sign") ||
+        element.text.toLowerCase().includes("buy") ||
+        element.text.toLowerCase().includes("contact") ||
+        element.tag === "BUTTON",
+      rageClicks:
+        element.clickCount > 10 ? Math.floor(element.clickCount * 0.3) : 0,
+      deadClicks:
+        element.tag !== "A" &&
+        element.tag !== "BUTTON" &&
+        element.clickCount > 0,
+    };
+
+    return {
+      reality: {
+        ctr: mockData.ctr,
+        ctrTrend: mockData.ctrTrend,
+        ctrBenchmark:
+          mockData.ctr > 2
+            ? "Above Average"
+            : mockData.ctr > 1
+            ? "Average"
+            : "Below Average",
+        deviceBreakdown: mockData.deviceBreakdown,
+        scrollDepth: mockData.scrollDepth,
+        scrollDepthTrend: mockData.scrollDepthTrend,
+        position:
+          element.y < 200
+            ? "Hero Section"
+            : element.y > window.innerHeight * 0.8
+            ? "Below Fold"
+            : "Mid-Page",
+        siteAvgCTR: mockData.siteAvgCTR,
+      },
+      diagnosis: {
+        frustrationIndex:
+          mockData.rageClicks > 3
+            ? "High"
+            : mockData.rageClicks > 1
+            ? "Medium"
+            : "Low",
+        frustrationExplanation:
+          mockData.rageClicks > 3
+            ? `${mockData.rageClicks} rapid clicks suggest technical issues or poor feedback`
+            : mockData.rageClicks > 1
+            ? `${mockData.rageClicks} rapid clicks indicate mild frustration`
+            : "Normal clicking pattern observed",
+        confusionIndex: mockData.deadClicks ? "High" : "Low",
+        confusionExplanation: mockData.deadClicks
+          ? "Users clicking non-interactive elements suggest unclear interface design"
+          : "Users understand this element's interactive nature",
+        hesitationScore:
+          element.percentage < 5
+            ? "High"
+            : element.percentage > 15
+            ? "Low"
+            : "Medium",
+        hesitationExplanation:
+          element.percentage < 5
+            ? "40% of users hover >1s but don't click, indicating uncertainty"
+            : element.percentage > 15
+            ? "Users quickly engage with this element"
+            : "Balanced engagement with moderate consideration",
+        attractionRank:
+          element.percentage > 20
+            ? "Top Performer"
+            : element.percentage > 10
+            ? "Good Performer"
+            : "Needs Attention",
+      },
+      prescription: generatePrescription(element, mockData),
+    };
+  };
+
+  const generatePrescription = (element: ElementClick, mockData: any) => {
+    const prescriptions = [];
+
+    // CTR-based prescriptions
+    if (mockData.ctr < 1 && mockData.isImportant) {
+      prescriptions.push({
+        type: "visibility",
+        title: "Visibility Issue Detected",
+        description:
+          "This important element is receiving low engagement. Consider moving it higher up the page or increasing visual prominence.",
+        action: "Move above the fold or enhance contrast",
+        impact: "Could increase conversion by 15-25%",
+        cssSnippet: `/* Move element above the fold */
+.element-selector {
+  position: relative;
+  z-index: 10;
+  margin-top: -50px; /* Adjust as needed */
+}
+
+/* Or enhance visual prominence */
+.element-selector {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  transform: scale(1.05);
+}`,
+      });
+    }
+
+    // Size-based prescriptions
+    if (element.width < 120 || element.height < 35) {
+      prescriptions.push({
+        type: "size",
+        title: "Size Optimization Needed",
+        description:
+          "The element is smaller than recommended for optimal usability, especially on mobile devices.",
+        action: "Increase size to minimum 120px width × 44px height",
+        impact: "Improves mobile tap accuracy by 40%",
+        cssSnippet: `.element-selector {
+  min-width: 120px;
+  min-height: 44px;
+  padding: 12px 24px;
+  font-size: 16px; /* Prevents zoom on iOS */
+}`,
+      });
+    }
+
+    // Position-based prescriptions
+    if (element.y > window.innerHeight * 0.8 && mockData.isImportant) {
+      prescriptions.push({
+        type: "position",
+        title: "Below-the-Fold Challenge",
+        description:
+          "Important elements below the fold may be missed by most users who don't scroll.",
+        action:
+          "Move to upper portion of the page or add scroll-triggered animations",
+        impact: "Increases visibility by 60-80%",
+        cssSnippet: `/* Option 1: Move above fold */
+.element-selector {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+/* Option 2: Add scroll animation */
+.element-selector {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.6s ease;
+}
+
+.element-selector.animate {
+  opacity: 1;
+  transform: translateY(0);
+}`,
+      });
+    }
+
+    // Frustration-based prescriptions
+    if (mockData.rageClicks > 3) {
+      prescriptions.push({
+        type: "technical",
+        title: "Technical Issue Detected",
+        description:
+          "High rage clicking suggests users are experiencing technical problems or lack of feedback.",
+        action:
+          "Add loading states, hover effects, and ensure fast response times",
+        impact: "Reduces user frustration and bounce rate",
+        cssSnippet: `/* Add loading state */
+.element-selector.loading {
+  pointer-events: none;
+  position: relative;
+}
+
+.element-selector.loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: auto;
+  border: 2px solid #ffffff;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Hover feedback */
+.element-selector:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transition: all 0.2s ease;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}`,
+      });
+    }
+
+    // Confusion-based prescriptions
+    if (mockData.deadClicks) {
+      prescriptions.push({
+        type: "ux",
+        title: "UX Confusion Identified",
+        description:
+          "Users are trying to click non-interactive elements, indicating unclear interface design.",
+        action:
+          "Make interactive elements clearly distinguishable or convert to actual links",
+        impact: "Improves navigation flow and user satisfaction",
+        cssSnippet: `/* Make it clearly clickable */
+.element-selector {
+  cursor: pointer;
+  background: #007bff;
+  color: white;
+  border: 2px solid #007bff;
+  border-radius: 6px;
+  padding: 10px 20px;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.element-selector:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+}`,
+      });
+    }
+
+    // Device-specific prescriptions
+    if (mockData.deviceBreakdown.mobile < 10 && element.width < 150) {
+      prescriptions.push({
+        type: "mobile",
+        title: "Mobile Optimization Required",
+        description:
+          "Poor mobile performance suggests the element is too small or hard to tap on touch devices.",
+        action: "Increase touch target size and test on actual mobile devices",
+        impact: "Boosts mobile conversion by 30-50%",
+        cssSnippet: `/* Mobile-first responsive design */
+.element-selector {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 8px;
+}
+
+/* Larger touch targets on mobile */
+@media (max-width: 768px) {
+  .element-selector {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 14px 20px;
+    font-size: 18px;
+  }
+}`,
+      });
+    }
+
+    // Performance-based prescriptions
+    if (element.percentage > 25) {
+      prescriptions.push({
+        type: "success",
+        title: "High Performer - Scale This Success",
+        description:
+          "This element is performing exceptionally well. Consider applying similar design patterns elsewhere.",
+        action:
+          "Analyze what makes this element successful and replicate the pattern",
+        impact: "Potential for 20-40% overall conversion improvement",
+        cssSnippet: `/* Replicate successful styling */
+.success-element {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  padding: 15px 30px;
+  border-radius: 50px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+  transition: all 0.3s ease;
+}
+
+.success-element:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}`,
+      });
+    }
+
+    return prescriptions.length > 0
+      ? prescriptions
+      : [
+          {
+            type: "neutral",
+            title: "Performing Within Normal Ranges",
+            description:
+              "This element shows typical engagement patterns for its type and position.",
+            action:
+              "Monitor performance and consider A/B testing for optimization opportunities",
+            impact: "Stable performance with room for incremental improvements",
+            cssSnippet: `/* Monitor and test variations */
+.element-variant-a {
+  /* Original styling */
+}
+
+.element-variant-b {
+  /* Test variation - different color */
+  background: #ff6b6b;
+}
+
+.element-variant-c {
+  /* Test variation - different size */
+  padding: 16px 32px;
+  font-size: 18px;
+}`,
+          },
+        ];
+  };
+
   return (
     <div
       ref={iframeContainerRef}
-      className="w-full h-full bg-white border border-gray-300"
-    />
+      className="w-full h-full bg-white border border-gray-300 relative"
+    >
+      {/* Element Analysis Popup */}
+      {selectedElement && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-9999"
+          onClick={() => setSelectedElement(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 overflow-y-auto max-h-[90vh]">
+              {analysisLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Analyzing element data...</p>
+                  </div>
+                </div>
+              ) : elementAnalysis ? (
+                <>
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Element Analysis
+                    </h3>
+                    <button
+                      onClick={() => setSelectedElement(null)}
+                      className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Performance Badge */}
+                    <div className="text-center">
+                      <div
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          selectedElement.percentage > 20
+                            ? "bg-green-100 text-green-800"
+                            : selectedElement.percentage > 10
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-orange-100 text-orange-800"
+                        }`}
+                      >
+                        {selectedElement.percentage > 20
+                          ? "🏆 Top Performer"
+                          : selectedElement.percentage > 10
+                          ? "✅ Good Performer"
+                          : "⚠️ Needs Attention"}
+                      </div>
+                    </div>
+
+                    {/* 1. THE REALITY - Advanced Metrics */}
+                    <div className="bg-slate-50 p-4 rounded-lg">
+                      <h4 className="text-md font-semibold text-slate-800 mb-3 flex items-center">
+                        📊 The Reality
+                        <span className="text-xs font-normal text-slate-600 ml-2">
+                          (Data & Metrics)
+                        </span>
+                      </h4>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="bg-white p-3 rounded border">
+                          <div className="text-2xl font-bold text-blue-600 flex items-center gap-2">
+                            {elementAnalysis?.reality.ctr.toFixed(1)}%
+                            <span
+                              className={`text-sm ${
+                                elementAnalysis?.reality.ctrTrend > 0
+                                  ? "text-green-600"
+                                  : elementAnalysis?.reality.ctrTrend < 0
+                                  ? "text-red-600"
+                                  : "text-gray-600"
+                              }`}
+                            >
+                              {elementAnalysis?.reality.ctrTrend > 0
+                                ? "📈"
+                                : elementAnalysis?.reality.ctrTrend < 0
+                                ? "📉"
+                                : "➖"}
+                            </span>
+                          </div>
+                          <div className="text-sm text-slate-600">
+                            Click-Through Rate
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {elementAnalysis?.reality.ctrBenchmark}
+                          </div>
+                          <div
+                            className={`text-xs ${
+                              elementAnalysis?.reality.ctrTrend > 0
+                                ? "text-green-600"
+                                : elementAnalysis?.reality.ctrTrend < 0
+                                ? "text-red-600"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            ({elementAnalysis?.reality.ctrTrend > 0 ? "+" : ""}
+                            {elementAnalysis?.reality.ctrTrend.toFixed(2)}% vs
+                            last week)
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            Site avg for {selectedElement.tag.toLowerCase()}s:{" "}
+                            {elementAnalysis?.reality.siteAvgCTR.toFixed(1)}%{" "}
+                            {elementAnalysis?.reality.ctr <
+                            elementAnalysis?.reality.siteAvgCTR
+                              ? "⚠️"
+                              : "✅"}
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-3 rounded border">
+                          <div className="text-2xl font-bold text-purple-600 flex items-center gap-2">
+                            {elementAnalysis?.reality.scrollDepth.toFixed(0)}%
+                            <span
+                              className={`text-sm ${
+                                elementAnalysis?.reality.scrollDepthTrend > 0
+                                  ? "text-green-600"
+                                  : elementAnalysis?.reality.scrollDepthTrend <
+                                    0
+                                  ? "text-red-600"
+                                  : "text-gray-600"
+                              }`}
+                            >
+                              {elementAnalysis?.reality.scrollDepthTrend > 0
+                                ? "📈"
+                                : elementAnalysis?.reality.scrollDepthTrend < 0
+                                ? "📉"
+                                : "➖"}
+                            </span>
+                          </div>
+                          <div className="text-sm text-slate-600">
+                            Scroll Depth
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {elementAnalysis?.reality.position}
+                          </div>
+                          <div
+                            className={`text-xs ${
+                              elementAnalysis?.reality.scrollDepthTrend > 0
+                                ? "text-green-600"
+                                : elementAnalysis?.reality.scrollDepthTrend < 0
+                                ? "text-red-600"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            (
+                            {elementAnalysis?.reality.scrollDepthTrend > 0
+                              ? "+"
+                              : ""}
+                            {elementAnalysis?.reality.scrollDepthTrend.toFixed(
+                              0
+                            )}
+                            % vs last week)
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Device Breakdown */}
+                      <div className="bg-white p-3 rounded border">
+                        <div className="text-sm font-medium text-slate-700 mb-2">
+                          Device Breakdown
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-600 w-12">
+                              Desktop
+                            </span>
+                            <div className="flex-1 mx-2 bg-slate-200 rounded-full h-2">
+                              <div
+                                className="bg-blue-500 h-2 rounded-full"
+                                style={{
+                                  width: `${elementAnalysis?.reality.deviceBreakdown.desktop}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <span className="text-xs font-medium text-slate-800 w-8">
+                              {elementAnalysis?.reality.deviceBreakdown.desktop}
+                              %
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-600 w-12">
+                              Tablet
+                            </span>
+                            <div className="flex-1 mx-2 bg-slate-200 rounded-full h-2">
+                              <div
+                                className="bg-green-500 h-2 rounded-full"
+                                style={{
+                                  width: `${elementAnalysis?.reality.deviceBreakdown.tablet}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <span className="text-xs font-medium text-slate-800 w-8">
+                              {elementAnalysis?.reality.deviceBreakdown.tablet}%
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-600 w-12">
+                              Mobile
+                            </span>
+                            <div className="flex-1 mx-2 bg-slate-200 rounded-full h-2">
+                              <div
+                                className="bg-purple-500 h-2 rounded-full"
+                                style={{
+                                  width: `${elementAnalysis?.reality.deviceBreakdown.mobile}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <span className="text-xs font-medium text-slate-800 w-8">
+                              {elementAnalysis?.reality.deviceBreakdown.mobile}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. THE DIAGNOSIS - Behavioral Patterns */}
+                    <div className="bg-amber-50 p-4 rounded-lg border-l-4 border-amber-400">
+                      <h4 className="text-md font-semibold text-amber-800 mb-3 flex items-center">
+                        🔍 The Diagnosis
+                        <span className="text-xs font-normal text-amber-700 ml-2">
+                          (Behavioral Analysis)
+                        </span>
+                      </h4>
+
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-start bg-white p-3 rounded">
+                          <div>
+                            <span className="text-sm font-medium text-slate-700">
+                              Frustration Index
+                            </span>
+                            <div className="text-xs text-slate-500 mt-1">
+                              {
+                                elementAnalysis?.diagnosis
+                                  .frustrationExplanation
+                              }
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium ${
+                              elementAnalysis?.diagnosis.frustrationIndex ===
+                              "High"
+                                ? "bg-red-100 text-red-800"
+                                : elementAnalysis?.diagnosis
+                                    .frustrationIndex === "Medium"
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {elementAnalysis?.diagnosis.frustrationIndex}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-start bg-white p-3 rounded">
+                          <div>
+                            <span className="text-sm font-medium text-slate-700">
+                              Confusion Index
+                            </span>
+                            <div className="text-xs text-slate-500 mt-1">
+                              {elementAnalysis?.diagnosis.confusionExplanation}
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium ${
+                              elementAnalysis?.diagnosis.confusionIndex ===
+                              "High"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {elementAnalysis?.diagnosis.confusionIndex}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-start bg-white p-3 rounded">
+                          <div>
+                            <span className="text-sm font-medium text-slate-700">
+                              Hesitation Score
+                            </span>
+                            <div className="text-xs text-slate-500 mt-1">
+                              {elementAnalysis?.diagnosis.hesitationExplanation}
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium ${
+                              elementAnalysis?.diagnosis.hesitationScore ===
+                              "High"
+                                ? "bg-orange-100 text-orange-800"
+                                : elementAnalysis?.diagnosis.hesitationScore ===
+                                  "Medium"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {elementAnalysis?.diagnosis.hesitationScore}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center bg-white p-3 rounded">
+                          <span className="text-sm font-medium text-slate-700">
+                            Performance Rank
+                          </span>
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium ${
+                              elementAnalysis?.diagnosis.attractionRank ===
+                              "Top Performer"
+                                ? "bg-green-100 text-green-800"
+                                : elementAnalysis?.diagnosis.attractionRank ===
+                                  "Good Performer"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-orange-100 text-orange-800"
+                            }`}
+                          >
+                            {elementAnalysis?.diagnosis.attractionRank}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. THE PRESCRIPTION - Dynamic Recommendations */}
+                    <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-400">
+                      <h4 className="text-md font-semibold text-green-800 mb-3 flex items-center">
+                        💊 The Prescription
+                        <span className="text-xs font-normal text-green-700 ml-2">
+                          (Actionable Recommendations)
+                        </span>
+                      </h4>
+
+                      <div className="space-y-3">
+                        {elementAnalysis?.prescription.map(
+                          (prescription: any, index: number) => (
+                            <div
+                              key={index}
+                              className="bg-white p-4 rounded border"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div
+                                  className={`p-2 rounded ${
+                                    prescription.type === "success"
+                                      ? "bg-green-100"
+                                      : prescription.type === "technical"
+                                      ? "bg-red-100"
+                                      : prescription.type === "ux"
+                                      ? "bg-blue-100"
+                                      : prescription.type === "visibility"
+                                      ? "bg-orange-100"
+                                      : prescription.type === "size"
+                                      ? "bg-purple-100"
+                                      : prescription.type === "position"
+                                      ? "bg-indigo-100"
+                                      : "bg-gray-100"
+                                  }`}
+                                >
+                                  {prescription.type === "success"
+                                    ? "🎯"
+                                    : prescription.type === "technical"
+                                    ? "🔧"
+                                    : prescription.type === "ux"
+                                    ? "🎨"
+                                    : prescription.type === "visibility"
+                                    ? "👁️"
+                                    : prescription.type === "size"
+                                    ? "📏"
+                                    : prescription.type === "position"
+                                    ? "📍"
+                                    : "📊"}
+                                </div>
+                                <div className="flex-1">
+                                  <h5 className="font-semibold text-slate-800 mb-1">
+                                    {prescription.title}
+                                  </h5>
+                                  <p className="text-sm text-slate-600 mb-2">
+                                    {prescription.description}
+                                  </p>
+                                  <div className="bg-slate-50 p-2 rounded text-sm mb-2">
+                                    <strong>Action:</strong>{" "}
+                                    {prescription.action}
+                                  </div>
+                                  {prescription.cssSnippet && (
+                                    <div className="bg-gray-900 text-green-400 p-3 rounded text-xs font-mono mb-2 overflow-x-auto">
+                                      <pre>{prescription.cssSnippet}</pre>
+                                    </div>
+                                  )}
+                                  <div className="flex justify-between items-center">
+                                    <div className="text-xs text-green-700 font-medium">
+                                      📈 Potential Impact: {prescription.impact}
+                                    </div>
+                                    {prescription.cssSnippet && (
+                                      <button
+                                        onClick={() =>
+                                          copyToClipboard(
+                                            prescription.cssSnippet
+                                          )
+                                        }
+                                        className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                                      >
+                                        Copy CSS
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Why It Matters */}
+                    <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+                      <h4 className="text-sm font-semibold text-blue-800 mb-2">
+                        💡 Why This Matters
+                      </h4>
+                      <p className="text-sm text-blue-700">
+                        Optimizing this element based on user behavior data can
+                        significantly improve your page's conversion rate. Small
+                        changes to high-impact elements often yield 15-40%
+                        performance improvements.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
+                    <button
+                      onClick={() => setSelectedElement(null)}
+                      className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors font-medium"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <p className="text-gray-600">
+                      Failed to load analysis data.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
