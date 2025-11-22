@@ -35,11 +35,18 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { siteId, pagePath, deviceType = 'desktop', startDate: rawStartDate, endDate: rawEndDate } = body;
+    const { siteId, pagePath, deviceType = 'desktop', startDate: rawStartDate, endDate: rawEndDate, documentWidth, documentHeight } = body;
 
     if (!siteId || !pagePath) {
       return NextResponse.json(
         { message: 'Missing required parameters: siteId, pagePath' },
+        { status: 400 }
+      );
+    }
+
+    if (!documentWidth || !documentHeight) {
+      return NextResponse.json(
+        { message: 'Missing required parameters: documentWidth, documentHeight' },
         { status: 400 }
       );
     }
@@ -75,9 +82,9 @@ export async function POST(req: NextRequest) {
         -- Include relative coordinates for accurate cross-viewport positioning
         round(avg(x_relative), 4) as x_relative,
         round(avg(y_relative), 4) as y_relative,
-        -- Include document dimensions to handle responsive resizing
-        round(avg(document_width), 0) as document_width,
-        round(avg(document_height), 0) as document_height,
+        -- Use the filtered document dimensions (constant for this query)
+        {documentWidth:UInt32} as document_width,
+        {documentHeight:UInt32} as document_height,
         count(*) as click_count
       FROM events
       WHERE site_id = {siteId:String}
@@ -87,6 +94,8 @@ export async function POST(req: NextRequest) {
         AND timestamp >= {startDate:DateTime}
         AND timestamp <= {endDate:DateTime}
         AND element_selector != ''
+        AND document_width = {documentWidth:UInt32}
+        AND document_height = {documentHeight:UInt32}
       GROUP BY
         element_selector,
         element_tag
@@ -102,6 +111,8 @@ export async function POST(req: NextRequest) {
         deviceType: deviceType,
         startDate: startDate.toISOString().slice(0, 19).replace('T', ' '), // Format for ClickHouse DateTime
         endDate: endDate.toISOString().slice(0, 19).replace('T', ' '),     // Format for ClickHouse DateTime
+        documentWidth: parseInt(documentWidth),
+        documentHeight: parseInt(documentHeight),
       },
       format: 'JSONEachRow', // Request results in JSONEachRow format
     });

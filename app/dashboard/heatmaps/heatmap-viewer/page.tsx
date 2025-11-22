@@ -225,6 +225,7 @@ export default function HeatmapViewerPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showElements, setShowElements] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
+  const [showAllViewports, setShowAllViewports] = useState(false);
 
   // Redirect to dashboard if site context is lost (page refresh scenario)
   useEffect(() => {
@@ -497,6 +498,50 @@ export default function HeatmapViewerPage() {
               </div>
             </button>
           </div>
+
+          {/* Viewport Filter Toggle */}
+          <div>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3 block">
+              Viewport Filter
+            </label>
+            <button
+              onClick={() => setShowAllViewports(!showAllViewports)}
+              className={`w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                showAllViewports
+                  ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400"
+                  : "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+              }`}
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                />
+              </svg>
+              <div className="text-left flex-1">
+                <div className="font-medium">
+                  {showAllViewports ? "All Viewports" : "Current Viewport"}
+                </div>
+                <div className="text-xs opacity-75">
+                  {showAllViewports
+                    ? "Showing clicks from all screen sizes"
+                    : "Filtered by snapshot viewport size"}
+                </div>
+              </div>
+            </button>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {showAllViewports
+                ? "🌐 Data is normalized to 1920×1080 and aggregated across all resolutions"
+                : "📐 Only showing clicks that match the exact snapshot viewport dimensions"}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -520,6 +565,8 @@ export default function HeatmapViewerPage() {
           dataType={selectedDataType}
           showElements={showElements}
           showHeatmap={showHeatmap}
+          showAllViewports={showAllViewports}
+          onViewportModeChange={(showAll) => setShowAllViewports(showAll)}
         />
       </div>
     </div>

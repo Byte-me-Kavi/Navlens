@@ -39,6 +39,8 @@ async function processHeatmapClicks(
   siteId: string,
   pagePath: string,
   deviceType: string,
+  documentWidth: number,
+  documentHeight: number,
   authResult: Awaited<ReturnType<typeof authenticateAndAuthorize>>
 ) {
   // Validate required parameters
@@ -94,21 +96,23 @@ async function processHeatmapClicks(
   // Query for all click points using relative positioning for accurate remapping
   const allClicksQuery = `
     SELECT
-      -- Use relative coordinates and original document dimensions for precise scaling
+      -- Use relative coordinates for positioning
       x_relative,
       y_relative,
-      document_width,
-      document_height,
+      -- Return the filtered document dimensions (constant for this query)
+      {documentWidth:UInt32} as document_width,
+      {documentHeight:UInt32} as document_height,
       count(*) as value
     FROM events
     WHERE site_id = {siteId:String}
       AND page_path = {pagePath:String}
-      AND (device_type = {deviceType:String} OR (device_type = '' AND {deviceType:String} = 'desktop'))
+      AND device_type = {deviceType:String}
       AND event_type = 'click'
       AND timestamp >= subtractDays(now(), 30)
       AND x_relative > 0 AND y_relative > 0
-      AND document_width > 0 AND document_height > 0
-    GROUP BY x_relative, y_relative, document_width, document_height
+      AND document_width = {documentWidth:UInt32}
+      AND document_height = {documentHeight:UInt32}
+    GROUP BY x_relative, y_relative
     ORDER BY value DESC
     LIMIT 5000
   `;
@@ -125,6 +129,8 @@ async function processHeatmapClicks(
       siteId,
       pagePath,
       deviceType,
+      documentWidth,
+      documentHeight,
     },
     format: 'JSONEachRow',
   });
@@ -184,8 +190,17 @@ export async function POST(req: NextRequest) {
     const siteId = body.siteId;
     const pagePath = body.pagePath;
     const deviceType = body.deviceType || 'desktop';
+    const documentWidth = body.documentWidth;
+    const documentHeight = body.documentHeight;
 
-    return await processHeatmapClicks(siteId, pagePath, deviceType, authResult);
+    if (!documentWidth || !documentHeight) {
+      return NextResponse.json(
+        { message: 'Missing required parameters: documentWidth, documentHeight' },
+        { status: 400 }
+      );
+    }
+
+    return await processHeatmapClicks(siteId, pagePath, deviceType, documentWidth, documentHeight, authResult);
 
   } catch (error: Error | unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -216,8 +231,17 @@ export async function GET(req: NextRequest) {
     const siteId = searchParams.get('siteId') || '';
     const pagePath = searchParams.get('pagePath') || '';
     const deviceType = searchParams.get('deviceType') || 'desktop';
+    const documentWidth = parseInt(searchParams.get('documentWidth') || '0');
+    const documentHeight = parseInt(searchParams.get('documentHeight') || '0');
 
-    return await processHeatmapClicks(siteId, pagePath, deviceType, authResult);
+    if (!documentWidth || !documentHeight) {
+      return NextResponse.json(
+        { message: 'Missing required parameters: documentWidth, documentHeight' },
+        { status: 400 }
+      );
+    }
+
+    return await processHeatmapClicks(siteId, pagePath, deviceType, documentWidth, documentHeight, authResult);
 
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));

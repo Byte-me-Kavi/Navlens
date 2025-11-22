@@ -23,6 +23,8 @@ export interface HeatmapParams {
   siteId: string;
   pagePath: string;
   deviceType: 'desktop' | 'tablet' | 'mobile';
+  documentWidth?: number;
+  documentHeight?: number;
   startDate?: string;
   endDate?: string;
 }
@@ -36,7 +38,7 @@ export interface HeatmapConfig {
 }
 
 export const DEFAULT_HEATMAP_CONFIG: HeatmapConfig = {
-  radius: 40,
+  radius: 15,
   maxOpacity: 0.8,
   minOpacity: 0.1,
   blur: 0.75,

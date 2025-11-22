@@ -17,6 +17,8 @@ export const heatmapApi = {
       siteId: params.siteId,
       pagePath: params.pagePath,
       deviceType: params.deviceType,
+      documentWidth: params.documentWidth,
+      documentHeight: params.documentHeight,
       ...(params.startDate && { startDate: params.startDate }),
       ...(params.endDate && { endDate: params.endDate }),
     });

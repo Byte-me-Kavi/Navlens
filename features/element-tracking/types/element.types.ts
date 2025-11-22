@@ -22,6 +22,8 @@ export interface ElementClickParams {
   siteId: string;
   pagePath: string;
   deviceType: 'desktop' | 'tablet' | 'mobile';
+  documentWidth?: number;
+  documentHeight?: number;
   startDate?: string;
   endDate?: string;
 }

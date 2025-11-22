@@ -51,7 +51,7 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
     } finally {
       setLoading(false);
     }
-  }, [params.siteId, params.pagePath, params.deviceType, params.startDate, params.endDate]);
+  }, [params.siteId, params.pagePath, params.deviceType, params.documentWidth, params.documentHeight, params.startDate, params.endDate]);
 
   useEffect(() => {
     let cancelled = false;
