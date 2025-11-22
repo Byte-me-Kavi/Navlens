@@ -1,0 +1,68 @@
+/**
+ * useHeatmapData Hook
+ * 
+ * Custom hook for fetching and managing heatmap data
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import { heatmapApi } from '../services/heatmapApi';
+import { HeatmapParams, HeatmapPoint } from '../types/heatmap.types';
+
+interface UseHeatmapDataResult {
+  data: HeatmapPoint[];
+  loading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
+  const [data, setData] = useState<HeatmapPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🔥 Fetching heatmap data:', params);
+
+      const result = await heatmapApi.getHeatmapClicks(params);
+
+      console.log('✓ Heatmap data fetched:', result.length, 'points');
+
+      setData(result);
+    } catch (err) {
+      console.error('❌ Error fetching heatmap data:', err);
+      setError(err as Error);
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [params.siteId, params.pagePath, params.deviceType, params.startDate, params.endDate]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadData = async () => {
+      await fetchData();
+      
+      if (cancelled) {
+        setData([]);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchData]);
+
+  return {
+    data,
+    loading,
+    error,
+    refetch: fetchData,
+  };
+}

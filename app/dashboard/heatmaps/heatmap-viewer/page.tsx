@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import DomHeatmapViewer from "@/components/DomHeatmapViewer";
+import { HeatmapViewer } from "@/features/heatmap";
 
 // Icon components as inline SVGs
 const MonitorIcon = () => (
@@ -214,8 +214,12 @@ export default function HeatmapViewerPage() {
   const router = useRouter();
   const { selectedSiteId: siteId } = useSite();
   const [selectedPage, setSelectedPage] = useState("/");
-  const [selectedDevice, setSelectedDevice] = useState("desktop");
-  const [selectedDataType, setSelectedDataType] = useState("clicks");
+  const [selectedDevice, setSelectedDevice] = useState<
+    "desktop" | "mobile" | "tablet"
+  >("desktop");
+  const [selectedDataType, setSelectedDataType] = useState<
+    "clicks" | "heatmap" | "both"
+  >("clicks");
   const [availablePages, setAvailablePages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -403,18 +407,18 @@ export default function HeatmapViewerPage() {
                 </div>
               </button>
               <button
-                onClick={() => setSelectedDataType("scrolls")}
+                onClick={() => setSelectedDataType("heatmap")}
                 className={`w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
-                  selectedDataType === "scrolls"
+                  selectedDataType === "heatmap"
                     ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                     : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-blue-300"
                 }`}
               >
                 <ScrollIcon />
                 <div className="text-left">
-                  <div className="font-medium">Scroll Depth</div>
+                  <div className="font-medium">Heatmap View</div>
                   <div className="text-xs opacity-75">
-                    Analyze scrolling behavior
+                    Analyze user behavior patterns
                   </div>
                 </div>
               </button>
@@ -509,7 +513,7 @@ export default function HeatmapViewerPage() {
 
       {/* Full Screen Heatmap Viewer */}
       <div className="flex-1 relative overflow-hidden">
-        <DomHeatmapViewer
+        <HeatmapViewer
           siteId={siteId}
           pagePath={selectedPage}
           deviceType={selectedDevice}

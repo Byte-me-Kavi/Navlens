@@ -61,44 +61,38 @@ export async function POST(req: NextRequest) {
     const endDate = rawEndDate ? new Date(rawEndDate) : new Date();
     const startDate = rawStartDate ? new Date(rawStartDate) : new Date(endDate.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
 
-    // ClickHouse query for aggregated click data by element_selector with position grouping
+    // ClickHouse query for aggregated click data by element_selector (not by position)
     const query = `
       SELECT
-        selector,
-        tag,
-        text,
+        element_selector as selector,
+        element_tag as tag,
+        element_text as text,
         element_id,
         element_classes,
-        x,
-        y,
-        sum(click_count) as click_count
-      FROM (
-        SELECT
-          element_selector as selector,
-          element_tag as tag,
-          element_text as text,
-          element_id,
-          element_classes,
-          round(x / 5) * 5 as x,
-          round(y / 5) * 5 as y,
-          1 as click_count
-        FROM events
-        WHERE site_id = {siteId:String}
-          AND page_path = {pagePath:String}
-          AND device_type = {deviceType:String}
-          AND event_type = 'click'
-          AND timestamp >= {startDate:DateTime}
-          AND timestamp <= {endDate:DateTime}
-          AND element_selector != ''
-      ) AS subquery
+        -- Calculate the centroid of clicks on this element
+        round(avg(x), 2) as x,
+        round(avg(y), 2) as y,
+        -- Include relative coordinates for accurate cross-viewport positioning
+        round(avg(x_relative), 4) as x_relative,
+        round(avg(y_relative), 4) as y_relative,
+        -- Include document dimensions to handle responsive resizing
+        round(avg(document_width), 0) as document_width,
+        round(avg(document_height), 0) as document_height,
+        count(*) as click_count
+      FROM events
+      WHERE site_id = {siteId:String}
+        AND page_path = {pagePath:String}
+        AND device_type = {deviceType:String}
+        AND event_type = 'click'
+        AND timestamp >= {startDate:DateTime}
+        AND timestamp <= {endDate:DateTime}
+        AND element_selector != ''
       GROUP BY
-        selector,
-        tag,
-        text,
+        element_selector,
+        element_tag,
+        element_text,
         element_id,
-        element_classes,
-        x,
-        y
+        element_classes
       ORDER BY click_count DESC
     `;
 
@@ -128,6 +122,10 @@ export async function POST(req: NextRequest) {
       element_classes: string;
       x: string;
       y: string;
+      x_relative: string;
+      y_relative: string;
+      document_width: string;
+      document_height: string;
       click_count: string;
     }
 
@@ -140,6 +138,10 @@ export async function POST(req: NextRequest) {
       text: row.text || '',
       x: Math.round(parseFloat(row.x)), // Already rounded in query, ensure integer
       y: Math.round(parseFloat(row.y)), // Already rounded in query, ensure integer
+      x_relative: parseFloat(row.x_relative), // Relative coordinates for accurate positioning
+      y_relative: parseFloat(row.y_relative), // Relative coordinates for accurate positioning
+      document_width: Math.round(parseFloat(row.document_width)),
+      document_height: Math.round(parseFloat(row.document_height)),
       width: 0, // Will be calculated from DOM
       height: 0, // Will be calculated from DOM
       href: undefined, // Could be added later if needed

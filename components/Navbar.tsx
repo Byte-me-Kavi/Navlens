@@ -18,7 +18,7 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-white backdrop-blur-md border-b border-navlens-accent/20">
+    <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm">
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
@@ -33,7 +33,7 @@ export function Navbar() {
               height={60}
               className="drop-shadow-[0_0_20px_rgba(0,200,200,0.5)]"
             />
-            <h2 className="bg-linear-to-r from-blue-900 to-blue-600 bg-clip-text text-transparent text-2xl font-bold">
+            <h2 className="bg-linear-to-r from-blue-900 to-cyan-600 bg-clip-text text-transparent text-2xl font-bold">
               Navlens
             </h2>
           </div>
@@ -44,7 +44,7 @@ export function Navbar() {
               <a
                 key={item.label}
                 href={item.href}
-                className="text-gray-900 hover:text-navlens-accent transition-colors duration-200 font-medium text-sm"
+                className="text-gray-700 hover:text-cyan-600 transition-colors duration-200 font-medium text-sm"
               >
                 {item.label}
               </a>
@@ -55,13 +55,13 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             <button
               onClick={() => router.push("/login")}
-              className="px-6 py-2 text-navlens-accent border border-navlens-accent/50 rounded-lg hover:bg-navlens-accent/10 transition-all duration-200 font-medium text-sm"
+              className="px-6 py-2 text-gray-700 hover:text-cyan-600 transition-all duration-200 font-medium text-sm"
             >
               Sign In
             </button>
             <button
               onClick={() => router.push("/login")}
-              className="px-6 py-2 border border-navlens-accent/50 to-navlens-electric-blue rounded-lg text-black font-bold shadow-glow hover:shadow-glow-blue transition-all duration-200 text-sm"
+              className="px-6 py-2.5 bg-linear-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/40 hover:scale-105 transition-all duration-200 text-sm"
             >
               Get Started
             </button>
@@ -69,7 +69,7 @@ export function Navbar() {
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden text-navlens-accent relative w-8 h-8 flex items-center justify-center"
+            className="md:hidden text-cyan-600 relative w-8 h-8 flex items-center justify-center"
             onClick={() => setIsOpen(!isOpen)}
           >
             <Bars3Icon
@@ -91,7 +91,7 @@ export function Navbar() {
 
         {/* Mobile Navigation */}
         <div
-          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out border-t border-navlens-accent/20 mt-4 ${
+          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out border-t border-gray-200 mt-4 ${
             isOpen
               ? "max-h-96 opacity-100"
               : "max-h-0 opacity-0 border-t-0 mt-0"
@@ -102,7 +102,7 @@ export function Navbar() {
               <a
                 key={item.label}
                 href={item.href}
-                className="block text-gray-900 hover:text-navlens-accent transition-colors duration-200 font-medium"
+                className="block text-gray-700 hover:text-cyan-600 transition-colors duration-200 font-medium"
                 onClick={() => setIsOpen(false)}
               >
                 {item.label}
@@ -114,7 +114,7 @@ export function Navbar() {
                   router.push("/login");
                   setIsOpen(false);
                 }}
-                className="w-full px-6 py-2 text-navlens-accent border border-navlens-accent/50 rounded-lg hover:bg-navlens-accent/10 transition-all duration-200 font-medium"
+                className="w-full px-6 py-2 text-gray-700 border-2 border-gray-200 rounded-lg hover:border-cyan-500 hover:text-cyan-600 transition-all duration-200 font-medium"
               >
                 Sign In
               </button>
@@ -123,7 +123,7 @@ export function Navbar() {
                   router.push("/login");
                   setIsOpen(false);
                 }}
-                className="w-full px-6 py-2 bg-linear-to-r from-navlens-accent to-navlens-electric-blue rounded-lg text-black font-bold shadow-glow"
+                className="w-full px-6 py-2.5 bg-linear-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold shadow-lg"
               >
                 Get Started
               </button>

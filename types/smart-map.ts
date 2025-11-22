@@ -22,4 +22,6 @@ export interface ElementClick extends ElementNode {
   percentage: number;    // Percentage of total clicks
   elementId: string;     // Element ID if available
   elementClasses: string; // Element classes if available
+  document_width?: number; // Document width when clicked (for responsive scaling)
+  document_height?: number; // Document height when clicked (for responsive scaling)
 }
