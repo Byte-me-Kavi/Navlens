@@ -57,17 +57,17 @@ export function HeroIllustration() {
         );
 
         if (this.intensity > 0.7) {
-          gradient.addColorStop(0, "rgba(255, 0, 255, 0.6)"); // magenta for hot spots
-          gradient.addColorStop(0.5, "rgba(138, 43, 226, 0.3)"); // purple
-          gradient.addColorStop(1, "rgba(0, 200, 200, 0)");
+          gradient.addColorStop(0, "rgba(147, 51, 234, 0.6)"); // purple for hot spots
+          gradient.addColorStop(0.5, "rgba(99, 102, 241, 0.3)"); // indigo
+          gradient.addColorStop(1, "rgba(37, 99, 235, 0)"); // blue fade
         } else if (this.intensity > 0.4) {
-          gradient.addColorStop(0, "rgba(0, 127, 255, 0.5)"); // electric blue
-          gradient.addColorStop(0.5, "rgba(0, 200, 200, 0.3)"); // teal
-          gradient.addColorStop(1, "rgba(0, 200, 200, 0)");
+          gradient.addColorStop(0, "rgba(59, 130, 246, 0.5)"); // blue
+          gradient.addColorStop(0.5, "rgba(37, 99, 235, 0.3)"); // dark blue
+          gradient.addColorStop(1, "rgba(29, 78, 216, 0)");
         } else {
-          gradient.addColorStop(0, "rgba(0, 200, 200, 0.4)"); // teal
-          gradient.addColorStop(0.5, "rgba(0, 127, 255, 0.2)");
-          gradient.addColorStop(1, "rgba(0, 200, 200, 0)");
+          gradient.addColorStop(0, "rgba(37, 99, 235, 0.4)"); // dark blue
+          gradient.addColorStop(0.5, "rgba(29, 78, 216, 0.2)");
+          gradient.addColorStop(1, "rgba(30, 64, 175, 0)");
         }
 
         ctx.fillStyle = gradient;
@@ -123,7 +123,7 @@ export function HeroIllustration() {
 
         ctx.beginPath();
         ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 200, 200, ${this.life * 0.6})`;
+        ctx.fillStyle = `rgba(37, 99, 235, ${this.life * 0.6})`;
         ctx.fill();
       }
     }
@@ -149,24 +149,24 @@ export function HeroIllustration() {
       const centerY = rect.height / 2;
 
       // Window frame
-      ctx.strokeStyle = "rgba(0, 200, 200, 0.3)";
+      ctx.strokeStyle = "rgba(37, 99, 235, 0.3)";
       ctx.lineWidth = 2;
       ctx.strokeRect(centerX - 180, centerY - 220, 360, 440);
 
       // Window header
-      ctx.fillStyle = "rgba(0, 200, 200, 0.1)";
+      ctx.fillStyle = "rgba(37, 99, 235, 0.1)";
       ctx.fillRect(centerX - 180, centerY - 220, 360, 30);
 
       // Window dots
       [10, 30, 50].forEach((offset) => {
         ctx.beginPath();
         ctx.arc(centerX - 170 + offset, centerY - 205, 4, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(0, 200, 200, 0.4)";
+        ctx.fillStyle = "rgba(59, 130, 246, 0.4)";
         ctx.fill();
       });
 
       // Content area with grid
-      ctx.strokeStyle = "rgba(0, 200, 200, 0.08)";
+      ctx.strokeStyle = "rgba(37, 99, 235, 0.08)";
       ctx.lineWidth = 1;
       for (let i = 0; i < 8; i++) {
         ctx.beginPath();
@@ -209,14 +209,14 @@ export function HeroIllustration() {
       const pulseSize = 2 + Math.sin(time * 5) * 1;
       ctx.beginPath();
       ctx.arc(lastCursorX, lastCursorY, pulseSize, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(255, 0, 255, 0.8)";
+      ctx.fillStyle = "rgba(147, 51, 234, 0.8)";
       ctx.fill();
 
       // Cursor pointer
       ctx.save();
       ctx.translate(lastCursorX, lastCursorY);
       ctx.rotate(Math.PI / 4);
-      ctx.fillStyle = "rgba(0, 200, 200, 0.9)";
+      ctx.fillStyle = "rgba(37, 99, 235, 0.9)";
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(12, 12);
@@ -257,13 +257,13 @@ export function HeroIllustration() {
 
         // Card background
         ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-        ctx.shadowColor = "rgba(0, 200, 200, 0.3)";
+        ctx.shadowColor = "rgba(37, 99, 235, 0.3)";
         ctx.shadowBlur = 15;
         ctx.fillRect(-40, -25, 80, 50);
         ctx.shadowBlur = 0;
 
         // Border
-        ctx.strokeStyle = "rgba(0, 200, 200, 0.5)";
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.5)";
         ctx.lineWidth = 1;
         ctx.strokeRect(-40, -25, 80, 50);
 
@@ -273,7 +273,7 @@ export function HeroIllustration() {
         ctx.textAlign = "center";
         ctx.fillText(point.label, 0, -5);
 
-        ctx.fillStyle = "#00C8C8";
+        ctx.fillStyle = "#2563EB";
         ctx.font = "bold 16px Inter, sans-serif";
         ctx.fillText(point.value, 0, 15);
 

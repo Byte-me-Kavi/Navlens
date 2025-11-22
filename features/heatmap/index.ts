@@ -16,3 +16,4 @@ export { useHeatmapData } from './hooks/useHeatmapData';
 export { HeatmapViewer } from './components/HeatmapViewer';
 export { HeatmapCanvas } from './components/HeatmapCanvas';
 export { SnapshotViewer } from './components/SnapshotViewer';
+export { HeatmapSettings } from './components/HeatmapSettings';

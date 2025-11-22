@@ -18,7 +18,7 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm">
+    <nav className="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
@@ -31,11 +31,9 @@ export function Navbar() {
               alt="Navlens Logo"
               width={60}
               height={60}
-              className="drop-shadow-[0_0_20px_rgba(0,200,200,0.5)]"
+              className="drop-shadow-sm"
             />
-            <h2 className="bg-linear-to-r from-blue-900 to-cyan-600 bg-clip-text text-transparent text-2xl font-bold">
-              Navlens
-            </h2>
+            <h2 className="text-gray-900 text-2xl font-bold">Navlens</h2>
           </div>
 
           {/* Desktop Navigation */}
@@ -44,7 +42,7 @@ export function Navbar() {
               <a
                 key={item.label}
                 href={item.href}
-                className="text-gray-700 hover:text-cyan-600 transition-colors duration-200 font-medium text-sm"
+                className="text-gray-700 px-3 py-2 rounded-md hover:text-blue-600 hover:bg-blue-100 transition-colors duration-200 font-medium text-sm"
               >
                 {item.label}
               </a>
@@ -55,13 +53,13 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             <button
               onClick={() => router.push("/login")}
-              className="px-6 py-2 text-gray-700 hover:text-cyan-600 transition-all duration-200 font-medium text-sm"
+              className="px-6 py-2 text-gray-700 border border-gray-900 rounded-md hover:text-blue-600 hover:border-blue-600 transition-colors duration-200 font-medium text-sm"
             >
               Sign In
             </button>
             <button
               onClick={() => router.push("/login")}
-              className="px-6 py-2.5 bg-linear-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/40 hover:scale-105 transition-all duration-200 text-sm"
+              className="px-6 py-2 bg-blue-600 border border-blue-600 text-white rounded-md hover:bg-blue-700 shadow-md shadow-blue-600/30 transition-all duration-200 font-medium text-sm"
             >
               Get Started
             </button>
@@ -69,7 +67,7 @@ export function Navbar() {
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden text-cyan-600 relative w-8 h-8 flex items-center justify-center"
+            className="md:hidden text-slate-800 relative w-8 h-8 flex items-center justify-center"
             onClick={() => setIsOpen(!isOpen)}
           >
             <Bars3Icon
@@ -102,7 +100,7 @@ export function Navbar() {
               <a
                 key={item.label}
                 href={item.href}
-                className="block text-gray-700 hover:text-cyan-600 transition-colors duration-200 font-medium"
+                className="block text-gray-600 hover:text-slate-900 transition-colors duration-200 font-medium"
                 onClick={() => setIsOpen(false)}
               >
                 {item.label}
@@ -114,7 +112,7 @@ export function Navbar() {
                   router.push("/login");
                   setIsOpen(false);
                 }}
-                className="w-full px-6 py-2 text-gray-700 border-2 border-gray-200 rounded-lg hover:border-cyan-500 hover:text-cyan-600 transition-all duration-200 font-medium"
+                className="w-full px-6 py-2 text-gray-600 border-2 border-gray-200 rounded-lg hover:border-slate-400 hover:text-slate-900 transition-all duration-200 font-medium"
               >
                 Sign In
               </button>
@@ -123,7 +121,7 @@ export function Navbar() {
                   router.push("/login");
                   setIsOpen(false);
                 }}
-                className="w-full px-6 py-2.5 bg-linear-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold shadow-lg"
+                className="w-full px-6 py-3 bg-slate-800 text-white rounded-lg font-semibold shadow-md hover:bg-slate-900"
               >
                 Get Started
               </button>

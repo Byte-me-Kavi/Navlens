@@ -10,6 +10,7 @@ import {
   TrashIcon,
   DocumentDuplicateIcon,
   ChevronDownIcon,
+  PresentationChartBarIcon,
 } from "@heroicons/react/24/outline";
 import { createSite, deleteSite } from "./action";
 import toast from "react-hot-toast";
@@ -59,9 +60,9 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 sm:p-8 border border-gray-100">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Add New Site</h2>
+      <div className="bg-white rounded-lg shadow-2xl max-w-lg w-full p-5 sm:p-6 border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900">Add New Site</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -82,11 +83,11 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
               htmlFor="site_name"
-              className="block text-sm font-semibold text-gray-700 mb-2"
+              className="block text-xs font-semibold text-gray-700 mb-1"
             >
               Site Name
             </label>
@@ -96,7 +97,7 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
               name="site_name"
               required
               disabled={loading}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white text-sm"
               placeholder="My Awesome Website"
             />
           </div>
@@ -104,7 +105,7 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
           <div>
             <label
               htmlFor="domain"
-              className="block text-sm font-semibold text-gray-700 mb-2"
+              className="block text-xs font-semibold text-gray-700 mb-1"
             >
               Domain URL
             </label>
@@ -114,7 +115,7 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
               name="domain"
               required
               disabled={loading}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white text-sm"
               placeholder="https://example.com"
             />
           </div>
@@ -129,7 +130,7 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+              className="flex-1 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md text-sm"
             >
               {loading ? "Adding..." : "Add Site"}
             </button>
@@ -137,7 +138,7 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50"
+              className="px-4 py-2 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 text-sm"
             >
               Cancel
             </button>
@@ -165,26 +166,26 @@ function SnippetCode({ site }: { site: Site }) {
   };
 
   return (
-    <div className="mt-6 p-5 bg-slate-50 rounded-xl border border-slate-200">
-      <div className="flex items-center justify-between mb-4">
+    <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <CodeBracketIcon className="w-5 h-5 text-blue-600" />
-          <h4 className="text-base font-semibold text-gray-900">
+          <h4 className="text-sm font-semibold text-gray-900">
             Installation Code
           </h4>
         </div>
         <CopyToClipboard text={snippet} onCopy={handleCopy}>
-          <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
+          <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
             <DocumentDuplicateIcon className="w-4 h-4" />
             {copied ? "Copied!" : "Copy"}
           </button>
         </CopyToClipboard>
       </div>
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-xs text-gray-600 mb-3">
         Copy and paste this code into the &lt;head&gt; tag of your website.
       </p>
-      <div className="bg-white p-4 rounded-lg border border-gray-200 overflow-x-auto">
-        <pre className="text-sm text-gray-800">
+      <div className="bg-white p-3 rounded-lg border border-gray-200 overflow-x-auto">
+        <pre className="text-xs text-gray-800">
           <code>{snippet}</code>
         </pre>
       </div>
@@ -228,22 +229,22 @@ export default function SiteManager({ sites }: SiteManagerProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="space-y-6">
           {/* Page Header */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">My Sites</h1>
-                <p className="text-gray-600 mt-2 text-lg">
+                <h1 className="text-2xl font-bold text-gray-900">My Sites</h1>
+                <p className="text-gray-600 mt-1 text-xs">
                   Manage and monitor your tracked websites
                 </p>
               </div>
               <button
                 onClick={() => setShowAddForm(true)}
-                className="flex items-center justify-center gap-3 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-lg font-semibold w-full sm:w-auto"
+                className="flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md font-semibold w-full sm:w-auto text-sm"
               >
-                <PlusIcon className="w-5 h-5" />
+                <PlusIcon className="w-4 h-4" />
                 <span>Add New Site</span>
               </button>
             </div>
@@ -254,58 +255,62 @@ export default function SiteManager({ sites }: SiteManagerProps) {
 
           {/* Empty State or Sites List */}
           {sites.length === 0 ? (
-            <div className="bg-white rounded-2xl border-2 border-dashed border-blue-200 p-8 sm:p-12 text-center shadow-sm">
-              <div className="flex justify-center mb-6">
-                <div className="p-4 bg-blue-50 rounded-full">
-                  <GlobeAltIcon className="w-16 h-16 text-blue-600" />
+            <div className="bg-white rounded-lg border-2 border-dashed border-blue-200 p-6 sm:p-8 text-center shadow-sm">
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-blue-50 rounded-full">
+                  <GlobeAltIcon className="w-12 h-12 text-blue-600" />
                 </div>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
                 No Sites Yet
               </h3>
-              <p className="text-gray-600 mb-8 max-w-md mx-auto text-lg leading-relaxed">
+              <p className="text-gray-600 mb-6 max-w-md mx-auto text-sm leading-relaxed">
                 Add your first website to start collecting heatmap data and
                 analyzing user behavior.
               </p>
               <button
                 onClick={() => setShowAddForm(true)}
-                className="inline-flex items-center justify-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-lg font-semibold"
+                className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md font-semibold text-sm"
               >
-                <PlusIcon className="w-5 h-5" />
+                <PlusIcon className="w-4 h-4" />
                 <span>Add Your First Site</span>
               </button>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* Sites Grid */}
               {sites.map((site) => (
                 <div
                   key={site.id}
-                  className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm hover:shadow-lg transition-all duration-200"
+                  className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200"
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-6 gap-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        {site.site_name}
-                      </h3>
-                      <a
-                        href={site.domain}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-700 transition-colors text-lg font-medium inline-block break-all"
-                      >
-                        {site.domain}
-                      </a>
-                      <p className="text-sm text-gray-500 mt-2">
-                        Added {new Date(site.created_at).toLocaleDateString()}
-                      </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <GlobeAltIcon className="w-8 h-8 text-gray-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-bold text-gray-900 mb-0.5 truncate">
+                          {site.site_name}
+                        </h3>
+                        <a
+                          href={`https://${site.domain}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-700 transition-colors text-xs font-medium inline-block truncate max-w-full"
+                        >
+                          {site.domain}
+                        </a>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {new Date(site.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => handleViewHeatmap(site.id)}
-                        className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm"
                       >
-                        View Heatmap
+                        <PresentationChartBarIcon className="w-4 h-4" />
+                        <span className="hidden sm:inline">Heatmap</span>
                       </button>
                       <button
                         onClick={() =>
@@ -313,14 +318,14 @@ export default function SiteManager({ sites }: SiteManagerProps) {
                             showPathManagerId === site.id ? null : site.id
                           )
                         }
-                        className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-all duration-200"
+                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
                       >
                         <ChevronDownIcon
                           className={`w-4 h-4 transition-transform ${
                             showPathManagerId === site.id ? "rotate-180" : ""
                           }`}
                         />
-                        Manage Paths
+                        <span className="hidden sm:inline">Paths</span>
                       </button>
                       <button
                         onClick={() =>
@@ -328,17 +333,18 @@ export default function SiteManager({ sites }: SiteManagerProps) {
                             showSnippetId === site.id ? null : site.id
                           )
                         }
-                        className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200"
+                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
                       >
                         <CodeBracketIcon className="w-4 h-4" />
-                        {showSnippetId === site.id ? "Hide" : "Show"} Code
+                        <span className="hidden sm:inline">
+                          {showSnippetId === site.id ? "Hide" : "Code"}
+                        </span>
                       </button>
                       <button
                         onClick={() => handleDelete(site.id, site.site_name)}
-                        className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all duration-200"
+                        className="flex items-center justify-center p-1.5 text-xs font-semibold bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all duration-200"
                       >
                         <TrashIcon className="w-4 h-4" />
-                        Delete
                       </button>
                     </div>
                   </div>
@@ -361,16 +367,16 @@ export default function SiteManager({ sites }: SiteManagerProps) {
           )}
 
           {/* Info Card */}
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <CodeBracketIcon className="w-6 h-6 text-blue-600" />
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+                <CodeBracketIcon className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h4 className="text-lg font-bold text-gray-900 mb-3">
+                <h4 className="text-sm font-bold text-gray-900 mb-2">
                   How to Add a Site
                 </h4>
-                <ol className="text-gray-700 space-y-2 text-base">
+                <ol className="text-gray-700 space-y-1.5 text-xs">
                   <li>
                     1. Click &quot;Add New Site&quot; and enter your website URL
                   </li>

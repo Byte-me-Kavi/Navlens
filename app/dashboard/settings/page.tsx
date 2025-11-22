@@ -145,11 +145,11 @@ export default function SettingsPage() {
     }
   };
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Toast Messages */}
       {message && (
         <div
-          className={`p-4 rounded-lg ${
+          className={`p-3 rounded-lg text-sm ${
             message.type === "success"
               ? "bg-green-50 text-green-800 border border-green-200"
               : "bg-red-50 text-red-800 border border-red-200"
@@ -161,53 +161,53 @@ export default function SettingsPage() {
 
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <p className="text-sm text-gray-600 mt-1">
           Manage your account preferences and security
         </p>
       </div>
 
       {/* Settings Sections */}
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Profile Settings */}
-        <div className="bg-white rounded-xl border border-blue-200 p-6 shadow-sm">
+        <div className="bg-white rounded-lg border border-blue-200 p-5 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <UserCircleIcon className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">
+            <UserCircleIcon className="w-5 h-5 text-blue-600" />
+            <h2 className="text-sm font-bold text-gray-900">
               Profile Settings
             </h2>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
                 Email Address
               </label>
               <input
                 type="email"
                 value={email}
                 disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Email address cannot be changed
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
                 Display Name
               </label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 placeholder="Your Name"
               />
             </div>
             <button
               onClick={handleSaveProfile}
               disabled={loading}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
+              className="bg-blue-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
             >
               {loading ? "Saving..." : "Save Changes"}
             </button>
@@ -215,69 +215,73 @@ export default function SettingsPage() {
         </div>
 
         {/* Notification Settings */}
-        <div className="bg-white rounded-xl border border-blue-200 p-6 shadow-sm">
+        <div className="bg-white rounded-lg border border-blue-200 p-5 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <BellIcon className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">Notifications</h2>
+            <BellIcon className="w-5 h-5 text-blue-600" />
+            <h2 className="text-sm font-bold text-gray-900">Notifications</h2>
           </div>
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 border border-blue-100">
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 border border-blue-100">
               <input
                 type="checkbox"
                 checked={emailNotifications}
                 onChange={(e) => setEmailNotifications(e.target.checked)}
                 className="w-4 h-4 text-blue-600"
               />
-              <span className="text-gray-700">
+              <span className="text-gray-700 text-sm">
                 Email notifications for new data
               </span>
             </label>
-            <label className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 border border-blue-100">
+            <label className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 border border-blue-100">
               <input
                 type="checkbox"
                 checked={weeklyReports}
                 onChange={(e) => setWeeklyReports(e.target.checked)}
                 className="w-4 h-4 text-blue-600"
               />
-              <span className="text-gray-700">Weekly analytics reports</span>
+              <span className="text-gray-700 text-sm">
+                Weekly analytics reports
+              </span>
             </label>
-            <label className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 border border-blue-100">
+            <label className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 border border-blue-100">
               <input
                 type="checkbox"
                 checked={productUpdates}
                 onChange={(e) => setProductUpdates(e.target.checked)}
                 className="w-4 h-4 text-blue-600"
               />
-              <span className="text-gray-700">Product updates and news</span>
+              <span className="text-gray-700 text-sm">
+                Product updates and news
+              </span>
             </label>
           </div>
           <button
             onClick={handleSaveNotifications}
             disabled={loading}
-            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
+            className="mt-3 bg-blue-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50"
           >
             {loading ? "Saving..." : "Save Preferences"}
           </button>
         </div>
 
         {/* Security Settings */}
-        <div className="bg-white rounded-xl border border-blue-200 p-6 shadow-sm">
+        <div className="bg-white rounded-lg border border-blue-200 p-5 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <ShieldCheckIcon className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">Security</h2>
+            <ShieldCheckIcon className="w-5 h-5 text-blue-600" />
+            <h2 className="text-sm font-bold text-gray-900">Security</h2>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-2">
             <button
               onClick={handleChangePassword}
-              className="w-full text-left px-4 py-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-100"
+              className="w-full text-left px-3 py-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-100 text-sm"
             >
               <span className="font-medium text-blue-900">Change Password</span>
             </button>
-            <button className="w-full text-left px-4 py-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-100 cursor-not-allowed opacity-60">
+            <button className="w-full text-left px-3 py-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors border border-blue-100 cursor-not-allowed opacity-60 text-sm">
               <span className="font-medium text-blue-900">
                 Two-Factor Authentication
               </span>
-              <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+              <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                 Coming Soon
               </span>
             </button>

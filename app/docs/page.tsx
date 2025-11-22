@@ -1,629 +1,675 @@
-"use client";
+﻿"use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
-  PuzzlePieceIcon,
-  ArrowRightIcon,
-  ChartBarIcon,
-  DevicePhoneMobileIcon,
-  ShieldCheckIcon,
-  EyeIcon,
+  MagnifyingGlassIcon,
   CursorArrowRaysIcon,
-  ClockIcon,
-  GlobeAltIcon,
+  ChartBarIcon,
+  EyeIcon,
+  SparklesIcon,
+  RocketLaunchIcon,
+  ShieldCheckIcon,
+  BoltIcon,
   CheckCircleIcon,
+  ArrowRightIcon,
+  CodeBracketIcon,
+  BookOpenIcon,
+  QuestionMarkCircleIcon,
+  PlayCircleIcon,
+  EnvelopeIcon,
+  StarIcon,
+  LockClosedIcon,
+  UserGroupIcon,
+  TagIcon,
+  ArrowTrendingUpIcon,
+  Cog8ToothIcon,
 } from "@heroicons/react/24/outline";
-import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
-// --- COLOR CONSTANTS (Tailwind classes) ---
-const colors = {
-  primary: "text-blue-600",
-  primaryBg: "bg-blue-600",
-  primaryHover: "hover:bg-blue-700",
-  dark: "text-gray-900",
-  accent: "text-cyan-500",
-  bg: "bg-gray-50",
-  cardBg: "bg-white",
-  textPrimary: "text-gray-900",
-  textSecondary: "text-gray-600",
-  border: "border-gray-200",
-  success: "text-green-600",
-  warning: "text-amber-600",
-  info: "text-blue-600",
-};
+export default function DocumentationPage() {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
 
-const DocumentationPage: React.FC = () => {
+  // Getting Started guides
+  const gettingStartedGuides = [
+    {
+      title: "Installation Guide",
+      description: "Set up Navlens in your project in just a few minutes",
+      icon: RocketLaunchIcon,
+      steps: 3,
+    },
+    {
+      title: "First Heatmap Setup",
+      description: "Create and configure your first heatmap visualization",
+      icon: CursorArrowRaysIcon,
+      steps: 4,
+    },
+    {
+      title: "Dashboard Overview",
+      description: "Navigate and utilize the Navlens dashboard features",
+      icon: ChartBarIcon,
+      steps: 5,
+    },
+    {
+      title: "Tracking Configuration",
+      description: "Configure tracking parameters and event collection",
+      icon: Cog8ToothIcon,
+      steps: 4,
+    },
+    {
+      title: "Data Analysis Basics",
+      description: "Learn fundamental data analysis and interpretation",
+      icon: ArrowTrendingUpIcon,
+      steps: 5,
+    },
+  ];
+
+  // Integration guides
+  const integrations = [
+    {
+      name: "React",
+      description: "Seamless integration with React applications",
+      logo: "âš›ï¸",
+      code: `import { initNavlens } from 'navlens';\n\ninitNavlens({\n  apiKey: 'your-api-key',\n  trackingId: 'site-id'\n});`,
+    },
+    {
+      name: "Next.js",
+      description: "Full Next.js framework support with SSR",
+      logo: "â–²",
+      code: `// app/layout.tsx\nimport { NavlensProvider } from 'navlens/next';\n\nexport default function Layout() {\n  return (\n    <NavlensProvider>\n      <YourApp />\n    </NavlensProvider>\n  );\n}`,
+    },
+    {
+      name: "Vue",
+      description: "Vue 3 composition API integration",
+      logo: "ðŸ’š",
+      code: `import { useNavlens } from 'navlens/vue';\n\nexport default {\n  setup() {\n    const navlens = useNavlens({\n      apiKey: 'your-api-key'\n    });\n    return { navlens };\n  }\n}`,
+    },
+    {
+      name: "Vanilla JS",
+      description: "Plain JavaScript integration",
+      logo: "ðŸ“¦",
+      code: `<script src="https://cdn.navlens.io/tracker.js"><\/script>\n<script>\n  window.Navlens.init({\n    apiKey: 'your-api-key'\n  });\n<\/script>`,
+    },
+  ];
+
+  // API Reference
+  const apiReference = [
+    {
+      title: "Initialization API",
+      description: "Initialize and configure Navlens",
+      icon: SparklesIcon,
+      details: [
+        "init(config)",
+        "setUser(userId)",
+        "identify(properties)",
+        "track(eventName, properties)",
+      ],
+    },
+    {
+      title: "Events API",
+      description: "Track and manage user events",
+      icon: BoltIcon,
+      details: [
+        "trackEvent(name, data)",
+        "trackPageView(url)",
+        "trackConversion(value)",
+        "trackError(error)",
+      ],
+    },
+    {
+      title: "Heatmap API",
+      description: "Control heatmap generation and display",
+      icon: CursorArrowRaysIcon,
+      details: [
+        "generateHeatmap(selector)",
+        "updateHeatmap(data)",
+        "exportHeatmap(format)",
+        "clearHeatmap()",
+      ],
+    },
+    {
+      title: "Analytics API",
+      description: "Access analytics data and reports",
+      icon: ChartBarIcon,
+      details: [
+        "getMetrics(timeRange)",
+        "getSessionData(sessionId)",
+        "getConversionFunnel()",
+        "exportReport(format)",
+      ],
+    },
+  ];
+
+  // Best Practices
+  const bestPractices = [
+    {
+      title: "Optimize Tracking",
+      description: "Minimize tracking overhead and maximize data quality",
+      icon: BoltIcon,
+      tips: [
+        "Debounce tracking events",
+        "Batch data before sending",
+        "Use efficient selectors",
+        "Monitor bandwidth usage",
+      ],
+    },
+    {
+      title: "Segment Users",
+      description: "Categorize users for targeted analysis",
+      icon: UserGroupIcon,
+      tips: [
+        "Use consistent user IDs",
+        "Tag user properties",
+        "Group by device/browser",
+        "Create cohorts",
+      ],
+    },
+    {
+      title: "Set Up Goals",
+      description: "Define and track conversion goals",
+      icon: TagIcon,
+      tips: [
+        "Identify key actions",
+        "Set conversion triggers",
+        "Track funnel steps",
+        "Monitor goal completion",
+      ],
+    },
+    {
+      title: "Analyze Patterns",
+      description: "Discover insights from user behavior patterns",
+      icon: SparklesIcon,
+      tips: [
+        "Compare timeframes",
+        "Identify trends",
+        "Find anomalies",
+        "Segment by behavior",
+      ],
+    },
+    {
+      title: "Privacy Compliance",
+      description: "Ensure GDPR and CCPA compliance",
+      icon: LockClosedIcon,
+      tips: [
+        "Get user consent",
+        "Anonymize data",
+        "Respect DNT headers",
+        "Offer opt-out",
+      ],
+    },
+    {
+      title: "Performance Tuning",
+      description: "Optimize application and tracking performance",
+      icon: Cog8ToothIcon,
+      tips: ["Enable compression", "Use CDN", "Cache data", "Monitor latency"],
+    },
+  ];
+
+  // FAQ
+  const faqs = [
+    {
+      question: "How do I get started with Navlens?",
+      answer:
+        "Start by signing up for an account, then install the tracking script on your website. Configure your first heatmap, and you'll begin collecting data immediately. Check our Installation Guide for step-by-step instructions.",
+    },
+    {
+      question: "Is Navlens GDPR compliant?",
+      answer:
+        "Yes, Navlens is fully GDPR and CCPA compliant. We provide tools to obtain user consent, anonymize data, and allow users to opt-out of tracking. See our Privacy Policy and compliance documentation for details.",
+    },
+    {
+      question: "What's the performance impact of Navlens?",
+      answer:
+        "Our tracking script is only 20KB gzipped and has minimal performance impact. It's loaded asynchronously and uses event batching to reduce network overhead. Most sites see less than 1ms impact on page load.",
+    },
+    {
+      question: "Can I track session recordings?",
+      answer:
+        "Yes, Navlens supports session recording and replay. You can watch actual user sessions to understand behavior patterns. All recordings respect privacy settings and GDPR requirements.",
+    },
+    {
+      question: "How long is data retained?",
+      answer:
+        "Free plans retain data for 30 days, while Pro and Enterprise plans offer 90 days and custom retention periods. You can download and archive data at any time.",
+    },
+    {
+      question: "What formats can I export reports in?",
+      answer:
+        "You can export reports as PDF, CSV, JSON, or PNG. Use our API or dashboard to schedule automated report delivery to your team.",
+    },
+    {
+      question: "Do you offer API access?",
+      answer:
+        "Yes, we provide a comprehensive REST API and webhooks for advanced integrations. See our API Reference section for detailed documentation.",
+    },
+  ];
+
+  // Video Tutorials
+  const videoTutorials = [
+    {
+      title: "Getting Started in 5 Minutes",
+      description: "Quick setup and first heatmap configuration",
+      duration: "5:23",
+      thumbnail: PlayCircleIcon,
+    },
+    {
+      title: "Advanced Analytics & Segmentation",
+      description: "Learn to segment and analyze user cohorts",
+      duration: "12:15",
+      thumbnail: ChartBarIcon,
+    },
+    {
+      title: "Integration & Custom Events",
+      description: "Track custom events and integrate with your app",
+      duration: "8:47",
+      thumbnail: Cog8ToothIcon,
+    },
+    {
+      title: "Dashboard Mastery",
+      description: "Master all dashboard features and customizations",
+      duration: "15:32",
+      thumbnail: BookOpenIcon,
+    },
+  ];
+
+  // Filtered search results
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+    const query = searchQuery.toLowerCase();
+
+    const allContent = [
+      ...gettingStartedGuides.map((g) => ({
+        ...g,
+        category: "Getting Started",
+      })),
+      ...integrations.map((i) => ({ ...i, category: "Integrations" })),
+      ...apiReference.map((a) => ({ ...a, category: "API Reference" })),
+      ...bestPractices.map((p) => ({ ...p, category: "Best Practices" })),
+      ...faqs.map((f) => ({ ...f, category: "FAQ" })),
+    ];
+
+    return allContent.filter(
+      (item: any) =>
+        item.title?.toLowerCase().includes(query) ||
+        item.name?.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query) ||
+        item.question?.toLowerCase().includes(query)
+    );
+  }, [searchQuery]);
+
   return (
-    <>
+    <div className="min-h-screen text-gray-900 overflow-x-hidden">
       <Navbar />
 
-      <div className={`min-h-screen ${colors.bg}`}>
-        <div className="max-w-6xl mx-auto py-12 px-6 lg:px-8">
-          {/* Hero Section */}
-          <header className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium mb-6">
-              <EyeIcon className="w-4 h-4" />
-              User Behavior Analytics
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-16 px-4 md:px-6 overflow-hidden">
+        {/* Background Gradient Elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-linear-to-br from-blue-500 to-purple-500 opacity-10 blur-3xl -z-10" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-linear-to-br from-purple-500 to-pink-500 opacity-10 blur-3xl -z-10" />
+
+        <div className="relative container mx-auto max-w-6xl">
+          <div className="text-center space-y-6 mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100/80 text-blue-700 rounded-full text-sm font-semibold backdrop-blur-md hover:bg-blue-100 transition-colors">
+              <BookOpenIcon className="w-4 h-4" />
+              Complete Documentation
             </div>
-            <h1 className={`text-5xl font-bold ${colors.dark} mb-6`}>
-              Navlens Documentation
+
+            <h1 className="text-5xl md:text-7xl font-bold">
+              <span className="text-gray-900">Documentation</span>
+              <br />
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Everything You Need
+              </span>
             </h1>
-            <p
-              className={`text-xl ${colors.textSecondary} max-w-3xl mx-auto leading-relaxed`}
-            >
-              Transform visitor interactions into actionable insights. See
-              exactly where users click, how they scroll, and what content
-              captures their attention across all devices.
+
+            <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              Get started with Navlens and master user behavior analytics. From
+              installation to advanced tracking, find all the resources you
+              need.
             </p>
-          </header>
 
-          {/* How It Works Section */}
-          <section
-            className={`mb-12 p-8 rounded-2xl shadow-sm ${colors.cardBg} border ${colors.border}`}
-          >
-            <div className="text-center mb-8">
-              <h2 className={`text-3xl font-bold ${colors.textPrimary} mb-4`}>
-                How Navlens Works
-              </h2>
-              <p
-                className={`text-lg ${colors.textSecondary} max-w-2xl mx-auto`}
-              >
-                Our intelligent tracking system captures real user interactions
-                and transforms them into visual insights
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <CursorArrowRaysIcon
-                    className={`w-8 h-8 ${colors.primary}`}
-                  />
-                </div>
-                <h3
-                  className={`text-xl font-semibold ${colors.textPrimary} mb-2`}
-                >
-                  1. Track Interactions
-                </h3>
-                <p className={`text-sm ${colors.textSecondary}`}>
-                  Lightweight JavaScript captures clicks, scrolls, and user
-                  movements in real-time
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <ChartBarIcon className={`w-8 h-8 ${colors.primary}`} />
-                </div>
-                <h3
-                  className={`text-xl font-semibold ${colors.textPrimary} mb-2`}
-                >
-                  2. Process Data
-                </h3>
-                <p className={`text-sm ${colors.textSecondary}`}>
-                  Advanced algorithms analyze patterns and generate heatmaps
-                  with precise coordinates
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <EyeIcon className={`w-8 h-8 ${colors.primary}`} />
-                </div>
-                <h3
-                  className={`text-xl font-semibold ${colors.textPrimary} mb-2`}
-                >
-                  3. Visualize Insights
-                </h3>
-                <p className={`text-sm ${colors.textSecondary}`}>
-                  Interactive heatmaps show exactly where users engage most with
-                  your content
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* What We Collect Section */}
-          <section
-            className={`mb-12 p-8 rounded-2xl shadow-sm ${colors.cardBg} border ${colors.border}`}
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <ShieldCheckIcon className={`w-8 h-8 ${colors.success}`} />
-              <h2 className={`text-3xl font-bold ${colors.textPrimary}`}>
-                What Data We Collect
-              </h2>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              <div>
-                <h3
-                  className={`text-xl font-semibold ${colors.textPrimary} mb-4`}
-                >
-                  User Interactions
-                </h3>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3">
-                    <CheckCircleIcon
-                      className={`w-5 h-5 ${colors.success} shrink-0 mt-0.5`}
-                    />
-                    <div>
-                      <span className="font-medium text-gray-900">
-                        Click Positions
-                      </span>
-                      <p className={`text-sm ${colors.textSecondary}`}>
-                        X,Y coordinates of all user clicks relative to page
-                        content
-                      </p>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircleIcon
-                      className={`w-5 h-5 ${colors.success} shrink-0 mt-0.5`}
-                    />
-                    <div>
-                      <span className="font-medium text-gray-900">
-                        Scroll Depth
-                      </span>
-                      <p className={`text-sm ${colors.textSecondary}`}>
-                        How far users scroll through your content
-                      </p>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircleIcon
-                      className={`w-5 h-5 ${colors.success} shrink-0 mt-0.5`}
-                    />
-                    <div>
-                      <span className="font-medium text-gray-900">
-                        Element Interactions
-                      </span>
-                      <p className={`text-sm ${colors.textSecondary}`}>
-                        Which buttons, links, and interactive elements users
-                        engage with
-                      </p>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h3
-                  className={`text-xl font-semibold ${colors.textPrimary} mb-4`}
-                >
-                  Technical Data
-                </h3>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3">
-                    <CheckCircleIcon
-                      className={`w-5 h-5 ${colors.success} shrink-0 mt-0.5`}
-                    />
-                    <div>
-                      <span className="font-medium text-gray-900">
-                        Device Type
-                      </span>
-                      <p className={`text-sm ${colors.textSecondary}`}>
-                        Desktop, tablet, or mobile device classification
-                      </p>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircleIcon
-                      className={`w-5 h-5 ${colors.success} shrink-0 mt-0.5`}
-                    />
-                    <div>
-                      <span className="font-medium text-gray-900">
-                        Viewport Size
-                      </span>
-                      <p className={`text-sm ${colors.textSecondary}`}>
-                        Screen dimensions for accurate heatmap scaling
-                      </p>
-                    </div>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <CheckCircleIcon
-                      className={`w-5 h-5 ${colors.success} shrink-0 mt-0.5`}
-                    />
-                    <div>
-                      <span className="font-medium text-gray-900">
-                        Page URL
-                      </span>
-                      <p className={`text-sm ${colors.textSecondary}`}>
-                        Which specific pages users are interacting with
-                      </p>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div
-              className={`mt-8 p-4 bg-green-50 border border-green-200 rounded-xl`}
-            >
-              <div className="flex items-start gap-3">
-                <ShieldCheckIcon
-                  className={`w-6 h-6 ${colors.success} shrink-0 mt-0.5`}
+            {/* Search Box */}
+            <div className="max-w-2xl mx-auto mt-8">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search documentation..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-white/70 backdrop-blur-md border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
                 />
-                <div>
-                  <h4 className={`font-semibold text-green-900 mb-1`}>
-                    Privacy First
-                  </h4>
-                  <p className={`text-sm text-green-800`}>
-                    We never collect personally identifiable information, IP
-                    addresses, or any sensitive user data. All tracking is
-                    anonymous and aggregated for analysis.
-                  </p>
-                </div>
               </div>
             </div>
-          </section>
-
-          {/* Features Section */}
-          <section
-            className={`mb-12 p-8 rounded-2xl shadow-sm ${colors.cardBg} border ${colors.border}`}
-          >
-            <div className="text-center mb-8">
-              <h2 className={`text-3xl font-bold ${colors.textPrimary} mb-4`}>
-                Powerful Features
-              </h2>
-              <p className={`text-lg ${colors.textSecondary}`}>
-                Everything you need to understand and optimize user experience
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div
-                className={`p-6 rounded-xl border ${colors.border} hover:shadow-md transition-shadow`}
-              >
-                <DevicePhoneMobileIcon
-                  className={`w-8 h-8 ${colors.primary} mb-4`}
-                />
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                >
-                  Multi-Device Analysis
-                </h3>
-                <p className={`text-sm ${colors.textSecondary}`}>
-                  Separate heatmaps for desktop, tablet, and mobile users to
-                  identify device-specific issues
-                </p>
-              </div>
-
-              <div
-                className={`p-6 rounded-xl border ${colors.border} hover:shadow-md transition-shadow`}
-              >
-                <ChartBarIcon className={`w-8 h-8 ${colors.primary} mb-4`} />
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                >
-                  Real-Time Updates
-                </h3>
-                <p className={`text-sm ${colors.textSecondary}`}>
-                  See new user interactions appear in your heatmaps as they
-                  happen
-                </p>
-              </div>
-
-              <div
-                className={`p-6 rounded-xl border ${colors.border} hover:shadow-md transition-shadow`}
-              >
-                <GlobeAltIcon className={`w-8 h-8 ${colors.primary} mb-4`} />
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                >
-                  Multi-Site Support
-                </h3>
-                <p className={`text-sm ${colors.textSecondary}`}>
-                  Track multiple websites from a single dashboard with
-                  individual analytics
-                </p>
-              </div>
-
-              <div
-                className={`p-6 rounded-xl border ${colors.border} hover:shadow-md transition-shadow`}
-              >
-                <EyeIcon className={`w-8 h-8 ${colors.primary} mb-4`} />
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                >
-                  Interactive Overlays
-                </h3>
-                <p className={`text-sm ${colors.textSecondary}`}>
-                  Click on heatmap points to see detailed information about user
-                  interactions
-                </p>
-              </div>
-
-              <div
-                className={`p-6 rounded-xl border ${colors.border} hover:shadow-md transition-shadow`}
-              >
-                <ClockIcon className={`w-8 h-8 ${colors.primary} mb-4`} />
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                >
-                  Historical Data
-                </h3>
-                <p className={`text-sm ${colors.textSecondary}`}>
-                  Access heatmaps from any date range to track performance over
-                  time
-                </p>
-              </div>
-
-              <div
-                className={`p-6 rounded-xl border ${colors.border} hover:shadow-md transition-shadow`}
-              >
-                <CursorArrowRaysIcon
-                  className={`w-8 h-8 ${colors.primary} mb-4`}
-                />
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                >
-                  Smart Element Detection
-                </h3>
-                <p className={`text-sm ${colors.textSecondary}`}>
-                  Automatically identifies clickable elements and interactive
-                  components
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* Installation Section */}
-          <section
-            className={`mb-12 p-8 rounded-2xl shadow-sm ${colors.cardBg} border ${colors.border}`}
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <PuzzlePieceIcon className={`w-8 h-8 ${colors.primary}`} />
-              <h2 className={`text-3xl font-bold ${colors.textPrimary}`}>
-                Quick Setup Guide
-              </h2>
-            </div>
-
-            <div className="space-y-8">
-              <div className="flex items-start gap-4">
-                <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full ${colors.primaryBg} text-white font-bold text-sm`}
-                >
-                  1
-                </div>
-                <div className="flex-1">
-                  <h3
-                    className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                  >
-                    Create Your Account & Add Site
-                  </h3>
-                  <p className={`text-sm ${colors.textSecondary} mb-3`}>
-                    Sign up for Navlens and register your website in the
-                    dashboard. Each site gets a unique tracking code.
-                  </p>
-                  <Link
-                    href="/dashboard/login"
-                    className={`inline-flex items-center gap-2 px-4 py-2 ${colors.primaryBg} text-white rounded-lg hover:${colors.primaryHover} transition-colors text-sm font-medium`}
-                  >
-                    Get Started <ArrowRightIcon className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4">
-                <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full ${colors.primaryBg} text-white font-bold text-sm`}
-                >
-                  2
-                </div>
-                <div className="flex-1">
-                  <h3
-                    className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                  >
-                    Install Tracking Code
-                  </h3>
-                  <p className={`text-sm ${colors.textSecondary} mb-3`}>
-                    Copy the generated script tag and paste it in the
-                    &lt;head&gt; section of every page you want to track.
-                  </p>
-                  <div
-                    className={`p-4 rounded-lg bg-gray-900 text-green-400 font-mono text-sm overflow-x-auto border ${colors.border}`}
-                  >
-                    <div>&lt;head&gt;</div>
-                    <div className="pl-4">...</div>
-                    <div className="pl-4 bg-gray-800 p-2 rounded">
-                      &lt;script async
-                      src=&quot;https://navlens-rho.vercel.app/tracker.js&quot;
-                    </div>
-                    <div className="pl-4 bg-gray-800 p-2 rounded">
-                      data-site-id=&quot;your-site-id&quot;
-                    </div>
-                    <div className="pl-4 bg-gray-800 p-2 rounded">
-                      data-api-key=&quot;your-api-key&quot;&gt;
-                    </div>
-                    <div className="pl-4 bg-gray-800 p-2 rounded">
-                      &lt;/script&gt;
-                    </div>
-                    <div className="pl-4">...</div>
-                    <div>&lt;/head&gt;</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4">
-                <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full ${colors.primaryBg} text-white font-bold text-sm`}
-                >
-                  3
-                </div>
-                <div className="flex-1">
-                  <h3
-                    className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                  >
-                    Start Collecting Data
-                  </h3>
-                  <p className={`text-sm ${colors.textSecondary}`}>
-                    Once installed, Navlens begins tracking user interactions
-                    immediately. Heatmaps will appear in your dashboard within
-                    minutes as users visit your site.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className={`mt-8 p-4 bg-blue-50 border border-blue-200 rounded-xl`}
-            >
-              <div className="flex items-start gap-3">
-                <ClockIcon
-                  className={`w-6 h-6 ${colors.info} shrink-0 mt-0.5`}
-                />
-                <div>
-                  <h4 className={`font-semibold text-blue-900 mb-1`}>
-                    Data Processing Time
-                  </h4>
-                  <p className={`text-sm text-blue-800`}>
-                    Allow 2-5 minutes for new interactions to process and appear
-                    in your heatmaps. Real-time updates ensure you see the
-                    latest user behavior.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Use Cases Section */}
-          <section
-            className={`mb-12 p-8 rounded-2xl shadow-sm ${colors.cardBg} border ${colors.border}`}
-          >
-            <div className="text-center mb-8">
-              <h2 className={`text-3xl font-bold ${colors.textPrimary} mb-4`}>
-                Perfect For
-              </h2>
-              <p className={`text-lg ${colors.textSecondary}`}>
-                Optimize every aspect of your user experience
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div
-                className={`p-6 rounded-xl bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-100`}
-              >
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-3`}
-                >
-                  E-commerce Optimization
-                </h3>
-                <ul className={`text-sm ${colors.textSecondary} space-y-2`}>
-                  <li>
-                    • Identify which product images get the most attention
-                  </li>
-                  <li>• Optimize call-to-action button placement</li>
-                  <li>• Improve checkout flow completion rates</li>
-                  <li>• Test different pricing display strategies</li>
-                </ul>
-              </div>
-
-              <div
-                className={`p-6 rounded-xl bg-linear-to-br from-green-50 to-emerald-50 border border-green-100`}
-              >
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-3`}
-                >
-                  Content Marketing
-                </h3>
-                <ul className={`text-sm ${colors.textSecondary} space-y-2`}>
-                  <li>• See which headlines capture attention</li>
-                  <li>• Optimize blog post layouts and readability</li>
-                  <li>• Improve newsletter signup form placement</li>
-                  <li>• Track engagement with multimedia content</li>
-                </ul>
-              </div>
-
-              <div
-                className={`p-6 rounded-xl bg-linear-to-br from-purple-50 to-violet-50 border border-purple-100`}
-              >
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-3`}
-                >
-                  SaaS Platforms
-                </h3>
-                <ul className={`text-sm ${colors.textSecondary} space-y-2`}>
-                  <li>• Optimize feature adoption and usage</li>
-                  <li>• Improve onboarding flow completion</li>
-                  <li>• Identify confusing UI elements</li>
-                  <li>• Track user engagement with dashboards</li>
-                </ul>
-              </div>
-
-              <div
-                className={`p-6 rounded-xl bg-linear-to-br from-orange-50 to-amber-50 border border-orange-100`}
-              >
-                <h3
-                  className={`text-lg font-semibold ${colors.textPrimary} mb-3`}
-                >
-                  Lead Generation
-                </h3>
-                <ul className={`text-sm ${colors.textSecondary} space-y-2`}>
-                  <li>• Optimize contact form placement and design</li>
-                  <li>• Improve conversion funnel visibility</li>
-                  <li>• Track engagement with lead magnets</li>
-                  <li>• Identify friction points in signup flows</li>
-                </ul>
-              </div>
-            </div>
-          </section>
-
-          {/* CTA Section */}
-          <section
-            className={`mb-12 p-8 rounded-2xl shadow-sm ${colors.cardBg} border ${colors.border} text-center`}
-          >
-            <div className="max-w-2xl mx-auto">
-              <h2 className={`text-3xl font-bold ${colors.textPrimary} mb-4`}>
-                Ready to Understand Your Users?
-              </h2>
-              <p className={`text-lg ${colors.textSecondary} mb-8`}>
-                Join thousands of websites using Navlens to optimize their user
-                experience and boost conversions.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  href="/dashboard/login"
-                  className={`inline-flex items-center justify-center gap-2 px-8 py-4 ${colors.primaryBg} text-white rounded-xl hover:${colors.primaryHover} transition-all duration-200 font-semibold text-lg shadow-sm hover:shadow-lg`}
-                >
-                  Start Free Trial <ArrowRightIcon className="w-5 h-5" />
-                </Link>
-              </div>
-            </div>
-          </section>
-
-          {/* Footer */}
-          <footer className={`pt-8 border-t ${colors.border} text-center`}>
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className={`text-sm ${colors.textSecondary}`}>
-                © 2025 Navlens. Privacy-first user analytics.
-              </div>
-              <div className="flex items-center gap-6">
-                <Link
-                  href="/privacy"
-                  className={`text-sm ${colors.primary} hover:underline`}
-                >
-                  Privacy Policy
-                </Link>
-                <Link
-                  href="/terms"
-                  className={`text-sm ${colors.primary} hover:underline`}
-                >
-                  Terms of Service
-                </Link>
-                <Link
-                  href="/support"
-                  className={`text-sm ${colors.primary} hover:underline`}
-                >
-                  Support
-                </Link>
-              </div>
-            </div>
-          </footer>
+          </div>
         </div>
-      </div>
-    </>
-  );
-};
+      </section>
 
-export default DocumentationPage;
+      {/* Search Results Section */}
+      {searchResults && searchResults.length > 0 && (
+        <section className="px-4 md:px-6 py-12 border-t border-gray-200">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="text-3xl font-bold mb-8">
+              Found {searchResults.length} result
+              {searchResults.length !== 1 ? "s" : ""}
+            </h2>
+            <div className="grid md:grid-cols-2 gap-4 mb-12">
+              {searchResults.map((result, idx) => (
+                <div
+                  key={idx}
+                  className="p-4 bg-white/70 backdrop-blur-md border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                      {(result as any).title ||
+                        (result as any).name ||
+                        (result as any).question}
+                    </h3>
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                      {(result as any).category}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {(result as any).description || (result as any).answer}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Main Content - Only show if no search or search is cleared */}
+      {!searchQuery && (
+        <>
+          {/* Getting Started Section */}
+          <section className="px-4 md:px-6 py-20 border-t border-gray-200">
+            <div className="container mx-auto max-w-6xl">
+              <div className="mb-12">
+                <h2 className="text-4xl font-bold mb-3">Getting Started</h2>
+                <p className="text-lg text-gray-600">
+                  Quick start guides to get you up and running in minutes
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {gettingStartedGuides.map((guide, idx) => {
+                  const Icon = guide.icon;
+                  const guideSlug = guide.title
+                    .toLowerCase()
+                    .replace(/\s+/g, "-");
+                  return (
+                    <a
+                      key={idx}
+                      href={`/docs/guides/${guideSlug}`}
+                      className="group bg-white/70 backdrop-blur-md border border-gray-200 rounded-xl p-6 hover:border-blue-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer block"
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="p-3 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg group-hover:from-blue-200 group-hover:to-purple-200 transition-colors">
+                          <Icon className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                          {guide.steps} min read
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2 text-gray-900">
+                        {guide.title}
+                      </h3>
+                      <p className="text-gray-600 text-sm mb-4">
+                        {guide.description}
+                      </p>
+                      <div className="flex items-center text-blue-600 text-sm font-semibold group-hover:gap-2 transition-all">
+                        Read Guide <ArrowRightIcon className="w-4 h-4" />
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          {/* Integration Guides Section */}
+          {/* <section className="px-4 md:px-6 py-20 bg-white/50">
+            <div className="container mx-auto max-w-6xl">
+              <div className="mb-12">
+                <h2 className="text-4xl font-bold mb-3">Integration Guides</h2>
+                <p className="text-lg text-gray-600">
+                  Integrate Navlens with your favorite framework
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {integrations.map((integration, idx) => (
+                  <div
+                    key={idx}
+                    className="group bg-white/70 backdrop-blur-md border border-gray-200 rounded-xl overflow-hidden hover:border-blue-300 hover:shadow-xl transition-all duration-300"
+                  >
+                    <div className="p-6 border-b border-gray-200">
+                      <div className="flex items-center gap-4 mb-3">
+                        <div className="text-4xl">{integration.logo}</div>
+                        <div>
+                          <h3 className="text-xl font-semibold text-gray-900">
+                            {integration.name}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {integration.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-6 bg-gray-50/50">
+                      <p className="text-xs font-semibold text-gray-500 mb-3">
+                        CODE EXAMPLE
+                      </p>
+                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs overflow-x-auto font-mono leading-relaxed">
+                        <code>{integration.code}</code>
+                      </pre>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section> */}
+
+          {/* API Reference Section */}
+          <section className="px-4 md:px-6 py-20">
+            <div className="container mx-auto max-w-6xl">
+              <div className="mb-12">
+                <h2 className="text-4xl font-bold mb-3">API Reference</h2>
+                <p className="text-lg text-gray-600">
+                  Comprehensive documentation for all Navlens APIs
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {apiReference.map((api, idx) => {
+                  const Icon = api.icon;
+                  return (
+                    <div
+                      key={idx}
+                      className="bg-white/70 backdrop-blur-md border border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-xl transition-all duration-300 group cursor-pointer"
+                    >
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="p-3 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg group-hover:from-purple-200 group-hover:to-blue-200 transition-colors">
+                          <Icon className="w-6 h-6 text-purple-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {api.title}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {api.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 mt-6 pt-4 border-t border-gray-200">
+                        {api.details.map((detail, detailIdx) => (
+                          <div
+                            key={detailIdx}
+                            className="flex items-center gap-2 text-sm text-gray-700 font-mono bg-gray-50/50 p-2 rounded"
+                          >
+                            <CheckCircleIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                            {detail}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          {/* Best Practices Section */}
+          <section className="px-4 md:px-6 py-20 bg-white/50">
+            <div className="container mx-auto max-w-6xl">
+              <div className="mb-12">
+                <h2 className="text-4xl font-bold mb-3">Best Practices</h2>
+                <p className="text-lg text-gray-600">
+                  Tips and strategies for maximum effectiveness
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {bestPractices.map((practice, idx) => {
+                  const Icon = practice.icon;
+                  return (
+                    <div
+                      key={idx}
+                      className="group bg-white/70 backdrop-blur-md border border-gray-200 rounded-xl p-6 hover:border-green-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                    >
+                      <div className="mb-4">
+                        <div className="inline-flex p-3 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg group-hover:from-green-200 group-hover:to-emerald-200 transition-colors">
+                          <Icon className="w-6 h-6 text-green-600" />
+                        </div>
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2 text-gray-900">
+                        {practice.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        {practice.description}
+                      </p>
+                      <ul className="space-y-2">
+                        {practice.tips.map((tip, tipIdx) => (
+                          <li
+                            key={tipIdx}
+                            className="flex items-start gap-2 text-sm text-gray-700"
+                          >
+                            <StarIcon className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                            {tip}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          {/* FAQ Section */}
+          <section className="px-4 md:px-6 py-20">
+            <div className="container mx-auto max-w-6xl">
+              <div className="mb-12">
+                <h2 className="text-4xl font-bold mb-3">
+                  Frequently Asked Questions
+                </h2>
+                <p className="text-lg text-gray-600">
+                  Find answers to common questions about Navlens
+                </p>
+              </div>
+
+              <div className="space-y-4 max-w-4xl">
+                {faqs.map((faq, idx) => (
+                  <details
+                    key={idx}
+                    className="group bg-white/70 backdrop-blur-md border border-gray-200 rounded-lg overflow-hidden hover:border-blue-300 transition-all duration-300"
+                  >
+                    <summary className="p-6 cursor-pointer flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                      <h3 className="text-lg font-semibold text-gray-900 text-left">
+                        {faq.question}
+                      </h3>
+                      <QuestionMarkCircleIcon className="w-6 h-6 text-gray-400 group-open:text-blue-600 transition-colors flex-shrink-0 ml-4" />
+                    </summary>
+                    <div className="px-6 pb-6 pt-0 border-t border-gray-200 text-gray-600 leading-relaxed">
+                      {faq.answer}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Video Tutorials Section */}
+          <section className="px-4 md:px-6 py-20 bg-white/50">
+            <div className="container mx-auto max-w-6xl">
+              <div className="mb-12">
+                <h2 className="text-4xl font-bold mb-3">Video Tutorials</h2>
+                <p className="text-lg text-gray-600">
+                  Learn by watching our comprehensive video guides
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {videoTutorials.map((video, idx) => (
+                  <div
+                    key={idx}
+                    className="group bg-white/70 backdrop-blur-md border border-gray-200 rounded-xl overflow-hidden hover:border-blue-300 hover:shadow-xl transition-all duration-300 cursor-pointer"
+                  >
+                    <div className="relative bg-gradient-to-br from-blue-500 to-purple-600 p-12 flex items-center justify-center aspect-video overflow-hidden">
+                      <video.thumbnail className="w-24 h-24 text-white opacity-80 group-hover:opacity-100 transition-opacity transform group-hover:scale-110 duration-300" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                        <PlayCircleIcon className="w-16 h-16 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <div className="absolute top-3 right-3 bg-black/50 text-white text-xs font-semibold px-2 py-1 rounded">
+                        {video.duration}
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-semibold text-gray-900 mb-2">
+                        {video.title}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {video.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Need Help Section */}
+          <section className="px-4 md:px-6 py-20 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
+            <div className="relative container mx-auto max-w-4xl">
+              <div className="bg-white/70 backdrop-blur-md border border-gray-200 rounded-2xl p-8 md:p-12 text-center">
+                <div className="inline-flex p-4 bg-blue-100 rounded-full mb-6">
+                  <EnvelopeIcon className="w-8 h-8 text-blue-600" />
+                </div>
+                <h2 className="text-4xl font-bold mb-4">Need Help?</h2>
+                <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+                  Can't find what you're looking for? Our support team is here
+                  to help. Reach out with any questions or issues.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                    Contact Support
+                  </button>
+                  <button className="px-8 py-3 bg-white/70 border border-gray-300 text-gray-900 font-semibold rounded-lg hover:bg-white transition-colors">
+                    Email Us
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* Footer */}
+      <Footer />
+    </div>
+  );
+}

@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export default function Footer() {
   return (
-    <footer className="bg-white border-t border-blue-100">
+    <footer className="bg-transparent border-t border-gray-200/30 backdrop-blur-sm">
       {/* Main Footer Content */}
       <div className="py-16 px-6">
         <div className="container mx-auto max-w-7xl">
@@ -15,13 +15,11 @@ export default function Footer() {
                   alt="Navlens Logo"
                   width={60}
                   height={60}
-                  className="drop-shadow-[0_0_20px_rgba(0,200,200,0.5)]"
+                  className="drop-shadow-sm"
                 />
-                <h3 className="text-2xl font-bold bg-linear-to-r from-blue-900 to-blue-600 bg-clip-text text-transparent">
-                  Navlens
-                </h3>
+                <h3 className="text-2xl font-bold text-gray-900">Navlens</h3>
               </div>
-              <p className="text-gray-900 text-sm leading-relaxed mb-6">
+              <p className="text-gray-600 text-sm leading-relaxed mb-6">
                 Transform user behavior into actionable insights with AI-powered
                 heatmaps and analytics.
               </p>
@@ -29,7 +27,7 @@ export default function Footer() {
               <div className="flex gap-3">
                 <a
                   href="mailto:contact@navlens.com"
-                  className="w-9 h-9 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center text-blue-900 transition-all duration-200 hover:scale-110"
+                  className="w-9 h-9 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 flex items-center justify-center text-blue-600 transition-all duration-200 hover:scale-110 backdrop-blur-sm"
                 >
                   <span className="sr-only">Email</span>
                   <svg
@@ -50,7 +48,7 @@ export default function Footer() {
                   href="https://facebook.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center text-blue-900 transition-all duration-200 hover:scale-110"
+                  className="w-9 h-9 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 flex items-center justify-center text-blue-600 transition-all duration-200 hover:scale-110 backdrop-blur-sm"
                 >
                   <span className="sr-only">Facebook</span>
                   <svg
@@ -65,7 +63,7 @@ export default function Footer() {
                   href="https://instagram.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-lg bg-blue-50 hover:bg-blue-100 flex items-center justify-center text-blue-900 transition-all duration-200 hover:scale-110"
+                  className="w-9 h-9 rounded-lg bg-purple-600/20 hover:bg-purple-600/40 flex items-center justify-center text-purple-600 transition-all duration-200 hover:scale-110 backdrop-blur-sm"
                 >
                   <span className="sr-only">Instagram</span>
                   <svg
@@ -95,9 +93,9 @@ export default function Footer() {
                   <li key={item}>
                     <a
                       href="#"
-                      className="text-gray-900 hover:text-gray-600 transition-colors text-sm flex items-center gap-2 group"
+                      className="text-gray-600 hover:text-blue-600 transition-colors text-sm flex items-center gap-2 group"
                     >
-                      <span className="w-0 group-hover:w-4 h-px bg-gray-600 transition-all duration-200" />
+                      <span className="w-0 group-hover:w-4 h-px bg-blue-400 transition-all duration-200" />
                       {item}
                     </a>
                   </li>
@@ -116,9 +114,9 @@ export default function Footer() {
                     <li key={item}>
                       <a
                         href="#"
-                        className="text-gray-900 hover:text-gray-600 transition-colors text-sm flex items-center gap-2 group"
+                        className="text-gray-600 hover:text-blue-600 transition-colors text-sm flex items-center gap-2 group"
                       >
-                        <span className="w-0 group-hover:w-4 h-px bg-blue-600 transition-all duration-200" />
+                        <span className="w-0 group-hover:w-4 h-px bg-blue-400 transition-all duration-200" />
                         {item}
                       </a>
                     </li>
@@ -143,9 +141,9 @@ export default function Footer() {
                   <li key={item}>
                     <a
                       href="#"
-                      className="text-gray-900/70 hover:text-gray-600 transition-colors text-sm flex items-center gap-2 group"
+                      className="text-gray-600 hover:text-blue-600 transition-colors text-sm flex items-center gap-2 group"
                     >
-                      <span className="w-0 group-hover:w-4 h-px bg-gray-600 transition-all duration-200" />
+                      <span className="w-0 group-hover:w-4 h-px bg-blue-400 transition-all duration-200" />
                       {item}
                     </a>
                   </li>
@@ -155,12 +153,12 @@ export default function Footer() {
           </div>
 
           {/* Newsletter Section */}
-          <div className="py-8 px-8 bg-linear-to-br from-blue-50 to-blue-100/50 rounded-2xl border border-blue-100 mb-12">
+          <div className="py-8 px-8 bg-linear-to-br from-blue-50/30 to-purple-50/30 rounded-2xl border border-blue-200/30 mb-12 backdrop-blur-sm">
             <div className="max-w-2xl mx-auto text-center">
-              <h4 className="text-blue-900 font-bold text-lg mb-2">
+              <h4 className="text-gray-900 font-bold text-lg mb-2">
                 Stay Updated
               </h4>
-              <p className="text-blue-900/70 text-sm mb-6">
+              <p className="text-gray-600 text-sm mb-6">
                 Get the latest features, updates, and tips delivered to your
                 inbox.
               </p>
@@ -168,9 +166,9 @@ export default function Footer() {
                 <input
                   type="email"
                   placeholder="Enter your email"
-                  className="flex-1 px-4 py-3 rounded-lg border border-blue-200 bg-white text-blue-900 placeholder:text-blue-900/40 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="flex-1 px-4 py-3 rounded-lg border border-gray-300/50 bg-white/80 backdrop-blur-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent text-sm"
                 />
-                <button className="px-6 py-3 bg-linear-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 hover:scale-105 shadow-lg shadow-blue-500/20 text-sm">
+                <button className="px-6 py-3 bg-linear-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 shadow-md text-sm">
                   Subscribe
                 </button>
               </div>
@@ -180,11 +178,11 @@ export default function Footer() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-blue-100 py-6 px-6 bg-blue-50/50">
+      <div className="border-t border-gray-200/30 py-6 px-6 bg-transparent backdrop-blur-sm">
         <div className="container mx-auto max-w-7xl">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-blue-900/60 text-sm">
-              © 2025 Navlens. All rights reserved.
+            <p className="text-gray-600 text-sm">
+              © 2025 Navlens Analytics. All rights reserved.
             </p>
             <div className="flex gap-6 text-sm">
               {["Privacy Policy", "Terms of Service", "Cookie Policy"].map(
@@ -192,7 +190,7 @@ export default function Footer() {
                   <a
                     key={item}
                     href="#"
-                    className="text-blue-900/60 hover:text-blue-600 transition-colors"
+                    className="text-gray-600 hover:text-blue-600 transition-colors"
                   >
                     {item}
                   </a>

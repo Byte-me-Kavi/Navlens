@@ -98,21 +98,25 @@ export default function Login() {
     return null;
   }
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-blue-50">
+    <div className="min-h-screen text-gray-900 overflow-x-hidden flex flex-col items-center justify-center p-4 relative">
+      {/* Background Gradient Elements */}
+      <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-linear-to-br from-blue-500 to-purple-500 opacity-10 blur-3xl -z-10" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-linear-to-br from-purple-500 to-pink-500 opacity-10 blur-3xl -z-10" />
+
       {/* 1. Your Navlens Logo */}
-      <Link className="mb-2" href="/">
+      <Link className="mb-2 relative z-10" href="/">
         <Image
           src="/images/navlens.png"
           alt="Navlens Logo"
           width={120}
           height={60}
           priority
-          className="drop-shadow-[0_0_20px_rgba(0,200,200,0.4)]"
+          className="drop-shadow-[0_0_20px_rgba(59,130,246,0.4)]"
         />
       </Link>
 
       {/* 2. The Themed Authentication Card */}
-      <div className="w-full max-w-md p-8 space-y-8 bg-gray-50 rounded-2xl shadow-[0_8px_32px_rgba(0,200,200,0.15)] border-2 border-blue-200">
+      <div className="w-full max-w-md p-8 space-y-8 bg-white/70 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(59,130,246,0.15)] border border-blue-200 relative z-10">
         <Auth
           supabaseClient={supabase}
           // Add providers you enabled in your Supabase project

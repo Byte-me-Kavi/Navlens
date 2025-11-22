@@ -197,7 +197,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         {/* Left Section - Page Title/Breadcrumb */}
         <div className="flex items-center gap-2 sm:gap-4 flex-1">
           <h1 className="text-base sm:text-xl md:text-2xl font-bold text-blue-900">
-            Navlens Dashboard
+            Navlens Analytics Dashboard
           </h1>
         </div>
 
@@ -206,13 +206,13 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           {/* Notification & Help Buttons - Mobile: left of avatar, Desktop: normal position */}
           <div className="flex items-center gap-1 md:gap-2">
             <button
-              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors"
               title="Notifications (Coming Soon)"
             >
               <BellIcon className="w-5 h-5" />
             </button>
             <button
-              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors"
               title="Help (Coming Soon)"
             >
               <QuestionMarkCircleIcon className="w-5 h-5" />
@@ -220,26 +220,26 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           </div>
 
           {/* Desktop: User Info with Logout */}
-          <div className="hidden md:flex items-center gap-3 pl-4 border-l border-blue-200">
+          <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-200">
             <div className="text-right">
-              <p className="text-sm font-medium text-blue-900">
+              <p className="text-xs font-medium text-gray-900">
                 {userEmail || "User"}
               </p>
-              <p className="text-xs text-gray-500">Account</p>
+              <p className="text-[10px] text-gray-500">Account</p>
             </div>
             {userImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={userImage}
                 alt="Profile"
-                className="w-10 h-10 rounded-full object-cover border border-blue-200"
+                className="w-8 h-8 rounded-full object-cover border border-gray-200"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
                   setUserImage(null);
                 }}
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-lg border border-blue-200">
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm border border-gray-200">
                 {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
               </div>
             )}
@@ -249,7 +249,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           <button
             onClick={handleLogout}
             disabled={isNavigating}
-            className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-md hover:bg-blue-900 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowRightOnRectangleIcon className="w-5 h-5" />
             <span className="font-medium">
@@ -261,21 +261,21 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           <div className="md:hidden relative">
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="p-1 border-l border-blue-200 pl-2"
+              className="p-1 border-l border-gray-200 pl-2"
             >
               {userImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={userImage}
                   alt="Profile"
-                  className="w-8 h-8 rounded-full object-cover border border-blue-200"
+                  className="w-8 h-8 rounded-full object-cover border border-gray-200"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                     setUserImage(null);
                   }}
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm border border-blue-200">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm border border-gray-200">
                   {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
                 </div>
               )}
@@ -288,14 +288,14 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                   className="fixed inset-0 z-10"
                   onClick={() => setShowMobileMenu(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-blue-200 py-2 z-20">
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
                   <button
                     onClick={() => {
                       handleLogout();
                       setShowMobileMenu(false);
                     }}
                     disabled={isNavigating}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left text-gray-700 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                   >
                     <ArrowRightOnRectangleIcon className="w-5 h-5" />
                     <span className="font-medium">

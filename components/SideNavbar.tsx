@@ -135,9 +135,9 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-blue-200 flex flex-col h-screen shadow-lg">
+    <aside className="w-56 bg-white/90 backdrop-blur-sm border-r border-gray-200 flex flex-col h-screen shadow-sm">
       {/* Logo Section */}
-      <div className="p-6 border-b border-blue-200">
+      <div className="p-4 border-b border-gray-200">
         <div className="flex justify-between items-center">
           <Link
             href="/dashboard"
@@ -146,11 +146,11 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
             <Image
               src="/images/navlens.png"
               alt="Navlens"
-              width={80}
-              height={40}
+              width={52}
+              height={35}
               priority
               style={{ width: "auto", height: "auto" }}
-              className="drop-shadow-[0_0_10px_rgba(0,200,200,0.3)] md:w-20 md:h-10 w-16 h-8"
+              className="drop-shadow-sm md:w-10 md:h-9 w-10 h-7"
             />
           </Link>
           {onClose && (
@@ -166,7 +166,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
@@ -182,18 +182,20 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
               key={item.name}
               onClick={handleNavClick}
               className={`
-                w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200
+                w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
                 ${
                   isActive
-                    ? "bg-linear-to-r from-blue-100 to-blue-50 text-blue-900 border-l-4 border-blue-600 shadow-sm"
-                    : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                    ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600 shadow-sm font-medium"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
                 }
                 `}
             >
-              <Icon className={`w-5 h-5 ${isActive ? "text-blue-600" : ""}`} />
-              <span className="font-medium">{item.name}</span>
+              <Icon className={`w-4 h-4 ${isActive ? "text-blue-600" : ""}`} />
+              <span className={isActive ? "font-semibold" : "font-medium"}>
+                {item.name}
+              </span>
               {item.badge && (
-                <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                <span className="ml-auto text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
                   {item.badge}
                 </span>
               )}
@@ -203,26 +205,26 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
       </nav>
 
       {/* Account Info - Mobile Only */}
-      <div className="md:hidden p-4 border-t border-blue-200 space-y-3">
+      <div className="md:hidden p-4 border-t border-gray-200 space-y-3">
         <div className="flex items-center gap-3">
           {userImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={userImage}
               alt="Profile"
-              className="w-10 h-10 rounded-full object-cover border border-blue-200"
+              className="w-10 h-10 rounded-full object-cover border border-gray-200"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
                 setUserImage(null);
               }}
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-lg border border-blue-200">
+            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-lg border border-gray-200">
               {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
             </div>
           )}
           <div className="flex-1">
-            <p className="text-sm font-medium text-blue-900">
+            <p className="text-sm font-medium text-gray-900">
               {userEmail || "User"}
             </p>
             <p className="text-xs text-gray-500">Account</p>
@@ -231,7 +233,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         <button
           onClick={handleLogout}
           disabled={isNavigating}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
           <ArrowRightOnRectangleIcon className="w-5 h-5" />
           <span className="font-medium">
@@ -241,10 +243,10 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
       </div>
 
       {/* Footer Info */}
-      <div className="p-4 border-t border-blue-200">
-        <div className="text-xs text-gray-500 text-center">
-          <p className="font-semibold text-blue-900">Navlens Analytics</p>
-          <p className="mt-1">Heatmap MVP v1.0</p>
+      <div className="p-3 border-t border-gray-200">
+        <div className="text-[10px] text-gray-500 text-center">
+          <p className="font-semibold text-gray-900">Navlens Analytics</p>
+          <p className="mt-0.5">Heatmap MVP v1.0</p>
         </div>
       </div>
     </aside>

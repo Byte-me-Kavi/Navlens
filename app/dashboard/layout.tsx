@@ -156,7 +156,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <Toast>
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-gray-50/30">
         {/* Desktop Sidebar - hide on heatmap viewer */}
         {!isHeatmapViewer && (
           <div className="hidden md:block">
@@ -190,7 +190,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           )}
           <main
             className={`flex-1 overflow-x-hidden ${
-              isHeatmapViewer ? "p-0" : "p-5"
+              isHeatmapViewer ? "p-0" : "p-4"
             }`}
           >
             {children}

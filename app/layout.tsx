@@ -1,40 +1,47 @@
+"use client";
+
 import type { Metadata } from "next";
 import { Toast } from "../components/Toast";
+import { AnimatedBackground } from "../components/ui/AnimatedBackground";
+import { usePathname } from "next/navigation";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Navlens",
-  description:
-    "Visualize user interactions with heatmaps and session recordings.",
-};
+function RootLayoutClient({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const pathname = usePathname();
+  const isDashboard = pathname?.startsWith("/dashboard");
+
+  return (
+    <body
+      className="antialiased bg-linear-to-br from-white via-blue-50/30 to-purple-50/20"
+      suppressHydrationWarning
+    >
+      {/* Global Animated Background - Hide on dashboard pages */}
+      {!isDashboard && (
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <AnimatedBackground />
+        </div>
+      )}
+
+      {/* All page content */}
+      <div className="relative z-10">
+        <Toast>{children}</Toast>
+      </div>
+    </body>
+  );
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Determine tracker URL based on environment
-  // const trackerUrl =
-  //   process.env.NODE_ENV === "development"
-  //     ? "http://localhost:3000/tracker.js"
-  //     : "https://navlens-rho.vercel.app/tracker.js";
-
   return (
     <html lang="en">
-      <body className="antialiased" suppressHydrationWarning>
-        <Toast>{children}</Toast>
-        {/* <script
-          async
-          src={trackerUrl}
-          data-site-id="52db6643-bda5-4b02-9a38-658b14f7f29a"
-          data-api-key="69e4dce7-5f3b-44c9-a0e1-aea13097e8a1"
-          data-api-host={
-            process.env.NODE_ENV === "development"
-              ? "http://localhost:3000"
-              : "https://navlens-git-v2-dom-recreation-kavishas-projects-947ef8e4.vercel.app"
-          }
-        ></script> */}
-      </body>
+      <RootLayoutClient>{children}</RootLayoutClient>
     </html>
   );
 }

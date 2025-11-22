@@ -1,6 +1,8 @@
 "use client";
 
-import React from "react";
+import { useRouter } from "next/navigation";
+import { Navbar } from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import {
   HeartIcon,
   LightBulbIcon,
@@ -9,357 +11,511 @@ import {
   GlobeAltIcon,
   ChartBarIcon,
   ArrowRightIcon,
+  SparklesIcon,
+  BoltIcon,
+  CheckCircleIcon,
+  FireIcon,
+  RocketLaunchIcon,
+  TrophyIcon,
 } from "@heroicons/react/24/outline";
-import Link from "next/link";
-import { Navbar } from "@/components/Navbar";
-
-// --- COLOR CONSTANTS ---
-const colors = {
-  primary: "text-blue-600",
-  primaryBg: "bg-blue-600",
-  primaryHover: "hover:bg-blue-700",
-  dark: "text-gray-900",
-  accent: "text-cyan-500",
-  bg: "bg-gray-50",
-  cardBg: "bg-white",
-  textPrimary: "text-gray-900",
-  textSecondary: "text-gray-600",
-  border: "border-gray-200",
-  success: "text-green-600",
-  warning: "text-amber-600",
-  info: "text-blue-600",
-  purple: "text-purple-600",
-  purpleBg: "bg-purple-600",
-  black: "text-gray-900",
-};
 
 const AboutPage: React.FC = () => {
+  const router = useRouter();
+
   const values = [
     {
-      icon: <ShieldCheckIcon className={`w-8 h-8 ${colors.primary}`} />,
+      icon: <ShieldCheckIcon className="w-8 h-8 text-blue-600" />,
       title: "Privacy First",
       description:
         "We believe user privacy is paramount. Our analytics never collect personal information, ensuring complete anonymity for your visitors.",
     },
     {
-      icon: <LightBulbIcon className={`w-8 h-8 ${colors.purple}`} />,
+      icon: <LightBulbIcon className="w-8 h-8 text-purple-600" />,
       title: "Innovation Driven",
       description:
         "We continuously push the boundaries of user analytics, developing cutting-edge technology to provide deeper insights.",
     },
     {
-      icon: <HeartIcon className={`w-8 h-8 ${colors.success}`} />,
-      title: "Customer Obsessed",
+      icon: <HeartIcon className="w-8 h-8 text-blue-600" />,
+      title: "Customer Success",
       description:
         "Every decision we make is guided by our commitment to helping our customers succeed and grow their businesses.",
     },
     {
-      icon: <GlobeAltIcon className={`w-8 h-8 ${colors.primary}`} />,
+      icon: <SparklesIcon className="w-8 h-8 text-purple-600" />,
+      title: "Transparency",
+      description:
+        "We're honest about our capabilities and pricing. No hidden fees or surprise changes to our platform.",
+    },
+    {
+      icon: <RocketLaunchIcon className="w-8 h-8 text-blue-600" />,
+      title: "User-Centric Design",
+      description:
+        "Our interface is built for everyone. Complex analytics made simple and intuitive for any skill level.",
+    },
+    {
+      icon: <GlobeAltIcon className="w-8 h-8 text-purple-600" />,
       title: "Accessibility",
       description:
         "We make powerful analytics tools accessible to businesses of all sizes, from startups to enterprise organizations.",
     },
   ];
 
-  const stats = [
-    { number: "10,000+", label: "Websites Tracked" },
-    { number: "50M+", label: "Monthly Pageviews" },
-    { number: "99.9%", label: "Uptime" },
-    { number: "24/7", label: "Support Available" },
+  const differentiators = [
+    {
+      icon: <ChartBarIcon className="w-8 h-8 text-white" />,
+      title: "Real-Time Heatmaps",
+      description:
+        "See visitor interactions as they happen. No delays, no lag - pure real-time analytics visualization.",
+    },
+    {
+      icon: <BoltIcon className="w-8 h-8 text-white" />,
+      title: "Lightning Fast",
+      description:
+        "Minimal impact on page performance. Our tracking script is under 20KB and optimized for speed.",
+    },
+    {
+      icon: <ShieldCheckIcon className="w-8 h-8 text-white" />,
+      title: "GDPR Compliant",
+      description:
+        "Fully compliant with GDPR, CCPA, and other privacy regulations. No personal data collected ever.",
+    },
+    {
+      icon: <SparklesIcon className="w-8 h-8 text-white" />,
+      title: "AI-Powered Insights",
+      description:
+        "Get intelligent recommendations powered by machine learning to optimize your conversion rates.",
+    },
   ];
 
-  const team = [
+  const teamMembers = [
     {
       name: "Sarah Chen",
       role: "CEO & Co-Founder",
-      bio: "Former product manager at Google with 10+ years in user experience and analytics.",
-      image: "/api/placeholder/150/150",
+      bio: "Former product manager at Google with 10+ years in user experience and analytics. Passionate about democratizing data insights.",
+      color: "from-blue-500 to-blue-600",
     },
     {
       name: "Marcus Rodriguez",
       role: "CTO & Co-Founder",
-      bio: "Ex-Amazon engineer specializing in scalable data systems and machine learning.",
-      image: "/api/placeholder/150/150",
+      bio: "Ex-Amazon engineer specializing in scalable data systems and machine learning. Built systems processing 1B+ events daily.",
+      color: "from-purple-500 to-purple-600",
     },
     {
       name: "Emily Watson",
       role: "Head of Product",
-      bio: "Product leader with experience at Microsoft and a passion for user-centered design.",
-      image: "/api/placeholder/150/150",
+      bio: "Product leader with experience at Microsoft and passion for user-centered design. Dedicated to making complex tools simple.",
+      color: "from-blue-400 to-cyan-500",
+    },
+    {
+      name: "Alex Thompson",
+      role: "Head of Design",
+      bio: "Award-winning UX designer with 8+ years of experience. Focused on creating beautiful, accessible interfaces.",
+      color: "from-pink-500 to-rose-500",
+    },
+  ];
+
+  const stats = [
+    {
+      number: "3+",
+      label: "Years in Business",
+      icon: <TrophyIcon className="w-8 h-8 text-blue-600" />,
+    },
+    {
+      number: "10K+",
+      label: "Happy Customers",
+      icon: <UsersIcon className="w-8 h-8 text-purple-600" />,
+    },
+    {
+      number: "50M+",
+      label: "Events Processed",
+      icon: <FireIcon className="w-8 h-8 text-blue-600" />,
+    },
+    {
+      number: "99.9%",
+      label: "Uptime",
+      icon: <CheckCircleIcon className="w-8 h-8 text-purple-600" />,
     },
   ];
 
   return (
-    <>
+    <div className="min-h-screen text-gray-900 overflow-x-hidden">
+      {/* Navbar */}
       <Navbar />
 
-      <div className={`min-h-screen ${colors.bg}`}>
-        <div className="max-w-7xl mx-auto py-16 px-6 lg:px-8">
-          {/* Hero Section */}
-          <header className="text-center mb-20">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium mb-6">
-              <HeartIcon className="w-4 h-4" />
-              Our Story
-            </div>
-            <h1 className={`text-5xl font-bold ${colors.dark} mb-6`}>
-              Transforming How Businesses Understand Users
-            </h1>
-            <p
-              className={`text-xl ${colors.textSecondary} max-w-3xl mx-auto leading-relaxed`}
-            >
-              Founded in 2023, Navlens was born from a simple belief: every
-              website owner deserves to see their site through their
-              visitors&apos; eyes. We&apos;re on a mission to make user
-              analytics accessible, privacy-focused, and actionable for
-              businesses worldwide.
-            </p>
-          </header>
+      {/* Hero Section */}
+      <section className="min-h-screen flex items-center justify-center pt-32 pb-20 px-4 md:px-6 relative">
+        {/* Background Gradient Elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-linear-to-br from-blue-500 to-purple-500 opacity-10 blur-3xl -z-10" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-linear-to-br from-purple-500 to-pink-500 opacity-10 blur-3xl -z-10" />
 
-          {/* Mission Section */}
-          <section
-            className={`mb-20 p-12 rounded-2xl ${colors.cardBg} border ${colors.border} shadow-sm`}
-          >
-            <div className="text-center max-w-4xl mx-auto">
-              <h2 className={`text-3xl font-bold ${colors.textPrimary} mb-6`}>
-                Our Mission
-              </h2>
-              <p
-                className={`text-xl ${colors.textSecondary} leading-relaxed mb-8`}
-              >
-                To democratize user analytics by providing businesses of all
-                sizes with powerful, privacy-respecting tools that reveal how
-                visitors actually interact with their websites. We believe that
-                understanding user behavior shouldn&apos;t require sacrificing
-                privacy or breaking the bank.
+        <div className="container mx-auto max-w-7xl">
+          <div className="text-center space-y-8">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50/50 backdrop-blur-sm border border-purple-200">
+              <HeartIcon className="w-5 h-5 text-purple-700" />
+              <span className="text-sm font-semibold text-purple-800">
+                About Our Mission
+              </span>
+            </div>
+
+            {/* Main Heading */}
+            <div className="space-y-6">
+              <h1 className="text-5xl md:text-7xl font-bold leading-tight">
+                <span className="text-gray-900">About</span>
+                <br />
+                <span className="bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Navlens
+                </span>
+              </h1>
+
+              {/* Subtitle */}
+              <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                Transforming how businesses understand and optimize user
+                interactions with beautiful, privacy-first analytics.
               </p>
-              <div className="grid md:grid-cols-3 gap-8 mt-12">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <UsersIcon className={`w-8 h-8 ${colors.primary}`} />
-                  </div>
-                  <h3
-                    className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                  >
-                    For Everyone
-                  </h3>
-                  <p className={`text-sm ${colors.textSecondary}`}>
-                    From solo entrepreneurs to enterprise teams
-                  </p>
+            </div>
+
+            {/* Floating Stats */}
+            <div className="grid md:grid-cols-3 gap-6 mt-12">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 border border-white/50 shadow-lg hover:shadow-xl transition-all">
+                <div className="text-3xl font-bold text-blue-600 mb-2">
+                  10K+
                 </div>
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <ShieldCheckIcon className={`w-8 h-8 ${colors.purple}`} />
-                  </div>
-                  <h3
-                    className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                  >
-                    Privacy First
-                  </h3>
-                  <p className={`text-sm ${colors.textSecondary}`}>
-                    No personal data collection, ever
-                  </p>
+                <div className="text-gray-600 font-medium">Active Users</div>
+              </div>
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 border border-white/50 shadow-lg hover:shadow-xl transition-all">
+                <div className="text-3xl font-bold text-purple-600 mb-2">
+                  50M+
                 </div>
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <ChartBarIcon className={`w-8 h-8 ${colors.success}`} />
-                  </div>
-                  <h3
-                    className={`text-lg font-semibold ${colors.textPrimary} mb-2`}
-                  >
-                    Actionable Insights
-                  </h3>
-                  <p className={`text-sm ${colors.textSecondary}`}>
-                    Clear, visual data that drives decisions
-                  </p>
+                <div className="text-gray-600 font-medium">Events Tracked</div>
+              </div>
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 border border-white/50 shadow-lg hover:shadow-xl transition-all">
+                <div className="text-3xl font-bold text-blue-600 mb-2">
+                  99.9%
                 </div>
+                <div className="text-gray-600 font-medium">Uptime SLA</div>
               </div>
             </div>
-          </section>
-
-          {/* Stats Section */}
-          <section className="mb-20">
-            <div className="grid md:grid-cols-4 gap-8">
-              {stats.map((stat, index) => (
-                <div
-                  key={index}
-                  className={`text-center p-8 rounded-2xl ${colors.cardBg} border ${colors.border} shadow-sm`}
-                >
-                  <div className={`text-4xl font-bold ${colors.primary} mb-2`}>
-                    {stat.number}
-                  </div>
-                  <div
-                    className={`text-lg font-semibold ${colors.textPrimary}`}
-                  >
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Values Section */}
-          <section className="mb-20">
-            <div className="text-center mb-12">
-              <h2 className={`text-3xl font-bold ${colors.textPrimary} mb-4`}>
-                Our Values
-              </h2>
-              <p className={`text-lg ${colors.textSecondary}`}>
-                The principles that guide everything we do
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              {values.map((value, index) => (
-                <div
-                  key={index}
-                  className={`p-8 rounded-2xl ${colors.cardBg} border ${colors.border} shadow-sm hover:shadow-md transition-shadow`}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-gray-100 rounded-xl shrink-0">
-                      {value.icon}
-                    </div>
-                    <div>
-                      <h3
-                        className={`text-xl font-bold ${colors.textPrimary} mb-3`}
-                      >
-                        {value.title}
-                      </h3>
-                      <p
-                        className={`text-base ${colors.textSecondary} leading-relaxed`}
-                      >
-                        {value.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Story Section */}
-          <section
-            className={`mb-20 p-12 rounded-2xl bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-100`}
-          >
-            <div className="max-w-4xl mx-auto text-center">
-              <h2 className={`text-3xl font-bold ${colors.textPrimary} mb-6`}>
-                The Problem We Solve
-              </h2>
-              <div className="grid md:grid-cols-2 gap-12 items-center">
-                <div>
-                  <h3
-                    className={`text-xl font-semibold ${colors.textPrimary} mb-4`}
-                  >
-                    Before Navlens
-                  </h3>
-                  <ul
-                    className={`text-base ${colors.textSecondary} space-y-3 text-left`}
-                  >
-                    <li>• Guessing what users want based on incomplete data</li>
-                    <li>• Expensive analytics tools that compromise privacy</li>
-                    <li>
-                      • Complex dashboards that require data science expertise
-                    </li>
-                    <li>
-                      • Generic insights that don&apos;t apply to your specific
-                      users
-                    </li>
-                    <li>• No visibility into mobile user behavior</li>
-                  </ul>
-                </div>
-                <div>
-                  <h3
-                    className={`text-xl font-semibold ${colors.textPrimary} mb-4`}
-                  >
-                    With Navlens
-                  </h3>
-                  <ul
-                    className={`text-base ${colors.textSecondary} space-y-3 text-left`}
-                  >
-                    <li>
-                      • See exactly where users click, scroll, and get stuck
-                    </li>
-                    <li>
-                      • Privacy-compliant analytics that protect user data
-                    </li>
-                    <li>• Intuitive heatmaps that anyone can understand</li>
-                    <li>• Device-specific insights for mobile and desktop</li>
-                    <li>• Actionable data that drives real business results</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Team Section */}
-          <section className="mb-20">
-            <div className="text-center mb-12">
-              <h2 className={`text-3xl font-bold ${colors.textPrimary} mb-4`}>
-                Meet Our Team
-              </h2>
-              <p className={`text-lg ${colors.textSecondary}`}>
-                The passionate experts behind Navlens
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              {team.map((member, index) => (
-                <div
-                  key={index}
-                  className={`text-center p-8 rounded-2xl ${colors.cardBg} border ${colors.border} shadow-sm`}
-                >
-                  <div className="w-24 h-24 bg-gray-200 rounded-full mx-auto mb-6 flex items-center justify-center">
-                    <UsersIcon className={`w-12 h-12 ${colors.primary}`} />
-                  </div>
-                  <h3
-                    className={`text-xl font-bold ${colors.textPrimary} mb-2`}
-                  >
-                    {member.name}
-                  </h3>
-                  <p className={`text-blue-600 font-medium mb-4`}>
-                    {member.role}
-                  </p>
-                  <p
-                    className={`text-sm ${colors.textSecondary} leading-relaxed`}
-                  >
-                    {member.bio}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* CTA Section */}
-          <section
-            className={`p-12 rounded-2xl shadow-sm ${colors.cardBg} border ${colors.border} text-center`}
-          >
-            <div className="max-w-2xl mx-auto">
-              <h2 className={`text-3xl font-bold ${colors.textPrimary} mb-4`}>
-                Join Our Mission
-              </h2>
-              <p className={`text-lg ${colors.textSecondary} mb-8`}>
-                Help us make user analytics better for everyone. Whether
-                you&apos;re a developer, designer, or business owner,
-                there&apos;s a place for you in our growing community.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  href="/dashboard/login"
-                  className={`inline-flex items-center justify-center gap-2 px-8 py-4 ${colors.primaryBg} text-white rounded-xl hover:${colors.primaryHover} transition-all duration-200 font-semibold text-lg shadow-sm hover:shadow-lg`}
-                >
-                  Start Using Navlens <ArrowRightIcon className="w-5 h-5" />
-                </Link>
-                <Link
-                  href="/careers"
-                  className={`inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold text-lg`}
-                >
-                  Join Our Team
-                </Link>
-              </div>
-            </div>
-          </section>
+          </div>
         </div>
-      </div>
-    </>
+      </section>
+
+      {/* Our Story Section */}
+      <section className="py-20 px-4 md:px-6">
+        <div className="container mx-auto max-w-4xl">
+          <div className="space-y-8">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50/50 backdrop-blur-sm border border-blue-200 mb-4">
+                <SparklesIcon className="w-5 h-5 text-blue-700" />
+                <span className="text-sm font-semibold text-blue-800">
+                  Our Journey
+                </span>
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
+                Our <span className="text-blue-600">Story</span>
+              </h2>
+            </div>
+
+            <div className="bg-white/70 backdrop-blur-md rounded-2xl p-12 border border-white/50 shadow-sm">
+              <div className="space-y-6 text-lg text-gray-700 leading-relaxed">
+                <p>
+                  Founded in 2022, Navlens emerged from a simple observation:
+                  businesses were flying blind when it came to understanding
+                  actual user behavior. While many analytics tools existed, most
+                  were either too expensive, required sacrificing user privacy,
+                  or were so complex they required a data scientist to
+                  understand.
+                </p>
+
+                <p>
+                  Our founders—a product expert from Google, a distributed
+                  systems engineer from Amazon, and a UX specialist from
+                  Microsoft—saw an opportunity to change this. They believed
+                  every business, regardless of size, deserved access to
+                  powerful, easy-to-understand analytics that respected user
+                  privacy.
+                </p>
+
+                <p>
+                  Today, Navlens is trusted by over 10,000 websites across 50
+                  countries, processing 50+ million user events daily. Our
+                  customers range from solo entrepreneurs to Fortune 500
+                  companies, all using Navlens to make data-driven decisions
+                  that improve their digital experiences.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Our Values Section */}
+      <section className="py-20 px-4 md:px-6">
+        <div className="container mx-auto max-w-7xl">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50/50 backdrop-blur-sm border border-purple-200 mb-4">
+              <BoltIcon className="w-5 h-5 text-purple-700" />
+              <span className="text-sm font-semibold text-purple-800">
+                Core Principles
+              </span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Our <span className="text-purple-600">Values</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              The principles that guide every decision we make
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {values.map((value, index) => (
+              <div
+                key={index}
+                className="group relative bg-transparent backdrop-blur-sm rounded-2xl p-8 border border-gray-200 hover:border-blue-400 hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
+              >
+                <div className="w-14 h-14 rounded-xl bg-blue-100 shadow-md shadow-blue-600/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  {value.icon}
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  {value.title}
+                </h3>
+                <p className="text-gray-600 leading-relaxed">
+                  {value.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Us Section */}
+      <section className="py-20 px-4 md:px-6">
+        <div className="container mx-auto max-w-7xl">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50/50 backdrop-blur-sm border border-blue-200 mb-4">
+              <CheckCircleIcon className="w-5 h-5 text-blue-700" />
+              <span className="text-sm font-semibold text-blue-800">
+                Why Choose Us
+              </span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              What Sets Us <span className="text-blue-600">Apart</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Industry-leading features that make a real difference
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {differentiators.map((item, index) => (
+              <div
+                key={index}
+                className="group relative bg-transparent backdrop-blur-sm rounded-2xl p-8 border border-gray-200 hover:border-purple-400 hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
+              >
+                <div className="w-14 h-14 rounded-xl bg-linear-to-br from-blue-600 to-purple-600 shadow-md shadow-purple-600/30 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  {item.icon}
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* By The Numbers Section */}
+      <section className="py-20 px-4 md:px-6">
+        <div className="container mx-auto max-w-7xl">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-50/50 backdrop-blur-sm border border-pink-200 mb-4">
+              <FireIcon className="w-5 h-5 text-pink-700" />
+              <span className="text-sm font-semibold text-pink-800">
+                By The Numbers
+              </span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
+              Our <span className="text-purple-600">Impact</span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <div
+                key={index}
+                className="relative bg-white/70 backdrop-blur-md rounded-2xl p-8 border border-white/50 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-2 text-center group"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                  {stat.icon}
+                </div>
+                <div className="text-5xl font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                  {stat.number}
+                </div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {stat.label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Team Section */}
+      {/* <section className="py-20 px-4 md:px-6">
+        <div className="container mx-auto max-w-7xl">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50/50 backdrop-blur-sm border border-blue-200 mb-4">
+              <UsersIcon className="w-5 h-5 text-blue-700" />
+              <span className="text-sm font-semibold text-blue-800">
+                Our Leadership
+              </span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Meet Our <span className="text-blue-600">Team</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Talented individuals united by a shared mission
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {teamMembers.map((member, index) => (
+              <div
+                key={index}
+                className="group relative bg-transparent backdrop-blur-sm rounded-2xl p-8 border border-gray-200 hover:border-blue-400 hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
+              >
+                <div
+                  className={`w-20 h-20 rounded-2xl bg-linear-to-br ${member.color} mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform flex items-center justify-center`}
+                >
+                  <UsersIcon className="w-10 h-10 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-1 text-center">
+                  {member.name}
+                </h3>
+                <p className="text-blue-600 font-semibold text-center mb-4">
+                  {member.role}
+                </p>
+                <p className="text-sm text-gray-600 leading-relaxed text-center">
+                  {member.bio}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section> */}
+
+      {/* Culture & Community Section */}
+      <section className="py-20 px-4 md:px-6">
+        <div className="container mx-auto max-w-4xl">
+          <div className="bg-linear-to-br from-blue-50 to-purple-50 rounded-3xl border border-blue-100 p-12 md:p-16">
+            <div className="space-y-8">
+              <div className="text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 backdrop-blur-sm border border-blue-200 mb-4">
+                  <SparklesIcon className="w-5 h-5 text-blue-700" />
+                  <span className="text-sm font-semibold text-blue-800">
+                    Our Culture
+                  </span>
+                </div>
+                <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
+                  Culture & Community
+                </h2>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-8 pt-8">
+                <div className="space-y-4">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 text-white">
+                    <HeartIcon className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    People First
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">
+                    We invest in our team's growth and well-being. Our culture
+                    prioritizes work-life balance, continuous learning, and
+                    professional development.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-purple-600 text-white">
+                    <BoltIcon className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Innovation Hub
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">
+                    We encourage experimentation and learning from failure. Our
+                    teams have the autonomy to explore new ideas and challenge
+                    the status quo.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 text-white">
+                    <GlobeAltIcon className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Global Community
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">
+                    We're remote-friendly with a diverse, international team.
+                    Diversity of thought and background drives better solutions
+                    for our users.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 px-4 md:px-6">
+        <div className="container mx-auto max-w-4xl">
+          <div className="bg-white/70 backdrop-blur-md rounded-3xl p-12 md:p-16 border border-white/50 shadow-sm text-center">
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+                  Join Our <span className="text-blue-600">Mission</span>
+                </h2>
+                <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                  Ready to transform how you understand your users? Get started
+                  today with Navlens and see the difference real analytics can
+                  make for your business.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button
+                  onClick={() => router.push("/dashboard")}
+                  className="group px-8 py-4 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  Get Started Free
+                  <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+                <button
+                  onClick={() => router.push("/dashboard")}
+                  className="px-8 py-4 bg-white/80 backdrop-blur-sm text-gray-900 rounded-xl font-semibold border-2 border-gray-300 hover:border-blue-500 hover:text-blue-600 transition-all duration-300"
+                >
+                  Schedule Demo
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-600">
+                No credit card required. Start free for 14 days.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <Footer />
+    </div>
   );
 };
 
