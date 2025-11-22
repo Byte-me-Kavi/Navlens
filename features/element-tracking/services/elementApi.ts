@@ -17,7 +17,7 @@ export const elementApi = {
       pagePath: params.pagePath,
       deviceType: params.deviceType,
       ...(params.startDate && { startDate: params.startDate }),
-      ...(params.endDate && { endDate: params.endDate }),
+      ...(params.endDate && { endDate: params.endDate })
     });
 
     return data;

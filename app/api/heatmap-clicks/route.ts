@@ -131,7 +131,20 @@ async function processHeatmapClicks(
 
   const allClicksRows = await allClicksResult.json();
 
-  console.log('ClickHouse returned', allClicksRows.length, 'all click points');
+  console.log('🔍 [HEATMAP-CLICKS] ClickHouse returned', allClicksRows.length, 'heatmap points');
+  console.log('🔍 [HEATMAP-CLICKS] Query params:', { siteId, pagePath, deviceType });
+  
+  // Debug: Show sample of raw data from ClickHouse
+  if (allClicksRows.length > 0) {
+    console.log('📊 [HEATMAP-CLICKS] Sample rows (first 3):');
+    allClicksRows.slice(0, 3).forEach((row, idx) => {
+      console.log(`  Row ${idx + 1}:`, JSON.stringify(row));
+    });
+  } else {
+    console.warn('⚠️ [HEATMAP-CLICKS] No heatmap data returned!');
+    console.warn('   Debugging: Check if clicks exist in database');
+    console.warn('   Run: SELECT COUNT(*) FROM events WHERE site_id =', siteId, 'AND page_path =', pagePath);
+  }
 
   // Transform all click points using relative coordinates and original document dimensions
   interface ClickRow {

@@ -66,9 +66,9 @@ export async function POST(req: NextRequest) {
       SELECT
         element_selector as selector,
         element_tag as tag,
-        element_text as text,
-        element_id,
-        element_classes,
+        any(element_text) as text,
+        any(element_id) as element_id,
+        any(element_classes) as element_classes,
         -- Calculate the centroid of clicks on this element
         round(avg(x), 2) as x,
         round(avg(y), 2) as y,
@@ -89,10 +89,7 @@ export async function POST(req: NextRequest) {
         AND element_selector != ''
       GROUP BY
         element_selector,
-        element_tag,
-        element_text,
-        element_id,
-        element_classes
+        element_tag
       ORDER BY click_count DESC
     `;
 

@@ -13,7 +13,7 @@ export const heatmapApi = {
    * POST is used instead of GET to avoid exposing sensitive data in URL
    */
   async getHeatmapClicks(params: HeatmapParams): Promise<HeatmapPoint[]> {
-    const data = await apiClient.post<HeatmapPoint[]>('/heatmap-clicks', {
+    const response = await apiClient.post<{ clicks: HeatmapPoint[] }>('/heatmap-clicks', {
       siteId: params.siteId,
       pagePath: params.pagePath,
       deviceType: params.deviceType,
@@ -21,7 +21,8 @@ export const heatmapApi = {
       ...(params.endDate && { endDate: params.endDate }),
     });
 
-    return data;
+    // Backend returns {clicks: HeatmapPoint[]}, extract the array
+    return response.clicks || [];
   },
 
   /**

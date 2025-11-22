@@ -50,20 +50,28 @@ export function HeatmapViewer({
     deviceType,
   });
 
-  // Show loading state
-  if (snapshotLoading) {
+  // Show loading state - wait for snapshot AND initial data attempts
+  if (snapshotLoading || heatmapLoading || elementLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <LoadingSpinner size="large" />
-          <p className="mt-4 text-gray-600">Loading page snapshot...</p>
+          <p className="mt-4 text-gray-600">Loading visualization data...</p>
         </div>
       </div>
     );
   }
 
-  // Show error state ONLY after loading is complete and no data
-  if (!snapshotLoading && (snapshotError || !snapshotData)) {
+  // Debug snapshot data
+  console.log("🔍 [HEATMAP-VIEWER] Snapshot check:", {
+    snapshotError,
+    snapshotData,
+    hasSnapshot: !!snapshotData,
+    snapshotKeys: snapshotData ? Object.keys(snapshotData) : [],
+  });
+
+  // Show error state ONLY after ALL loading is complete and no snapshot
+  if (snapshotError || !snapshotData || !snapshotData.snapshot) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50">
         <div className="text-center p-6">
@@ -88,19 +96,43 @@ export function HeatmapViewer({
 
   // Only render after snapshot data is loaded (already checked above)
   // Render the snapshot viewer with all data
+  const heatmapPointsToPass =
+    showHeatmap && (dataType === "heatmap" || dataType === "both")
+      ? heatmapData
+      : [];
+
+  const elementClicksToPass =
+    showElements && (dataType === "clicks" || dataType === "both")
+      ? elementClicks
+      : [];
+
+  console.log("📤 HeatmapViewer passing to SnapshotViewer:");
+  console.log(
+    "  - Heatmap:",
+    heatmapData?.length ?? 0,
+    "points, showHeatmap:",
+    showHeatmap,
+    "dataType:",
+    dataType,
+    "→ willPass:",
+    heatmapPointsToPass.length
+  );
+  console.log(
+    "  - Elements:",
+    elementClicks?.length ?? 0,
+    "clicks, showElements:",
+    showElements,
+    "dataType:",
+    dataType,
+    "→ willPass:",
+    elementClicksToPass.length
+  );
+
   return (
     <SnapshotViewer
       snapshot={snapshotData!}
-      heatmapPoints={
-        showHeatmap && (dataType === "heatmap" || dataType === "both")
-          ? heatmapData
-          : []
-      }
-      elementClicks={
-        showElements && (dataType === "clicks" || dataType === "both")
-          ? elementClicks
-          : []
-      }
+      heatmapPoints={heatmapPointsToPass}
+      elementClicks={elementClicksToPass}
       siteId={siteId}
       pagePath={pagePath}
       deviceType={deviceType}

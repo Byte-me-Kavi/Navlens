@@ -219,7 +219,7 @@ export default function HeatmapViewerPage() {
   >("desktop");
   const [selectedDataType, setSelectedDataType] = useState<
     "clicks" | "heatmap" | "both"
-  >("clicks");
+  >("both");
   const [availablePages, setAvailablePages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);

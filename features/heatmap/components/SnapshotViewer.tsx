@@ -32,6 +32,13 @@ export function SnapshotViewer({
   pagePath,
   deviceType,
 }: SnapshotViewerProps) {
+  console.log("🎯 SnapshotViewer received:", {
+    heatmapPointsCount: heatmapPoints?.length ?? 0,
+    heatmapPointsType: typeof heatmapPoints,
+    isArray: Array.isArray(heatmapPoints),
+    firstPoint: heatmapPoints?.[0],
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const scrollSyncRef = useRef<ScrollSync>(new ScrollSync());

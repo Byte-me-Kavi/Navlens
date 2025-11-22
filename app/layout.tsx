@@ -14,16 +14,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   // Determine tracker URL based on environment
-  const trackerUrl =
-    process.env.NODE_ENV === "development"
-      ? "http://localhost:3000/tracker.js"
-      : "https://navlens-rho.vercel.app/tracker.js";
+  // const trackerUrl =
+  //   process.env.NODE_ENV === "development"
+  //     ? "http://localhost:3000/tracker.js"
+  //     : "https://navlens-rho.vercel.app/tracker.js";
 
   return (
     <html lang="en">
       <body className="antialiased" suppressHydrationWarning>
         <Toast>{children}</Toast>
-        <script
+        {/* <script
           async
           src={trackerUrl}
           data-site-id="52db6643-bda5-4b02-9a38-658b14f7f29a"
@@ -33,7 +33,7 @@ export default function RootLayout({
               ? "http://localhost:3000"
               : "https://navlens-git-v2-dom-recreation-kavishas-projects-947ef8e4.vercel.app"
           }
-        ></script>
+        ></script> */}
       </body>
     </html>
   );

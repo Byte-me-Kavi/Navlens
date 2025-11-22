@@ -34,6 +34,14 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
         samplePoint: result[0],
         hasRelativeCoords: result[0]?.x_relative !== undefined,
       });
+      
+      if (result.length === 0) {
+        console.warn('⚠️ No heatmap data returned from API');
+        console.warn('   Possible reasons:');
+        console.warn('   1. No clicks recorded yet for this page');
+        console.warn('   2. Clicks recorded before document dimensions fix (document_width=0)');
+        console.warn('   3. Generate new clicks on your site to see heatmap data');
+      }
 
       setData(result);
     } catch (err) {
