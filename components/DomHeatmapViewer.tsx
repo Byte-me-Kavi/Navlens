@@ -32,8 +32,12 @@ interface DomHeatmapViewerProps {
 }
 
 interface ClickData {
-  x: number;
-  y: number;
+  x_relative?: number;
+  y_relative?: number;
+  document_width?: number;
+  document_height?: number;
+  x?: number;
+  y?: number;
   value: number;
 }
 
@@ -736,17 +740,47 @@ export default function DomHeatmapViewer({
       return;
     }
 
+    // Get current iframe dimensions for relative-to-absolute conversion
+    const iframe = document.querySelector("iframe");
+    const iframeDoc = iframe?.contentDocument;
+    if (!iframeDoc) return;
+
+    const currentDocWidth =
+      iframeDoc.documentElement.scrollWidth || window.innerWidth;
+    const currentDocHeight =
+      iframeDoc.documentElement.scrollHeight || window.innerHeight;
+
     const maxValue = Math.max(...clickData.map((d) => d.value));
     const heatmapData = {
       max: maxValue,
-      data: clickData.map((point) => ({
-        x: Math.round(point.x),
-        y: Math.round(point.y),
-        value: point.value,
-      })),
+      data: clickData.map((point) => {
+        // Convert relative coordinates to absolute using current document dimensions
+        if (point.x_relative !== undefined && point.y_relative !== undefined) {
+          const x = Math.round(point.x_relative * currentDocWidth);
+          const y = Math.round(point.y_relative * currentDocHeight);
+          return {
+            x: Math.max(0, Math.min(x, currentDocWidth)),
+            y: Math.max(0, Math.min(y, currentDocHeight)),
+            value: point.value,
+          };
+        }
+        // Fallback to absolute coordinates if relative not available
+        return {
+          x: Math.round(point.x || 0),
+          y: Math.round(point.y || 0),
+          value: point.value,
+        };
+      }),
     };
     if (heatmapInstance) heatmapInstance.setData(heatmapData);
-  }, [clickData, dataType, heatmapInstance, canvasSized, showHeatmap]);
+  }, [
+    clickData,
+    dataType,
+    heatmapInstance,
+    canvasSized,
+    showHeatmap,
+    snapshotData,
+  ]);
 
   // Generate comprehensive element analysis with real ClickHouse data
   const generateElementAnalysis = async (element: ElementClick) => {

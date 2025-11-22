@@ -98,13 +98,14 @@ export async function GET(req: NextRequest) {
     console.log('- pagePath:', pagePath, 'type:', typeof pagePath);
     console.log('- deviceType:', deviceType, 'type:', typeof deviceType);
 
-    // Query for all click points (traditional heatmap with high-precision binning)
+    // Query for all click points using relative positioning for accurate remapping
     const allClicksQuery = `
       SELECT
-        -- Binning: Round to nearest 2 pixels to group very close clicks
-        -- This reduces data volume without losing visual precision
-        round(x / 2) * 2 as x,
-        round(y / 2) * 2 as y,
+        -- Use relative coordinates and store original document dimensions
+        x_relative,
+        y_relative,
+        document_width,
+        document_height,
         count(*) as value
       FROM events
       WHERE site_id = {siteId:String}
@@ -112,7 +113,8 @@ export async function GET(req: NextRequest) {
         AND (device_type = {deviceType:String} OR (device_type = '' AND {deviceType:String} = 'desktop'))
         AND event_type = 'click'
         AND timestamp >= subtractDays(now(), 30)
-      GROUP BY x, y
+        AND x_relative > 0 AND y_relative > 0
+      GROUP BY x_relative, y_relative, document_width, document_height
       ORDER BY value DESC
       LIMIT 5000
     `;
@@ -151,19 +153,24 @@ export async function GET(req: NextRequest) {
 
     console.log('ClickHouse returned', allClicksRows.length, 'all click points');
 
-    // Transform all click points
+    // Transform all click points using relative coordinates
+    // The viewer will use these relative positions to scale to current document dimensions
     interface ClickRow {
-      x: string;
-      y: string;
+      x_relative: string;
+      y_relative: string;
+      document_width: string;
+      document_height: string;
       value: string;
     }
     const clickPoints = (allClicksRows as ClickRow[]).map((row) => ({
-      x: parseInt(row.x),
-      y: parseInt(row.y),
+      x_relative: parseFloat(row.x_relative),
+      y_relative: parseFloat(row.y_relative),
+      document_width: parseInt(row.document_width),
+      document_height: parseInt(row.document_height),
       value: parseInt(row.value),
     }));
 
-    console.log('Returning', clickPoints.length, 'click points to frontend');
+    console.log('Returning', clickPoints.length, 'click points with relative positioning');
     return NextResponse.json({
       clicks: clickPoints
     }, { status: 200 });

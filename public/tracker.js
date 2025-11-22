@@ -307,12 +307,14 @@
           y: event.y,
           x_relative: event.x_relative,
           y_relative: event.y_relative,
+          scroll_depth: event.scroll_depth,
+          document_width: event.document_width,
+          document_height: event.document_height,
           element_id: event.element_id,
           element_classes: event.element_classes,
           element_tag: event.element_tag,
           element_text: event.element_text,
           element_selector: event.element_selector,
-          scroll_depth: event.scroll_depth,
         },
       })),
       siteId: SITE_ID,
@@ -834,6 +836,16 @@
     const docHeight =
       document.documentElement.scrollHeight || window.innerHeight;
 
+    // Calculate current scroll depth
+    const currentScrollY = window.scrollY;
+    const documentHeight =
+      document.documentElement.scrollHeight -
+      document.documentElement.clientHeight;
+    const scrollDepth =
+      documentHeight > 0
+        ? Math.min(1, Math.max(0, currentScrollY / documentHeight))
+        : 0;
+
     console.log("Navlens: Click captured:", {
       x: Math.round(x),
       y: Math.round(y),
@@ -850,6 +862,10 @@
         y: Math.round(y),
         x_relative: docWidth > 0 ? parseFloat((x / docWidth).toFixed(4)) : 0,
         y_relative: docHeight > 0 ? parseFloat((y / docHeight).toFixed(4)) : 0,
+        scroll_depth: scrollDepth,
+        // Store document dimensions at time of click for accurate remapping on resize
+        document_width: Math.round(docWidth),
+        document_height: Math.round(docHeight),
         element_id: target.id || "",
         element_classes: Array.from(target.classList).join(" ") || "",
         element_tag: target.tagName || "",
