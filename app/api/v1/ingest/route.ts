@@ -170,8 +170,12 @@ export async function POST(request: NextRequest) {
       try {
         // Debug log to see what's coming in
         console.log('📥 Raw event received:', JSON.stringify(events[i], null, 2));
+        console.log('📥 Raw event.data:', JSON.stringify(events[i].data, null, 2));
+        console.log('📥 document_width in event.data?:', events[i].data?.document_width);
+        console.log('📥 document_height in event.data?:', events[i].data?.document_height);
         const validatedEvent = validators.validateEventData(events[i]);
         console.log('✅ Validated event:', JSON.stringify(validatedEvent, null, 2));
+        console.log('✅ Validated event.data:', JSON.stringify(validatedEvent.data, null, 2));
         validEvents.push(validatedEvent);
       } catch (error) {
         const errorMsg = error instanceof ValidationError ? error.message : 'Unknown validation error';
