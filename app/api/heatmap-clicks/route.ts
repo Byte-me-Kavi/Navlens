@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
     // Query for all click points using relative positioning for accurate remapping
     const allClicksQuery = `
       SELECT
-        -- Use relative coordinates and store original document dimensions
+        -- Use relative coordinates and original document dimensions for precise scaling
         x_relative,
         y_relative,
         document_width,
@@ -114,6 +114,7 @@ export async function GET(req: NextRequest) {
         AND event_type = 'click'
         AND timestamp >= subtractDays(now(), 30)
         AND x_relative > 0 AND y_relative > 0
+        AND document_width > 0 AND document_height > 0
       GROUP BY x_relative, y_relative, document_width, document_height
       ORDER BY value DESC
       LIMIT 5000
@@ -153,8 +154,7 @@ export async function GET(req: NextRequest) {
 
     console.log('ClickHouse returned', allClicksRows.length, 'all click points');
 
-    // Transform all click points using relative coordinates
-    // The viewer will use these relative positions to scale to current document dimensions
+    // Transform all click points using relative coordinates and original document dimensions
     interface ClickRow {
       x_relative: string;
       y_relative: string;

@@ -863,7 +863,7 @@
         x_relative: docWidth > 0 ? parseFloat((x / docWidth).toFixed(4)) : 0,
         y_relative: docHeight > 0 ? parseFloat((y / docHeight).toFixed(4)) : 0,
         scroll_depth: scrollDepth,
-        // Store document dimensions at time of click for accurate remapping on resize
+        // Store document dimensions at time of click for accurate remapping
         document_width: Math.round(docWidth),
         document_height: Math.round(docHeight),
         element_id: target.id || "",

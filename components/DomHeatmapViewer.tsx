@@ -754,13 +754,18 @@ export default function DomHeatmapViewer({
     const heatmapData = {
       max: maxValue,
       data: clickData.map((point) => {
-        // Convert relative coordinates to absolute using current document dimensions
-        if (point.x_relative !== undefined && point.y_relative !== undefined) {
-          const x = Math.round(point.x_relative * currentDocWidth);
-          const y = Math.round(point.y_relative * currentDocHeight);
+        // Use original document dimensions for precise positioning
+        if (
+          point.x_relative !== undefined &&
+          point.y_relative !== undefined &&
+          point.document_width &&
+          point.document_height
+        ) {
+          const x = Math.round(point.x_relative * point.document_width);
+          const y = Math.round(point.y_relative * point.document_height);
           return {
-            x: Math.max(0, Math.min(x, currentDocWidth)),
-            y: Math.max(0, Math.min(y, currentDocHeight)),
+            x: Math.max(0, Math.min(x, point.document_width)),
+            y: Math.max(0, Math.min(y, point.document_height)),
             value: point.value,
           };
         }
