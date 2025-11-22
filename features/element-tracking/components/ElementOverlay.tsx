@@ -19,6 +19,37 @@ interface ElementOverlayProps {
   onOverlaysRendered?: () => void;
 }
 
+// Helper function to generate a valid CSS selector for an element
+function getElementSelector(el: HTMLElement): string {
+  if (!el || el.tagName === "BODY" || el.tagName === "HTML") return "";
+  if (el.id) return `#${CSS.escape(el.id)}`;
+
+  let selector = el.tagName;
+  if (el.className && typeof el.className === "string") {
+    const classes = el.className
+      .trim()
+      .split(/\s+/)
+      .filter((c) => c && !c.includes("navlens"))
+      .map((c) => CSS.escape(c)); // Escape special characters
+    if (classes.length > 0) {
+      selector += `.${classes.join(".")}`;
+    }
+  }
+
+  const parent = el.parentElement;
+  if (!parent || parent.tagName === "BODY") return selector;
+
+  const siblings = Array.from(parent.children).filter(
+    (child) => child.tagName === el.tagName
+  );
+  if (siblings.length > 1) {
+    const index = siblings.indexOf(el) + 1;
+    selector += `:nth-of-type(${index})`;
+  }
+
+  return selector;
+}
+
 export function ElementOverlay({
   elements,
   iframe,
@@ -33,7 +64,7 @@ export function ElementOverlay({
   const [iframeReady, setIframeReady] = useState(false);
   const hasNotifiedRef = useRef(false);
 
-  // Check iframe readiness
+  // Check iframe readiness with proper wait for DOM
   useEffect(() => {
     if (!iframe || !iframe.contentDocument || !iframe.contentWindow) {
       console.log("⏳ Element overlay waiting for iframe to be ready...");
@@ -41,7 +72,37 @@ export function ElementOverlay({
       return;
     }
 
-    setIframeReady(true);
+    // Wait for iframe DOM to be fully constructed
+    const checkReady = () => {
+      const doc = iframe.contentDocument;
+      if (!doc || !doc.body || !doc.documentElement) {
+        return false;
+      }
+
+      // Check if iframe has actual content
+      const hasContent =
+        doc.body.children.length > 0 || doc.documentElement.scrollHeight > 0;
+
+      return hasContent;
+    };
+
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    const waitForReady = () => {
+      if (checkReady()) {
+        console.log("✓ Iframe ready for element overlays");
+        setIframeReady(true);
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(waitForReady, 100);
+      } else {
+        console.warn("⚠️ Iframe readiness check timed out");
+        setIframeReady(true); // Proceed anyway
+      }
+    };
+
+    waitForReady();
   }, [iframe]);
 
   // Render overlays based on click data with relative coordinates
@@ -64,6 +125,12 @@ export function ElementOverlay({
     // Clear previous overlays
     container.innerHTML = "";
 
+    // Clear previous element highlights in iframe
+    const existingHighlights = iframe.contentDocument.querySelectorAll(
+      ".navlens-element-highlight"
+    );
+    existingHighlights.forEach((el) => el.remove());
+
     const doc = iframe.contentDocument;
 
     // Get current iframe document dimensions
@@ -78,7 +145,7 @@ export function ElementOverlay({
     });
 
     // Create overlays for each click using relative coordinates
-    elements.forEach((clickData) => {
+    elements.forEach((clickData, index) => {
       // Skip if no relative coordinates
       if (
         typeof clickData.x_relative !== "number" ||
@@ -96,115 +163,206 @@ export function ElementOverlay({
       const absoluteX = clickData.x_relative * currentDocWidth;
       const absoluteY = clickData.y_relative * currentDocHeight;
 
-      console.log(
-        `🎯 Positioning overlay at relative (${clickData.x_relative}, ${
-          clickData.y_relative
-        }) => absolute (${absoluteX.toFixed(0)}, ${absoluteY.toFixed(0)})`
-      );
+      // Try to find and highlight the actual DOM element
+      // Only highlight important clickable elements (not generic divs/body)
+      const isImportantElement = [
+        "BUTTON",
+        "A",
+        "INPUT",
+        "SELECT",
+        "TEXTAREA",
+        "IMG",
+        "SVG",
+        "VIDEO",
+        "AUDIO",
+        "LABEL",
+        "FORM",
+        "NAV",
+        "HEADER",
+        "FOOTER",
+      ].includes(clickData.tag.toUpperCase());
 
-      // Create overlay element at exact click position
-      const overlayDiv = document.createElement("div");
-      overlayDiv.style.position = "absolute";
+      if (
+        clickData.selector &&
+        iframe.contentDocument &&
+        iframe.contentWindow &&
+        isImportantElement
+      ) {
+        try {
+          const targetElement = iframe.contentDocument.querySelector(
+            clickData.selector
+          );
+          if (targetElement) {
+            const rect = targetElement.getBoundingClientRect();
+            const iframeRect = iframe.getBoundingClientRect();
 
-      // Center the overlay circle on the click point
-      const overlaySize = 40; // Size of the overlay circle
-      overlayDiv.style.left = `${absoluteX - overlaySize / 2}px`;
-      overlayDiv.style.top = `${absoluteY - overlaySize / 2}px`;
-      overlayDiv.style.width = `${overlaySize}px`;
-      overlayDiv.style.height = `${overlaySize}px`;
-      overlayDiv.style.borderRadius = "50%";
-      overlayDiv.style.pointerEvents = "auto";
-      overlayDiv.style.cursor = "pointer";
-      overlayDiv.style.transition = "all 0.2s ease";
+            // Create element highlight in the overlay container
+            const elementHighlight = document.createElement("div");
+            elementHighlight.className = "navlens-element-highlight";
+            elementHighlight.style.position = "absolute";
+            elementHighlight.style.left = `${
+              rect.left + iframe.contentWindow.scrollX
+            }px`;
+            elementHighlight.style.top = `${
+              rect.top + iframe.contentWindow.scrollY
+            }px`;
+            elementHighlight.style.width = `${rect.width}px`;
+            elementHighlight.style.height = `${rect.height}px`;
+            elementHighlight.style.border = "3px solid rgba(255, 50, 50, 0.9)";
+            elementHighlight.style.backgroundColor = "rgba(255, 50, 50, 0.15)";
+            elementHighlight.style.pointerEvents = "auto";
+            elementHighlight.style.cursor = "pointer";
+            elementHighlight.style.zIndex = "99";
+            elementHighlight.style.borderRadius = "4px";
+            elementHighlight.style.boxShadow =
+              "0 0 15px rgba(255, 50, 50, 0.7), inset 0 0 10px rgba(255, 50, 50, 0.25)";
+            elementHighlight.style.transition = "all 0.3s ease";
 
-      // Styling for click overlay
-      overlayDiv.style.border = "3px solid rgba(255, 0, 0, 0.8)";
-      overlayDiv.style.backgroundColor = "rgba(255, 0, 0, 0.3)";
-      overlayDiv.style.boxShadow =
-        "0 0 10px rgba(255, 0, 0, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.3)";
-      overlayDiv.style.zIndex = "100";
+            // Add click handler to open modal
+            elementHighlight.addEventListener("click", (e) => {
+              e.stopPropagation();
+              console.log("👁️ Opening analysis for:", clickData);
+              setSelectedElement(clickData);
+            });
 
-      // Add click count badge
-      const badge = document.createElement("div");
-      badge.style.cssText = `
-        position: absolute;
-        top: -8px;
-        right: -8px;
-        background: linear-gradient(135deg, #ff0000, #cc0000);
-        color: white;
-        padding: 2px 6px;
-        border-radius: 10px;
-        font-size: 11px;
-        font-weight: bold;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        pointer-events: none;
-        min-width: 20px;
-        text-align: center;
-      `;
-      badge.textContent = String(clickData.clickCount || 1);
-      overlayDiv.appendChild(badge);
+            // Add hover effect
+            elementHighlight.addEventListener("mouseenter", () => {
+              elementHighlight.style.backgroundColor =
+                "rgba(255, 50, 50, 0.25)";
+              elementHighlight.style.boxShadow =
+                "0 0 20px rgba(255, 50, 50, 0.9), inset 0 0 15px rgba(255, 50, 50, 0.35)";
+            });
 
-      // Add tooltip
-      const tooltip = document.createElement("div");
-      tooltip.style.cssText = `
-        position: absolute;
-        bottom: ${overlaySize + 10}px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.95);
-        color: white;
-        padding: 10px 14px;
-        border-radius: 6px;
-        font-size: 12px;
-        white-space: nowrap;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-        pointer-events: none;
-        z-index: 101;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      `;
-      tooltip.innerHTML = `
-        <div style="font-weight: bold; margin-bottom: 4px; color: #ff6b6b;">
-          ${clickData.clickCount} clicks (${clickData.percentage.toFixed(1)}%)
-        </div>
-        <div style="font-size: 11px; color: #ddd; margin-bottom: 3px;">
-          ${clickData.tag.toUpperCase()}: ${clickData.text.substring(0, 40)}${
-        clickData.text.length > 40 ? "..." : ""
+            elementHighlight.addEventListener("mouseleave", () => {
+              elementHighlight.style.backgroundColor =
+                "rgba(255, 50, 50, 0.15)";
+              elementHighlight.style.boxShadow =
+                "0 0 15px rgba(255, 50, 50, 0.7), inset 0 0 10px rgba(255, 50, 50, 0.25)";
+            });
+
+            // Add label showing element info
+            const label = document.createElement("div");
+            label.style.cssText = `
+              position: absolute;
+              top: -25px;
+              left: 0;
+              background: linear-gradient(135deg, #FF3232, #CC0000);
+              color: white;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 11px;
+              font-weight: bold;
+              white-space: nowrap;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              pointer-events: none;
+            `;
+            label.textContent = `${clickData.tag.toUpperCase()} (${
+              clickData.clickCount
+            } clicks)`;
+            elementHighlight.appendChild(label);
+
+            container.appendChild(elementHighlight);
+
+            console.log(`✨ Highlighted element: ${clickData.selector}`);
+          }
+        } catch (error) {
+          console.warn(
+            `⚠️ Could not find element with selector: ${clickData.selector}`,
+            error
+          );
+        }
       }
-        </div>
-        <div style="font-size: 10px; color: #999;">
-          Position: (${Math.round(absoluteX)}, ${Math.round(absoluteY)})
-        </div>
-      `;
-      overlayDiv.appendChild(tooltip);
 
-      // Hover interactions
-      overlayDiv.addEventListener("mouseenter", () => {
-        tooltip.style.opacity = "1";
-        overlayDiv.style.transform = "scale(1.2)";
-        overlayDiv.style.backgroundColor = "rgba(255, 0, 0, 0.5)";
-        overlayDiv.style.boxShadow =
-          "0 0 20px rgba(255, 0, 0, 0.9), inset 0 0 15px rgba(255, 255, 255, 0.5)";
-      });
-      overlayDiv.addEventListener("mouseleave", () => {
-        tooltip.style.opacity = "0";
-        overlayDiv.style.transform = "scale(1)";
-        overlayDiv.style.backgroundColor = "rgba(255, 0, 0, 0.3)";
-        overlayDiv.style.boxShadow =
-          "0 0 10px rgba(255, 0, 0, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.3)";
-      });
-
-      // Click interaction
-      overlayDiv.addEventListener("click", (e) => {
-        e.stopPropagation();
-        setSelectedElement(clickData);
-      });
-
-      container.appendChild(overlayDiv);
+      // Note: We don't add blue circle markers - let the heatmap show density
+      // The element borders (red/blue) are sufficient for element identification
     });
 
+    // NOW: Find ALL important elements on the page and highlight non-clicked ones in blue
+    if (iframe.contentDocument && iframe.contentWindow) {
+      try {
+        // Get all important elements from the page
+        const importantSelectors = [
+          "button",
+          "a",
+          "input",
+          "select",
+          "textarea",
+          "img",
+          "svg",
+          "video",
+          "audio",
+          "label",
+          "form",
+          "nav",
+          "header",
+          "footer",
+        ];
+
+        const allImportantElements = iframe.contentDocument.querySelectorAll(
+          importantSelectors.join(", ")
+        );
+
+        // Get set of clicked element selectors for comparison
+        const clickedSelectors = new Set(
+          elements.map((el) => el.selector).filter(Boolean)
+        );
+
+        console.log(
+          `🔍 Found ${allImportantElements.length} important elements, ${clickedSelectors.size} clicked`
+        );
+
+        // Highlight non-clicked important elements in blue
+        allImportantElements.forEach((element) => {
+          // Generate selector for this element
+          const elementSelector = getElementSelector(element as HTMLElement);
+
+          // Skip if this element was clicked (already has red highlight)
+          if (clickedSelectors.has(elementSelector)) {
+            return;
+          }
+
+          const rect = element.getBoundingClientRect();
+
+          // Skip if element is not visible or too small
+          if (rect.width < 10 || rect.height < 10) {
+            return;
+          }
+
+          // Create blue highlight for non-clicked element
+          const elementHighlight = document.createElement("div");
+          elementHighlight.className = "navlens-element-highlight non-clicked";
+          elementHighlight.style.position = "absolute";
+          elementHighlight.style.left = `${
+            rect.left + iframe.contentWindow!.scrollX
+          }px`;
+          elementHighlight.style.top = `${
+            rect.top + iframe.contentWindow!.scrollY
+          }px`;
+          elementHighlight.style.width = `${rect.width}px`;
+          elementHighlight.style.height = `${rect.height}px`;
+          elementHighlight.style.border = "2px solid rgba(0, 100, 200, 0.6)";
+          elementHighlight.style.backgroundColor = "rgba(0, 100, 200, 0.08)";
+          elementHighlight.style.pointerEvents = "none";
+          elementHighlight.style.zIndex = "98";
+          elementHighlight.style.borderRadius = "4px";
+          elementHighlight.style.boxShadow = "0 0 8px rgba(0, 100, 200, 0.4)";
+          elementHighlight.style.transition = "all 0.3s ease";
+
+          container.appendChild(elementHighlight);
+        });
+
+        console.log(
+          `✓ Highlighted ${
+            allImportantElements.length - clickedSelectors.size
+          } non-clicked elements in blue`
+        );
+      } catch (error) {
+        console.warn("⚠️ Could not highlight non-clicked elements:", error);
+      }
+    }
+
     console.log(
-      `✓ Rendered ${elements.length} click overlays using relative coordinates`
+      `✓ Rendered ${elements.length} clicked element highlights (red) and non-clicked elements (blue)`
     );
 
     // Update container dimensions to match iframe content
@@ -249,7 +407,7 @@ export function ElementOverlay({
         id="element-overlay-container"
         className="absolute top-0 left-0 pointer-events-none"
         style={{
-          zIndex: 101,
+          zIndex: 100,
           transformOrigin: "top left",
           willChange: "transform",
         }}

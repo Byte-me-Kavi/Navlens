@@ -168,7 +168,10 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < events.length; i++) {
       try {
+        // Debug log to see what's coming in
+        console.log('📥 Raw event received:', JSON.stringify(events[i], null, 2));
         const validatedEvent = validators.validateEventData(events[i]);
+        console.log('✅ Validated event:', JSON.stringify(validatedEvent, null, 2));
         validEvents.push(validatedEvent);
       } catch (error) {
         const errorMsg = error instanceof ValidationError ? error.message : 'Unknown validation error';
@@ -192,40 +195,46 @@ export async function POST(request: NextRequest) {
     // Insert events into ClickHouse
     const insertPromises = validEvents.map(async (event: ValidatedEventData) => {
       try {
+        const insertData = {
+          site_id: siteId,
+          event_type: event.type,
+          timestamp: new Date(event.timestamp),
+          session_id: event.session_id,
+          user_id: event.user_id || null,
+          page_url: event.page_url || '',
+          page_path: event.page_path || '',
+          referrer: event.referrer || '',
+          user_agent: event.user_agent || '',
+          user_language: event.user_language || '',
+          viewport_width: event.viewport_width || 0,
+          viewport_height: event.viewport_height || 0,
+          screen_width: event.screen_width || 0,
+          screen_height: event.screen_height || 0,
+          device_type: event.device_type || '',
+          client_id: event.client_id || '',
+          load_time: event.load_time || 0,
+          ip_address: clientIP,
+          // Flatten event.data fields
+          x: event.data?.x ?? 0,
+          y: event.data?.y ?? 0,
+          x_relative: event.data?.x_relative ?? 0,
+          y_relative: event.data?.y_relative ?? 0,
+          scroll_depth: event.data?.scroll_depth ?? 0,
+          document_width: event.data?.document_width ?? 0,
+          document_height: event.data?.document_height ?? 0,
+          element_id: event.data?.element_id || '',
+          element_classes: event.data?.element_classes || '',
+          element_tag: event.data?.element_tag || '',
+          element_text: event.data?.element_text || '',
+          element_selector: event.data?.element_selector || '',
+          created_at: new Date(),
+        };
+        
+        console.log('💾 Inserting into ClickHouse:', JSON.stringify(insertData, null, 2));
+        
         await clickhouse.insert({
           table: 'events',
-          values: [{
-            site_id: siteId,
-            event_type: event.type,
-            timestamp: new Date(event.timestamp),
-            session_id: event.session_id,
-            user_id: event.user_id || null,
-            page_url: event.page_url || '',
-            page_path: event.page_path || '',
-            referrer: event.referrer || '',
-            user_agent: event.user_agent || '',
-            user_language: event.user_language || '',
-            viewport_width: event.viewport_width || 0,
-            viewport_height: event.viewport_height || 0,
-            screen_width: event.screen_width || 0,
-            screen_height: event.screen_height || 0,
-            device_type: event.device_type || '',
-            client_id: event.client_id || '',
-            load_time: event.load_time || 0,
-            ip_address: clientIP,
-            // Flatten event.data fields
-            x: event.data?.x || 0,
-            y: event.data?.y || 0,
-            x_relative: event.data?.x_relative || 0,
-            y_relative: event.data?.y_relative || 0,
-            scroll_depth: event.data?.scroll_depth || 0,
-            element_id: event.data?.element_id || '',
-            element_classes: event.data?.element_classes || '',
-            element_tag: event.data?.element_tag || '',
-            element_text: event.data?.element_text || '',
-            element_selector: event.data?.element_selector || '',
-            created_at: new Date(),
-          }],
+          values: [insertData],
           format: 'JSONEachRow',
         });
       } catch (error) {

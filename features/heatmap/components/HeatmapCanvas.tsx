@@ -46,10 +46,29 @@ export function HeatmapCanvas({
 
   // Update heatmap data
   useEffect(() => {
-    if (!rendererRef.current.isInitialized() || !iframe) return;
+    console.log("🔍 Heatmap update check:", {
+      isInitialized: rendererRef.current.isInitialized(),
+      hasIframe: !!iframe,
+      pointsLength: points.length,
+      width,
+      height,
+    });
+
+    if (!rendererRef.current.isInitialized()) {
+      console.warn("⚠️ Heatmap renderer not initialized yet");
+      return;
+    }
+
+    if (!iframe) {
+      console.warn("⚠️ No iframe available for heatmap");
+      return;
+    }
 
     const doc = iframe.contentDocument;
-    if (!doc) return;
+    if (!doc) {
+      console.warn("⚠️ No iframe.contentDocument available");
+      return;
+    }
 
     const currentDocWidth = doc.documentElement.scrollWidth || width;
     const currentDocHeight = doc.documentElement.scrollHeight || height;
@@ -58,7 +77,13 @@ export function HeatmapCanvas({
       pointCount: points.length,
       docWidth: currentDocWidth,
       docHeight: currentDocHeight,
+      samplePoint: points[0],
     });
+
+    if (points.length === 0) {
+      console.warn("⚠️ No heatmap points to render!");
+      return;
+    }
 
     const heatmapData = heatmapApi.transformToHeatmapData(
       points,
@@ -66,7 +91,14 @@ export function HeatmapCanvas({
       currentDocHeight
     );
 
+    console.log("🔥 Transformed heatmap data:", {
+      max: heatmapData.max,
+      dataLength: heatmapData.data.length,
+      sampleData: heatmapData.data[0],
+    });
+
     rendererRef.current.setData(heatmapData);
+    console.log("✓ Heatmap data set successfully");
   }, [points, width, height, iframe]);
 
   return (
@@ -75,7 +107,7 @@ export function HeatmapCanvas({
       ref={containerRef}
       className="absolute top-0 left-0 pointer-events-none"
       style={{
-        zIndex: 100,
+        zIndex: 50,
         background: "transparent",
         transformOrigin: "top left",
         willChange: "transform",

@@ -32,31 +32,60 @@ export const heatmapApi = {
     documentWidth: number,
     documentHeight: number
   ): HeatmapData {
+    console.log('🔄 Transforming heatmap data:', {
+      inputLength: clickData?.length || 0,
+      docWidth: documentWidth,
+      docHeight: documentHeight,
+    });
+
     if (!clickData || clickData.length === 0) {
+      console.warn('⚠️ No click data to transform');
       return { max: 0, data: [] };
     }
 
     const maxValue = Math.max(...clickData.map((d) => d.value));
+    console.log('📊 Max value:', maxValue);
 
-    const transformedData = clickData.map((point) => {
+    const transformedData = clickData.map((point, index) => {
       // Use relative coordinates if available for responsive scaling
       if (point.x_relative !== undefined && point.y_relative !== undefined) {
         const x = Math.round(point.x_relative * documentWidth);
         const y = Math.round(point.y_relative * documentHeight);
         
-        return {
+        const transformed = {
           x: Math.max(0, Math.min(x, documentWidth)),
           y: Math.max(0, Math.min(y, documentHeight)),
           value: point.value,
         };
+        
+        if (index === 0) {
+          console.log('🎯 Sample transformation:', {
+            input: { x_rel: point.x_relative, y_rel: point.y_relative, value: point.value },
+            output: transformed,
+          });
+        }
+        
+        return transformed;
       }
 
       // Fallback to absolute coordinates
-      return {
+      const fallback = {
         x: Math.round(point.x || 0),
         y: Math.round(point.y || 0),
         value: point.value,
       };
+      
+      if (index === 0) {
+        console.log('⚠️ Using absolute coords (no relative):', fallback);
+      }
+      
+      return fallback;
+    });
+
+    console.log('✓ Transformed data:', {
+      outputLength: transformedData.length,
+      max: maxValue,
+      sampleOutput: transformedData[0],
     });
 
     return {

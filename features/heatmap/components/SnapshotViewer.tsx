@@ -52,22 +52,25 @@ export function SnapshotViewer({
     const iframe = iframeRef.current;
 
     // Wait for iframe to be ready, then build the DOM
-    const buildWithRetry = (attempts = 0, maxAttempts = 5) => {
+    const buildWithRetry = (attempts = 0, maxAttempts = 8) => {
       if (!iframe.contentDocument && attempts < maxAttempts) {
         console.log(
           `⏳ Waiting for iframe document (attempt ${
             attempts + 1
           }/${maxAttempts})...`
         );
-        setTimeout(
-          () => buildWithRetry(attempts + 1, maxAttempts),
-          50 * Math.pow(2, attempts)
-        );
+        const delay = attempts < 3 ? 100 : 200 * Math.pow(1.5, attempts - 3);
+        setTimeout(() => buildWithRetry(attempts + 1, maxAttempts), delay);
         return;
       }
 
       if (!iframe.contentDocument) {
         console.error("❌ Iframe document not available after retries");
+        // Try one more time with longer delay
+        if (attempts === maxAttempts) {
+          console.log("🔄 Final retry in 1 second...");
+          setTimeout(() => buildWithRetry(attempts + 1, maxAttempts + 1), 1000);
+        }
         return;
       }
 
@@ -78,16 +81,25 @@ export function SnapshotViewer({
           origin: snapshot.origin || window.location.origin,
         });
 
-        // Wait a bit for DOM to settle before getting dimensions
+        // Wait for DOM to settle before getting dimensions
         setTimeout(() => {
           if (!iframe.contentDocument) return;
 
           const dimensions = DomBuilder.getContentDimensions(iframe);
           console.log("📐 Content dimensions:", dimensions);
 
-          setContentDimensions(dimensions);
-          setIsReady(true);
-        }, 100);
+          if (dimensions.width === 0 || dimensions.height === 0) {
+            console.warn("⚠️ Invalid dimensions, retrying...");
+            setTimeout(() => {
+              const retryDimensions = DomBuilder.getContentDimensions(iframe);
+              setContentDimensions(retryDimensions);
+              setIsReady(true);
+            }, 200);
+          } else {
+            setContentDimensions(dimensions);
+            setIsReady(true);
+          }
+        }, 150);
       } catch (error) {
         console.error("❌ Failed to build DOM:", error);
       }
@@ -113,7 +125,8 @@ export function SnapshotViewer({
       return;
     }
 
-    // Add small delay to ensure overlay DOM elements are in the document
+    // Add delay to ensure overlay DOM elements are in the document
+    // Increase from 100ms to 250ms to ensure React has time to render components
     const timeoutId = setTimeout(() => {
       console.log("🔄 Setting up ScrollSync...");
 
@@ -144,8 +157,25 @@ export function SnapshotViewer({
         scrollSyncRef.current.initialize(iframeRef.current!, overlays);
       } else {
         console.warn("⚠️ No overlay containers found for ScrollSync");
+        // Retry after another delay if containers not found
+        setTimeout(() => {
+          const retryCanvas = document.getElementById(
+            "heatmap-canvas-container"
+          );
+          const retryOverlay = document.getElementById(
+            "element-overlay-container"
+          );
+          const retryOverlays = [retryCanvas, retryOverlay].filter(
+            Boolean
+          ) as HTMLElement[];
+
+          if (retryOverlays.length > 0) {
+            console.log("🔄 Retry: Found", retryOverlays.length, "containers");
+            scrollSyncRef.current.initialize(iframeRef.current!, retryOverlays);
+          }
+        }, 200);
       }
-    }, 100);
+    }, 250);
 
     return () => {
       clearTimeout(timeoutId);
@@ -158,7 +188,7 @@ export function SnapshotViewer({
       ref={containerRef}
       className="w-full h-full bg-white border border-gray-300 relative overflow-hidden"
     >
-      {/* Iframe for DOM reconstruction */}
+      {/* Iframe for DOM reconstruction (z-1) */}
       <iframe
         ref={iframeRef}
         className="w-full h-full border-none absolute top-0 left-0"
@@ -167,8 +197,9 @@ export function SnapshotViewer({
         title="Page Snapshot"
       />
 
-      {/* Heatmap Canvas Layer */}
-      {isReady && heatmapPoints.length > 0 && (
+      {/* Heatmap Canvas Layer (z-50) - Heat blobs behind overlays */}
+      {/* Always render to ensure container exists for ScrollSync */}
+      {isReady && (
         <HeatmapCanvas
           points={heatmapPoints}
           width={contentDimensions.width}
@@ -177,8 +208,9 @@ export function SnapshotViewer({
         />
       )}
 
-      {/* Element Overlay Layer */}
-      {isReady && elementClicks.length > 0 && (
+      {/* Element Overlay Layer (z-100+) - Element highlights and click points on top */}
+      {/* Always render to ensure container exists for ScrollSync */}
+      {isReady && (
         <ElementOverlay
           elements={elementClicks}
           iframe={iframeRef.current}

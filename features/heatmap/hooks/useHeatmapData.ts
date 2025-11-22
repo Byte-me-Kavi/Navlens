@@ -29,7 +29,11 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
 
       const result = await heatmapApi.getHeatmapClicks(params);
 
-      console.log('✓ Heatmap data fetched:', result.length, 'points');
+      console.log('✓ Heatmap data fetched:', {
+        pointCount: result.length,
+        samplePoint: result[0],
+        hasRelativeCoords: result[0]?.x_relative !== undefined,
+      });
 
       setData(result);
     } catch (err) {

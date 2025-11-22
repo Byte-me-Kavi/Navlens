@@ -36,15 +36,16 @@ export interface HeatmapConfig {
 }
 
 export const DEFAULT_HEATMAP_CONFIG: HeatmapConfig = {
-  radius: 30,
-  maxOpacity: 0.9,
-  minOpacity: 0,
-  blur: 0.4,
+  radius: 40,
+  maxOpacity: 0.8,
+  minOpacity: 0.1,
+  blur: 0.75,
   gradient: {
-    '0.0': 'blue',
-    '0.25': 'cyan',
-    '0.5': 'lime',
-    '0.75': 'yellow',
-    '1.0': 'red',
+    '0.0': 'rgba(0, 0, 255, 0)',
+    '0.2': 'rgba(0, 200, 255, 0.5)',
+    '0.4': 'rgba(0, 255, 0, 0.7)',
+    '0.6': 'rgba(255, 255, 0, 0.8)',
+    '0.8': 'rgba(255, 100, 0, 0.9)',
+    '1.0': 'rgba(255, 0, 0, 1)',
   },
 };
