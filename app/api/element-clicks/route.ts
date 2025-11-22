@@ -61,32 +61,44 @@ export async function POST(req: NextRequest) {
     const endDate = rawEndDate ? new Date(rawEndDate) : new Date();
     const startDate = rawStartDate ? new Date(rawStartDate) : new Date(endDate.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
 
-    // ClickHouse query for aggregated click data by element_selector with centroid calculation
+    // ClickHouse query for aggregated click data by element_selector with position grouping
     const query = `
       SELECT
-        element_selector as selector,
-        element_tag as tag,
-        element_text as text,
+        selector,
+        tag,
+        text,
         element_id,
         element_classes,
-        -- Calculate the centroid of clicks on this element
-        round(avg(x), 2) as x,
-        round(avg(y), 2) as y,
-        count(*) as click_count
-      FROM events
-      WHERE site_id = {siteId:String}
-        AND page_path = {pagePath:String}
-        AND device_type = {deviceType:String}
-        AND event_type = 'click'
-        AND timestamp >= {startDate:DateTime}
-        AND timestamp <= {endDate:DateTime}
-        AND element_selector != ''
+        x,
+        y,
+        sum(click_count) as click_count
+      FROM (
+        SELECT
+          element_selector as selector,
+          element_tag as tag,
+          element_text as text,
+          element_id,
+          element_classes,
+          round(x / 5) * 5 as x,
+          round(y / 5) * 5 as y,
+          1 as click_count
+        FROM events
+        WHERE site_id = {siteId:String}
+          AND page_path = {pagePath:String}
+          AND device_type = {deviceType:String}
+          AND event_type = 'click'
+          AND timestamp >= {startDate:DateTime}
+          AND timestamp <= {endDate:DateTime}
+          AND element_selector != ''
+      ) AS subquery
       GROUP BY
-        element_selector,
-        element_tag,
-        element_text,
+        selector,
+        tag,
+        text,
         element_id,
-        element_classes
+        element_classes,
+        x,
+        y
       ORDER BY click_count DESC
     `;
 

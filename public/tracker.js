@@ -379,16 +379,10 @@
     if (!el || el.tagName === "BODY") return "BODY";
     if (el.id) return `#${el.id}`;
 
-    // Include class names and text content for better uniqueness
+    // Include all class names for better uniqueness
     let selector = el.tagName;
     if (el.className) {
       selector += `.${Array.from(el.classList).join(".")}`;
-    }
-
-    // Add text content if it's a short, unique text (like button text or link text)
-    const text = el.textContent ? el.textContent.trim() : "";
-    if (text && text.length > 0 && text.length < 50 && !/\s{2,}/.test(text)) {
-      selector += `[text="${text.replace(/"/g, '\\"')}"]`;
     }
 
     const parent = el.parentElement;

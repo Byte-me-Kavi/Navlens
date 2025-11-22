@@ -588,14 +588,20 @@ export default function DomHeatmapViewer({
 
         // Try to find matching clicked element data
         for (const clickedEl of elementClicks) {
-          // Try selector matching if selector exists
+          // Try selector matching first
           if (clickedEl.selector) {
             try {
               // Check if this element matches the stored selector
               if (el.matches && el.matches(clickedEl.selector)) {
-                clickedElementData = clickedEl;
-                wasClicked = true;
-                break;
+                // Additional position check to ensure it's the right element
+                if (
+                  Math.abs(clickedEl.x - rect.left) < 30 &&
+                  Math.abs(clickedEl.y - rect.top) < 30
+                ) {
+                  clickedElementData = clickedEl;
+                  wasClicked = true;
+                  break;
+                }
               }
             } catch (e) {
               // Invalid selector, continue
@@ -606,8 +612,8 @@ export default function DomHeatmapViewer({
           if (
             !wasClicked &&
             clickedEl.tag.toLowerCase() === el.tagName.toLowerCase() &&
-            Math.abs(clickedEl.x - rect.left) < 50 &&
-            Math.abs(clickedEl.y - rect.top) < 50
+            Math.abs(clickedEl.x - rect.left) < 20 &&
+            Math.abs(clickedEl.y - rect.top) < 20
           ) {
             clickedElementData = clickedEl;
             wasClicked = true;
