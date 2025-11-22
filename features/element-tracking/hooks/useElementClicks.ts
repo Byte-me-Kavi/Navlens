@@ -45,10 +45,8 @@ export function useElementClicks(params: ElementClickParams): UseElementClicksRe
     let cancelled = false;
 
     const loadData = async () => {
-      await fetchData();
-      
-      if (cancelled) {
-        setData([]);
+      if (!cancelled) {
+        await fetchData();
       }
     };
 

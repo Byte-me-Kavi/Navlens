@@ -57,10 +57,8 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
     let cancelled = false;
 
     const loadData = async () => {
-      await fetchData();
-      
-      if (cancelled) {
-        setData([]);
+      if (!cancelled) {
+        await fetchData();
       }
     };
 

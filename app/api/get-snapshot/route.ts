@@ -48,7 +48,7 @@ async function processSnapshotRequest(siteId: string, pagePath: string, deviceTy
 
     console.log('Returning snapshot data');
     const response = NextResponse.json(json, { status: 200 });
-    response.headers.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     return response;
 }
 

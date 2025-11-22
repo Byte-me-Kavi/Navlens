@@ -45,10 +45,8 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
     let cancelled = false;
 
     const loadData = async () => {
-      await fetchData();
-      
-      if (cancelled) {
-        setData(null);
+      if (!cancelled) {
+        await fetchData();
       }
     };
 
