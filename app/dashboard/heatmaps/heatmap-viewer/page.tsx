@@ -156,6 +156,60 @@ const ChevronLeftIcon = () => (
   </svg>
 );
 
+const EyeIcon = () => (
+  <svg
+    className="w-6 h-6"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+    />
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg
+    className="w-6 h-6"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"
+    />
+  </svg>
+);
+
+const HeatmapIcon = () => (
+  <svg
+    className="w-6 h-6"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+    />
+  </svg>
+);
+
 export default function HeatmapViewerPage() {
   const router = useRouter();
   const { selectedSiteId: siteId } = useSite();
@@ -165,6 +219,8 @@ export default function HeatmapViewerPage() {
   const [availablePages, setAvailablePages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showElements, setShowElements] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(true);
 
   // Redirect to dashboard if site context is lost (page refresh scenario)
   useEffect(() => {
@@ -262,7 +318,7 @@ export default function HeatmapViewerPage() {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
           {/* Page Selection */}
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
@@ -383,6 +439,60 @@ export default function HeatmapViewerPage() {
               </button>
             </div>
           </div>
+
+          {/* Show/Hide Elements Toggle */}
+          <div>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3 block">
+              Element Visibility
+            </label>
+            <button
+              onClick={() => setShowElements(!showElements)}
+              className={`w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                showElements
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
+                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-green-300"
+              }`}
+            >
+              {showElements ? <EyeIcon /> : <EyeOffIcon />}
+              <div className="text-left">
+                <div className="font-medium">
+                  {showElements ? "Elements Visible" : "Elements Hidden"}
+                </div>
+                <div className="text-xs opacity-75">
+                  {showElements
+                    ? "Click overlays are shown"
+                    : "Click overlays are hidden"}
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Show/Hide Heatmap Overlay Toggle */}
+          <div>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3 block">
+              Heatmap Data
+            </label>
+            <button
+              onClick={() => setShowHeatmap(!showHeatmap)}
+              className={`w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                showHeatmap
+                  ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-orange-300"
+              }`}
+            >
+              <HeatmapIcon />
+              <div className="text-left">
+                <div className="font-medium">
+                  {showHeatmap ? "Heatmap Visible" : "Heatmap Hidden"}
+                </div>
+                <div className="text-xs opacity-75">
+                  {showHeatmap
+                    ? "Heatmap overlay is shown"
+                    : "Heatmap overlay is hidden"}
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -404,6 +514,8 @@ export default function HeatmapViewerPage() {
           pagePath={selectedPage}
           deviceType={selectedDevice}
           dataType={selectedDataType}
+          showElements={showElements}
+          showHeatmap={showHeatmap}
         />
       </div>
     </div>

@@ -27,6 +27,8 @@ interface DomHeatmapViewerProps {
   pagePath: string;
   deviceType: string;
   dataType: string;
+  showElements?: boolean;
+  showHeatmap?: boolean;
 }
 
 interface ClickData {
@@ -40,6 +42,8 @@ export default function DomHeatmapViewer({
   pagePath,
   deviceType,
   dataType,
+  showElements = true,
+  showHeatmap = true,
 }: DomHeatmapViewerProps) {
   const iframeContainerRef = useRef<HTMLDivElement>(null);
   const prevPropsRef = useRef({ siteId, pagePath, deviceType });
@@ -65,10 +69,6 @@ export default function DomHeatmapViewer({
       setAnalysisLoading(true);
       generateElementAnalysis(selectedElement)
         .then(setElementAnalysis)
-        .catch((error) => {
-          console.error("Error fetching element analysis:", error);
-          setElementAnalysis(generateMockAnalysis(selectedElement));
-        })
         .finally(() => setAnalysisLoading(false));
     } else {
       setElementAnalysis(null);
@@ -500,11 +500,16 @@ export default function DomHeatmapViewer({
 
   // 5. Render Element Click Overlays
   useEffect(() => {
-    if (dataType !== "clicks" && dataType !== "both") {
+    if (!showElements || (dataType !== "clicks" && dataType !== "both")) {
       const overlayContainer = document.getElementById("element-click-overlay");
       if (overlayContainer) {
         overlayContainer.innerHTML = "";
-        console.log("Cleared element overlays for dataType:", dataType);
+        console.log(
+          "Cleared element overlays for showElements:",
+          showElements,
+          "dataType:",
+          dataType
+        );
       }
       return;
     }
@@ -583,7 +588,7 @@ export default function DomHeatmapViewer({
 
         // Try to find matching clicked element data
         for (const clickedEl of elementClicks) {
-          // First try selector matching if selector exists
+          // Try selector matching if selector exists
           if (clickedEl.selector) {
             try {
               // Check if this element matches the stored selector
@@ -597,12 +602,12 @@ export default function DomHeatmapViewer({
             }
           }
 
-          // If selector matching failed, try position matching
+          // Fallback: position matching for elements without reliable selectors
           if (
             !wasClicked &&
             clickedEl.tag.toLowerCase() === el.tagName.toLowerCase() &&
-            Math.abs(clickedEl.x - rect.left) < 30 &&
-            Math.abs(clickedEl.y - rect.top) < 30
+            Math.abs(clickedEl.x - rect.left) < 50 &&
+            Math.abs(clickedEl.y - rect.top) < 50
           ) {
             clickedElementData = clickedEl;
             wasClicked = true;
@@ -705,30 +710,37 @@ export default function DomHeatmapViewer({
         } blue overlays`
       );
     }, 600); // Single delay to ensure DOM is ready
-  }, [elementClicks, dataType, snapshotData]);
+  }, [elementClicks, dataType, snapshotData, showElements]);
 
   // Heatmap Rendering
   useEffect(() => {
-    if (dataType === "clicks" || dataType === "both") {
-      if (clickData.length === 0 || !heatmapInstance || !canvasSized) {
+    const canvasContainer = document.getElementById("heatmap-canvas-container");
+    if (canvasContainer) {
+      if (!showHeatmap || (dataType !== "clicks" && dataType !== "both")) {
+        canvasContainer.style.display = "none";
         if (heatmapInstance) heatmapInstance.setData({ max: 0, data: [] });
         return;
+      } else {
+        canvasContainer.style.display = "block";
       }
-
-      const maxValue = Math.max(...clickData.map((d) => d.value));
-      const heatmapData = {
-        max: maxValue,
-        data: clickData.map((point) => ({
-          x: Math.round(point.x),
-          y: Math.round(point.y),
-          value: point.value,
-        })),
-      };
-      if (heatmapInstance) heatmapInstance.setData(heatmapData);
-    } else {
-      if (heatmapInstance) heatmapInstance.setData({ max: 0, data: [] });
     }
-  }, [clickData, dataType, heatmapInstance, canvasSized]);
+
+    if (clickData.length === 0 || !heatmapInstance || !canvasSized) {
+      if (heatmapInstance) heatmapInstance.setData({ max: 0, data: [] });
+      return;
+    }
+
+    const maxValue = Math.max(...clickData.map((d) => d.value));
+    const heatmapData = {
+      max: maxValue,
+      data: clickData.map((point) => ({
+        x: Math.round(point.x),
+        y: Math.round(point.y),
+        value: point.value,
+      })),
+    };
+    if (heatmapInstance) heatmapInstance.setData(heatmapData);
+  }, [clickData, dataType, heatmapInstance, canvasSized, showHeatmap]);
 
   // Generate comprehensive element analysis with real ClickHouse data
   const generateElementAnalysis = async (element: ElementClick) => {
@@ -877,93 +889,52 @@ export default function DomHeatmapViewer({
       };
     } catch (error) {
       console.error("Error fetching element analysis data:", error);
-      // Fallback to mock data if API fails
-      return generateMockAnalysis(element);
+      // Return fallback analysis object with error information
+      return {
+        isError: true,
+        reality: {
+          ctr: 0,
+          ctrTrend: 0,
+          ctrBenchmark: "Unable to Load",
+          deviceBreakdown: { desktop: 0, tablet: 0, mobile: 0 },
+          scrollDepth: (element.y / window.innerHeight) * 100,
+          scrollDepthTrend: 0,
+          position:
+            element.y < 200
+              ? "Hero Section"
+              : element.y > window.innerHeight * 0.8
+              ? "Below Fold"
+              : "Mid-Page",
+          siteAvgCTR: 0,
+        },
+        diagnosis: {
+          frustrationIndex: "Unknown",
+          frustrationExplanation: "Unable to analyze due to data loading error",
+          confusionIndex: "Unknown",
+          confusionExplanation: "Unable to analyze due to data loading error",
+          hesitationScore: "Unknown",
+          hesitationExplanation: "Unable to analyze due to data loading error",
+          attractionRank: "Unknown",
+        },
+        prescription: [
+          {
+            type: "error",
+            title: "Data Loading Error",
+            description:
+              "Unable to fetch analysis data from ClickHouse. Please check your connection and try again.",
+            action: "Refresh the page or check your internet connection",
+            impact:
+              "Cannot provide personalized CSS recommendations at this time",
+            cssSnippet: `/* Error: Unable to load data */
+/* Please check your ClickHouse connection */
+/* Basic element information: */
+/* Tag: ${element.tag} */
+/* Position: ${element.x}, ${element.y} */
+/* Clicks: ${element.clickCount} */`,
+          },
+        ],
+      };
     }
-  };
-
-  // Fallback mock analysis for error cases
-  const generateMockAnalysis = (element: ElementClick) => {
-    const mockData = {
-      ctr: (element.clickCount / 1000) * 100, // Mock CTR calculation
-      ctrTrend: Math.random() > 0.5 ? 0.05 : -0.05, // Mock trend vs last week
-      deviceBreakdown: { desktop: 65, tablet: 20, mobile: 15 },
-      scrollDepth: (element.y / window.innerHeight) * 100,
-      scrollDepthTrend: Math.random() > 0.5 ? 2 : -2, // Mock trend
-      siteAvgCTR:
-        element.tag === "BUTTON" ? 1.2 : element.tag === "A" ? 0.8 : 0.5, // Mock site averages
-      isImportant:
-        element.text.toLowerCase().includes("sign") ||
-        element.text.toLowerCase().includes("buy") ||
-        element.text.toLowerCase().includes("contact") ||
-        element.tag === "BUTTON",
-      rageClicks:
-        element.clickCount > 10 ? Math.floor(element.clickCount * 0.3) : 0,
-      deadClicks:
-        element.tag !== "A" &&
-        element.tag !== "BUTTON" &&
-        element.clickCount > 0,
-    };
-
-    return {
-      reality: {
-        ctr: mockData.ctr,
-        ctrTrend: mockData.ctrTrend,
-        ctrBenchmark:
-          mockData.ctr > 2
-            ? "Above Average"
-            : mockData.ctr > 1
-            ? "Average"
-            : "Below Average",
-        deviceBreakdown: mockData.deviceBreakdown,
-        scrollDepth: mockData.scrollDepth,
-        scrollDepthTrend: mockData.scrollDepthTrend,
-        position:
-          element.y < 200
-            ? "Hero Section"
-            : element.y > window.innerHeight * 0.8
-            ? "Below Fold"
-            : "Mid-Page",
-        siteAvgCTR: mockData.siteAvgCTR,
-      },
-      diagnosis: {
-        frustrationIndex:
-          mockData.rageClicks > 3
-            ? "High"
-            : mockData.rageClicks > 1
-            ? "Medium"
-            : "Low",
-        frustrationExplanation:
-          mockData.rageClicks > 3
-            ? `${mockData.rageClicks} rapid clicks suggest technical issues or poor feedback`
-            : mockData.rageClicks > 1
-            ? `${mockData.rageClicks} rapid clicks indicate mild frustration`
-            : "Normal clicking pattern observed",
-        confusionIndex: mockData.deadClicks ? "High" : "Low",
-        confusionExplanation: mockData.deadClicks
-          ? "Users clicking non-interactive elements suggest unclear interface design"
-          : "Users understand this element's interactive nature",
-        hesitationScore:
-          element.percentage < 5
-            ? "High"
-            : element.percentage > 15
-            ? "Low"
-            : "Medium",
-        hesitationExplanation:
-          element.percentage < 5
-            ? "40% of users hover >1s but don't click, indicating uncertainty"
-            : element.percentage > 15
-            ? "Users quickly engage with this element"
-            : "Balanced engagement with moderate consideration",
-        attractionRank:
-          element.percentage > 20
-            ? "Top Performer"
-            : element.percentage > 10
-            ? "Good Performer"
-            : "Needs Attention",
-      },
-      prescription: generatePrescription(element, mockData),
-    };
   };
 
   return (
@@ -989,7 +960,7 @@ export default function DomHeatmapViewer({
                     <p className="text-gray-600">Analyzing element data...</p>
                   </div>
                 </div>
-              ) : elementAnalysis ? (
+              ) : elementAnalysis && !elementAnalysis.isError ? (
                 <>
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -1397,6 +1368,92 @@ export default function DomHeatmapViewer({
                     <button
                       onClick={() => setSelectedElement(null)}
                       className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors font-medium"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              ) : elementAnalysis && elementAnalysis.isError ? (
+                <>
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-semibold text-red-600">
+                      Analysis Unavailable
+                    </h3>
+                    <button
+                      onClick={() => setSelectedElement(null)}
+                      className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-400">
+                      <h4 className="text-md font-semibold text-red-800 mb-3">
+                        ⚠️ Data Loading Error
+                      </h4>
+                      <p className="text-red-700 mb-4">
+                        Unable to fetch analysis data from ClickHouse. This
+                        could be due to:
+                      </p>
+                      <ul className="text-red-700 text-sm space-y-1 mb-4">
+                        <li>• Network connectivity issues</li>
+                        <li>• ClickHouse database connection problems</li>
+                        <li>• Server-side errors</li>
+                      </ul>
+                      <div className="bg-white p-3 rounded border">
+                        <p className="text-sm text-gray-600">
+                          <strong>Element Info:</strong> {selectedElement?.tag}{" "}
+                          at position ({selectedElement?.x},{" "}
+                          {selectedElement?.y}) with{" "}
+                          {selectedElement?.clickCount} clicks
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="text-md font-semibold text-gray-800 mb-3">
+                        💡 What You Can Do
+                      </h4>
+                      <ul className="text-gray-700 text-sm space-y-2">
+                        <li>
+                          • <strong>Refresh the page</strong> and try again
+                        </li>
+                        <li>
+                          • <strong>Check your internet connection</strong>
+                        </li>
+                        <li>
+                          • <strong>Contact support</strong> if the problem
+                          persists
+                        </li>
+                      </ul>
+                    </div>
+
+                    {elementAnalysis.prescription &&
+                      elementAnalysis.prescription.length > 0 && (
+                        <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400">
+                          <h4 className="text-md font-semibold text-blue-800 mb-3">
+                            🔧 Basic CSS Information
+                          </h4>
+                          <div className="bg-white p-3 rounded border">
+                            <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                              {elementAnalysis.prescription[0].cssSnippet}
+                            </pre>
+                          </div>
+                        </div>
+                      )}
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-gray-200 flex justify-between">
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                    >
+                      Refresh Page
+                    </button>
+                    <button
+                      onClick={() => setSelectedElement(null)}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors font-medium"
                     >
                       Close
                     </button>

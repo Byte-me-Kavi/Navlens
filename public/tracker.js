@@ -378,14 +378,31 @@
   function getSmartSelector(el) {
     if (!el || el.tagName === "BODY") return "BODY";
     if (el.id) return `#${el.id}`;
-    if (el.className) return `${el.tagName}.${el.className.split(" ")[0]}`;
+
+    // Include class names and text content for better uniqueness
+    let selector = el.tagName;
+    if (el.className) {
+      selector += `.${Array.from(el.classList).join(".")}`;
+    }
+
+    // Add text content if it's a short, unique text (like button text or link text)
+    const text = el.textContent ? el.textContent.trim() : "";
+    if (text && text.length > 0 && text.length < 50 && !/\s{2,}/.test(text)) {
+      selector += `[text="${text.replace(/"/g, '\\"')}"]`;
+    }
 
     const parent = el.parentElement;
-    if (!parent) return el.tagName;
+    if (!parent) return selector;
 
-    const siblings = Array.from(parent.children);
-    const index = siblings.indexOf(el) + 1;
-    return `${getSmartSelector(parent)} > ${el.tagName}:nth-child(${index})`;
+    const siblings = Array.from(parent.children).filter(
+      (child) => child.tagName === el.tagName
+    );
+    if (siblings.length > 1) {
+      const index = siblings.indexOf(el) + 1;
+      selector += `:nth-of-type(${index})`;
+    }
+
+    return `${getSmartSelector(parent)} > ${selector}`;
   }
 
   // --- Optimized DOM Snapshot Capture ---
