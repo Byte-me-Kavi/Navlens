@@ -8,6 +8,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import type { ElementClick } from "../types/element.types";
+import type { HeatmapPoint } from "../../heatmap/types/heatmap.types";
 import { ElementAnalysisModal } from "./ElementAnalysisModal";
 
 interface ElementOverlayProps {
@@ -17,6 +18,7 @@ interface ElementOverlayProps {
   pagePath: string;
   deviceType: string;
   onOverlaysRendered?: () => void;
+  heatmapClicks?: HeatmapPoint[];
 }
 
 // Helper function to generate a valid CSS selector for an element
@@ -57,6 +59,7 @@ export function ElementOverlay({
   pagePath,
   deviceType,
   onOverlaysRendered,
+  heatmapClicks = [],
 }: ElementOverlayProps) {
   const [selectedElement, setSelectedElement] = useState<ElementClick | null>(
     null
@@ -168,7 +171,7 @@ export function ElementOverlay({
 
     console.log(`🔍 Found ${allImportantElements.length} important elements`);
 
-    // Step 2: For each element, check if ANY click happened inside its bounds
+    // Step 2: For each element, check if it matches any clicked element by selector
     const scrollX = iframe.contentWindow.scrollX || 0;
     const scrollY = iframe.contentWindow.scrollY || 0;
 
@@ -180,27 +183,30 @@ export function ElementOverlay({
         return;
       }
 
-      // Calculate absolute position
+      // Generate selector for this element
+      const elementSelector = getElementSelector(element as HTMLElement);
+
+      // Calculate absolute position for overlay positioning
       const elementLeft = rect.left + scrollX;
       const elementTop = rect.top + scrollY;
-      const elementRight = elementLeft + rect.width;
-      const elementBottom = elementTop + rect.height;
 
-      // Check if ANY click from our data falls inside this element's bounds
-      // Count the TOTAL clicks, not just the number of click records
+      // Count clicks that fall within this element's bounding box
       let clicksInside = 0;
-      elements.forEach((clickData) => {
-        const clickX = clickData.x_relative! * currentDocWidth;
-        const clickY = clickData.y_relative! * currentDocHeight;
+      heatmapClicks.forEach((click) => {
+        // Skip clicks that don't have required relative coordinates
+        if (!click.x_relative || !click.y_relative) return;
 
+        const clickX = click.x_relative * currentDocWidth;
+        const clickY = click.y_relative * currentDocHeight;
+
+        // Check if click position is within element bounds
         if (
           clickX >= elementLeft &&
-          clickX <= elementRight &&
+          clickX <= elementLeft + rect.width &&
           clickY >= elementTop &&
-          clickY <= elementBottom
+          clickY <= elementTop + rect.height
         ) {
-          // Add the click count from this record (could be multiple clicks at same position)
-          clicksInside += clickData.clickCount;
+          clicksInside += click.value;
         }
       });
 
@@ -251,20 +257,21 @@ export function ElementOverlay({
         // Add click handler for analysis
         elementHighlight.addEventListener("click", (e) => {
           e.stopPropagation();
-          // Find the first matching click data
-          const matchingClick = elements.find((clickData) => {
-            const clickX = clickData.x_relative! * currentDocWidth;
-            const clickY = clickData.y_relative! * currentDocHeight;
-            return (
-              clickX >= elementLeft &&
-              clickX <= elementRight &&
-              clickY >= elementTop &&
-              clickY <= elementBottom
-            );
-          });
-          if (matchingClick) {
-            setSelectedElement(matchingClick);
-          }
+          // Create a mock ElementClick object for clicked elements
+          const mockElementClick: ElementClick = {
+            selector: elementSelector,
+            tag: element.tagName,
+            text: element.textContent || "",
+            x: elementLeft,
+            y: elementTop,
+            x_relative: elementLeft / currentDocWidth,
+            y_relative: elementTop / currentDocHeight,
+            document_width: currentDocWidth,
+            document_height: currentDocHeight,
+            clickCount: clicksInside,
+            percentage: 0, // Could calculate if we had total clicks
+          };
+          setSelectedElement(mockElementClick);
         });
       } else {
         // BLUE overlay for non-clicked elements
@@ -278,7 +285,7 @@ export function ElementOverlay({
           e.stopPropagation();
           // Create a mock ElementClick object for non-clicked elements
           const mockElementClick: ElementClick = {
-            selector: getElementSelector(element as HTMLElement),
+            selector: elementSelector,
             tag: element.tagName,
             text: element.textContent || "",
             x: elementLeft,
@@ -376,6 +383,7 @@ export function ElementOverlay({
     siteId,
     pagePath,
     deviceType,
+    heatmapClicks,
   ]);
 
   // Apply scaling to match iframe display size (removed - conflicts with ScrollSync)

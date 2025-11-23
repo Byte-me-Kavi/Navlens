@@ -23,6 +23,8 @@ interface SnapshotViewerProps {
   pagePath: string;
   deviceType: string;
   userDevice?: "desktop" | "mobile" | "tablet";
+  showElements?: boolean;
+  showHeatmap?: boolean;
 }
 
 export function SnapshotViewer({
@@ -33,6 +35,8 @@ export function SnapshotViewer({
   pagePath,
   deviceType,
   userDevice = "desktop",
+  showElements = true,
+  showHeatmap = true,
 }: SnapshotViewerProps) {
   console.log("🎯 SnapshotViewer received:", {
     heatmapPointsCount: heatmapPoints?.length ?? 0,
@@ -292,7 +296,7 @@ export function SnapshotViewer({
         />
 
         {/* Heatmap Canvas Layer (z-50) - Only render when ready and iframe loaded */}
-        {isReady && isIframeLoaded && (
+        {isReady && isIframeLoaded && showHeatmap && (
           <HeatmapCanvas
             points={heatmapPoints}
             width={contentDimensions.width}
@@ -302,7 +306,7 @@ export function SnapshotViewer({
         )}
 
         {/* Element Overlay Layer (z-100+) - Only render when ready and iframe loaded */}
-        {isReady && isIframeLoaded && (
+        {isReady && isIframeLoaded && showElements && (
           <ElementOverlay
             elements={elementClicks}
             iframe={iframeElement}
@@ -310,6 +314,7 @@ export function SnapshotViewer({
             pagePath={pagePath}
             deviceType={deviceType}
             onOverlaysRendered={handleOverlaysRendered}
+            heatmapClicks={heatmapPoints}
           />
         )}
       </div>

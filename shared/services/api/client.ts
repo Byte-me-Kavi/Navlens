@@ -40,22 +40,28 @@ class ApiClient {
       },
     });
 
-    // Request interceptor for logging
+    // Request interceptor for logging (dev only)
     this.axios.interceptors.request.use(
       (config) => {
-        console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data || config.params);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data || config.params);
+        }
         return config;
       },
       (error) => {
-        console.error('❌ Request Error:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ Request Error:', error);
+        }
         return Promise.reject(error);
       }
     );
 
-    // Response interceptor for error handling
+    // Response interceptor for logging (dev only)
     this.axios.interceptors.response.use(
       (response) => {
-        console.log(`✓ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✓ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
+        }
         return response;
       },
       (error: AxiosError) => {

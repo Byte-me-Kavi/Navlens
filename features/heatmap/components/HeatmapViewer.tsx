@@ -273,6 +273,8 @@ export function HeatmapViewer({
         pagePath={pagePath}
         deviceType={deviceType}
         userDevice={userDevice}
+        showElements={showElements}
+        showHeatmap={showHeatmap}
       />
 
       {/* Device Stats Sidebar for mobile/tablet */}
