@@ -11,6 +11,7 @@ import { useSnapshot } from "@/features/dom-snapshot/hooks/useSnapshot";
 import { useHeatmapData } from "@/features/heatmap/hooks/useHeatmapData";
 import { useElementClicks } from "@/features/element-tracking/hooks/useElementClicks";
 import { SnapshotViewer } from "./SnapshotViewer";
+import { DeviceStatsBar } from "./DeviceStatsBar";
 import { LoadingSpinner } from "@/shared/components/feedback/LoadingSpinner";
 import { apiClient } from "@/shared/services/api/client";
 import type { HeatmapPoint } from "@/features/heatmap/types/heatmap.types";
@@ -45,6 +46,7 @@ export function HeatmapViewer({
     elements: ElementClick[];
   } | null>(null);
   const [loadingAllViewports, setLoadingAllViewports] = useState(false);
+  const [statsBarOpen, setStatsBarOpen] = useState(false);
 
   // Sync external prop changes
   useEffect(() => {
@@ -248,7 +250,7 @@ export function HeatmapViewer({
   );
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative">
       <SnapshotViewer
         snapshot={snapshotData!}
         heatmapPoints={heatmapPointsToPass}
@@ -256,6 +258,24 @@ export function HeatmapViewer({
         siteId={siteId}
         pagePath={pagePath}
         deviceType={deviceType}
+      />
+
+      {/* Device Stats Sidebar for mobile/tablet */}
+      <DeviceStatsBar
+        deviceType={deviceType}
+        heatmapPointsCount={heatmapPointsToPass.length}
+        elementClicksCount={elementClicksToPass.length}
+        contentWidth={documentWidth}
+        contentHeight={documentHeight}
+        viewportWidth={
+          deviceType === "mobile"
+            ? "375px"
+            : deviceType === "tablet"
+            ? "768px"
+            : "100%"
+        }
+        isOpen={statsBarOpen}
+        onOpenChange={setStatsBarOpen}
       />
     </div>
   );

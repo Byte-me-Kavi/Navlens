@@ -8,17 +8,21 @@ const supabase = createClient(
 
 // Shared logic for processing snapshot requests
 async function processSnapshotRequest(siteId: string, pagePath: string, deviceType: string) {
-    console.log('Params:', { siteId, pagePath, deviceType });
+    console.log('=== Snapshot Request Details ===');
+    console.log('Site ID:', siteId);
+    console.log('Page Path:', pagePath);
+    console.log('Device Type:', deviceType);
 
     if (!siteId || !pagePath || !deviceType) {
-        console.error('Missing required parameters');
+        console.error('❌ Missing required parameters:', { siteId, pagePath, deviceType });
         return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
     // Normalize path to match upload logic
     const normalizedPath = pagePath === '/' ? 'homepage' : pagePath.replace(/^\//, '').replace(/\//g, '_');
     const filePath = `${siteId}/${deviceType}/${normalizedPath}.json`;
-    console.log('Constructed file path:', filePath);
+    console.log('📁 Constructed file path:', filePath);
+    console.log('📁 Full Supabase path: snapshots/' + filePath);
 
     // Download the JSON file
     console.log('Attempting to download from Supabase storage bucket: snapshots');

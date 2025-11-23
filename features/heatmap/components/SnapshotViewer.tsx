@@ -47,7 +47,23 @@ export function SnapshotViewer({
     height: 0,
   });
   const [isReady, setIsReady] = useState(false);
+  const [isIframeLoaded, setIsIframeLoaded] = useState(false);
   const [overlaysRendered, setOverlaysRendered] = useState(0);
+
+  // Get device-specific viewport configuration
+  const getDeviceConfig = () => {
+    switch (deviceType) {
+      case "mobile":
+        return { width: "375px", marginRight: "160px" }; // Center considering sidebar
+      case "tablet":
+        return { width: "768px", marginRight: "160px" }; // Center considering sidebar
+      case "desktop":
+      default:
+        return { width: "100%", marginRight: "0" };
+    }
+  };
+
+  const deviceConfig = getDeviceConfig();
 
   // Build DOM when snapshot changes
   useEffect(() => {
@@ -104,7 +120,10 @@ export function SnapshotViewer({
             }, 200);
           } else {
             setContentDimensions(dimensions);
-            setIsReady(true);
+            // Add delay before marking ready to ensure iframe is fully painted
+            setTimeout(() => {
+              setIsReady(true);
+            }, 200);
           }
         }, 150);
       } catch (error) {
@@ -191,42 +210,61 @@ export function SnapshotViewer({
   }, [isReady, overlaysRendered]);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full bg-white border border-gray-300 relative overflow-hidden"
-    >
-      {/* Iframe for DOM reconstruction (z-1) */}
-      <iframe
-        ref={iframeRef}
-        className="w-full h-full border-none absolute top-0 left-0"
-        style={{ zIndex: 1 }}
-        sandbox="allow-same-origin"
-        title="Page Snapshot"
-      />
+    <div className="w-full h-full flex items-start justify-center bg-blue-50 p-4 overflow-auto">
+      <div
+        ref={containerRef}
+        className="bg-white border border-gray-300 shadow-2xl rounded-lg relative overflow-hidden"
+        style={{
+          width: deviceConfig.width,
+          height: "calc(100vh - 2rem)",
+          maxWidth: "100%",
+        }}
+      >
+        {/* Loading indicator while iframe is being built */}
+        {!isReady && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white z-200">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 text-sm">Loading snapshot...</p>
+            </div>
+          </div>
+        )}
 
-      {/* Heatmap Canvas Layer (z-50) - Heat blobs behind overlays */}
-      {/* Always render to ensure container exists for ScrollSync */}
-      {isReady && (
-        <HeatmapCanvas
-          points={heatmapPoints}
-          width={contentDimensions.width}
-          height={contentDimensions.height}
-          iframe={iframeRef.current}
+        {/* Iframe for DOM reconstruction (z-1) */}
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full border-none absolute top-0 left-0"
+          style={{ zIndex: 1 }}
+          sandbox="allow-same-origin"
+          title="Page Snapshot"
+          onLoad={() => {
+            console.log("✅ Iframe onLoad fired");
+            setIsIframeLoaded(true);
+          }}
         />
-      )}
 
-      {/* Element Overlay Layer (z-100+) - Element highlights and click points on top */}
-      {/* Always render to ensure container exists for ScrollSync */}
-      {isReady && (
-        <ElementOverlay
-          elements={elementClicks}
-          iframe={iframeRef.current}
-          siteId={siteId}
-          pagePath={pagePath}
-          deviceType={deviceType}
-          onOverlaysRendered={() => setOverlaysRendered((prev) => prev + 1)}
-        />
-      )}
+        {/* Heatmap Canvas Layer (z-50) - Only render when ready and iframe loaded */}
+        {isReady && isIframeLoaded && (
+          <HeatmapCanvas
+            points={heatmapPoints}
+            width={contentDimensions.width}
+            height={contentDimensions.height}
+            iframe={iframeRef.current}
+          />
+        )}
+
+        {/* Element Overlay Layer (z-100+) - Only render when ready and iframe loaded */}
+        {isReady && isIframeLoaded && (
+          <ElementOverlay
+            elements={elementClicks}
+            iframe={iframeRef.current}
+            siteId={siteId}
+            pagePath={pagePath}
+            deviceType={deviceType}
+            onOverlaysRendered={() => setOverlaysRendered((prev) => prev + 1)}
+          />
+        )}
+      </div>
     </div>
   );
 }

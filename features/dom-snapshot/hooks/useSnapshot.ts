@@ -25,15 +25,24 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
       setLoading(true);
       setError(null);
 
-      console.log('📸 Fetching snapshot:', params);
+      console.log('📸 [useSnapshot] Fetching snapshot with params:', {
+        siteId: params.siteId,
+        pagePath: params.pagePath,
+        deviceType: params.deviceType,
+      });
 
       const result = await snapshotApi.getSnapshot(params);
 
-      console.log('✓ Snapshot fetched:', result);
+      console.log('✓ [useSnapshot] Snapshot fetched successfully');
 
       setData(result);
     } catch (err) {
-      console.error('❌ Error fetching snapshot:', err);
+      console.error('❌ [useSnapshot] Error fetching snapshot:', err);
+      console.error('❌ [useSnapshot] Failed params:', {
+        siteId: params.siteId,
+        pagePath: params.pagePath,
+        deviceType: params.deviceType,
+      });
       setError(err as Error);
       setData(null);
     } finally {

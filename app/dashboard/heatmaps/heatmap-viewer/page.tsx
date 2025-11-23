@@ -22,6 +22,35 @@ export default function HeatmapViewerPage() {
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showAllViewports, setShowAllViewports] = useState(false);
 
+  // Keep settings sidebar always open for mobile
+  useEffect(() => {
+    if (selectedDevice === "mobile") {
+      setSidebarOpen(true);
+    }
+  }, [selectedDevice]);
+
+  // Handler for device change with logging
+  const handleDeviceChange = (device: "desktop" | "mobile" | "tablet") => {
+    console.log(
+      "[HeatmapViewerPage] Device changed from",
+      selectedDevice,
+      "to",
+      device
+    );
+    setSelectedDevice(device);
+  };
+
+  // Handler for page change with logging
+  const handlePageChange = (page: string) => {
+    console.log(
+      "[HeatmapViewerPage] Page changed from",
+      selectedPage,
+      "to",
+      page
+    );
+    setSelectedPage(page);
+  };
+
   // Redirect to dashboard if site context is lost (page refresh scenario)
   useEffect(() => {
     if (!siteId) {
@@ -72,7 +101,19 @@ export default function HeatmapViewerPage() {
           body: JSON.stringify({ siteId }),
         });
         const data = await response.json();
-        setAvailablePages(data.pages || []);
+        console.log("[HeatmapViewerPage] Pages API response:", data);
+        setAvailablePages(data.pagePaths || []);
+
+        // Set first page as default if available
+        if (data.pagePaths && data.pagePaths.length > 0) {
+          console.log(
+            "[HeatmapViewerPage] Setting initial page to:",
+            data.pagePaths[0]
+          );
+          setSelectedPage(data.pagePaths[0]);
+        } else {
+          console.warn("[HeatmapViewerPage] No pages found for site:", siteId);
+        }
       } catch (error) {
         console.error("Failed to fetch pages:", error);
       } finally {
@@ -83,18 +124,36 @@ export default function HeatmapViewerPage() {
     fetchPages();
   }, [siteId]);
 
-  if (loading || !siteId) {
+  // Don't render until we have pages loaded and a valid page selected
+  if (loading || !siteId || availablePages.length === 0) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <LoadingSpinner message="Loading heatmap viewer..." />
+        <LoadingSpinner
+          message={
+            loading
+              ? "Loading heatmap viewer..."
+              : availablePages.length === 0
+              ? "No pages found with snapshots..."
+              : "Initializing..."
+          }
+        />
       </div>
     );
   }
 
+  // Log when page or device changes
+  console.log("[HeatmapViewerPage] Rendering with:", {
+    selectedPage,
+    selectedDevice,
+    key: `${selectedPage}-${selectedDevice}`,
+  });
+
   return (
     <div className="h-screen relative bg-slate-50 dark:bg-slate-900">
       {/* Full Screen Heatmap Viewer */}
+      {/* Key prop forces remount when page/device changes to load new snapshot */}
       <HeatmapViewer
+        key={`${selectedPage}-${selectedDevice}`}
         siteId={siteId}
         pagePath={selectedPage}
         deviceType={selectedDevice}
@@ -109,9 +168,9 @@ export default function HeatmapViewerPage() {
       <HeatmapSettings
         availablePages={availablePages}
         selectedPage={selectedPage}
-        onPageChange={setSelectedPage}
+        onPageChange={handlePageChange}
         selectedDevice={selectedDevice}
-        onDeviceChange={setSelectedDevice}
+        onDeviceChange={handleDeviceChange}
         selectedDataType={selectedDataType}
         onDataTypeChange={setSelectedDataType}
         showElements={showElements}

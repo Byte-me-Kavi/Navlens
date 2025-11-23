@@ -254,11 +254,11 @@ export function HeatmapSettings({
 
   return (
     <>
-      {/* Collapsible Sidebar - Fixed Overlay */}
+      {/* Collapsible Sidebar - Responsive Overlay */}
       <div
-        className={`fixed left-0 top-0 h-screen z-100 ${
-          sidebarOpen ? "w-96" : "w-0"
-        } transition-all duration-300 ease-in-out bg-white/95 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col border-r border-gray-200`}
+        className={`fixed left-0 top-0 z-100 transition-all duration-300 ease-in-out bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col border-r border-gray-200 ${
+          sidebarOpen ? "w-full sm:w-96" : "w-0"
+        } h-screen max-w-full sm:max-w-md rounded-r-xl`}
       >
         <div className="p-5 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between mb-2">
@@ -503,11 +503,11 @@ export function HeatmapSettings({
         </div>
       </div>
 
-      {/* Floating Toggle Button */}
+      {/* Floating Toggle Button - Responsive */}
       {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
-          className="fixed left-4 top-4 z-9999 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-lg transition-all hover:shadow-xl"
+          className="fixed left-4 sm:left-6 top-4 sm:top-6 z-9999 p-3 bg-linear-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl shadow-lg transition-all hover:shadow-2xl hover:scale-105"
           title="Open Settings"
         >
           <SettingsIcon />
