@@ -3,6 +3,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigation } from "@/context/NavigationContext";
+import { usePathname } from "next/navigation";
 import {
   ArrowRightOnRectangleIcon,
   BellIcon,
@@ -20,9 +21,39 @@ export default function Header({ onMenuToggle }: HeaderProps) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
   const { navigateTo, isNavigating } = useNavigation();
+  const pathname = usePathname();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  // Helper function to get page title based on current pathname
+  const getPageTitle = () => {
+    if (
+      pathname?.includes("/dashboard/sessions") &&
+      !pathname?.includes("[session-id]")
+    ) {
+      return "Navlens Analytics Sessions Dashboard";
+    }
+    if (pathname?.includes("/dashboard/sessions/[session-id]")) {
+      return "Navlens Session Replay";
+    }
+    if (pathname?.includes("/dashboard/heatmaps")) {
+      return "Navlens Analytics Heatmaps";
+    }
+    if (pathname?.includes("/dashboard/experiments")) {
+      return "Navlens Analytics Experiments";
+    }
+    if (pathname?.includes("/dashboard/my-sites")) {
+      return "Navlens Analytics My Sites";
+    }
+    if (pathname?.includes("/dashboard/settings")) {
+      return "Navlens Analytics Settings";
+    }
+    if (pathname?.includes("/dashboard")) {
+      return "Navlens Analytics Dashboard";
+    }
+    return "Navlens Analytics Dashboard";
+  };
 
   // Helper function to get cached image from localStorage
   const getCachedImage = (userEmail: string) => {
@@ -197,7 +228,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         {/* Left Section - Page Title/Breadcrumb */}
         <div className="flex items-center gap-2 sm:gap-4 flex-1">
           <h1 className="text-base sm:text-xl md:text-2xl font-bold text-blue-900">
-            Navlens Analytics Dashboard
+            {getPageTitle()}
           </h1>
         </div>
 

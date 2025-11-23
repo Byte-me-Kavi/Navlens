@@ -27,6 +27,55 @@
   }
 }
 
+/* RRWeb Player Theme Customization - Minimal overrides only */
+.session-player-container {
+  width: 10%;
+  height: 100%;
+  background: transparent !important;
+  box-sizing: border-box;
+}
+
+.session-player-container .rr-player {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.session-player-container .rr-player__frame {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.session-player-container .rr-controller {
+  display: none;
+}
+
+.session-player-container .rr-controller__btns button {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.session-player-container .rr-controller__btns button:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: scale(1.05);
+}
+
+.session-player-container .rr-progress {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-radius: 9999px;
+}
+
+.session-player-container .rr-progress__step {
+  background: white !important;
+  border-radius: 9999px;
+}
+
+.session-player-container .rr-progress__handler {
+  background: white !important;
+  border: 2px solid #2563eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
 /* Remove underlines from Supabase auth links */
 .supabase-auth-ui_ui a {
   text-decoration: none !important;

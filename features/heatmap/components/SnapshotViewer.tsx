@@ -22,6 +22,7 @@ interface SnapshotViewerProps {
   siteId: string;
   pagePath: string;
   deviceType: string;
+  userDevice?: "desktop" | "mobile" | "tablet";
 }
 
 export function SnapshotViewer({
@@ -31,6 +32,7 @@ export function SnapshotViewer({
   siteId,
   pagePath,
   deviceType,
+  userDevice = "desktop",
 }: SnapshotViewerProps) {
   console.log("🎯 SnapshotViewer received:", {
     heatmapPointsCount: heatmapPoints?.length ?? 0,
@@ -50,13 +52,44 @@ export function SnapshotViewer({
   const [isIframeLoaded, setIsIframeLoaded] = useState(false);
   const [overlaysRendered, setOverlaysRendered] = useState(0);
 
+  // Track window size for auto-refresh on resize
+  useEffect(() => {
+    let resizeTimeout: NodeJS.Timeout;
+
+    const handleResize = () => {
+      // Debounce resize events
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        console.log("🔄 Window resized, refreshing page...");
+        window.location.reload();
+      }, 500); // Wait 500ms after resize stops
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      clearTimeout(resizeTimeout);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
   // Get device-specific viewport configuration
   const getDeviceConfig = () => {
+    // If user is on mobile viewing mobile heatmap, take full width
+    if (userDevice === "mobile" && deviceType === "mobile") {
+      return { width: "100%", marginRight: "0" };
+    }
+    // If user is on tablet viewing tablet heatmap, take full width
+    if (userDevice === "tablet" && deviceType === "tablet") {
+      return { width: "100%", marginRight: "0" };
+    }
+
+    // Otherwise use fixed widths
     switch (deviceType) {
       case "mobile":
-        return { width: "375px", marginRight: "160px" }; // Center considering sidebar
+        return { width: "375px", marginRight: "160px" };
       case "tablet":
-        return { width: "768px", marginRight: "160px" }; // Center considering sidebar
+        return { width: "800px", marginRight: "160px" };
       case "desktop":
       default:
         return { width: "100%", marginRight: "0" };
@@ -210,7 +243,7 @@ export function SnapshotViewer({
   }, [isReady, overlaysRendered]);
 
   return (
-    <div className="w-full h-full flex items-start justify-center bg-blue-50 p-4 overflow-auto">
+    <div className="w-full h-full flex items-start justify-center bg-blue-100 p-4 overflow-auto">
       <div
         ref={containerRef}
         className="bg-white border border-gray-300 shadow-2xl rounded-lg relative overflow-hidden"

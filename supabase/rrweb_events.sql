@@ -1,48 +1,37 @@
--- Create rrweb_events table for storing mouse movements, scroll events, etc.
-CREATE TABLE IF NOT EXISTS rrweb_events (
-    id SERIAL PRIMARY KEY,
-    site_id TEXT NOT NULL,
-    page_path TEXT NOT NULL,
-    session_id TEXT NOT NULL,
-    user_id UUID, -- Site owner's user ID (nullable for unregistered sites)
-    visitor_id TEXT, -- Visitor's anonymous ID
-    events JSONB NOT NULL,
-    timestamp TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
+create table public.rrweb_events (
+  id serial not null,
+  site_id text not null,
+  page_path text not null,
+  session_id text not null,
+  user_id uuid null default '00000000-0000-0000-0000-000000000000'::uuid,
+  visitor_id text null,
+  events jsonb not null,
+  timestamp timestamp with time zone not null,
+  created_at timestamp with time zone null default now(),
+  ip_address text null,
+  country text null,
+  user_agent text null,
+  screen_width integer null,
+  screen_height integer null,
+  language text null,
+  timezone text null,
+  referrer text null,
+  viewport_width integer null,
+  viewport_height integer null,
+  device_pixel_ratio numeric(5, 2) null,
+  platform text null,
+  cookie_enabled boolean null,
+  online boolean null,
+  device_type text null,
+  load_time numeric(10, 2) null,
+  dom_ready_time numeric(10, 2) null,
+  constraint rrweb_events_pkey primary key (id)
+) TABLESPACE pg_default;
 
-    -- Additional user details for session replay
-    ip_address TEXT,
-    country TEXT,
-    user_agent TEXT,
-    screen_width INTEGER,
-    screen_height INTEGER,
-    language TEXT,
-    timezone TEXT,
-    referrer TEXT,
-    viewport_width INTEGER,
-    viewport_height INTEGER,
-    device_pixel_ratio NUMERIC(5,2),
-    platform TEXT,
-    cookie_enabled BOOLEAN,
-    online BOOLEAN,
-    device_type TEXT,
-    load_time NUMERIC(10,2),
-    dom_ready_time NUMERIC(10,2)
-);
+create index IF not exists idx_rrweb_events_site_id on public.rrweb_events using btree (site_id) TABLESPACE pg_default;
 
--- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_rrweb_events_site_id ON rrweb_events (site_id);
-CREATE INDEX IF NOT EXISTS idx_rrweb_events_session_id ON rrweb_events (session_id);
-CREATE INDEX IF NOT EXISTS idx_rrweb_events_timestamp ON rrweb_events (timestamp);
-CREATE INDEX IF NOT EXISTS idx_rrweb_events_page_path ON rrweb_events (page_path);
+create index IF not exists idx_rrweb_events_session_id on public.rrweb_events using btree (session_id) TABLESPACE pg_default;
 
--- Add RLS (Row Level Security) policies if needed
-ALTER TABLE rrweb_events ENABLE ROW LEVEL SECURITY;
+create index IF not exists idx_rrweb_events_timestamp on public.rrweb_events using btree ("timestamp") TABLESPACE pg_default;
 
--- Policy to allow authenticated users to insert their own events
-CREATE POLICY "Users can insert rrweb events" ON rrweb_events
-    FOR INSERT WITH CHECK (true); -- Allow inserts for now, you can restrict this later
-
--- Policy to allow users to read their own events
-CREATE POLICY "Users can read rrweb events" ON rrweb_events
-    FOR SELECT USING (user_id = auth.uid()); -- Only allow reading events for the authenticated user's sites
+create index IF not exists idx_rrweb_events_page_path on public.rrweb_events using btree (page_path) TABLESPACE pg_default;

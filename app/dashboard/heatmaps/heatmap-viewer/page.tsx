@@ -9,6 +9,11 @@ export default function HeatmapViewerPage() {
   const router = useRouter();
   const { selectedSiteId: siteId } = useSite();
   const [selectedPage, setSelectedPage] = useState("/");
+
+  // Detect user's actual device on mount
+  const [userDevice, setUserDevice] = useState<"desktop" | "mobile" | "tablet">(
+    "desktop"
+  );
   const [selectedDevice, setSelectedDevice] = useState<
     "desktop" | "mobile" | "tablet"
   >("desktop");
@@ -18,18 +23,50 @@ export default function HeatmapViewerPage() {
   const [availablePages, setAvailablePages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [statsBarOpen, setStatsBarOpen] = useState(false);
   const [showElements, setShowElements] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showAllViewports, setShowAllViewports] = useState(false);
 
-  // Keep settings sidebar always open for mobile
-  useEffect(() => {
-    if (selectedDevice === "mobile") {
-      setSidebarOpen(true);
-    }
-  }, [selectedDevice]);
+  // Handler to open settings sidebar and close stats
+  const handleOpenSettings = () => {
+    setSidebarOpen(true);
+    setStatsBarOpen(false);
+  };
 
-  // Handler for device change with logging
+  // Handler to open stats sidebar and close settings
+  const handleOpenStats = () => {
+    setStatsBarOpen(true);
+    setSidebarOpen(false);
+  };
+
+  // Handler to close settings sidebar
+  const handleCloseSettings = () => {
+    setSidebarOpen(false);
+  };
+
+  // Handler to close stats sidebar
+  const handleCloseStats = () => {
+    setStatsBarOpen(false);
+  };
+
+  // Detect user's device type
+  useEffect(() => {
+    const detectDevice = () => {
+      const width = window.innerWidth;
+      if (width < 768) {
+        return "mobile";
+      } else if (width < 1024) {
+        return "tablet";
+      } else {
+        return "desktop";
+      }
+    };
+
+    const detected = detectDevice();
+    setUserDevice(detected);
+    setSelectedDevice(detected);
+  }, []); // Handler for device change with logging
   const handleDeviceChange = (device: "desktop" | "mobile" | "tablet") => {
     console.log(
       "[HeatmapViewerPage] Device changed from",
@@ -162,6 +199,10 @@ export default function HeatmapViewerPage() {
         showHeatmap={showHeatmap}
         showAllViewports={showAllViewports}
         onViewportModeChange={(showAll) => setShowAllViewports(showAll)}
+        userDevice={userDevice}
+        statsBarOpen={statsBarOpen}
+        onStatsBarOpenChange={handleOpenStats}
+        onStatsBarClose={handleCloseStats}
       />
 
       {/* Heatmap Settings Sidebar Component - Overlay */}
@@ -171,6 +212,7 @@ export default function HeatmapViewerPage() {
         onPageChange={handlePageChange}
         selectedDevice={selectedDevice}
         onDeviceChange={handleDeviceChange}
+        userDevice={userDevice}
         selectedDataType={selectedDataType}
         onDataTypeChange={setSelectedDataType}
         showElements={showElements}
@@ -181,7 +223,8 @@ export default function HeatmapViewerPage() {
         onShowAllViewportsChange={setShowAllViewports}
         siteId={siteId}
         isOpen={sidebarOpen}
-        onOpenChange={setSidebarOpen}
+        onOpenChange={handleOpenSettings}
+        onClose={handleCloseSettings}
       />
     </div>
   );

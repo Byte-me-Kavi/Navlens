@@ -26,6 +26,10 @@ export interface HeatmapViewerProps {
   showHeatmap?: boolean;
   showAllViewports?: boolean;
   onViewportModeChange?: (showAll: boolean) => void;
+  userDevice?: "desktop" | "tablet" | "mobile";
+  statsBarOpen?: boolean;
+  onStatsBarOpenChange?: () => void;
+  onStatsBarClose?: () => void;
 }
 
 export function HeatmapViewer({
@@ -37,6 +41,10 @@ export function HeatmapViewer({
   showHeatmap = true,
   showAllViewports: externalShowAllViewports = false,
   onViewportModeChange,
+  userDevice = "desktop",
+  statsBarOpen = false,
+  onStatsBarOpenChange,
+  onStatsBarClose,
 }: HeatmapViewerProps) {
   const [showAllViewports, setShowAllViewports] = useState(
     externalShowAllViewports
@@ -45,10 +53,7 @@ export function HeatmapViewer({
     heatmap: HeatmapPoint[];
     elements: ElementClick[];
   } | null>(null);
-  const [loadingAllViewports, setLoadingAllViewports] = useState(false);
-  const [statsBarOpen, setStatsBarOpen] = useState(false);
-
-  // Sync external prop changes
+  const [loadingAllViewports, setLoadingAllViewports] = useState(false); // Sync external prop changes
   useEffect(() => {
     if (externalShowAllViewports !== showAllViewports) {
       handleShowAllViewports();
@@ -258,6 +263,7 @@ export function HeatmapViewer({
         siteId={siteId}
         pagePath={pagePath}
         deviceType={deviceType}
+        userDevice={userDevice}
       />
 
       {/* Device Stats Sidebar for mobile/tablet */}
@@ -275,7 +281,8 @@ export function HeatmapViewer({
             : "100%"
         }
         isOpen={statsBarOpen}
-        onOpenChange={setStatsBarOpen}
+        onOpenChange={onStatsBarOpenChange}
+        onClose={onStatsBarClose}
       />
     </div>
   );

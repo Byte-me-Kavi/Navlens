@@ -11,6 +11,7 @@ import {
   BeakerIcon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useState } from "react";
@@ -31,6 +32,11 @@ const navItems = [
     name: "Heatmaps",
     href: "/dashboard/heatmaps",
     icon: PresentationChartBarIcon,
+  },
+  {
+    name: "Sessions",
+    href: "/dashboard/sessions",
+    icon: EyeIcon,
   },
   {
     name: "Settings",

@@ -32,7 +32,8 @@ interface DeviceStatsBarProps {
   contentHeight: number;
   viewportWidth: string;
   isOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  onOpenChange?: () => void;
+  onClose?: () => void;
 }
 
 export function DeviceStatsBar({
@@ -44,13 +45,15 @@ export function DeviceStatsBar({
   viewportWidth,
   isOpen: externalIsOpen,
   onOpenChange,
+  onClose,
 }: DeviceStatsBarProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalOpen;
-  const setIsOpen = onOpenChange || setInternalOpen;
+  const handleOpen = onOpenChange || (() => setInternalOpen(true));
+  const handleClose = onClose || (() => setInternalOpen(false));
 
-  // For mobile/tablet, always show (unless explicitly closed for desktop)
-  const shouldShow = deviceType !== "desktop" || isOpen;
+  // Only show when explicitly opened
+  const shouldShow = isOpen;
 
   const totalClicks = heatmapPointsCount + elementClicksCount;
 
@@ -63,11 +66,11 @@ export function DeviceStatsBar({
         }`}
       >
         <div className="p-5 space-y-6">
-          {/* Close button for desktop */}
-          {deviceType === "desktop" && shouldShow && (
+          {/* Close button - Always visible when sidebar is open */}
+          {shouldShow && (
             <button
-              onClick={() => setIsOpen(false)}
-              className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={handleClose}
+              className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors z-10"
             >
               <svg
                 className="w-5 h-5 text-gray-600"
@@ -214,7 +217,7 @@ export function DeviceStatsBar({
       {/* Floating Toggle Button - Responsive positioning */}
       {deviceType === "desktop" && !shouldShow && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={handleOpen}
           className="fixed right-6 top-6 z-9999 p-3 bg-linear-to-br from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl shadow-lg transition-all hover:shadow-2xl hover:scale-105"
           title="Show Device Stats"
         >
@@ -224,7 +227,7 @@ export function DeviceStatsBar({
       {/* Mobile/Tablet Toggle Button */}
       {deviceType !== "desktop" && !shouldShow && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={handleOpen}
           className="fixed right-4 bottom-4 z-9999 p-4 bg-linear-to-br from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-full shadow-lg transition-all hover:shadow-2xl hover:scale-105"
           title="Show Stats"
         >

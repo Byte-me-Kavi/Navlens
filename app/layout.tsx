@@ -30,6 +30,7 @@ function RootLayoutClient({
       <div className="relative z-10">
         <Toast>{children}</Toast>
       </div>
+      <script src="http://localhost:8097"></script>
     </body>
   );
 }

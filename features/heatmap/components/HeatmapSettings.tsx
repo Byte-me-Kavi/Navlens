@@ -206,6 +206,7 @@ export interface HeatmapSettingsProps {
   // Device settings
   selectedDevice: "desktop" | "tablet" | "mobile";
   onDeviceChange: (device: "desktop" | "tablet" | "mobile") => void;
+  userDevice?: "desktop" | "tablet" | "mobile";
 
   // Data type settings
   selectedDataType: "clicks" | "heatmap" | "both";
@@ -227,7 +228,8 @@ export interface HeatmapSettingsProps {
 
   // Sidebar state
   isOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  onOpenChange?: () => void;
+  onClose?: () => void;
 }
 
 export function HeatmapSettings({
@@ -247,10 +249,13 @@ export function HeatmapSettings({
   siteId,
   isOpen = true,
   onOpenChange,
+  onClose,
+  userDevice = "desktop",
 }: HeatmapSettingsProps) {
   const [internalOpen, setInternalOpen] = useState(isOpen);
-  const sidebarOpen = onOpenChange ? isOpen : internalOpen;
-  const setSidebarOpen = onOpenChange || setInternalOpen;
+  const sidebarOpen = isOpen;
+  const handleOpen = onOpenChange || (() => setInternalOpen(true));
+  const handleClose = onClose || (() => setInternalOpen(false));
 
   return (
     <>
@@ -266,7 +271,7 @@ export function HeatmapSettings({
               Heatmap Settings
             </h2>
             <button
-              onClick={() => setSidebarOpen(false)}
+              onClick={handleClose}
               className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
             >
               <ChevronLeftIcon />
@@ -299,47 +304,49 @@ export function HeatmapSettings({
             </select>
           </div>
 
-          {/* Device Type */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 mb-2 block">
-              Device Type
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={() => onDeviceChange("desktop")}
-                className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                  selectedDevice === "desktop"
-                    ? "border-blue-600 bg-blue-50 text-blue-600"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50"
-                }`}
-              >
-                <MonitorIcon />
-                <span className="text-xs mt-1.5 font-medium">Desktop</span>
-              </button>
-              <button
-                onClick={() => onDeviceChange("tablet")}
-                className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                  selectedDevice === "tablet"
-                    ? "border-blue-600 bg-blue-50 text-blue-600"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50"
-                }`}
-              >
-                <TabletIcon />
-                <span className="text-xs mt-1.5 font-medium">Tablet</span>
-              </button>
-              <button
-                onClick={() => onDeviceChange("mobile")}
-                className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                  selectedDevice === "mobile"
-                    ? "border-blue-600 bg-blue-50 text-blue-600"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50"
-                }`}
-              >
-                <MobileIcon />
-                <span className="text-xs mt-1.5 font-medium">Mobile</span>
-              </button>
+          {/* Device Type - Hidden on mobile devices */}
+          {userDevice !== "mobile" && (
+            <div>
+              <label className="text-xs font-semibold text-gray-700 mb-2 block">
+                Device Type
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => onDeviceChange("desktop")}
+                  className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                    selectedDevice === "desktop"
+                      ? "border-blue-600 bg-blue-50 text-blue-600"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50"
+                  }`}
+                >
+                  <MonitorIcon />
+                  <span className="text-xs mt-1.5 font-medium">Desktop</span>
+                </button>
+                <button
+                  onClick={() => onDeviceChange("tablet")}
+                  className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                    selectedDevice === "tablet"
+                      ? "border-blue-600 bg-blue-50 text-blue-600"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50"
+                  }`}
+                >
+                  <TabletIcon />
+                  <span className="text-xs mt-1.5 font-medium">Tablet</span>
+                </button>
+                <button
+                  onClick={() => onDeviceChange("mobile")}
+                  className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
+                    selectedDevice === "mobile"
+                      ? "border-blue-600 bg-blue-50 text-blue-600"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50"
+                  }`}
+                >
+                  <MobileIcon />
+                  <span className="text-xs mt-1.5 font-medium">Mobile</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Data Type */}
           <div>
@@ -503,10 +510,10 @@ export function HeatmapSettings({
         </div>
       </div>
 
-      {/* Floating Toggle Button - Responsive */}
+      {/* Floating Toggle Button - Always visible when closed */}
       {!sidebarOpen && (
         <button
-          onClick={() => setSidebarOpen(true)}
+          onClick={handleOpen}
           className="fixed left-4 sm:left-6 top-4 sm:top-6 z-9999 p-3 bg-linear-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl shadow-lg transition-all hover:shadow-2xl hover:scale-105"
           title="Open Settings"
         >
