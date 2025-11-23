@@ -6,8 +6,6 @@
 
 "use client";
 
-import { useState } from "react";
-
 // Icon components
 const ChevronLeftIcon = () => (
   <svg
@@ -252,10 +250,9 @@ export function HeatmapSettings({
   onClose,
   userDevice = "desktop",
 }: HeatmapSettingsProps) {
-  const [internalOpen, setInternalOpen] = useState(isOpen);
   const sidebarOpen = isOpen;
-  const handleOpen = onOpenChange || (() => setInternalOpen(true));
-  const handleClose = onClose || (() => setInternalOpen(false));
+  const handleOpen = onOpenChange || (() => {});
+  const handleClose = onClose || (() => {});
 
   return (
     <>

@@ -49,13 +49,27 @@ export function ElementAnalysisModal({
         });
 
         // Process data and generate analysis
-        const elementData = data.elementMetrics?.find(
-          (el: any) => el.element_selector === element.selector
-        );
+        const elementData = (
+          data.elementMetrics as Array<{
+            element_selector: string;
+            total_clicks: number;
+            unique_sessions: number;
+            avg_scroll_depth: number;
+            desktop_clicks: number;
+            tablet_clicks: number;
+            mobile_clicks: number;
+            rage_click_sessions: number;
+            dead_clicks: number;
+          }>
+        )?.find((el) => el.element_selector === element.selector);
 
-        const siteAvg = data.siteAverages?.averages?.find(
-          (avg: any) => avg.element_tag === element.tag
-        );
+        const siteAvg = (
+          data.siteAverages?.averages as Array<{
+            element_tag: string;
+            avg_ctr_by_tag: number;
+            element_count: number;
+          }>
+        )?.find((avg) => avg.element_tag === element.tag);
 
         const ctr = elementData
           ? (elementData.total_clicks /
@@ -81,25 +95,26 @@ export function ElementAnalysisModal({
         setAnalysis({
           reality: {
             ctr,
-            ctrTrend: data.trends?.trends?.clicks_change || 0,
+            ctrTrend: (data.trends as any)?.trends?.clicks_change || 0, // eslint-disable-line @typescript-eslint/no-explicit-any
             ctrBenchmark:
-              ctr > (siteAvg?.avg_ctr || 1)
+              ctr > (siteAvg?.avg_ctr_by_tag || 1)
                 ? "Above Average"
-                : ctr > (siteAvg?.avg_ctr || 1) * 0.5
+                : ctr > (siteAvg?.avg_ctr_by_tag || 1) * 0.5
                 ? "Average"
                 : "Below Average",
             deviceBreakdown,
             scrollDepth:
               elementData?.avg_scroll_depth ||
               (element.y / window.innerHeight) * 100,
-            scrollDepthTrend: data.trends?.trends?.scroll_depth_change || 0,
+            scrollDepthTrend:
+              (data.trends as any)?.trends?.scroll_depth_change || 0, // eslint-disable-line @typescript-eslint/no-explicit-any
             position:
               element.y < 200
                 ? "Hero Section"
                 : element.y > window.innerHeight * 0.8
                 ? "Below Fold"
                 : "Mid-Page",
-            siteAvgCTR: siteAvg?.avg_ctr || 0.5,
+            siteAvgCTR: siteAvg?.avg_ctr_by_tag || 0.5,
           },
           diagnosis: {
             frustrationIndex:
@@ -128,7 +143,7 @@ export function ElementAnalysisModal({
           },
           prescription: generatePrescription(element, {
             ctr,
-            ctrTrend: data.trends?.trends?.clicks_change || 0,
+            ctrTrend: (data.trends as any)?.trends?.clicks_change || 0, // eslint-disable-line @typescript-eslint/no-explicit-any
             deviceBreakdown,
             scrollDepth:
               elementData?.avg_scroll_depth ||
@@ -137,7 +152,7 @@ export function ElementAnalysisModal({
             isImportant: element.tag === "BUTTON",
             rageClicks: elementData?.rage_click_sessions || 0,
             deadClicks: elementData?.dead_clicks || 0,
-            siteAvgCTR: siteAvg?.avg_ctr || 0.5,
+            siteAvgCTR: siteAvg?.avg_ctr_by_tag || 0.5,
           }),
         });
       } catch (error) {

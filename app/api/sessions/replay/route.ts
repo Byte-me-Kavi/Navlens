@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
         // 2. STITCHING: Merge all batches into a single event array
         // The DB stores arrays of events in each row. We need to flatten them.
-        let fullSessionEvents: any[] = [];
+        const fullSessionEvents: unknown[] = [];
         
         chunks.forEach(chunk => {
             // Handle case where events might be stringified JSON or object
@@ -45,11 +45,11 @@ export async function POST(req: NextRequest) {
 
         // 3. Sort events by timestamp (Crucial for accurate playback)
         // Sometimes network requests arrive out of order, so we re-sort via the event timestamp.
-        fullSessionEvents.sort((a, b) => a.timestamp - b.timestamp);
+        fullSessionEvents.sort((a: any, b: any) => a.timestamp - b.timestamp); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         // 4. Optimize: Return metadata for the UI (duration, start time) if needed
-        const startTime = fullSessionEvents[0]?.timestamp;
-        const endTime = fullSessionEvents[fullSessionEvents.length - 1]?.timestamp;
+        const startTime = (fullSessionEvents[0] as any)?.timestamp; // eslint-disable-line @typescript-eslint/no-explicit-any
+        const endTime = (fullSessionEvents[fullSessionEvents.length - 1] as any)?.timestamp; // eslint-disable-line @typescript-eslint/no-explicit-any
         const duration = endTime - startTime;
 
         return NextResponse.json({ 
@@ -61,8 +61,8 @@ export async function POST(req: NextRequest) {
             }
         }, { status: 200 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Replay API Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
     }
 }

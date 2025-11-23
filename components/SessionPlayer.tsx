@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
 import VideoControls from "./VideoControls";
@@ -31,38 +31,35 @@ const playerStyles = `
   }
 `;
 
-interface SessionPlayerProps {
-  events: any[];
-  deviceType?: "desktop" | "mobile" | "tablet";
-  userDevice?: "desktop" | "mobile" | "tablet";
-  screenWidth?: number;
-  screenHeight?: number;
+export interface RRWebEvent {
+  type: number;
+  data: Record<string, unknown>;
+  timestamp: number;
+  [key: string]: unknown;
 }
 
-export default function SessionPlayer({
-  events,
-  deviceType = "desktop",
-  userDevice = "desktop",
-  screenWidth,
-  screenHeight,
-}: SessionPlayerProps) {
+interface SessionPlayerProps {
+  events: RRWebEvent[];
+}
+
+export default function SessionPlayer({ events }: SessionPlayerProps) {
   const playerRef = useRef<HTMLDivElement>(null);
-  const playerInstanceRef = useRef<any>(null);
+  const playerInstanceRef = useRef<rrwebPlayer | null>(null);
 
   // UI State
   const [playerReady, setPlayerReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
 
   // 1. Calculate Duration Immediately from Data (No waiting for player)
-  useEffect(() => {
+  const duration = useMemo(() => {
     if (events && events.length > 1) {
       const startTime = events[0].timestamp;
       const endTime = events[events.length - 1].timestamp;
-      setDuration(endTime - startTime);
+      return endTime - startTime;
     }
+    return 0;
   }, [events]);
 
   // Initialize player
@@ -79,7 +76,7 @@ export default function SessionPlayer({
       try {
         playerInstanceRef.current.pause?.();
         // Don't clear DOM immediately, let it transition
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }
@@ -94,7 +91,7 @@ export default function SessionPlayer({
     const newPlayer = new rrwebPlayer({
       target: playerRef.current,
       props: {
-        events,
+        events: events,
         autoPlay: false,
         showController: false,
         speedOption: [0.5, 1, 1.5, 2, 4, 8],
@@ -111,7 +108,6 @@ export default function SessionPlayer({
     console.log("Player created:", newPlayer);
 
     playerInstanceRef.current = newPlayer;
-    setPlayerReady(true);
 
     // Wait for iframe to load before accessing replayer
     const iframe = playerRef.current?.querySelector("iframe");
@@ -122,7 +118,7 @@ export default function SessionPlayer({
     }
 
     // Setup event listeners
-    const handleUiUpdate = (payload: any) => {
+    const handleUiUpdate = (payload: { payload: number }) => {
       // Payload is a percentage (0 to 1)
       const percentage = payload.payload;
 
@@ -143,6 +139,7 @@ export default function SessionPlayer({
         newPlayer.addEventListener("ui-update-progress", handleUiUpdate);
         newPlayer.addEventListener("play", handlePlay);
         newPlayer.addEventListener("pause", handlePause);
+        setPlayerReady(true);
         console.log("Event listeners added");
       } catch (e) {
         console.error("Error adding event listeners:", e);
@@ -152,7 +149,7 @@ export default function SessionPlayer({
     return () => {
       // Cleanup will be handled by useEffect cleanup
     };
-  }, [events.length]); // Only re-create if events array length changes significantly
+  }, [events]); // Re-create player when events change
 
   // Control handlers with direct access to player instance
   const togglePlay = () => {

@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Utility scripts
+    "test-query.js",
+    "check-clickhouse-data.js",
+    "debug-snapshot-storage.js",
+    "diagnose-duplicates.js",
+    "test-snapshot-api.js",
   ]),
 ]);
 

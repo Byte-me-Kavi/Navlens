@@ -16,7 +16,7 @@ interface ElementMetricsRequest {
 }
 
 interface ClickHouseRow {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export async function POST(req: NextRequest) {
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function getElementMetrics(siteId: string, pagePath: string, deviceType: string, startDate: string, endDate: string, elementSelector?: string) {
-  let query = `
+  const query = `
     SELECT
       element_selector,
       element_tag,
@@ -113,7 +113,14 @@ async function getElementMetrics(siteId: string, pagePath: string, deviceType: s
     LIMIT 100
   `;
 
-  const params: any = {
+  const params: {
+    siteId: string;
+    pagePath: string;
+    deviceType: string;
+    startDate: string;
+    endDate: string;
+    elementSelector?: string;
+  } = {
     siteId,
     pagePath,
     deviceType,
@@ -196,13 +203,13 @@ async function getSiteAverages(siteId: string, pagePath: string, deviceType: str
   });
 
   const pageViewsData: ClickHouseRow[] = await pageViewsResult.json();
-  const totalPageViews = pageViewsData[0]?.total_page_views || 1;
+  const totalPageViews = Number(pageViewsData[0]?.total_page_views) || 1;
 
   // Calculate CTR for each element type
   const averages = rows.map((row: ClickHouseRow) => ({
     element_tag: row.element_tag,
-    avg_ctr: (row.avg_ctr_by_tag / totalPageViews) * 100,
-    element_count: row.element_count,
+    avg_ctr: (Number(row.avg_ctr_by_tag) / totalPageViews) * 100,
+    element_count: Number(row.element_count),
   }));
 
   return {
@@ -270,29 +277,29 @@ async function getHistoricalTrends(siteId: string, pagePath: string, deviceType:
 
   return {
     current: {
-      total_clicks: parseInt(current.total_clicks) || 0,
-      avg_scroll_depth: parseFloat(current.avg_scroll_depth) || 0,
-      unique_sessions: parseInt(current.unique_sessions) || 0,
+      total_clicks: parseInt(String(current.total_clicks)) || 0,
+      avg_scroll_depth: parseFloat(String(current.avg_scroll_depth)) || 0,
+      unique_sessions: parseInt(String(current.unique_sessions)) || 0,
       device_breakdown: {
-        desktop: parseInt(current.desktop_clicks) || 0,
-        tablet: parseInt(current.tablet_clicks) || 0,
-        mobile: parseInt(current.mobile_clicks) || 0,
+        desktop: parseInt(String(current.desktop_clicks)) || 0,
+        tablet: parseInt(String(current.tablet_clicks)) || 0,
+        mobile: parseInt(String(current.mobile_clicks)) || 0,
       },
     },
     previous: {
-      total_clicks: parseInt(previous.total_clicks) || 0,
-      avg_scroll_depth: parseFloat(previous.avg_scroll_depth) || 0,
-      unique_sessions: parseInt(previous.unique_sessions) || 0,
+      total_clicks: parseInt(String(previous.total_clicks)) || 0,
+      avg_scroll_depth: parseFloat(String(previous.avg_scroll_depth)) || 0,
+      unique_sessions: parseInt(String(previous.unique_sessions)) || 0,
       device_breakdown: {
-        desktop: parseInt(previous.desktop_clicks) || 0,
-        tablet: parseInt(previous.tablet_clicks) || 0,
-        mobile: parseInt(previous.mobile_clicks) || 0,
+        desktop: parseInt(String(previous.desktop_clicks)) || 0,
+        tablet: parseInt(String(previous.tablet_clicks)) || 0,
+        mobile: parseInt(String(previous.mobile_clicks)) || 0,
       },
     },
     trends: {
-      clicks_change: calculatePercentChange(current.total_clicks, previous.total_clicks),
-      scroll_depth_change: calculatePercentChange(current.avg_scroll_depth, previous.avg_scroll_depth),
-      sessions_change: calculatePercentChange(current.unique_sessions, previous.unique_sessions),
+      clicks_change: calculatePercentChange(Number(current.total_clicks), Number(previous.total_clicks)),
+      scroll_depth_change: calculatePercentChange(Number(current.avg_scroll_depth), Number(previous.avg_scroll_depth)),
+      sessions_change: calculatePercentChange(Number(current.unique_sessions), Number(previous.unique_sessions)),
     },
   };
 }

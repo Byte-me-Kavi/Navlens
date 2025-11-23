@@ -4,7 +4,7 @@
  * Custom hook for fetching and managing heatmap data
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { heatmapApi } from '../services/heatmapApi';
 import { HeatmapParams, HeatmapPoint } from '../types/heatmap.types';
 
@@ -19,6 +19,13 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
   const [data, setData] = useState<HeatmapPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [lastRequestHash, setLastRequestHash] = useState<string | null>(null);
+
+  // Memoize params to prevent unnecessary re-renders
+  const memoizedParams = useMemo(() => params, [params]);
+
+  // Create a hash of the request to detect duplicates
+  const paramsHash = JSON.stringify(memoizedParams);
 
   const fetchData = useCallback(async () => {
     try {
@@ -27,7 +34,14 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
 
       console.log('🔥 Fetching heatmap data:', params);
 
-      const result = await heatmapApi.getHeatmapClicks(params);
+      // Skip if we've already fetched this exact request
+      if (lastRequestHash === paramsHash) {
+        console.log('⏭️ Skipping duplicate heatmap request');
+        return;
+      }
+
+      const result = await heatmapApi.getHeatmapClicks(memoizedParams);
+      setLastRequestHash(paramsHash);
 
       console.log('✓ Heatmap data fetched:', {
         pointCount: result.length,
@@ -51,13 +65,13 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
     } finally {
       setLoading(false);
     }
-  }, [params.siteId, params.pagePath, params.deviceType, params.documentWidth, params.documentHeight, params.startDate, params.endDate]);
+  }, [memoizedParams, lastRequestHash, paramsHash, params]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadData = async () => {
-      if (!cancelled) {
+      if (!cancelled && lastRequestHash !== paramsHash) {
         await fetchData();
       }
     };
@@ -67,7 +81,7 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
     return () => {
       cancelled = true;
     };
-  }, [fetchData]);
+  }, [paramsHash, lastRequestHash, fetchData]);
 
   return {
     data,

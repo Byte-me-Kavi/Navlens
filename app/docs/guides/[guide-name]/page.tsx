@@ -1,22 +1,19 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  CheckCircleIcon,
   ClockIcon,
   BookmarkIcon,
-  ShareIcon,
 } from "@heroicons/react/24/outline";
 import { guidesData, allGuideSlugs, GuideKey } from "../guideData";
 
 export default function GuidePage() {
   const params = useParams();
-  const router = useRouter();
   const guideName = (params["guide-name"] as string) || "";
 
   const guide = guidesData[guideName as GuideKey];
@@ -33,7 +30,7 @@ export default function GuidePage() {
               Guide Not Found
             </h1>
             <p className="text-xl text-gray-600">
-              The guide you're looking for doesn't exist.
+              The guide you&apos;re looking for doesn&apos;t exist.
             </p>
             <Link
               href="/docs"

@@ -3,6 +3,8 @@
  * Run with: node check-clickhouse-data.js
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 const { createClient } = require("@clickhouse/client");
 
 // Initialize ClickHouse client

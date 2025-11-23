@@ -314,8 +314,8 @@ const DashboardClient: React.FC<{ initialStats: DashboardStats }> = ({
                     Install Tracking Script
                   </h3>
                   <p className="text-gray-600 text-xs">
-                    Copy and paste the JavaScript snippet into your website's
-                    HTML to begin collecting data.
+                    Copy and paste the JavaScript snippet into your
+                    website&apos;s HTML to begin collecting data.
                   </p>
                 </div>
               </div>

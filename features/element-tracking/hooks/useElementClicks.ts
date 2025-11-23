@@ -4,7 +4,7 @@
  * Manages element click data fetching and state
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { elementApi } from '../services/elementApi';
 import { ElementClick, ElementClickParams } from '../types/element.types';
 
@@ -19,6 +19,13 @@ export function useElementClicks(params: ElementClickParams): UseElementClicksRe
   const [data, setData] = useState<ElementClick[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [lastRequestHash, setLastRequestHash] = useState<string | null>(null);
+
+  // Memoize params to prevent unnecessary re-renders
+  const memoizedParams = useMemo(() => params, [params]);
+
+  // Create a hash of the request to detect duplicates
+  const paramsHash = JSON.stringify(memoizedParams);
 
   const fetchData = useCallback(async () => {
     try {
@@ -27,7 +34,14 @@ export function useElementClicks(params: ElementClickParams): UseElementClicksRe
 
       console.log('🔴 Fetching element clicks:', params);
 
-      const result = await elementApi.getElementClicks(params);
+      // Skip if we've already fetched this exact request
+      if (lastRequestHash === paramsHash) {
+        console.log('⏭️ Skipping duplicate element clicks request');
+        return;
+      }
+
+      const result = await elementApi.getElementClicks(memoizedParams);
+      setLastRequestHash(paramsHash);
 
       console.log('✓ Element clicks fetched:', result.length, 'elements');
 
@@ -39,13 +53,13 @@ export function useElementClicks(params: ElementClickParams): UseElementClicksRe
     } finally {
       setLoading(false);
     }
-  }, [params.siteId, params.pagePath, params.deviceType, params.documentWidth, params.documentHeight, params.startDate, params.endDate]);
+  }, [memoizedParams, lastRequestHash, paramsHash, params]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadData = async () => {
-      if (!cancelled) {
+      if (!cancelled && lastRequestHash !== paramsHash) {
         await fetchData();
       }
     };
@@ -55,7 +69,7 @@ export function useElementClicks(params: ElementClickParams): UseElementClicksRe
     return () => {
       cancelled = true;
     };
-  }, [fetchData]);
+  }, [paramsHash, lastRequestHash, fetchData]);
 
   return {
     data,

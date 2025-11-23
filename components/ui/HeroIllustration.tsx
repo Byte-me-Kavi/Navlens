@@ -2,6 +2,85 @@
 
 import { useEffect, useRef } from "react";
 
+// Heatmap simulation data points
+class HeatPoint {
+  x: number;
+  y: number;
+  intensity: number;
+  radius: number;
+  pulseOffset: number;
+
+  constructor(x: number, y: number, intensity: number) {
+    this.x = x;
+    this.y = y;
+    this.intensity = intensity;
+    this.radius = 20 + Math.random() * 30;
+    this.pulseOffset = Math.random() * Math.PI * 2;
+  }
+
+  draw(ctx: CanvasRenderingContext2D, time: number) {
+    const pulse = Math.sin(time * 2 + this.pulseOffset) * 0.2 + 0.8;
+    const gradient = ctx.createRadialGradient(
+      this.x,
+      this.y,
+      0,
+      this.x,
+      this.y,
+      this.radius * pulse
+    );
+
+    if (this.intensity > 0.7) {
+      gradient.addColorStop(0, "rgba(147, 51, 234, 0.6)"); // purple for hot spots
+      gradient.addColorStop(0.5, "rgba(99, 102, 241, 0.3)"); // indigo
+      gradient.addColorStop(1, "rgba(37, 99, 235, 0)"); // blue fade
+    } else if (this.intensity > 0.4) {
+      gradient.addColorStop(0, "rgba(59, 130, 246, 0.5)"); // blue
+      gradient.addColorStop(0.5, "rgba(37, 99, 235, 0.3)"); // dark blue
+      gradient.addColorStop(1, "rgba(29, 78, 216, 0)");
+    } else {
+      gradient.addColorStop(0, "rgba(37, 99, 235, 0.4)"); // dark blue
+      gradient.addColorStop(0.5, "rgba(29, 78, 216, 0.2)");
+      gradient.addColorStop(1, "rgba(30, 64, 175, 0)");
+    }
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(
+      this.x - this.radius * pulse,
+      this.y - this.radius * pulse,
+      this.radius * 2 * pulse,
+      this.radius * 2 * pulse
+    );
+  }
+}
+
+// Cursor trail effect
+class CursorTrail {
+  x: number;
+  y: number;
+  life: number;
+  maxLife: number;
+
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+    this.life = 1;
+    this.maxLife = 1;
+  }
+
+  update() {
+    this.life -= 0.02;
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    if (this.life <= 0) return;
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(37, 99, 235, ${this.life * 0.6})`;
+    ctx.fill();
+  }
+}
+
 export function HeroIllustration() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -29,57 +108,6 @@ export function HeroIllustration() {
     let time = 0;
     let animationFrameId: number;
 
-    // Heatmap simulation data points
-    class HeatPoint {
-      x: number;
-      y: number;
-      intensity: number;
-      radius: number;
-      pulseOffset: number;
-
-      constructor(x: number, y: number, intensity: number) {
-        this.x = x;
-        this.y = y;
-        this.intensity = intensity;
-        this.radius = 20 + Math.random() * 30;
-        this.pulseOffset = Math.random() * Math.PI * 2;
-      }
-
-      draw(ctx: CanvasRenderingContext2D, time: number) {
-        const pulse = Math.sin(time * 2 + this.pulseOffset) * 0.2 + 0.8;
-        const gradient = ctx.createRadialGradient(
-          this.x,
-          this.y,
-          0,
-          this.x,
-          this.y,
-          this.radius * pulse
-        );
-
-        if (this.intensity > 0.7) {
-          gradient.addColorStop(0, "rgba(147, 51, 234, 0.6)"); // purple for hot spots
-          gradient.addColorStop(0.5, "rgba(99, 102, 241, 0.3)"); // indigo
-          gradient.addColorStop(1, "rgba(37, 99, 235, 0)"); // blue fade
-        } else if (this.intensity > 0.4) {
-          gradient.addColorStop(0, "rgba(59, 130, 246, 0.5)"); // blue
-          gradient.addColorStop(0.5, "rgba(37, 99, 235, 0.3)"); // dark blue
-          gradient.addColorStop(1, "rgba(29, 78, 216, 0)");
-        } else {
-          gradient.addColorStop(0, "rgba(37, 99, 235, 0.4)"); // dark blue
-          gradient.addColorStop(0.5, "rgba(29, 78, 216, 0.2)");
-          gradient.addColorStop(1, "rgba(30, 64, 175, 0)");
-        }
-
-        ctx.fillStyle = gradient;
-        ctx.fillRect(
-          this.x - this.radius * pulse,
-          this.y - this.radius * pulse,
-          this.radius * 2 * pulse,
-          this.radius * 2 * pulse
-        );
-      }
-    }
-
     // Create heatmap points in an attractive pattern
     const heatPoints: HeatPoint[] = [
       // Header area (high intensity)
@@ -100,34 +128,6 @@ export function HeroIllustration() {
       new HeatPoint(250, 390, 0.35),
     ];
 
-    // Cursor trail effect
-    class CursorTrail {
-      x: number;
-      y: number;
-      life: number;
-      maxLife: number;
-
-      constructor(x: number, y: number) {
-        this.x = x;
-        this.y = y;
-        this.life = 1;
-        this.maxLife = 1;
-      }
-
-      update() {
-        this.life -= 0.02;
-      }
-
-      draw(ctx: CanvasRenderingContext2D) {
-        if (this.life <= 0) return;
-
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(37, 99, 235, ${this.life * 0.6})`;
-        ctx.fill();
-      }
-    }
-
     const cursorTrails: CursorTrail[] = [];
     let lastCursorX = 200;
     let lastCursorY = 200;
@@ -141,9 +141,7 @@ export function HeroIllustration() {
         cursorTrails.push(new CursorTrail(lastCursorX, lastCursorY));
       }
     };
-
-    // Browser window representation
-    const drawBrowserWindow = (ctx: CanvasRenderingContext2D, time: number) => {
+    const drawBrowserWindow = (ctx: CanvasRenderingContext2D) => {
       const rect = canvas.getBoundingClientRect();
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
@@ -184,7 +182,7 @@ export function HeroIllustration() {
       time += 0.01;
 
       // Draw browser window
-      drawBrowserWindow(ctx, time);
+      drawBrowserWindow(ctx);
 
       // Transform context to center the heatmap
       const centerX = rect.width / 2;

@@ -71,12 +71,13 @@ export async function POST(req: NextRequest) {
 
     } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error(String(error));
+        const status = err.message.includes('Network') || err.message.includes('ECONNREFUSED') ? 503 : 500;
         console.error('Get snapshot error:', err);
         console.error('Error stack:', err.stack);
         return NextResponse.json({
             error: 'Internal server error',
             details: err.message
-        }, { status: 500 });
+        }, { status });
     }
 }
 
@@ -98,10 +99,11 @@ export async function GET(req: NextRequest) {
 
     } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error(String(error));
+        const status = err.message.includes('Network') || err.message.includes('ECONNREFUSED') ? 503 : 500;
         console.error('Get snapshot error (GET):', err);
         return NextResponse.json({
             error: 'Internal server error',
             details: err.message
-        }, { status: 500 });
+        }, { status });
     }
 }

@@ -10,6 +10,32 @@ export interface AuthResult {
 }
 
 /**
+ * Retry logic with exponential backoff
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  initialDelayMs: number = 100
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < maxRetries - 1) {
+        const delay = initialDelayMs * Math.pow(2, attempt);
+        console.warn(`Retry attempt ${attempt + 1}/${maxRetries}, waiting ${delay}ms...`, lastError.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+}
+
+/**
  * Authenticates user and returns their authorized site IDs
  * This ensures users can only access data from sites they own
  */
@@ -36,8 +62,14 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
       }
     );
 
-    // Authenticate user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Authenticate user with retry
+    const authResult = await withRetry(
+      async () => supabase.auth.getUser(),
+      3,
+      100
+    );
+
+    const { data: { user }, error: authError } = authResult as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     if (authError || !user) {
       return {
@@ -47,14 +79,20 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
       };
     }
 
-    // Get sites owned by user
-    const { data: userSites, error: siteError } = await supabase
-      .from('sites')
-      .select('id')
-      .eq('user_id', user.id);
+    // Get sites owned by user with retry
+    const siteResult = await withRetry(
+      async () => supabase
+        .from('sites')
+        .select('id')
+        .eq('user_id', user.id),
+      3,
+      100
+    );
+
+    const { data: userSites, error: siteError } = siteResult as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     if (siteError) {
-      console.error('Error fetching user sites:', siteError);
+      console.error('Error fetching user sites after retries:', siteError);
       return {
         user,
         userSites: [],
@@ -62,7 +100,7 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
       };
     }
 
-    const siteIds = userSites?.map(site => site.id) || [];
+    const siteIds = userSites?.map((site: any) => site.id) || []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     return {
       user,

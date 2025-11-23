@@ -1,19 +1,15 @@
 ﻿"use client";
 
 import React, { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
   MagnifyingGlassIcon,
   CursorArrowRaysIcon,
   ChartBarIcon,
-  EyeIcon,
   SparklesIcon,
   RocketLaunchIcon,
-  ShieldCheckIcon,
   BoltIcon,
   CheckCircleIcon,
   ArrowRightIcon,
-  CodeBracketIcon,
   BookOpenIcon,
   QuestionMarkCircleIcon,
   PlayCircleIcon,
@@ -29,222 +25,259 @@ import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 export default function DocumentationPage() {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
   // Getting Started guides
-  const gettingStartedGuides = [
-    {
-      title: "Installation Guide",
-      description: "Set up Navlens in your project in just a few minutes",
-      icon: RocketLaunchIcon,
-      steps: 3,
-    },
-    {
-      title: "First Heatmap Setup",
-      description: "Create and configure your first heatmap visualization",
-      icon: CursorArrowRaysIcon,
-      steps: 4,
-    },
-    {
-      title: "Dashboard Overview",
-      description: "Navigate and utilize the Navlens dashboard features",
-      icon: ChartBarIcon,
-      steps: 5,
-    },
-    {
-      title: "Tracking Configuration",
-      description: "Configure tracking parameters and event collection",
-      icon: Cog8ToothIcon,
-      steps: 4,
-    },
-    {
-      title: "Data Analysis Basics",
-      description: "Learn fundamental data analysis and interpretation",
-      icon: ArrowTrendingUpIcon,
-      steps: 5,
-    },
-  ];
+  const gettingStartedGuides = useMemo(
+    () => [
+      {
+        title: "Installation Guide",
+        description: "Set up Navlens in your project in just a few minutes",
+        icon: RocketLaunchIcon,
+        steps: 3,
+      },
+      {
+        title: "First Heatmap Setup",
+        description: "Create and configure your first heatmap visualization",
+        icon: CursorArrowRaysIcon,
+        steps: 4,
+      },
+      {
+        title: "Dashboard Overview",
+        description: "Navigate and utilize the Navlens dashboard features",
+        icon: ChartBarIcon,
+        steps: 5,
+      },
+      {
+        title: "Installation Guide",
+        description: "Set up Navlens in your project in just a few minutes",
+        icon: RocketLaunchIcon,
+        steps: 3,
+      },
+      {
+        title: "First Heatmap Setup",
+        description: "Create and configure your first heatmap visualization",
+        icon: CursorArrowRaysIcon,
+        steps: 4,
+      },
+      {
+        title: "Dashboard Overview",
+        description: "Navigate and utilize the Navlens dashboard features",
+        icon: ChartBarIcon,
+        steps: 5,
+      },
+      {
+        title: "Tracking Configuration",
+        description: "Configure tracking parameters and event collection",
+        icon: Cog8ToothIcon,
+        steps: 4,
+      },
+      {
+        title: "Data Analysis Basics",
+        description: "Learn fundamental data analysis and interpretation",
+        icon: ArrowTrendingUpIcon,
+        steps: 5,
+      },
+    ],
+    []
+  );
 
   // Integration guides
-  const integrations = [
-    {
-      name: "React",
-      description: "Seamless integration with React applications",
-      logo: "âš›ï¸",
-      code: `import { initNavlens } from 'navlens';\n\ninitNavlens({\n  apiKey: 'your-api-key',\n  trackingId: 'site-id'\n});`,
-    },
-    {
-      name: "Next.js",
-      description: "Full Next.js framework support with SSR",
-      logo: "â–²",
-      code: `// app/layout.tsx\nimport { NavlensProvider } from 'navlens/next';\n\nexport default function Layout() {\n  return (\n    <NavlensProvider>\n      <YourApp />\n    </NavlensProvider>\n  );\n}`,
-    },
-    {
-      name: "Vue",
-      description: "Vue 3 composition API integration",
-      logo: "ðŸ’š",
-      code: `import { useNavlens } from 'navlens/vue';\n\nexport default {\n  setup() {\n    const navlens = useNavlens({\n      apiKey: 'your-api-key'\n    });\n    return { navlens };\n  }\n}`,
-    },
-    {
-      name: "Vanilla JS",
-      description: "Plain JavaScript integration",
-      logo: "ðŸ“¦",
-      code: `<script src="https://cdn.navlens.io/tracker.js"><\/script>\n<script>\n  window.Navlens.init({\n    apiKey: 'your-api-key'\n  });\n<\/script>`,
-    },
-  ];
+  const integrations = useMemo(
+    () => [
+      {
+        name: "React",
+        description: "Seamless integration with React applications",
+        logo: "âš›ï¸",
+        code: `import { initNavlens } from 'navlens';\n\ninitNavlens({\n  apiKey: 'your-api-key',\n  trackingId: 'site-id'\n});`,
+      },
+      {
+        name: "Next.js",
+        description: "Full Next.js framework support with SSR",
+        logo: "â–²",
+        code: `// app/layout.tsx\nimport { NavlensProvider } from 'navlens/next';\n\nexport default function Layout() {\n  return (\n    <NavlensProvider>\n      <YourApp />\n    </NavlensProvider>\n  );\n}`,
+      },
+      {
+        name: "Vue",
+        description: "Vue 3 composition API integration",
+        logo: "ðŸ’š",
+        code: `import { useNavlens } from 'navlens/vue';\n\nexport default {\n  setup() {\n    const navlens = useNavlens({\n      apiKey: 'your-api-key'\n    });\n    return { navlens };\n  }\n}`,
+      },
+      {
+        name: "Vanilla JS",
+        description: "Plain JavaScript integration",
+        logo: "ðŸ“¦",
+        code: `<script src="https://cdn.navlens.io/tracker.js"><\/script>\n<script>\n  window.Navlens.init({\n    apiKey: 'your-api-key'\n  });\n<\/script>`,
+      },
+    ],
+    []
+  );
 
   // API Reference
-  const apiReference = [
-    {
-      title: "Initialization API",
-      description: "Initialize and configure Navlens",
-      icon: SparklesIcon,
-      details: [
-        "init(config)",
-        "setUser(userId)",
-        "identify(properties)",
-        "track(eventName, properties)",
-      ],
-    },
-    {
-      title: "Events API",
-      description: "Track and manage user events",
-      icon: BoltIcon,
-      details: [
-        "trackEvent(name, data)",
-        "trackPageView(url)",
-        "trackConversion(value)",
-        "trackError(error)",
-      ],
-    },
-    {
-      title: "Heatmap API",
-      description: "Control heatmap generation and display",
-      icon: CursorArrowRaysIcon,
-      details: [
-        "generateHeatmap(selector)",
-        "updateHeatmap(data)",
-        "exportHeatmap(format)",
-        "clearHeatmap()",
-      ],
-    },
-    {
-      title: "Analytics API",
-      description: "Access analytics data and reports",
-      icon: ChartBarIcon,
-      details: [
-        "getMetrics(timeRange)",
-        "getSessionData(sessionId)",
-        "getConversionFunnel()",
-        "exportReport(format)",
-      ],
-    },
-  ];
+  const apiReference = useMemo(
+    () => [
+      {
+        title: "Initialization API",
+        description: "Initialize and configure Navlens",
+        icon: SparklesIcon,
+        details: [
+          "init(config)",
+          "setUser(userId)",
+          "identify(properties)",
+          "track(eventName, properties)",
+        ],
+      },
+      {
+        title: "Events API",
+        description: "Track and manage user events",
+        icon: BoltIcon,
+        details: [
+          "trackEvent(name, data)",
+          "trackPageView(url)",
+          "trackConversion(value)",
+          "trackError(error)",
+        ],
+      },
+      {
+        title: "Heatmap API",
+        description: "Control heatmap generation and display",
+        icon: CursorArrowRaysIcon,
+        details: [
+          "generateHeatmap(selector)",
+          "updateHeatmap(data)",
+          "exportHeatmap(format)",
+          "clearHeatmap()",
+        ],
+      },
+      {
+        title: "Analytics API",
+        description: "Access analytics data and reports",
+        icon: ChartBarIcon,
+        details: [
+          "getMetrics(timeRange)",
+          "getSessionData(sessionId)",
+          "getConversionFunnel()",
+          "exportReport(format)",
+        ],
+      },
+    ],
+    []
+  );
 
   // Best Practices
-  const bestPractices = [
-    {
-      title: "Optimize Tracking",
-      description: "Minimize tracking overhead and maximize data quality",
-      icon: BoltIcon,
-      tips: [
-        "Debounce tracking events",
-        "Batch data before sending",
-        "Use efficient selectors",
-        "Monitor bandwidth usage",
-      ],
-    },
-    {
-      title: "Segment Users",
-      description: "Categorize users for targeted analysis",
-      icon: UserGroupIcon,
-      tips: [
-        "Use consistent user IDs",
-        "Tag user properties",
-        "Group by device/browser",
-        "Create cohorts",
-      ],
-    },
-    {
-      title: "Set Up Goals",
-      description: "Define and track conversion goals",
-      icon: TagIcon,
-      tips: [
-        "Identify key actions",
-        "Set conversion triggers",
-        "Track funnel steps",
-        "Monitor goal completion",
-      ],
-    },
-    {
-      title: "Analyze Patterns",
-      description: "Discover insights from user behavior patterns",
-      icon: SparklesIcon,
-      tips: [
-        "Compare timeframes",
-        "Identify trends",
-        "Find anomalies",
-        "Segment by behavior",
-      ],
-    },
-    {
-      title: "Privacy Compliance",
-      description: "Ensure GDPR and CCPA compliance",
-      icon: LockClosedIcon,
-      tips: [
-        "Get user consent",
-        "Anonymize data",
-        "Respect DNT headers",
-        "Offer opt-out",
-      ],
-    },
-    {
-      title: "Performance Tuning",
-      description: "Optimize application and tracking performance",
-      icon: Cog8ToothIcon,
-      tips: ["Enable compression", "Use CDN", "Cache data", "Monitor latency"],
-    },
-  ];
+  const bestPractices = useMemo(
+    () => [
+      {
+        title: "Optimize Tracking",
+        description: "Minimize tracking overhead and maximize data quality",
+        icon: BoltIcon,
+        tips: [
+          "Debounce tracking events",
+          "Batch data before sending",
+          "Use efficient selectors",
+          "Monitor bandwidth usage",
+        ],
+      },
+      {
+        title: "Segment Users",
+        description: "Categorize users for targeted analysis",
+        icon: UserGroupIcon,
+        tips: [
+          "Use consistent user IDs",
+          "Tag user properties",
+          "Group by device/browser",
+          "Create cohorts",
+        ],
+      },
+      {
+        title: "Set Up Goals",
+        description: "Define and track conversion goals",
+        icon: TagIcon,
+        tips: [
+          "Identify key actions",
+          "Set conversion triggers",
+          "Track funnel steps",
+          "Monitor goal completion",
+        ],
+      },
+      {
+        title: "Analyze Patterns",
+        description: "Discover insights from user behavior patterns",
+        icon: SparklesIcon,
+        tips: [
+          "Compare timeframes",
+          "Identify trends",
+          "Find anomalies",
+          "Segment by behavior",
+        ],
+      },
+      {
+        title: "Privacy Compliance",
+        description: "Ensure GDPR and CCPA compliance",
+        icon: LockClosedIcon,
+        tips: [
+          "Get user consent",
+          "Anonymize data",
+          "Respect DNT headers",
+          "Offer opt-out",
+        ],
+      },
+      {
+        title: "Performance Tuning",
+        description: "Optimize application and tracking performance",
+        icon: Cog8ToothIcon,
+        tips: [
+          "Enable compression",
+          "Use CDN",
+          "Cache data",
+          "Monitor latency",
+        ],
+      },
+    ],
+    []
+  );
 
   // FAQ
-  const faqs = [
-    {
-      question: "How do I get started with Navlens?",
-      answer:
-        "Start by signing up for an account, then install the tracking script on your website. Configure your first heatmap, and you'll begin collecting data immediately. Check our Installation Guide for step-by-step instructions.",
-    },
-    {
-      question: "Is Navlens GDPR compliant?",
-      answer:
-        "Yes, Navlens is fully GDPR and CCPA compliant. We provide tools to obtain user consent, anonymize data, and allow users to opt-out of tracking. See our Privacy Policy and compliance documentation for details.",
-    },
-    {
-      question: "What's the performance impact of Navlens?",
-      answer:
-        "Our tracking script is only 20KB gzipped and has minimal performance impact. It's loaded asynchronously and uses event batching to reduce network overhead. Most sites see less than 1ms impact on page load.",
-    },
-    {
-      question: "Can I track session recordings?",
-      answer:
-        "Yes, Navlens supports session recording and replay. You can watch actual user sessions to understand behavior patterns. All recordings respect privacy settings and GDPR requirements.",
-    },
-    {
-      question: "How long is data retained?",
-      answer:
-        "Free plans retain data for 30 days, while Pro and Enterprise plans offer 90 days and custom retention periods. You can download and archive data at any time.",
-    },
-    {
-      question: "What formats can I export reports in?",
-      answer:
-        "You can export reports as PDF, CSV, JSON, or PNG. Use our API or dashboard to schedule automated report delivery to your team.",
-    },
-    {
-      question: "Do you offer API access?",
-      answer:
-        "Yes, we provide a comprehensive REST API and webhooks for advanced integrations. See our API Reference section for detailed documentation.",
-    },
-  ];
+  const faqs = useMemo(
+    () => [
+      {
+        question: "How do I get started with Navlens?",
+        answer:
+          "Start by signing up for an account, then install the tracking script on your website. Configure your first heatmap, and you'll begin collecting data immediately. Check our Installation Guide for step-by-step instructions.",
+      },
+      {
+        question: "Is Navlens GDPR compliant?",
+        answer:
+          "Yes, Navlens is fully GDPR and CCPA compliant. We provide tools to obtain user consent, anonymize data, and allow users to opt-out of tracking. See our Privacy Policy and compliance documentation for details.",
+      },
+      {
+        question: "What's the performance impact of Navlens?",
+        answer:
+          "Our tracking script is only 20KB gzipped and has minimal performance impact. It's loaded asynchronously and uses event batching to reduce network overhead. Most sites see less than 1ms impact on page load.",
+      },
+      {
+        question: "Can I track session recordings?",
+        answer:
+          "Yes, Navlens supports session recording and replay. You can watch actual user sessions to understand behavior patterns. All recordings respect privacy settings and GDPR requirements.",
+      },
+      {
+        question: "How long is data retained?",
+        answer:
+          "Free plans retain data for 30 days, while Pro and Enterprise plans offer 90 days and custom retention periods. You can download and archive data at any time.",
+      },
+      {
+        question: "What formats can I export reports in?",
+        answer:
+          "You can export reports as PDF, CSV, JSON, or PNG. Use our API or dashboard to schedule automated report delivery to your team.",
+      },
+      {
+        question: "Do you offer API access?",
+        answer:
+          "Yes, we provide a comprehensive REST API and webhooks for advanced integrations. See our API Reference section for detailed documentation.",
+      },
+    ],
+    []
+  );
 
   // Video Tutorials
   const videoTutorials = [
@@ -291,13 +324,25 @@ export default function DocumentationPage() {
     ];
 
     return allContent.filter(
-      (item: any) =>
+      (item: {
+        title?: string;
+        name?: string;
+        description?: string;
+        question?: string;
+      }) =>
         item.title?.toLowerCase().includes(query) ||
         item.name?.toLowerCase().includes(query) ||
         item.description?.toLowerCase().includes(query) ||
         item.question?.toLowerCase().includes(query)
     );
-  }, [searchQuery]);
+  }, [
+    searchQuery,
+    gettingStartedGuides,
+    integrations,
+    apiReference,
+    bestPractices,
+    faqs,
+  ]);
 
   return (
     <div className="min-h-screen text-gray-900 overflow-x-hidden">
@@ -363,16 +408,37 @@ export default function DocumentationPage() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {(result as any).title ||
-                        (result as any).name ||
-                        (result as any).question}
+                      {(
+                        result as {
+                          title?: string;
+                          name?: string;
+                          question?: string;
+                        }
+                      ).title ||
+                        (
+                          result as {
+                            title?: string;
+                            name?: string;
+                            question?: string;
+                          }
+                        ).name ||
+                        (
+                          result as {
+                            title?: string;
+                            name?: string;
+                            question?: string;
+                          }
+                        ).question}
                     </h3>
                     <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                      {(result as any).category}
+                      {(result as { category?: string }).category}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600">
-                    {(result as any).description || (result as any).answer}
+                    {(result as { description?: string; answer?: string })
+                      .description ||
+                      (result as { description?: string; answer?: string })
+                        .answer}
                   </p>
                 </div>
               ))}
@@ -651,8 +717,8 @@ export default function DocumentationPage() {
                 </div>
                 <h2 className="text-4xl font-bold mb-4">Need Help?</h2>
                 <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                  Can't find what you're looking for? Our support team is here
-                  to help. Reach out with any questions or issues.
+                  Can&apos;t find what you&apos;re looking for? Our support team
+                  is here to help. Reach out with any questions or issues.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <button className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">

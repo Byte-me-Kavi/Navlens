@@ -1,9 +1,8 @@
-/**
- * DOM Snapshot Types
- */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { snapshot as RRWebSnapshot } from 'rrweb-snapshot';
 
 export interface SnapshotData {
-  snapshot: any;
+  snapshot: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   styles?: Array<{ type: string; content?: string; href?: string }>;
   origin?: string;
 }

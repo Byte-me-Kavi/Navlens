@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import { apiClient } from "@/shared/services/api/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { supabase } from "@/lib/supabaseClient";
+import { createBrowserClient } from "@supabase/ssr";
 import "flag-icons/css/flag-icons.min.css";
 import countries from "world-countries";
 import {
@@ -27,6 +27,7 @@ import { HiOutlineDesktopComputer } from "react-icons/hi";
 import { BsDisplay, BsWindows, BsApple } from "react-icons/bs";
 import { FaLinux, FaAndroid } from "react-icons/fa";
 import { AiOutlineApple } from "react-icons/ai";
+import { SiGooglechrome, SiFirefox, SiSafari, SiOpera } from "react-icons/si";
 
 interface SessionData {
   session_id: string;
@@ -59,10 +60,11 @@ const getCountryName = (countryCode: string) => {
   try {
     if (!countryCode || countryCode.length !== 2) return "Unknown";
     const country = countries.find(
-      (c: any) => c.cca2.toUpperCase() === countryCode.toUpperCase()
+      (c: { cca2: string; name?: { common: string } }) =>
+        c.cca2.toUpperCase() === countryCode.toUpperCase()
     );
     return country?.name?.common || countryCode || "Unknown";
-  } catch (e) {
+  } catch {
     return countryCode || "Unknown";
   }
 };
@@ -80,15 +82,47 @@ const getDeviceIcon = (deviceType: string) => {
   }
 };
 
-const getOSIcon = (platform: string) => {
+const getOSIcon = (platform: string, userAgent?: string) => {
   const p = platform?.toLowerCase() || "";
-  if (p.includes("win")) return <BsWindows className="w-4 h-4" />;
-  if (p.includes("mac")) return <BsApple className="w-4 h-4" />;
-  if (p.includes("linux")) return <FaLinux className="w-4 h-4" />;
+  const ua = userAgent?.toLowerCase() || "";
+
+  // Check user agent first for more reliable detection
+  if (ua.includes("android")) return <FaAndroid className="w-4 h-4" />;
+  if (ua.includes("iphone") || ua.includes("ipad") || ua.includes("ipod"))
+    return <AiOutlineApple className="w-4 h-4" />;
+  if (ua.includes("windows")) return <BsWindows className="w-4 h-4" />;
+  if (ua.includes("mac")) return <BsApple className="w-4 h-4" />;
+  if (ua.includes("linux") && !ua.includes("android"))
+    return <FaLinux className="w-4 h-4" />;
+
+  // Fallback to platform field
   if (p.includes("android")) return <FaAndroid className="w-4 h-4" />;
   if (p.includes("ios") || p.includes("iphone"))
     return <AiOutlineApple className="w-4 h-4" />;
+  if (p.includes("linux")) return <FaLinux className="w-4 h-4" />;
+  if (p.includes("win")) return <BsWindows className="w-4 h-4" />;
+  if (p.includes("mac")) return <BsApple className="w-4 h-4" />;
   return <BsDisplay className="w-4 h-4" />;
+};
+
+const getBrowserIcon = (userAgent: string) => {
+  const ua = userAgent?.toLowerCase() || "";
+  if (ua.includes("chrome") && !ua.includes("edg")) {
+    return <SiGooglechrome className="w-5 h-5" />;
+  }
+  if (ua.includes("firefox")) {
+    return <SiFirefox className="w-5 h-5" />;
+  }
+  if (ua.includes("safari") && !ua.includes("chrome")) {
+    return <SiSafari className="w-5 h-5" />;
+  }
+  if (ua.includes("edg") || ua.includes("edge")) {
+    return <BsDisplay className="w-5 h-5" />;
+  }
+  if (ua.includes("opera") || ua.includes("opr")) {
+    return <SiOpera className="w-5 h-5" />;
+  }
+  return <BsDisplay className="w-5 h-5" />;
 };
 
 // Move cache OUTSIDE the component so it persists across navigation
@@ -104,6 +138,16 @@ export default function SessionsPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [loadingSites, setLoadingSites] = useState(true);
 
+  // Create browser client for auth
+  const supabaseBrowser = useMemo(
+    () =>
+      createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      ),
+    []
+  );
+
   // Filters
   const [dateFilter, setDateFilter] = useState<string>("");
   const [deviceFilter, setDeviceFilter] = useState<string>("all");
@@ -116,7 +160,7 @@ export default function SessionsPage() {
         // Check if user is authenticated
         const {
           data: { session },
-        } = await supabase.auth.getSession();
+        } = await supabaseBrowser.auth.getSession();
 
         if (!session) {
           console.error("No authenticated session found");
@@ -125,7 +169,7 @@ export default function SessionsPage() {
         }
 
         // Fetch sites with RLS filtering by user
-        const { data, error } = await supabase
+        const { data, error } = await supabaseBrowser
           .from("sites")
           .select("id, site_name, domain")
           .order("created_at", { ascending: false });
@@ -145,7 +189,7 @@ export default function SessionsPage() {
     };
 
     fetchSites();
-  }, []);
+  }, [supabaseBrowser]);
 
   useEffect(() => {
     if (!selectedSiteId) {
@@ -508,6 +552,9 @@ export default function SessionsPage() {
                           Screen
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-semibold">
+                          Browser
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold">
                           Device/OS
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-semibold">
@@ -547,8 +594,8 @@ export default function SessionsPage() {
                                     <span
                                       className={`fi fi-${getCountryFlag(
                                         session.country
-                                      )?.toLowerCase()} fis`}
-                                      style={{ fontSize: "1.5rem" }}
+                                      )?.toLowerCase()}`}
+                                      style={{ width: "24px", height: "18px" }}
                                     />
                                   )}
                                   <div className="text-sm">
@@ -593,12 +640,20 @@ export default function SessionsPage() {
                                 </div>
                               </td>
                               <td className="px-6 py-4">
+                                <div className="flex items-center justify-center">
+                                  {getBrowserIcon(session.user_agent)}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="p-2 bg-blue-50 rounded-lg">
                                     {getDeviceIcon(session.device_type)}
                                   </div>
                                   <div className="p-2 bg-gray-50 rounded-lg">
-                                    {getOSIcon(session.platform)}
+                                    {getOSIcon(
+                                      session.platform,
+                                      session.user_agent
+                                    )}
                                   </div>
                                   <div className="text-sm">
                                     <div className="font-medium text-gray-900 capitalize">
@@ -679,8 +734,8 @@ export default function SessionsPage() {
                               <span
                                 className={`fi fi-${getCountryFlag(
                                   session.country
-                                )?.toLowerCase()} fis`}
-                                style={{ fontSize: "2.5rem" }}
+                                )?.toLowerCase()}`}
+                                style={{ width: "32px", height: "24px" }}
                               />
                             )}
                             <div>

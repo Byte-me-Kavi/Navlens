@@ -2,6 +2,8 @@
  * Test script for snapshot API
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 const fetch = require("node-fetch");
 
 const API_BASE = "http://localhost:3000";

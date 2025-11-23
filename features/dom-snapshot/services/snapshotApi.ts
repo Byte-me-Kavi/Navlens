@@ -12,7 +12,7 @@ export const snapshotApi = {
    * Fetch DOM snapshot data using POST request
    */
   async getSnapshot(params: SnapshotParams): Promise<SnapshotData> {
-    const response = await apiClient.post<any>('/get-snapshot', {
+    const response = await apiClient.post<SnapshotData>('/get-snapshot', {
       siteId: params.siteId,
       pagePath: params.pagePath,
       deviceType: params.deviceType,

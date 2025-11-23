@@ -35,7 +35,11 @@ export const elementApi = {
     startDate: string;
     endDate: string;
     elementSelector: string;
-  }): Promise<any> {
+  }): Promise<{
+    elementMetrics: unknown[];
+    siteAverages: { averages: unknown[] };
+    trends: unknown;
+  }> {
     return apiClient.post('/elements-metrics-data', params);
   },
 };

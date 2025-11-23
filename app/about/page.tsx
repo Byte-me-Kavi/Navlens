@@ -88,33 +88,6 @@ const AboutPage: React.FC = () => {
     },
   ];
 
-  const teamMembers = [
-    {
-      name: "Sarah Chen",
-      role: "CEO & Co-Founder",
-      bio: "Former product manager at Google with 10+ years in user experience and analytics. Passionate about democratizing data insights.",
-      color: "from-blue-500 to-blue-600",
-    },
-    {
-      name: "Marcus Rodriguez",
-      role: "CTO & Co-Founder",
-      bio: "Ex-Amazon engineer specializing in scalable data systems and machine learning. Built systems processing 1B+ events daily.",
-      color: "from-purple-500 to-purple-600",
-    },
-    {
-      name: "Emily Watson",
-      role: "Head of Product",
-      bio: "Product leader with experience at Microsoft and passion for user-centered design. Dedicated to making complex tools simple.",
-      color: "from-blue-400 to-cyan-500",
-    },
-    {
-      name: "Alex Thompson",
-      role: "Head of Design",
-      bio: "Award-winning UX designer with 8+ years of experience. Focused on creating beautiful, accessible interfaces.",
-      color: "from-pink-500 to-rose-500",
-    },
-  ];
-
   const stats = [
     {
       number: "3+",
@@ -434,9 +407,9 @@ const AboutPage: React.FC = () => {
                     People First
                   </h3>
                   <p className="text-gray-700 leading-relaxed">
-                    We invest in our team's growth and well-being. Our culture
-                    prioritizes work-life balance, continuous learning, and
-                    professional development.
+                    We invest in our team&apos;s growth and well-being. Our
+                    culture prioritizes work-life balance, continuous learning,
+                    and professional development.
                   </p>
                 </div>
 
@@ -462,9 +435,9 @@ const AboutPage: React.FC = () => {
                     Global Community
                   </h3>
                   <p className="text-gray-700 leading-relaxed">
-                    We're remote-friendly with a diverse, international team.
-                    Diversity of thought and background drives better solutions
-                    for our users.
+                    We&apos;re remote-friendly with a diverse, international
+                    team. Diversity of thought and background drives better
+                    solutions for our users.
                   </p>
                 </div>
               </div>

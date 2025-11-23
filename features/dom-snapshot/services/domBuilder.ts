@@ -7,7 +7,7 @@
 import * as rrwebSnapshot from 'rrweb-snapshot';
 
 export interface DomBuilderOptions {
-  snapshot: any;
+  snapshot: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   styles: Array<{ type: string; content?: string; href?: string }>;
   origin: string;
 }
@@ -36,7 +36,7 @@ export class DomBuilder {
         cssRulesWithHoverClass: new Set(),
       };
 
-      const rebuiltNode = rrwebSnapshot.rebuild(options.snapshot as any, {
+      const rebuiltNode = rrwebSnapshot.rebuild(options.snapshot, {
         doc,
         mirror,
         cache,
@@ -59,9 +59,11 @@ export class DomBuilder {
             doc.replaceChild(clonedHtml, doc.documentElement);
           } else {
             const clonedNode = (rebuiltNode as Element).cloneNode(true);
-            doc.body
-              ? doc.body.appendChild(clonedNode)
-              : doc.documentElement.appendChild(clonedNode);
+            if (doc.body) {
+              doc.body.appendChild(clonedNode);
+            } else {
+              doc.documentElement.appendChild(clonedNode);
+            }
           }
         }
       }
@@ -88,7 +90,7 @@ export class DomBuilder {
 
       // Inject Custom Styles
       if (options.styles && Array.isArray(options.styles)) {
-        options.styles.forEach((styleObj: any) => {
+        options.styles.forEach((styleObj: { type: string; content?: string; href?: string }) => {
           if (styleObj.type === 'inline' && styleObj.content) {
             const s = doc.createElement('style');
             s.textContent = styleObj.content;

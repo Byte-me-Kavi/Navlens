@@ -8,24 +8,31 @@ import h337 from 'heatmap.js';
 import { HeatmapConfig, HeatmapData, DEFAULT_HEATMAP_CONFIG } from '../types/heatmap.types';
 
 export class HeatmapRenderer {
-  private instance: any = null;
+  private instance: { setData: (data: HeatmapData) => void; addData: (data: HeatmapData) => void; removeData: () => void } | null = null;
   private container: HTMLElement | null = null;
 
   /**
    * Create a heatmap instance
    */
-  create(container: HTMLElement, config?: HeatmapConfig): any {
+  create(container: HTMLElement, config?: HeatmapConfig): { setData: (data: HeatmapData) => void; addData: (data: HeatmapData) => void; removeData: () => void } {
     if (!container) {
       throw new Error('Container element is required');
     }
 
     this.container = container;
     
-    this.instance = h337.create({
+    const heatmapInstance = h337.create({
       container,
       ...DEFAULT_HEATMAP_CONFIG,
       ...config,
     });
+
+    // Wrap the instance to add removeData method
+    this.instance = {
+      setData: heatmapInstance.setData.bind(heatmapInstance) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      addData: heatmapInstance.addData.bind(heatmapInstance) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      removeData: () => heatmapInstance.setData({ max: 0, min: 0, data: [] }),
+    };
 
     return this.instance;
   }
@@ -54,7 +61,7 @@ export class HeatmapRenderer {
   /**
    * Get the heatmap instance
    */
-  getInstance(): any {
+  getInstance(): { setData: (data: HeatmapData) => void; addData: (data: HeatmapData) => void; removeData: () => void } | null {
     return this.instance;
   }
 

@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSnapshot } from "@/features/dom-snapshot/hooks/useSnapshot";
 import { useHeatmapData } from "@/features/heatmap/hooks/useHeatmapData";
 import { useElementClicks } from "@/features/element-tracking/hooks/useElementClicks";
@@ -53,12 +53,67 @@ export function HeatmapViewer({
     heatmap: HeatmapPoint[];
     elements: ElementClick[];
   } | null>(null);
-  const [loadingAllViewports, setLoadingAllViewports] = useState(false); // Sync external prop changes
+
+  // Handler to fetch all viewports data
+  const handleShowAllViewports = useCallback(async () => {
+    const newShowAllViewports = !showAllViewports;
+
+    if (!newShowAllViewports) {
+      // Switch back to filtered view
+      setShowAllViewports(false);
+      setAllViewportsData(null);
+      onViewportModeChange?.(false);
+      return;
+    }
+
+    try {
+      // setLoadingAllViewports(true);
+
+      // Fetch data from both "all viewports" endpoints
+      const [heatmapResponse, elementsResponse] = await Promise.all([
+        apiClient.post<{ clicks: HeatmapPoint[] }>(
+          "/heatmap-clicks-all-viewports",
+          {
+            siteId,
+            pagePath,
+            deviceType,
+          }
+        ),
+        apiClient.post<ElementClick[]>("/element-clicks-all-viewports", {
+          siteId,
+          pagePath,
+          deviceType,
+        }),
+      ]);
+
+      setAllViewportsData({
+        heatmap: heatmapResponse.clicks || [],
+        elements: elementsResponse || [],
+      });
+      setShowAllViewports(true);
+      onViewportModeChange?.(true);
+    } catch (error) {
+      console.error("Error fetching all viewports data:", error);
+      alert("Failed to load data for all viewports. Please try again.");
+    } finally {
+      // setLoadingAllViewports(false);
+    }
+  }, [
+    showAllViewports,
+    setShowAllViewports,
+    setAllViewportsData,
+    onViewportModeChange,
+    siteId,
+    pagePath,
+    deviceType,
+  ]);
+
+  // Sync external prop changes
   useEffect(() => {
     if (externalShowAllViewports !== showAllViewports) {
       handleShowAllViewports();
     }
-  }, [externalShowAllViewports]);
+  }, [externalShowAllViewports, handleShowAllViewports, showAllViewports]);
 
   // Fetch snapshot data first to get viewport dimensions
   const {
@@ -113,52 +168,6 @@ export function HeatmapViewer({
     documentWidth: shouldFetchFiltered ? documentWidth : 1920,
     documentHeight: shouldFetchFiltered ? documentHeight : 1080,
   });
-
-  // Handler to fetch all viewports data
-  const handleShowAllViewports = async () => {
-    const newShowAllViewports = !showAllViewports;
-
-    if (!newShowAllViewports) {
-      // Switch back to filtered view
-      setShowAllViewports(false);
-      setAllViewportsData(null);
-      onViewportModeChange?.(false);
-      return;
-    }
-
-    try {
-      setLoadingAllViewports(true);
-
-      // Fetch data from both "all viewports" endpoints
-      const [heatmapResponse, elementsResponse] = await Promise.all([
-        apiClient.post<{ clicks: HeatmapPoint[] }>(
-          "/heatmap-clicks-all-viewports",
-          {
-            siteId,
-            pagePath,
-            deviceType,
-          }
-        ),
-        apiClient.post<ElementClick[]>("/element-clicks-all-viewports", {
-          siteId,
-          pagePath,
-          deviceType,
-        }),
-      ]);
-
-      setAllViewportsData({
-        heatmap: heatmapResponse.clicks || [],
-        elements: elementsResponse || [],
-      });
-      setShowAllViewports(true);
-      onViewportModeChange?.(true);
-    } catch (error) {
-      console.error("Error fetching all viewports data:", error);
-      alert("Failed to load data for all viewports. Please try again.");
-    } finally {
-      setLoadingAllViewports(false);
-    }
-  };
 
   // Show loading state - wait for snapshot AND initial data attempts
   if (snapshotLoading || heatmapLoading || elementLoading) {

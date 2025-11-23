@@ -39,8 +39,9 @@ export function HeatmapCanvas({
 
     rendererRef.current.create(container);
 
+    const currentRenderer = rendererRef.current;
     return () => {
-      rendererRef.current.destroy();
+      currentRenderer.destroy();
     };
   }, [width, height]);
 

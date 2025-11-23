@@ -359,17 +359,6 @@
     }, BATCH_FLUSH_INTERVAL);
   }
 
-  // --- Helper Functions ---
-  function getClientId() {
-    let clientId = localStorage.getItem("client_id");
-    if (!clientId) {
-      clientId =
-        "client-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem("client_id", clientId);
-    }
-    return clientId;
-  }
-
   function getDeviceType(viewportWidth) {
     if (viewportWidth < 768) return "mobile";
     if (viewportWidth < 1024) return "tablet";
@@ -507,7 +496,7 @@
     };
   }
 
-  async function captureSnapshotForDevice(deviceType, captureId = 1) {
+  async function captureSnapshotForDevice(deviceType) {
     if (typeof rrwebSnapshot === "undefined") {
       console.warn(
         `Navlens: rrwebSnapshot not loaded, skipping ${deviceType} snapshot`
@@ -688,7 +677,7 @@
       // Restore original Image constructor in case of error
       try {
         imageLoader.restore();
-      } catch (e) {
+      } catch {
         // Ignore restore errors
       }
 

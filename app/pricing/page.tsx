@@ -11,7 +11,6 @@ import {
   XMarkIcon,
   StarIcon,
   LightBulbIcon,
-  ShieldCheckIcon,
   BoltIcon,
   RocketLaunchIcon,
   CodeBracketIcon,
@@ -195,18 +194,18 @@ const PricingPage: React.FC = () => {
       </section>
 
       {/* Pricing Cards Section */}
-      <section className="py-20 px-4 md:px-6">
-        <div className="container mx-auto max-w-7xl">
-          <div className="grid md:grid-cols-3 gap-8">
+      <section className="py-2 px-4 md:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {plans.map((plan, index) => {
               const Icon = plan.icon;
               return (
                 <div
                   key={index}
-                  className={`group relative flex flex-col rounded-3xl transition-all duration-500 ${
+                  className={`group relative flex flex-col rounded-3xl transition-all duration-500 min-h-[500px] ${
                     plan.popular
-                      ? "md:scale-105 bg-white/90 backdrop-blur-xl border-2 border-gradient-to-r border-purple-400 shadow-2xl shadow-purple-500/30"
-                      : "bg-white/70 backdrop-blur-md border border-gray-200 shadow-lg hover:shadow-2xl hover:-translate-y-2"
+                      ? "bg-white/90 backdrop-blur-xl border-2 border-purple-400 shadow-2xl shadow-purple-500/30"
+                      : "bg-white/70 backdrop-blur-md border border-gray-200 shadow-lg hover:shadow-2xl hover:-translate-y-1"
                   }`}
                 >
                   {/* Popular Badge */}
@@ -220,51 +219,51 @@ const PricingPage: React.FC = () => {
                   )}
 
                   {/* Card Content */}
-                  <div className="p-8 flex flex-col flex-1">
+                  <div className="p-6 flex flex-col flex-1">
                     {/* Icon */}
                     <div
-                      className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 ${
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
                         plan.popular
                           ? "bg-linear-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/30"
                           : "bg-linear-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30"
                       }`}
                     >
-                      <Icon className="w-8 h-8 text-white" />
+                      <Icon className="w-6 h-6 text-white" />
                     </div>
 
                     {/* Plan Name and Description */}
-                    <div className="mb-6">
-                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    <div className="mb-4">
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">
                         {plan.name}
                       </h3>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-xs text-gray-600">
                         {plan.description}
                       </p>
                     </div>
 
                     {/* Pricing */}
-                    <div className="mb-8">
+                    <div className="mb-6">
                       {typeof plan.price === "string" ? (
                         <div>
-                          <div className="text-sm text-gray-600 mb-2">
+                          <div className="text-sm text-gray-600 mb-1">
                             Flexible pricing based on your needs
                           </div>
-                          <div className="text-3xl font-bold text-gray-900">
+                          <div className="text-2xl font-bold text-gray-900">
                             {plan.price}
                           </div>
                         </div>
                       ) : (
                         <>
-                          <div className="flex items-baseline gap-2 mb-2">
-                            <span className="text-5xl font-bold text-gray-900">
+                          <div className="flex items-baseline gap-1 mb-1">
+                            <span className="text-4xl font-bold text-gray-900">
                               ${plan.price[billingCycle]}
                             </span>
-                            <span className="text-gray-600 text-lg">
+                            <span className="text-gray-600 text-sm">
                               /{billingCycle === "monthly" ? "month" : "year"}
                             </span>
                           </div>
                           {billingCycle === "yearly" && plan.originalPrice && (
-                            <div className="text-sm text-blue-600 font-semibold">
+                            <div className="text-xs text-blue-600 font-semibold">
                               Save $
                               {plan.originalPrice[billingCycle] -
                                 plan.price[billingCycle]}{" "}
@@ -276,11 +275,11 @@ const PricingPage: React.FC = () => {
                     </div>
 
                     {/* Features */}
-                    <div className="space-y-4 mb-8 flex-1">
+                    <div className="space-y-3 mb-6 flex-1">
                       {plan.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-start gap-3">
-                          <CheckIcon className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                          <span className="text-sm text-gray-700">
+                        <div key={idx} className="flex items-start gap-2">
+                          <CheckIcon className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                          <span className="text-xs text-gray-700">
                             {feature}
                           </span>
                         </div>
@@ -290,7 +289,7 @@ const PricingPage: React.FC = () => {
                     {/* CTA Button */}
                     <button
                       onClick={() => router.push("/dashboard")}
-                      className={`w-full py-4 px-6 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm ${
                         plan.popular
                           ? "bg-linear-to-r from-purple-600 to-purple-700 text-white hover:shadow-lg hover:shadow-purple-500/50 hover:scale-105"
                           : "bg-linear-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105"
@@ -308,20 +307,20 @@ const PricingPage: React.FC = () => {
       </section>
 
       {/* Features Comparison Section */}
-      <section className="py-20 px-4 md:px-6">
-        <div className="container mx-auto max-w-7xl">
+      <section className="py-12 px-4 md:px-6">
+        <div className="container mx-auto max-w-6xl">
           {/* Section Header */}
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50/50 backdrop-blur-sm border border-blue-200 mb-4">
               <BoltIcon className="w-5 h-5 text-blue-700" />
               <span className="text-sm font-semibold text-blue-800">
                 Feature Comparison
               </span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
               Compare All Features
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Detailed breakdown of everything included in each plan
             </p>
           </div>
@@ -331,16 +330,16 @@ const PricingPage: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50/50">
-                  <th className="text-left p-6 font-bold text-gray-900">
+                  <th className="text-left p-4 font-bold text-gray-900">
                     Features
                   </th>
-                  <th className="text-center p-6 font-bold text-gray-900">
+                  <th className="text-center p-4 font-bold text-gray-900">
                     Starter
                   </th>
-                  <th className="text-center p-6 font-bold bg-linear-to-b from-purple-50 text-purple-900">
+                  <th className="text-center p-4 font-bold bg-linear-to-b from-purple-50 text-purple-900">
                     Professional
                   </th>
-                  <th className="text-center p-6 font-bold text-gray-900">
+                  <th className="text-center p-4 font-bold text-gray-900">
                     Enterprise
                   </th>
                 </tr>
@@ -364,30 +363,30 @@ const PricingPage: React.FC = () => {
                     key={idx}
                     className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors"
                   >
-                    <td className="p-6 font-medium text-gray-900">{row[0]}</td>
-                    <td className="p-6 text-center text-gray-600">
+                    <td className="p-4 font-medium text-gray-900">{row[0]}</td>
+                    <td className="p-4 text-center text-gray-600">
                       {row[1] === "✓" ? (
-                        <CheckIcon className="w-5 h-5 text-blue-600 mx-auto" />
+                        <CheckIcon className="w-4 h-4 text-blue-600 mx-auto" />
                       ) : row[1] === "✗" ? (
-                        <XMarkIcon className="w-5 h-5 text-gray-300 mx-auto" />
+                        <XMarkIcon className="w-4 h-4 text-gray-300 mx-auto" />
                       ) : (
                         row[1]
                       )}
                     </td>
-                    <td className="p-6 text-center text-purple-900 font-semibold bg-purple-50/30">
+                    <td className="p-4 text-center text-purple-900 font-semibold bg-purple-50/30">
                       {row[2] === "✓" ? (
-                        <CheckIcon className="w-5 h-5 text-purple-600 mx-auto" />
+                        <CheckIcon className="w-4 h-4 text-purple-600 mx-auto" />
                       ) : row[2] === "✗" ? (
-                        <XMarkIcon className="w-5 h-5 text-gray-300 mx-auto" />
+                        <XMarkIcon className="w-4 h-4 text-gray-300 mx-auto" />
                       ) : (
                         row[2]
                       )}
                     </td>
-                    <td className="p-6 text-center text-gray-900 font-semibold">
+                    <td className="p-4 text-center text-gray-900 font-semibold">
                       {row[3] === "✓" ? (
-                        <CheckIcon className="w-5 h-5 text-blue-600 mx-auto" />
+                        <CheckIcon className="w-4 h-4 text-blue-600 mx-auto" />
                       ) : row[3] === "✗" ? (
-                        <XMarkIcon className="w-5 h-5 text-gray-300 mx-auto" />
+                        <XMarkIcon className="w-4 h-4 text-gray-300 mx-auto" />
                       ) : (
                         row[3]
                       )}

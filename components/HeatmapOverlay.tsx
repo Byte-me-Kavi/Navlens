@@ -114,15 +114,22 @@ const HeatmapOverlay: React.FC<HeatmapOverlayProps> = ({
 
     fetchHeatmapData();
 
-    // Optional: Re-fetch on window resize to adjust points (more complex for dynamic heatmaps)
+    // Optional: Re-fetch on window resize to adjust points (debounced to prevent excessive requests)
+    let resizeTimeout: NodeJS.Timeout;
     const handleResize = () => {
-      // For simple resize, just re-fetch data to re-calculate x,y.
-      // For very large datasets, you might debounce this or only update the heatmap instance
-      // without re-fetching if only x,y transform is needed.
-      fetchHeatmapData();
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        // For simple resize, just re-fetch data to re-calculate x,y.
+        // For very large datasets, you might debounce this or only update the heatmap instance
+        // without re-fetching if only x,y transform is needed.
+        fetchHeatmapData();
+      }, 500); // Debounce for 500ms
     };
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(resizeTimeout);
+    };
   }, [heatmapInstance, siteId, pagePath]); // Re-run if instance or props change
 
   // --- 4. Resize the heatmap canvas to match image dimensions ---

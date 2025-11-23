@@ -1,6 +1,9 @@
 /**
  * Diagnostic script to check for duplicate overlays
  */
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 const { createClient } = require("@clickhouse/client");
 const fs = require("fs");
 

@@ -33,7 +33,23 @@ export async function POST(req: NextRequest) {
     }
 
     // Group events by session_id
-    const sessionMap = new Map<string, any>();
+    const sessionMap = new Map<string, {
+      session_id: string;
+      visitor_id: string;
+      timestamp: string;
+      first_timestamp: string;
+      last_timestamp: string;
+      pages: Set<string>;
+      country: string;
+      ip_address: string;
+      device_type: string;
+      screen_width: number;
+      screen_height: number;
+      platform: string;
+      user_agent: string;
+      duration: number;
+      page_views: number;
+    }>();
 
     data.forEach((event) => {
       const sessionId = event.session_id;
@@ -52,22 +68,26 @@ export async function POST(req: NextRequest) {
           screen_width: event.screen_width || 0,
           screen_height: event.screen_height || 0,
           platform: event.platform || "Unknown",
-          user_agent: event.user_agent || "",
+          user_agent: event.user_agent || "Unknown",
+          duration: 0, // Will be calculated later
+          page_views: 1, // Start with 1 page view
         });
       } else {
         const session = sessionMap.get(sessionId);
-        session.pages.add(event.page_path);
-        
-        // Update first and last timestamps
-        const eventTime = new Date(event.timestamp).getTime();
-        const firstTime = new Date(session.first_timestamp).getTime();
-        const lastTime = new Date(session.last_timestamp).getTime();
-        
-        if (eventTime < firstTime) {
-          session.first_timestamp = event.timestamp;
-        }
-        if (eventTime > lastTime) {
-          session.last_timestamp = event.timestamp;
+        if (session) {
+          session.pages.add(event.page_path);
+
+          // Update first and last timestamps
+          const eventTime = new Date(event.timestamp).getTime();
+          const firstTime = new Date(session.first_timestamp).getTime();
+          const lastTime = new Date(session.last_timestamp).getTime();
+
+          if (eventTime < firstTime) {
+            session.first_timestamp = event.timestamp;
+          }
+          if (eventTime > lastTime) {
+            session.last_timestamp = event.timestamp;
+          }
         }
       }
     });

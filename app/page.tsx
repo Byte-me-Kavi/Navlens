@@ -16,8 +16,6 @@ import {
   UsersIcon,
   CheckCircleIcon,
   FireIcon,
-  CodeBracketIcon,
-  DocumentTextIcon,
   PresentationChartLineIcon,
   DevicePhoneMobileIcon,
 } from "@heroicons/react/24/outline";
@@ -28,63 +26,63 @@ const features = [
     title: "Click Heatmaps",
     description:
       "Visualize exactly where users click on your pages. Identify hotspots and dead zones to optimize your layout.",
-    color: "blue"
+    color: "blue",
   },
   {
     icon: ChartBarIcon,
     title: "Real-Time Analytics",
     description:
       "Monitor user behavior as it happens. Get instant insights into how visitors interact with your site.",
-    color: "purple"
+    color: "purple",
   },
   {
     icon: PresentationChartLineIcon,
     title: "Scroll Information",
     description:
       "Track how far users scroll on your pages. Understand content engagement and optimize page layout.",
-    color: "blue"
+    color: "blue",
   },
   {
     icon: EyeIcon,
     title: "Session Recording",
     description:
       "Watch exactly how users navigate your site. Replay sessions to understand user journeys.",
-    color: "blue"
+    color: "blue",
   },
   {
     icon: RocketLaunchIcon,
     title: "Lightning Fast",
     description:
       "Minimal impact on page load times. Our optimized tracking script is under 20KB gzipped.",
-    color: "purple"
+    color: "purple",
   },
   {
     icon: ShieldCheckIcon,
     title: "Privacy First",
     description:
       "GDPR and CCPA compliant. We respect user privacy while providing powerful analytics.",
-    color: "blue"
+    color: "blue",
   },
   {
     icon: SparklesIcon,
     title: "AI Insights",
     description:
       "Get AI-powered recommendations to improve conversions and user experience automatically.",
-    color: "purple"
+    color: "purple",
   },
   {
     icon: BoltIcon,
     title: "Lightning Fast Performance",
     description:
       "Minimal impact on page load times. Our optimized tracking script is under 20KB gzipped for maximum performance.",
-    color: "blue"
+    color: "blue",
   },
   {
     icon: DevicePhoneMobileIcon,
     title: "Multi-Device Support",
     description:
       "Separate insights for desktop, tablet, and mobile users. Optimize experiences perfectly for every device type.",
-    color: "purple"
+    color: "purple",
   },
 ];
 
@@ -116,7 +114,7 @@ export default function Home() {
                 {/* Description */}
                 <p className="text-xl text-black leading-relaxed max-w-xl">
                   Visualize user behavior with stunning heatmaps. Track every
-                  click, scroll, and interaction to optimize your website's
+                  click, scroll, and interaction to optimize your website&apos;s
                   performance.
                 </p>
 
@@ -221,8 +219,8 @@ export default function Home() {
                     key={index}
                     onClick={() => router.push("/features")}
                     className={`group relative bg-white/70 backdrop-blur-sm rounded-2xl overflow-hidden border border-gray-200 ${hoverBorder} hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer`}
-                  >                    
-                  {/* Content */}
+                  >
+                    {/* Content */}
                     <div className="p-6">
                       <div
                         className={`w-12 h-12 rounded-xl ${bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}

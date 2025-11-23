@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import SessionPlayer from "@/components/SessionPlayer";
+import SessionPlayer, { RRWebEvent } from "@/components/SessionPlayer";
 import { apiClient } from "@/shared/services/api/client";
 import "flag-icons/css/flag-icons.min.css";
 import countries from "world-countries";
@@ -15,7 +15,6 @@ import {
   FiArrowLeft,
   FiX,
   FiMenu,
-  FiInfo,
   FiGlobe,
   FiUser,
   FiCalendar,
@@ -23,7 +22,6 @@ import {
   FiAlertTriangle,
 } from "react-icons/fi";
 import { HiOutlineDesktopComputer } from "react-icons/hi";
-import { BsDisplay } from "react-icons/bs";
 
 interface SessionMetadata {
   visitor_id: string;
@@ -49,10 +47,11 @@ const getCountryName = (countryCode: string) => {
   try {
     if (!countryCode || countryCode.length !== 2) return "Unknown";
     const country = countries.find(
-      (c: any) => c.cca2.toUpperCase() === countryCode.toUpperCase()
+      (c: { cca2: string; name?: { common: string } }) =>
+        c.cca2.toUpperCase() === countryCode.toUpperCase()
     );
     return country?.name?.common || countryCode || "Unknown";
-  } catch (e) {
+  } catch {
     return countryCode || "Unknown";
   }
 };
@@ -76,7 +75,7 @@ export default function SessionReplayPage() {
   const { selectedSiteId: siteId } = useSite();
   const sessionId = params["session-id"] as string;
 
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<RRWebEvent[]>([]);
   const [metadata, setMetadata] = useState<SessionMetadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
@@ -96,29 +95,20 @@ export default function SessionReplayPage() {
     setUserDevice(detectDevice());
   }, []);
 
-  useEffect(() => {
-    if (!siteId || !sessionId) {
-      router.push("/dashboard/sessions");
-      return;
-    }
-
-    fetchSessionReplay();
-  }, [siteId, sessionId, router]);
-
-  const fetchSessionReplay = async () => {
+  const fetchSessionReplay = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
 
       // Fetch stitched events from replay API
-      const replayData = await apiClient.post<{ events: any[] }>(
+      const replayData = await apiClient.post<{ events: unknown[] }>(
         "/sessions/replay",
         {
           siteId,
           sessionId,
         }
       );
-      setEvents(replayData.events || []);
+      setEvents((replayData.events || []) as RRWebEvent[]);
 
       // Fetch session metadata
       const metaData = await apiClient.post<{ session: SessionMetadata }>(
@@ -128,13 +118,22 @@ export default function SessionReplayPage() {
         }
       );
       setMetadata(metaData.session);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching session:", err);
-      setError(err.message || "Failed to load session");
+      setError(err instanceof Error ? err.message : "Failed to load session");
     } finally {
       setLoading(false);
     }
-  };
+  }, [siteId, sessionId]);
+
+  useEffect(() => {
+    if (!siteId || !sessionId) {
+      router.push("/dashboard/sessions");
+      return;
+    }
+
+    fetchSessionReplay();
+  }, [siteId, sessionId, fetchSessionReplay, router]);
 
   const formatDateTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -196,7 +195,7 @@ export default function SessionReplayPage() {
             </h3>
             <p className="text-gray-600 mb-6">
               This session was recorded on a{" "}
-              <strong>{metadata?.device_type}</strong> device, but you're
+              <strong>{metadata?.device_type}</strong> device, but you&apos;re
               viewing on a <strong>{userDevice}</strong> device.
             </p>
             <p className="text-gray-500 text-sm mb-6">
@@ -310,9 +309,7 @@ export default function SessionReplayPage() {
 
                 <div className="border-t border-gray-200 pt-1">
                   <div className=" bg-gray-100 rounded-lg p-3">
-                    <div className="text-xs mb-1 font-medium">
-                      IP Address
-                    </div>
+                    <div className="text-xs mb-1 font-medium">IP Address</div>
                     <div className="text-sm font-semibold text-gray-900">
                       {metadata.ip_address || "N/A"}
                     </div>
@@ -321,9 +318,7 @@ export default function SessionReplayPage() {
 
                 <div className="border-t border-gray-200 pt-1">
                   <div className=" bg-gray-100 rounded-lg p-3">
-                    <div className="text-xs mb-1 font-medium">
-                      Platform
-                    </div>
+                    <div className="text-xs mb-1 font-medium">Platform</div>
                     <div className="text-sm font-semibold text-gray-900">
                       {metadata.platform || "N/A"}
                     </div>

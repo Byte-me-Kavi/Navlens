@@ -1,6 +1,5 @@
 "use client";
 
-import type { Metadata } from "next";
 import { Toast } from "../components/Toast";
 import { AnimatedBackground } from "../components/ui/AnimatedBackground";
 import { usePathname } from "next/navigation";
@@ -30,7 +29,6 @@ function RootLayoutClient({
       <div className="relative z-10">
         <Toast>{children}</Toast>
       </div>
-      <script src="http://localhost:8097"></script>
     </body>
   );
 }

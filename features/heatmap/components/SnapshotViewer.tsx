@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { DomBuilder } from "@/features/dom-snapshot/services/domBuilder";
 import { ScrollSync } from "@/features/dom-snapshot/services/scrollSync";
 import { HeatmapCanvas } from "@/features/heatmap/components/HeatmapCanvas";
@@ -44,6 +44,9 @@ export function SnapshotViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const scrollSyncRef = useRef<ScrollSync>(new ScrollSync());
+  const [iframeElement, setIframeElement] = useState<HTMLIFrameElement | null>(
+    null
+  );
   const [contentDimensions, setContentDimensions] = useState({
     width: 0,
     height: 0,
@@ -51,6 +54,11 @@ export function SnapshotViewer({
   const [isReady, setIsReady] = useState(false);
   const [isIframeLoaded, setIsIframeLoaded] = useState(false);
   const [overlaysRendered, setOverlaysRendered] = useState(0);
+
+  // Memoize the callback to prevent infinite re-renders
+  const handleOverlaysRendered = useCallback(() => {
+    setOverlaysRendered((prev) => prev + 1);
+  }, []);
 
   // Track window size for auto-refresh on resize
   useEffect(() => {
@@ -71,6 +79,11 @@ export function SnapshotViewer({
       clearTimeout(resizeTimeout);
       window.removeEventListener("resize", handleResize);
     };
+  }, []);
+
+  // Update iframe element state when ref changes
+  useEffect(() => {
+    setIframeElement(iframeRef.current);
   }, []);
 
   // Get device-specific viewport configuration
@@ -104,7 +117,6 @@ export function SnapshotViewer({
 
     console.log("🏗️ Building DOM from snapshot...");
 
-    const container = containerRef.current;
     const iframe = iframeRef.current;
 
     // Wait for iframe to be ready, then build the DOM
@@ -174,6 +186,7 @@ export function SnapshotViewer({
 
   // Setup scroll sync when ready AND after overlays are rendered
   useEffect(() => {
+    const scrollSync = scrollSyncRef.current;
     if (!isReady || !iframeRef.current) {
       console.log(
         "⏳ ScrollSync waiting - isReady:",
@@ -188,6 +201,8 @@ export function SnapshotViewer({
     // Increase from 100ms to 250ms to ensure React has time to render components
     const timeoutId = setTimeout(() => {
       console.log("🔄 Setting up ScrollSync...");
+
+      const scrollSync = scrollSyncRef.current;
 
       const canvasContainer = document.getElementById(
         "heatmap-canvas-container"
@@ -213,7 +228,7 @@ export function SnapshotViewer({
           overlays.length,
           "containers"
         );
-        scrollSyncRef.current.initialize(iframeRef.current!, overlays);
+        scrollSync.initialize(iframeRef.current!, overlays);
       } else {
         console.warn("⚠️ No overlay containers found for ScrollSync");
         // Retry after another delay if containers not found
@@ -230,7 +245,7 @@ export function SnapshotViewer({
 
           if (retryOverlays.length > 0) {
             console.log("🔄 Retry: Found", retryOverlays.length, "containers");
-            scrollSyncRef.current.initialize(iframeRef.current!, retryOverlays);
+            scrollSync.initialize(iframeRef.current!, retryOverlays);
           }
         }, 200);
       }
@@ -238,7 +253,7 @@ export function SnapshotViewer({
 
     return () => {
       clearTimeout(timeoutId);
-      scrollSyncRef.current.cleanup();
+      scrollSync.cleanup();
     };
   }, [isReady, overlaysRendered]);
 
@@ -282,7 +297,7 @@ export function SnapshotViewer({
             points={heatmapPoints}
             width={contentDimensions.width}
             height={contentDimensions.height}
-            iframe={iframeRef.current}
+            iframe={iframeElement}
           />
         )}
 
@@ -290,11 +305,11 @@ export function SnapshotViewer({
         {isReady && isIframeLoaded && (
           <ElementOverlay
             elements={elementClicks}
-            iframe={iframeRef.current}
+            iframe={iframeElement}
             siteId={siteId}
             pagePath={pagePath}
             deviceType={deviceType}
-            onOverlaysRendered={() => setOverlaysRendered((prev) => prev + 1)}
+            onOverlaysRendered={handleOverlaysRendered}
           />
         )}
       </div>

@@ -204,10 +204,11 @@ export async function POST(req: NextRequest) {
 
   } catch (error: Error | unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const status = errorMessage.includes('Network') || errorMessage.includes('ECONNREFUSED') ? 503 : 500;
     console.error('Error fetching heatmap data:', error);
     return NextResponse.json(
       { message: 'Failed to fetch heatmap data', error: errorMessage },
-      { status: 500 }
+      { status }
     );
   }
 }

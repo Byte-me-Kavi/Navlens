@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import {
@@ -15,9 +16,7 @@ import {
   FireIcon,
   CodeBracketIcon,
   DevicePhoneMobileIcon,
-  AdjustmentsHorizontalIcon,
   PresentationChartLineIcon,
-  UserGroupIcon,
   TrophyIcon,
   ShoppingCartIcon,
   Cog8ToothIcon,
@@ -272,10 +271,11 @@ export default function FeaturesPage() {
                 >
                   {/* Image */}
                   <div className="relative h-48 overflow-hidden bg-linear-to-br from-gray-100 to-gray-50">
-                    <img
+                    <Image
                       src={feature.image}
                       alt={feature.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-300"
                     />
                   </div>
 

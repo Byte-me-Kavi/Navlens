@@ -4,8 +4,8 @@ import {
   createContext,
   useContext,
   useState,
-  ReactNode,
   useEffect,
+  ReactNode,
 } from "react";
 
 interface SiteContextType {
@@ -16,16 +16,16 @@ interface SiteContextType {
 const SiteContext = createContext<SiteContextType | undefined>(undefined);
 
 export function SiteProvider({ children }: { children: ReactNode }) {
-  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const savedSiteId = localStorage.getItem("selectedSiteId");
-    if (savedSiteId) {
-      setSelectedSiteId(savedSiteId);
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("selectedSiteId");
     }
-    setIsHydrated(true);
+    return null;
+  });
+
+  useEffect(() => {
+    setIsHydrated(true); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
   // Save to localStorage whenever it changes

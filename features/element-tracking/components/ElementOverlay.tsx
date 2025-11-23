@@ -222,31 +222,30 @@ export function ElementOverlay({
       elementHighlight.style.zIndex = clicksInside > 0 ? "99" : "98";
 
       if (clicksInside > 0) {
-        // RED overlay for clicked elements
-        elementHighlight.style.border = "3px solid rgba(255, 50, 50, 0.9)";
-        elementHighlight.style.backgroundColor = "rgba(255, 50, 50, 0.15)";
+        // RED overlay for clicked elements (reduced intensity)
+        elementHighlight.style.border = "2px solid rgba(255, 50, 50, 0.7)";
+        elementHighlight.style.backgroundColor = "rgba(255, 50, 50, 0.12)";
         elementHighlight.style.boxShadow =
-          "0 0 15px rgba(255, 50, 50, 0.7), inset 0 0 10px rgba(255, 50, 50, 0.25)";
+          "0 0 10px rgba(255, 50, 50, 0.5), inset 0 0 6px rgba(255, 50, 50, 0.2)";
 
-        // Add label showing click count
+        // Add label showing click count near bottom
         const label = document.createElement("div");
         label.style.cssText = `
           position: absolute;
-          top: -25px;
-          left: 0;
+          bottom: -20px;
+          left: 50%;
+          transform: translateX(-50%);
           background: linear-gradient(135deg, #FF3232, #CC0000);
           color: white;
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 11px;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 10px;
           font-weight: bold;
           white-space: nowrap;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.3);
           pointer-events: none;
         `;
-        label.textContent = `${element.tagName} (${clicksInside} ${
-          clicksInside === 1 ? "click" : "clicks"
-        })`;
+        label.textContent = `${clicksInside}`;
         elementHighlight.appendChild(label);
 
         // Add click handler for analysis
@@ -270,33 +269,53 @@ export function ElementOverlay({
       } else {
         // BLUE overlay for non-clicked elements
         elementHighlight.style.border = "2px solid rgba(59, 130, 246, 0.6)";
-        elementHighlight.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+        elementHighlight.style.backgroundColor = "rgba(59, 130, 246, 0.08)";
         elementHighlight.style.boxShadow =
-          "0 0 10px rgba(59, 130, 246, 0.4), inset 0 0 8px rgba(59, 130, 246, 0.2)";
+          "0 0 8px rgba(59, 130, 246, 0.4), inset 0 0 5px rgba(59, 130, 246, 0.15)";
+
+        // Add click handler for non-clicked elements to show element details
+        elementHighlight.addEventListener("click", (e) => {
+          e.stopPropagation();
+          // Create a mock ElementClick object for non-clicked elements
+          const mockElementClick: ElementClick = {
+            selector: getElementSelector(element as HTMLElement),
+            tag: element.tagName,
+            text: element.textContent || "",
+            x: elementLeft,
+            y: elementTop,
+            x_relative: elementLeft / currentDocWidth,
+            y_relative: elementTop / currentDocHeight,
+            document_width: currentDocWidth,
+            document_height: currentDocHeight,
+            clickCount: 0,
+            percentage: 0,
+          };
+          setSelectedElement(mockElementClick);
+        });
       }
 
       // Add hover effect
       elementHighlight.addEventListener("mouseenter", () => {
         if (clicksInside > 0) {
-          elementHighlight.style.backgroundColor = "rgba(255, 50, 50, 0.35)";
+          elementHighlight.style.backgroundColor = "rgba(255, 50, 50, 0.18)";
           elementHighlight.style.boxShadow =
-            "0 0 20px rgba(255, 50, 50, 0.9), inset 0 0 15px rgba(255, 50, 50, 0.4)";
+            "0 0 14px rgba(255, 50, 50, 0.7), inset 0 0 8px rgba(255, 50, 50, 0.25)";
         } else {
-          elementHighlight.style.backgroundColor = "rgba(59, 130, 246, 0.2)";
+          elementHighlight.style.backgroundColor = "rgba(59, 130, 246, 0.15)";
           elementHighlight.style.boxShadow =
-            "0 0 15px rgba(59, 130, 246, 0.6), inset 0 0 12px rgba(59, 130, 246, 0.3)";
+            "0 0 12px rgba(59, 130, 246, 0.6), inset 0 0 8px rgba(59, 130, 246, 0.2)";
         }
       });
 
       elementHighlight.addEventListener("mouseleave", () => {
         if (clicksInside > 0) {
-          elementHighlight.style.backgroundColor = "rgba(255, 50, 50, 0.15)";
+          elementHighlight.style.backgroundColor = "rgba(255, 50, 50, 0.12)";
           elementHighlight.style.boxShadow =
-            "0 0 15px rgba(255, 50, 50, 0.7), inset 0 0 10px rgba(255, 50, 50, 0.25)";
+            "0 0 10px rgba(255, 50, 50, 0.5), inset 0 0 6px rgba(255, 50, 50, 0.2)";
         } else {
-          elementHighlight.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+          elementHighlight.style.backgroundColor = "rgba(59, 130, 246, 0.08)";
           elementHighlight.style.boxShadow =
-            "0 0 10px rgba(59, 130, 246, 0.4), inset 0 0 8px rgba(59, 130, 246, 0.2)";
+            "0 0 8px rgba(59, 130, 246, 0.4), inset 0 0 5px rgba(59, 130, 246, 0.15)";
         }
       });
 
@@ -304,6 +323,11 @@ export function ElementOverlay({
     });
 
     console.log(`✓ Rendered ${allImportantElements.length} element overlays`);
+    console.log("🔍 Container children count:", container.children.length);
+    console.log(
+      "🔍 First overlay style:",
+      container.children[0]?.getAttribute("style")
+    );
 
     // Update container dimensions to match iframe content
     container.style.width = `${currentDocWidth}px`;
@@ -344,7 +368,26 @@ export function ElementOverlay({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [elements, iframe, iframeReady]);
+  }, [
+    elements,
+    iframe,
+    iframeReady,
+    onOverlaysRendered,
+    siteId,
+    pagePath,
+    deviceType,
+  ]);
+
+  // Apply scaling to match iframe display size (removed - conflicts with ScrollSync)
+  useEffect(() => {
+    if (!iframe || !iframeReady) return;
+
+    const container = document.getElementById("element-overlay-container");
+    if (!container) return;
+
+    // Don't apply transform here - ScrollSync handles positioning
+    console.log("🔍 Element overlay container ready for ScrollSync");
+  }, [iframe, iframeReady, deviceType, pagePath, siteId]);
 
   return (
     <>

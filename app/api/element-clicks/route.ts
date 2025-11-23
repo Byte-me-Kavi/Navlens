@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate total clicks for percentage calculation
-    const totalClicks = elementRows.reduce((sum: number, row: any) => sum + parseInt(row.click_count), 0);
+    const totalClicks = (elementRows as ElementClickRow[]).reduce((sum: number, row: ElementClickRow) => sum + parseInt(row.click_count), 0);
 
     const elementClicks = (elementRows as ElementClickRow[]).map((row) => ({
       selector: row.selector,
@@ -163,10 +163,11 @@ export async function POST(req: NextRequest) {
 
   } catch (error: Error | unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const status = errorMessage.includes('Network') || errorMessage.includes('ECONNREFUSED') ? 503 : 500;
     console.error('Error fetching element click data:', error);
     return NextResponse.json(
       { message: 'Failed to fetch element click data', error: errorMessage },
-      { status: 500 }
+      { status }
     );
   }
 }

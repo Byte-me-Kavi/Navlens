@@ -8,7 +8,7 @@
  * @module shared/services/api/client
  */
 
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 
 export class ApiError extends Error {
   constructor(
@@ -71,9 +71,9 @@ class ApiClient {
     if (error.response) {
       // Server responded with error status
       const status = error.response.status;
-      const data: any = error.response.data;
+      const data: unknown = error.response.data;
       
-      const message = data?.message || error.message || `HTTP ${status}`;
+      const message = (data as any)?.message || error.message || `HTTP ${status}`; // eslint-disable-line @typescript-eslint/no-explicit-any
       const code = 
         status === 401 ? 'UNAUTHORIZED' :
         status === 403 ? 'FORBIDDEN' :
@@ -110,7 +110,7 @@ class ApiClient {
    * GET request (deprecated - use POST for sensitive data)
    * Only use for public, non-sensitive endpoints
    */
-  async get<T>(endpoint: string, params?: Record<string, any>, options?: RequestOptions): Promise<T> {
+  async get<T>(endpoint: string, params?: Record<string, unknown>, options?: RequestOptions): Promise<T> {
     console.warn('⚠️ GET request used - consider using POST for sensitive data');
     const response = await this.axios.get<T>(endpoint, {
       params,
