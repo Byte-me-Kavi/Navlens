@@ -69,7 +69,7 @@ export function useElementClicks(params: ElementClickParams): UseElementClicksRe
     return () => {
       cancelled = true;
     };
-  }, [paramsHash, lastRequestHash, fetchData]);
+  }, [paramsHash, lastRequestHash, fetchData]); // Include fetchData to satisfy exhaustive-deps
 
   return {
     data,

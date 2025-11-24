@@ -11,6 +11,7 @@ import { DomBuilder } from "@/features/dom-snapshot/services/domBuilder";
 import { ScrollSync } from "@/features/dom-snapshot/services/scrollSync";
 import { HeatmapCanvas } from "@/features/heatmap/components/HeatmapCanvas";
 import { ElementOverlay } from "@/features/element-tracking/components/ElementOverlay";
+import { ScrollHeatmapOverlay } from "@/features/heatmap/components/ScrollHeatmapOverlay";
 import type { SnapshotData } from "@/features/dom-snapshot/types/snapshot.types";
 import type { HeatmapPoint } from "@/features/heatmap/types/heatmap.types";
 import type { ElementClick } from "@/features/element-tracking/types/element.types";
@@ -19,24 +20,34 @@ interface SnapshotViewerProps {
   snapshot: SnapshotData;
   heatmapPoints: HeatmapPoint[];
   elementClicks: ElementClick[];
+  scrollData?: {
+    totalSessions: number;
+    scrollData: Array<{
+      scroll_percentage: number;
+      sessions: number;
+    }>;
+  };
   siteId: string;
   pagePath: string;
   deviceType: string;
   userDevice?: "desktop" | "mobile" | "tablet";
   showElements?: boolean;
   showHeatmap?: boolean;
+  dataType?: "clicks" | "scrolls";
 }
 
 export function SnapshotViewer({
   snapshot,
   heatmapPoints,
   elementClicks,
+  scrollData,
   siteId,
   pagePath,
   deviceType,
   userDevice = "desktop",
   showElements = true,
   showHeatmap = true,
+  dataType = "clicks",
 }: SnapshotViewerProps) {
   console.log("🎯 SnapshotViewer received:", {
     heatmapPointsCount: heatmapPoints?.length ?? 0,
@@ -214,17 +225,24 @@ export function SnapshotViewer({
       const overlayContainer = document.getElementById(
         "element-overlay-container"
       );
+      const scrollOverlayContainer = document.getElementById(
+        "scroll-heatmap-overlay"
+      );
 
       console.log(
         "📦 Container check - canvas:",
         !!canvasContainer,
         "overlay:",
-        !!overlayContainer
+        !!overlayContainer,
+        "scroll:",
+        !!scrollOverlayContainer
       );
 
-      const overlays = [canvasContainer, overlayContainer].filter(
-        Boolean
-      ) as HTMLElement[];
+      const overlays = [
+        canvasContainer,
+        overlayContainer,
+        scrollOverlayContainer,
+      ].filter(Boolean) as HTMLElement[];
 
       if (overlays.length > 0) {
         console.log(
@@ -243,9 +261,14 @@ export function SnapshotViewer({
           const retryOverlay = document.getElementById(
             "element-overlay-container"
           );
-          const retryOverlays = [retryCanvas, retryOverlay].filter(
-            Boolean
-          ) as HTMLElement[];
+          const retryScrollOverlay = document.getElementById(
+            "scroll-heatmap-overlay"
+          );
+          const retryOverlays = [
+            retryCanvas,
+            retryOverlay,
+            retryScrollOverlay,
+          ].filter(Boolean) as HTMLElement[];
 
           if (retryOverlays.length > 0) {
             console.log("🔄 Retry: Found", retryOverlays.length, "containers");
@@ -295,8 +318,21 @@ export function SnapshotViewer({
           }}
         />
 
-        {/* Heatmap Canvas Layer (z-50) - Only render when ready and iframe loaded */}
-        {isReady && isIframeLoaded && showHeatmap && (
+        {/* Scroll Heatmap Overlay Layer (z-40) - Only render when dataType is "scrolls" */}
+        {dataType === "scrolls" &&
+          scrollData &&
+          scrollData.totalSessions > 0 && (
+            <ScrollHeatmapOverlay
+              scrollData={scrollData.scrollData}
+              totalSessions={scrollData.totalSessions}
+              height={contentDimensions.height}
+              iframeRef={iframeRef}
+              onOverlaysRendered={handleOverlaysRendered}
+            />
+          )}
+
+        {/* Heatmap Canvas Layer (z-50) - Render for clicks mode */}
+        {isReady && isIframeLoaded && dataType === "clicks" && showHeatmap && (
           <HeatmapCanvas
             points={heatmapPoints}
             width={contentDimensions.width}
@@ -305,8 +341,8 @@ export function SnapshotViewer({
           />
         )}
 
-        {/* Element Overlay Layer (z-100+) - Only render when ready and iframe loaded */}
-        {isReady && isIframeLoaded && showElements && (
+        {/* Element Overlay Layer (z-100+) - Only render when dataType is "clicks" */}
+        {isReady && isIframeLoaded && dataType === "clicks" && showElements && (
           <ElementOverlay
             elements={elementClicks}
             iframe={iframeElement}

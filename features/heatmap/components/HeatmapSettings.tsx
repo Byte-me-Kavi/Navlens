@@ -87,22 +87,6 @@ const ClickIcon = () => (
   </svg>
 );
 
-const ScrollIcon = () => (
-  <svg
-    className="w-6 h-6"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
-    />
-  </svg>
-);
-
 const FileIcon = () => (
   <svg
     className="w-6 h-6"
@@ -207,8 +191,8 @@ export interface HeatmapSettingsProps {
   userDevice?: "desktop" | "tablet" | "mobile";
 
   // Data type settings
-  selectedDataType: "clicks" | "heatmap" | "both";
-  onDataTypeChange: (dataType: "clicks" | "heatmap" | "both") => void;
+  selectedDataType: "clicks" | "scrolls";
+  onDataTypeChange: (dataType: "clicks" | "scrolls") => void;
 
   // Visibility toggles
   showElements: boolean;
@@ -368,37 +352,30 @@ export function HeatmapSettings({
                 </div>
               </button>
               <button
-                onClick={() => onDataTypeChange("heatmap")}
+                onClick={() => onDataTypeChange("scrolls")}
                 className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                  selectedDataType === "heatmap"
-                    ? "border-blue-600 bg-blue-50 text-blue-600"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50"
+                  selectedDataType === "scrolls"
+                    ? "border-purple-600 bg-purple-50 text-purple-600"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-purple-300 hover:bg-gray-50"
                 }`}
               >
-                <ScrollIcon />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                  />
+                </svg>
                 <div className="text-left">
-                  <div className="font-semibold text-sm">Heatmap View</div>
+                  <div className="font-semibold text-sm">Scroll Heatmap</div>
                   <div className="text-xs opacity-75">
-                    Analyze user behavior patterns
-                  </div>
-                </div>
-              </button>
-              <button
-                onClick={() => onDataTypeChange("both")}
-                className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                  selectedDataType === "both"
-                    ? "border-blue-600 bg-blue-50 text-blue-600"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:bg-gray-50"
-                }`}
-              >
-                <div className="flex">
-                  <ClickIcon />
-                  <ScrollIcon />
-                </div>
-                <div className="text-left">
-                  <div className="font-semibold text-sm">Combined View</div>
-                  <div className="text-xs opacity-75">
-                    Show clicks and scrolls
+                    See how deep users scroll
                   </div>
                 </div>
               </button>

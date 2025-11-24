@@ -6,10 +6,11 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSnapshot } from "@/features/dom-snapshot/hooks/useSnapshot";
 import { useHeatmapData } from "@/features/heatmap/hooks/useHeatmapData";
 import { useElementClicks } from "@/features/element-tracking/hooks/useElementClicks";
+import { useScrollHeatmapData } from "@/features/heatmap/hooks/useScrollHeatmapData";
 import { SnapshotViewer } from "./SnapshotViewer";
 import { DeviceStatsBar } from "./DeviceStatsBar";
 import { LoadingSpinner } from "@/shared/components/feedback/LoadingSpinner";
@@ -21,7 +22,7 @@ export interface HeatmapViewerProps {
   siteId: string;
   pagePath: string;
   deviceType: "desktop" | "tablet" | "mobile";
-  dataType: "clicks" | "heatmap" | "both";
+  dataType: "clicks" | "scrolls";
   showElements?: boolean;
   showHeatmap?: boolean;
   showAllViewports?: boolean;
@@ -152,25 +153,64 @@ export function HeatmapViewer({
     !showAllViewports && documentWidth > 0 && documentHeight > 0;
 
   // Fetch heatmap data with viewport filtering
-  const { data: heatmapData, loading: heatmapLoading } = useHeatmapData({
-    siteId,
-    pagePath,
-    deviceType,
-    documentWidth: shouldFetchFiltered ? documentWidth : 1920,
-    documentHeight: shouldFetchFiltered ? documentHeight : 1080,
-  });
+  const heatmapParams = useMemo(
+    () => ({
+      siteId,
+      pagePath,
+      deviceType,
+      documentWidth: shouldFetchFiltered ? documentWidth : 1920,
+      documentHeight: shouldFetchFiltered ? documentHeight : 1080,
+    }),
+    [
+      siteId,
+      pagePath,
+      deviceType,
+      shouldFetchFiltered,
+      documentWidth,
+      documentHeight,
+    ]
+  );
+
+  const { data: heatmapData, loading: heatmapLoading } =
+    useHeatmapData(heatmapParams);
 
   // Fetch element clicks with viewport filtering
-  const { data: elementClicks, loading: elementLoading } = useElementClicks({
-    siteId,
-    pagePath,
-    deviceType,
-    documentWidth: shouldFetchFiltered ? documentWidth : 1920,
-    documentHeight: shouldFetchFiltered ? documentHeight : 1080,
-  });
+  const elementParams = useMemo(
+    () => ({
+      siteId,
+      pagePath,
+      deviceType,
+      documentWidth: shouldFetchFiltered ? documentWidth : 1920,
+      documentHeight: shouldFetchFiltered ? documentHeight : 1080,
+    }),
+    [
+      siteId,
+      pagePath,
+      deviceType,
+      shouldFetchFiltered,
+      documentWidth,
+      documentHeight,
+    ]
+  );
+
+  const { data: elementClicks, loading: elementLoading } =
+    useElementClicks(elementParams);
+
+  // Fetch scroll heatmap data
+  const scrollParams = useMemo(
+    () => ({
+      siteId,
+      pagePath,
+      deviceType,
+    }),
+    [siteId, pagePath, deviceType]
+  );
+
+  const { data: scrollData, loading: scrollLoading } =
+    useScrollHeatmapData(scrollParams);
 
   // Show loading state - wait for snapshot AND initial data attempts
-  if (snapshotLoading || heatmapLoading || elementLoading) {
+  if (snapshotLoading || heatmapLoading || elementLoading || scrollLoading) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50">
         <div className="text-center flex flex-col items-center justify-center">
@@ -191,23 +231,60 @@ export function HeatmapViewer({
 
   // Show error state ONLY after ALL loading is complete and no snapshot
   if (snapshotError || !snapshotData || !snapshotData.snapshot) {
+    // Check if this is a "snapshot not found" error
+    const errorMessage = snapshotError?.message || "";
+    const isSnapshotNotFound =
+      errorMessage.includes("Snapshot not found") ||
+      errorMessage.includes("NOT_FOUND") ||
+      errorMessage.includes("404");
+
+    // Try to extract more details from the error
+    let errorDetails = "";
+    if (snapshotError && "details" in snapshotError) {
+      errorDetails = (snapshotError as Error & { details: string }).details;
+    }
+
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50">
-        <div className="text-center p-6">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+        <div className="text-center p-6 max-w-md">
+          <div className="text-blue-500 text-5xl mb-4">📄</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Failed to Load Snapshot
+            {isSnapshotNotFound
+              ? "No Snapshot Available"
+              : "Failed to Load Snapshot"}
           </h3>
           <p className="text-gray-600 mb-4">
-            {snapshotError?.message ||
-              "Snapshot data not available for this page"}
+            {isSnapshotNotFound
+              ? `No users have visited this page yet on ${deviceType}. Install the heatmap tracker to start collecting data.`
+              : errorMessage || "Snapshot data not available for this page"}
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Retry
-          </button>
+          {errorDetails && (
+            <div className="text-xs text-gray-500 mb-4 p-2 bg-gray-100 rounded">
+              <strong>Details:</strong>{" "}
+              {typeof errorDetails === "string"
+                ? errorDetails
+                : JSON.stringify(errorDetails)}
+            </div>
+          )}
+          {isSnapshotNotFound ? (
+            <div className="text-sm text-gray-500 mb-4">
+              <p>
+                📊 <strong>How to get data:</strong>
+              </p>
+              <ol className="text-left list-decimal list-inside mt-2 space-y-1">
+                <li>Install the heatmap tracking script on your website</li>
+                <li>Wait for users to visit this page</li>
+                <li>The snapshot will be automatically captured</li>
+              </ol>
+            </div>
+          ) : (
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Retry
+            </button>
+          )}
         </div>
       </div>
     );
@@ -225,15 +302,10 @@ export function HeatmapViewer({
       ? allViewportsData.elements
       : elementClicks;
 
-  const heatmapPointsToPass =
-    showHeatmap && (dataType === "heatmap" || dataType === "both")
-      ? currentHeatmapData
-      : [];
+  const heatmapPointsToPass: HeatmapPoint[] =
+    dataType === "clicks" ? currentHeatmapData : [];
 
-  const elementClicksToPass =
-    showElements && (dataType === "clicks" || dataType === "both")
-      ? currentElementClicks
-      : [];
+  const elementClicksToPass = dataType === "clicks" ? currentElementClicks : [];
 
   console.log("📤 HeatmapViewer passing to SnapshotViewer:");
   console.log(
@@ -269,12 +341,14 @@ export function HeatmapViewer({
         snapshot={snapshotData!}
         heatmapPoints={heatmapPointsToPass}
         elementClicks={elementClicksToPass}
+        scrollData={scrollData}
         siteId={siteId}
         pagePath={pagePath}
         deviceType={deviceType}
         userDevice={userDevice}
         showElements={showElements}
         showHeatmap={showHeatmap}
+        dataType={dataType}
       />
 
       {/* Device Stats Sidebar for mobile/tablet */}

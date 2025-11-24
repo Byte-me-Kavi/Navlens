@@ -825,14 +825,16 @@
     const docHeight =
       document.documentElement.scrollHeight || window.innerHeight;
 
-    // Calculate current scroll depth
+    // Calculate current scroll depth - percentage of page content viewed
     const currentScrollY = window.scrollY;
-    const documentHeight =
-      document.documentElement.scrollHeight -
-      document.documentElement.clientHeight;
+    const totalPageHeight = document.documentElement.scrollHeight;
+    const viewportHeight = window.innerHeight;
     const scrollDepth =
-      documentHeight > 0
-        ? Math.min(1, Math.max(0, currentScrollY / documentHeight))
+      totalPageHeight > 0
+        ? Math.min(
+            1,
+            Math.max(0, (currentScrollY + viewportHeight) / totalPageHeight)
+          )
         : 0;
 
     console.log("Navlens: Click captured:", {
@@ -874,12 +876,14 @@
     lastScrollTime = now;
 
     const currentScrollY = window.scrollY;
-    const documentHeight =
-      document.documentElement.scrollHeight -
-      document.documentElement.clientHeight;
+    const totalPageHeight = document.documentElement.scrollHeight;
+    const viewportHeight = window.innerHeight;
     const scrollDepth =
-      documentHeight > 0
-        ? Math.min(1, Math.max(0, currentScrollY / documentHeight))
+      totalPageHeight > 0
+        ? Math.min(
+            1,
+            Math.max(0, (currentScrollY + viewportHeight) / totalPageHeight)
+          )
         : 0;
 
     addEventToQueue(
@@ -919,6 +923,35 @@
 
   // Start the flush timer
   startFlushTimer();
+
+  // --- Route Change Detection for SPAs (e.g., Next.js) ---
+  let currentPath = window.location.pathname;
+  let lastSnapshotTime = 0;
+  const SNAPSHOT_COOLDOWN = 2000; // Prevent rapid re-captures (2 seconds)
+
+  function checkForRouteChange() {
+    const newPath = window.location.pathname;
+    if (newPath !== currentPath) {
+      console.log(`Navlens: Route changed from ${currentPath} to ${newPath}`);
+      currentPath = newPath;
+
+      // Throttle snapshot captures to avoid spam on quick navigations
+      const now = Date.now();
+      if (now - lastSnapshotTime > SNAPSHOT_COOLDOWN) {
+        lastSnapshotTime = now;
+        // Re-trigger DOM snapshot capture for the new page
+        if (typeof rrwebSnapshot !== "undefined") {
+          captureSnapshotsForAllDevices();
+        } else {
+          // If rrweb-snapshot isn't loaded yet, load it and capture
+          loadRrwebSnapshot();
+        }
+      }
+    }
+  }
+
+  // Poll for route changes every 500ms (lightweight for SPAs)
+  setInterval(checkForRouteChange, 500);
 
   // Expose trackEvent globally
   window.trackEvent = function (eventType, payload) {

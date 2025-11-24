@@ -18,6 +18,11 @@ const eslintConfig = defineConfig([
     "debug-snapshot-storage.js",
     "diagnose-duplicates.js",
     "test-snapshot-api.js",
+    "check-max-depths.js",
+    "check-total-sessions.js",
+    "test-new-query.js",
+    "test-scroll-query-updated.js",
+    "test-scroll-query.js",
   ]),
 ]);
 

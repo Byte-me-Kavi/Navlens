@@ -18,8 +18,8 @@ export default function HeatmapViewerPage() {
     "desktop" | "mobile" | "tablet"
   >("desktop");
   const [selectedDataType, setSelectedDataType] = useState<
-    "clicks" | "heatmap" | "both"
-  >("both");
+    "clicks" | "scrolls"
+  >("clicks");
   const [availablePages, setAvailablePages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -118,13 +118,13 @@ export default function HeatmapViewerPage() {
     }
   }, [siteId, router]);
 
-  // Cleanup sessionStorage on unmount
+  // Automatically show heatmap blobs and element overlays when clicks mode is selected
   useEffect(() => {
-    return () => {
-      // Clear the visited flag when component unmounts properly
-      sessionStorage.removeItem("heatmap-viewer-visited");
-    };
-  }, []);
+    if (selectedDataType === "clicks") {
+      setShowHeatmap(true);
+      setShowElements(true);
+    }
+  }, [selectedDataType]);
 
   // Fetch available pages
   useEffect(() => {

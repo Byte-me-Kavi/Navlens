@@ -221,11 +221,55 @@ export function ElementOverlay({
       elementHighlight.style.top = `${elementTop}px`;
       elementHighlight.style.width = `${rect.width}px`;
       elementHighlight.style.height = `${rect.height}px`;
-      elementHighlight.style.pointerEvents = "auto";
+      elementHighlight.style.pointerEvents = "none"; // Allow scroll events to pass through
       elementHighlight.style.cursor = "pointer";
       elementHighlight.style.borderRadius = "4px";
       elementHighlight.style.transition = "all 0.3s ease";
       elementHighlight.style.zIndex = clicksInside > 0 ? "99" : "98";
+
+      // Add a separate invisible overlay for click handling that doesn't block scrolling
+      const clickOverlay = document.createElement("div");
+      clickOverlay.style.position = "absolute";
+      clickOverlay.style.left = `${elementLeft}px`;
+      clickOverlay.style.top = `${elementTop}px`;
+      clickOverlay.style.width = `${rect.width}px`;
+      clickOverlay.style.height = `${rect.height}px`;
+      clickOverlay.style.pointerEvents = "auto";
+      clickOverlay.style.cursor = "pointer";
+      clickOverlay.style.zIndex = "101"; // Above the visual highlight
+
+      // Add wheel event handler to forward scroll events to window with increased speed
+      clickOverlay.addEventListener("wheel", (e) => {
+        // Scroll the main window with increased speed to match normal scrolling
+        const scrollMultiplier = 3.5;
+        window.scrollBy({
+          top: e.deltaY * scrollMultiplier,
+          left: e.deltaX * scrollMultiplier,
+          behavior: "auto",
+        });
+      });
+
+      // Add click handler to the invisible overlay
+      clickOverlay.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // Create a mock ElementClick object for clicked elements
+        const mockElementClick: ElementClick = {
+          selector: elementSelector,
+          tag: element.tagName,
+          text: element.textContent || "",
+          x: elementLeft,
+          y: elementTop,
+          x_relative: elementLeft / currentDocWidth,
+          y_relative: elementTop / currentDocHeight,
+          document_width: currentDocWidth,
+          document_height: currentDocHeight,
+          clickCount: clicksInside,
+          percentage: 0, // Could calculate if we had total clicks
+        };
+        setSelectedElement(mockElementClick);
+      });
+
+      container.appendChild(clickOverlay);
 
       if (clicksInside > 0) {
         // RED overlay for clicked elements (reduced intensity)
@@ -254,8 +298,8 @@ export function ElementOverlay({
         label.textContent = `${clicksInside}`;
         elementHighlight.appendChild(label);
 
-        // Add click handler for analysis
-        elementHighlight.addEventListener("click", (e) => {
+        // Add click handler for clicked elements
+        clickOverlay.addEventListener("click", (e) => {
           e.stopPropagation();
           // Create a mock ElementClick object for clicked elements
           const mockElementClick: ElementClick = {
@@ -281,7 +325,7 @@ export function ElementOverlay({
           "0 0 8px rgba(59, 130, 246, 0.4), inset 0 0 5px rgba(59, 130, 246, 0.15)";
 
         // Add click handler for non-clicked elements to show element details
-        elementHighlight.addEventListener("click", (e) => {
+        clickOverlay.addEventListener("click", (e) => {
           e.stopPropagation();
           // Create a mock ElementClick object for non-clicked elements
           const mockElementClick: ElementClick = {

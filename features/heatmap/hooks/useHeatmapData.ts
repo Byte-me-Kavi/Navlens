@@ -81,7 +81,7 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
     return () => {
       cancelled = true;
     };
-  }, [paramsHash, lastRequestHash, fetchData]);
+  }, [paramsHash, lastRequestHash, fetchData]); // Include fetchData to satisfy exhaustive-deps
 
   return {
     data,

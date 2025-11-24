@@ -79,7 +79,7 @@ class ApiClient {
       const status = error.response.status;
       const data: unknown = error.response.data;
       
-      const message = (data as any)?.message || error.message || `HTTP ${status}`; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const message = (data as any)?.error || (data as any)?.message || error.message || `HTTP ${status}`; // eslint-disable-line @typescript-eslint/no-explicit-any
       const code = 
         status === 401 ? 'UNAUTHORIZED' :
         status === 403 ? 'FORBIDDEN' :
