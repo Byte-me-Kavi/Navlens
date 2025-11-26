@@ -533,9 +533,13 @@
       // Restore original Image constructor
       imageLoader.restore();
 
+      // 2. RUN THE INVISIBLE CLEANER
+      // This cleans the JSON data. The user sees absolutely nothing.
+      snap = sanitizeSnapshot(snap);
+
       console.log(
         `Navlens: DOM snapshot captured for ${deviceType}, size: ${
-          JSON.stringify(snap).length
+          JSON.stringify(cleanedSnap).length
         } bytes`
       ); // Extract CSS - OPTIMIZED for Next.js/React compatibility
       const styles = [];
@@ -996,6 +1000,59 @@
   window.trackEvent = function (eventType, payload) {
     addEventToQueue(createEvent(eventType, payload));
   };
+
+  // --- INVISIBLE SNAPSHOT SANITIZER ---
+  // This cleans the DATA, not the live DOM. Zero impact on user.
+  function sanitizeSnapshot(node) {
+    if (!node) return node;
+
+    // 1. Sanitize Element Nodes
+    if (node.type === 2) {
+      // Type 2 is an Element
+      const attrs = node.attributes || {};
+
+      // Fix Inline Styles (The "JS Animation" Problem)
+      if (attrs.style) {
+        // Replace opacity: 0 with opacity: 1
+        attrs.style = attrs.style.replace(
+          /opacity\s*:\s*0(\.0+)?/g,
+          "opacity: 1"
+        );
+
+        // Replace visibility: hidden with visibility: visible
+        attrs.style = attrs.style.replace(
+          /visibility\s*:\s*hidden/g,
+          "visibility: visible"
+        );
+
+        // Kill transforms (prevents elements from being stuck "sliding in")
+        if (attrs.style.includes("transform:")) {
+          // We simply remove the transform property to let it sit in its natural place
+          attrs.style = attrs.style.replace(
+            /transform\s*:[^;]+;?/g,
+            "transform: none !important;"
+          );
+        }
+      }
+
+      // Optional: Ensure all "aos" (Animate On Scroll) elements are marked as visible
+      if (attrs.class && typeof attrs.class === "string") {
+        if (attrs.class.includes("aos-")) {
+          // We append a style to force visibility on these specific nodes
+          attrs.style =
+            (attrs.style || "") +
+            "; opacity: 1 !important; visibility: visible !important; transform: none !important;";
+        }
+      }
+    }
+
+    // 2. Recursively Clean Children
+    if (node.childNodes && node.childNodes.length > 0) {
+      node.childNodes.forEach((child) => sanitizeSnapshot(child));
+    }
+
+    return node;
+  }
 
   // --- Utility: Fast String Hashing (DJB2 Algorithm) ---
   // This turns a massive HTML string into a short unique ID number.
