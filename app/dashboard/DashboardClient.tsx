@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ChartBarIcon,
   CursorArrowRaysIcon,
@@ -12,14 +11,30 @@ import {
   FireIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import useSWR from "swr"; // <--- IMPORT THIS
 import LoadingSpinner from "@/components/LoadingSpinner";
 
+// 1. Define a "Fetcher" (Standard wrapper for browser fetch)
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 // --- Type Definitions ---
+// (Keep your interfaces the same)
 interface DashboardStats {
   totalSites: number;
-  totalClicks: number;
-  totalHeatmaps: number;
-  activeSessions: string;
+  stats: {
+    totalClicks: {
+      value: number;
+      trend: { value: number; isPositive: boolean };
+    };
+    activeSessions: {
+      value: number;
+      trend: { value: number; isPositive: boolean };
+    };
+    totalHeatmaps: {
+      value: number;
+      trend: { value: number; isPositive: boolean };
+    };
+  };
 }
 
 interface Stat {
@@ -31,122 +46,72 @@ interface Stat {
   trend?: { value: number; isPositive: boolean };
 }
 
-const DashboardClient: React.FC<{ initialStats: DashboardStats }> = ({
-  initialStats,
-}) => {
-  const [isLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+// Map the API data to your Stat Card format
+function mapStatsToCards(data: DashboardStats | undefined): Stat[] {
+  if (!data) return [];
 
-  // Memoize initial stats to avoid recreating on every render
-  const initialStatsArray = useMemo<Stat[]>(
-    () => [
-      {
-        name: "Total Sites",
-        value: initialStats.totalSites,
-        icon: ChartBarIcon,
-        color: "text-blue-600",
-        bgColor: "bg-blue-50",
-        trend: { value: 12, isPositive: true },
-      },
-      {
-        name: "Total Clicks",
-        value: initialStats.totalClicks,
-        icon: CursorArrowRaysIcon,
-        color: "text-blue-600",
-        bgColor: "bg-blue-50",
-        trend: { value: 24, isPositive: true },
-      },
-      {
-        name: "Active Sessions",
-        value: "N/A",
-        icon: EyeIcon,
-        color: "text-blue-600",
-        bgColor: "bg-blue-50",
-        trend: { value: 8, isPositive: false },
-      },
-      {
-        name: "Heatmaps Generated",
-        value: initialStats.totalHeatmaps,
-        icon: SparklesIcon,
-        color: "text-blue-600",
-        bgColor: "bg-blue-50",
-        trend: { value: 18, isPositive: true },
-      },
-    ],
-    [initialStats]
+  return [
+    {
+      name: "Total Sites",
+      value: data.totalSites,
+      icon: ChartBarIcon,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      trend: { value: 0, isPositive: true }, // Add trend if you have it
+    },
+    {
+      name: "Total Clicks",
+      value: data.stats.totalClicks.value,
+      icon: CursorArrowRaysIcon,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      trend: data.stats.totalClicks.trend,
+    },
+    {
+      name: "Active Sessions (24h)",
+      value: data.stats.activeSessions.value,
+      icon: EyeIcon,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      trend: data.stats.activeSessions.trend,
+    },
+    {
+      name: "Heatmaps Generated",
+      value: data.stats.totalHeatmaps.value,
+      icon: SparklesIcon,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      trend: data.stats.totalHeatmaps.trend,
+    },
+  ];
+}
+
+const DashboardClient: React.FC = () => {
+  // 2. USE SWR INSTEAD OF USEEFFECT
+  // - Key: "/api/dashboard-stats" (The URL is the unique ID for the cache)
+  // - Fetcher: The function to call if data is missing
+  // - Options:
+  //    - refreshInterval: Auto-refresh every 30s
+  //    - dedupingInterval: Don't ask server again if data is less than 1 min old (Solves your navigation issue!)
+  const { data, error, isLoading, mutate } = useSWR<DashboardStats>(
+    "/api/dashboard-stats",
+    fetcher,
+    {
+      refreshInterval: 30000,
+      dedupingInterval: 60000, // <--- THE MAGIC FIX: Cache is valid for 60s
+      revalidateOnFocus: false, // Optional: Don't refetch just because I clicked the window
+    }
   );
 
-  const [stats, setStats] = useState<Stat[]>(initialStatsArray);
+  const stats = mapStatsToCards(data);
 
-  // Fetch fresh stats from the API
-  const fetchStats = useCallback(async () => {
-    try {
-      const response = await fetch("/api/dashboard-stats", {
-        cache: "no-store",
-      });
-      const data = await response.json();
-
-      const newStats: Stat[] = [
-        {
-          name: "Total Sites",
-          value: data.totalSites,
-          icon: ChartBarIcon,
-          color: "text-blue-600",
-          bgColor: "bg-blue-50",
-          trend: { value: 12, isPositive: true },
-        },
-        {
-          name: "Total Clicks",
-          value: data.totalClicks,
-          icon: CursorArrowRaysIcon,
-          color: "text-blue-600",
-          bgColor: "bg-blue-50",
-          trend: { value: 24, isPositive: true },
-        },
-        {
-          name: "Active Sessions",
-          value: "N/A",
-          icon: EyeIcon,
-          color: "text-blue-600",
-          bgColor: "bg-blue-50",
-          trend: { value: 8, isPositive: false },
-        },
-        {
-          name: "Heatmaps Generated",
-          value: data.totalHeatmaps,
-          icon: SparklesIcon,
-          color: "text-blue-600",
-          bgColor: "bg-blue-50",
-          trend: { value: 18, isPositive: true },
-        },
-      ];
-      setStats(newStats);
-    } catch (error) {
-      console.error("Failed to fetch stats:", error);
-    }
-  }, []);
-
-  // Fetch stats on mount AND set up auto-refresh
-  useEffect(() => {
-    // Fetch immediately on mount (async)
-    const loadInitialStats = async () => {
-      await fetchStats();
-    };
-    loadInitialStats();
-
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(() => {
-      fetchStats();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [fetchStats]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchStats();
-    setIsRefreshing(false);
+  const handleRefresh = () => {
+    // SWR's mutate function forces a re-fetch instantly
+    mutate();
   };
+
+  if (error)
+    return <div className="text-red-500">Failed to load dashboard</div>;
 
   return (
     <div className="space-y-6">
@@ -169,10 +134,9 @@ const DashboardClient: React.FC<{ initialStats: DashboardStats }> = ({
               <div className="shrink-0">
                 <button
                   onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-sm"
+                  className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
                 >
-                  {isRefreshing ? "Refreshing..." : "Refresh Stats"}
+                  Refresh Stats
                 </button>
               </div>
             </div>
@@ -189,7 +153,7 @@ const DashboardClient: React.FC<{ initialStats: DashboardStats }> = ({
                   <p className="text-xs font-medium text-gray-600">
                     {stat.name}
                   </p>
-                  {stat.trend && (
+                  {stat.trend && stat.trend.value > 0 && (
                     <div
                       className={`flex items-center gap-1 text-xs font-semibold ${
                         stat.trend.isPositive

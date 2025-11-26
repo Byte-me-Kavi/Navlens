@@ -29,13 +29,27 @@ async function getDashboardStats() {
 
     if (!response.ok) {
       console.error(`Failed to fetch dashboard stats: ${response.status}`);
-      return { totalSites: 0, totalClicks: 0, totalHeatmaps: 0 };
+      return {
+        totalSites: 0,
+        stats: {
+          totalClicks: { value: 0, trend: { value: 0, isPositive: true } },
+          totalHeatmaps: { value: 0, trend: { value: 0, isPositive: true } },
+          activeSessions: { value: 0, trend: { value: 0, isPositive: true } },
+        },
+      };
     }
 
     return response.json();
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);
-    return { totalSites: 0, totalClicks: 0, totalHeatmaps: 0 };
+    return {
+      totalSites: 0,
+      stats: {
+        totalClicks: { value: 0, trend: { value: 0, isPositive: true } },
+        totalHeatmaps: { value: 0, trend: { value: 0, isPositive: true } },
+        activeSessions: { value: 0, trend: { value: 0, isPositive: true } },
+      },
+    };
   }
 }
 
@@ -66,7 +80,5 @@ export default async function DashboardOverview() {
     redirect("/login");
   }
 
-  const initialStats = await getDashboardStats();
-
-  return <DashboardClient initialStats={initialStats} />;
+  return <DashboardClient />;
 }
