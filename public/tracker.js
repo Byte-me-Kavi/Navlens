@@ -539,7 +539,7 @@
 
       console.log(
         `Navlens: DOM snapshot captured for ${deviceType}, size: ${
-          JSON.stringify(cleanedSnap).length
+          JSON.stringify(snap).length
         } bytes`
       ); // Extract CSS - OPTIMIZED for Next.js/React compatibility
       const styles = [];
