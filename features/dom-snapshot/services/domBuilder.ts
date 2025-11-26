@@ -113,6 +113,12 @@ export class DomBuilder {
         .aos-animate { opacity: 1 !important; transform: none !important; }
         .wow { opacity: 1 !important; animation: none !important; }
         img:not([src]) { visibility: hidden !important; }
+        *, *::before, *::after {
+          transition: none !important;
+          animation: none !important;
+          animation-delay: 0s !important;
+          animation-duration: 0s !important;
+        }
       `;
       head.appendChild(style);
 

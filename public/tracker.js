@@ -72,7 +72,6 @@
   const THROTTLE_RESIZE_MS = 200; // Throttle resize events to 200ms
 
   // --- Caching Constants ---
-  const SNAPSHOT_CACHE_DAYS = 7; // Cache snapshots for 7 days
 
   // Performance metrics
   let domReadyTime = null;
@@ -615,16 +614,33 @@
         } links, ${adoptedStyleSheetCount} adopted) for ${deviceType}`
       );
 
-      // Enhanced caching with device type
-      const cacheKey = `navlens_snap_${window.location.pathname}_${deviceType}`;
-      const lastSnap = localStorage.getItem(cacheKey);
-      const CACHE_DURATION = SNAPSHOT_CACHE_DAYS * 24 * 60 * 60 * 1000;
+      // 1. Generate a Unique Hash of the current visual content
+      // We purposefully ignore <script> tags to avoid false positives from 
+      // random tokens or trackers changing inside scripts.
+      const contentToHash = document.body.innerHTML.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gm, "");
+      const currentHash = generateContentHash(contentToHash);
+      
+      // 2. Define Cache Keys
+      const cacheKeyTime = `navlens_snap_time_${window.location.pathname}_${deviceType}`;
+      const cacheKeyHash = `navlens_snap_hash_${window.location.pathname}_${deviceType}`;
+      
+      const lastSnapTime = localStorage.getItem(cacheKeyTime);
+      const lastSnapHash = localStorage.getItem(cacheKeyHash);
+      
+      const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 Days
+      
+      // 3. Smart Validation Logic
+      const isTimeExpired = !lastSnapTime || (Date.now() - parseInt(lastSnapTime) > CACHE_DURATION);
+      const isContentChanged = lastSnapHash !== currentHash;
 
-      const isCached =
-        lastSnap && Date.now() - parseInt(lastSnap) < CACHE_DURATION;
-      if (isCached) {
-        console.log(`Navlens: Snapshot already cached for ${deviceType}`);
+      // If time is valid AND the hash is exactly the same, skip.
+      if (!isTimeExpired && !isContentChanged) {
+        console.log(`Navlens: Snapshot cached & visuals identical (Hash: ${currentHash}). Skipping.`);
         return;
+      }
+
+      if (isContentChanged) {
+         console.log(`Navlens: Visuals changed (Hash ${lastSnapHash} -> ${currentHash}). Forcing new snapshot.`);
       }
 
       // Compress snapshot data (remove unnecessary properties)
@@ -657,7 +673,8 @@
       })
         .then((res) => {
           if (res.ok) {
-            localStorage.setItem(cacheKey, Date.now().toString());
+            localStorage.setItem(cacheKeyTime, Date.now().toString());
+            localStorage.setItem(cacheKeyHash, currentHash); // Save the new Hash
             console.log(
               `Navlens: DOM Snapshot uploaded successfully for ${deviceType}`
             );
@@ -697,10 +714,22 @@
 
   // Capture snapshots for all device types
   function captureSnapshotsForAllDevices() {
-    const devices = ["desktop", "tablet", "mobile"];
-    devices.forEach((device, index) => {
-      setTimeout(() => captureSnapshotForDevice(device), index * 500); // Stagger captures
-    });
+    const width = window.innerWidth;
+    let currentDevice = "desktop";
+    
+    if (width < 768) {
+      currentDevice = "mobile";
+    } else if (width < 1024) {
+      currentDevice = "tablet";
+    }
+
+    console.log(`Navlens: Detecting device as ${currentDevice}. Capturing snapshot...`);
+    
+    // Only capture the REAL view the user is seeing
+    // We wait 3000ms to ensure animations/layout settle (as discussed previously)
+    setTimeout(() => {
+        captureSnapshotForDevice(currentDevice);
+    }, 3000); 
   }
 
   // Compress snapshot by removing redundant data
@@ -957,4 +986,16 @@
   window.trackEvent = function (eventType, payload) {
     addEventToQueue(createEvent(eventType, payload));
   };
+
+  // --- Utility: Fast String Hashing (DJB2 Algorithm) ---
+  // This turns a massive HTML string into a short unique ID number.
+  function generateContentHash(str) {
+    let hash = 5381;
+    let i = str.length;
+    while(i) {
+      hash = (hash * 33) ^ str.charCodeAt(--i);
+    }
+    // Force to unsigned 32-bit integer for consistency
+    return (hash >>> 0).toString(); 
+  }
 })();

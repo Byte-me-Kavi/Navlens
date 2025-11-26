@@ -27,50 +27,10 @@ export function ScrollHeatmapOverlay({
     null
   );
   const [isOverlayHovered, setIsOverlayHovered] = useState(false);
-  const iframeScrollTopRef = useRef(0);
 
   useEffect(() => {
     if (onOverlaysRendered) onOverlaysRendered();
   }, [onOverlaysRendered]);
-
-  // Sync overlay position with iframe scroll
-  useEffect(() => {
-    if (!iframeRef?.current?.contentWindow) return;
-
-    let animationFrameId: number;
-    let lastScrollTop = 0;
-
-    const handleIframeScroll = () => {
-      if (animationFrameId) return; // Prevent multiple frames
-
-      animationFrameId = requestAnimationFrame(() => {
-        const scrollTop = iframeRef.current?.contentWindow?.scrollY || 0;
-
-        // Only update if scroll position actually changed
-        if (scrollTop !== lastScrollTop) {
-          iframeScrollTopRef.current = scrollTop;
-          lastScrollTop = scrollTop;
-        }
-
-        animationFrameId = 0;
-      });
-    };
-
-    const iframeWindow = iframeRef.current.contentWindow;
-    iframeWindow.addEventListener("scroll", handleIframeScroll, {
-      passive: true,
-    });
-
-    // Initial sync
-    handleIframeScroll();
-
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      iframeWindow.removeEventListener("scroll", handleIframeScroll);
-    };
-  }, [iframeRef]);
 
   // --- 1. Clean Data & Determine "Real" Total ---
   const { cleanData, maxSessions, shouldRender } = useMemo(() => {
@@ -194,7 +154,7 @@ export function ScrollHeatmapOverlay({
     const rect = containerRef.current.getBoundingClientRect();
     const yPos = Math.max(
       0,
-      Math.min(height, e.clientY - rect.top + iframeScrollTopRef.current)
+      Math.min(height, e.clientY - rect.top)
     );
     setHoveredPosition(yPos);
     setHoveredPercentage(getRetentionAtPosition(yPos));
@@ -205,6 +165,7 @@ export function ScrollHeatmapOverlay({
 
   return (
     <div
+      id="scroll-heatmap-overlay"
       ref={containerRef}
       className="absolute top-0 left-0 w-full pointer-events-none"
       style={{
@@ -291,7 +252,7 @@ export function ScrollHeatmapOverlay({
           style={{ top: `${hoveredPosition}px`, zIndex: 55 }}
         >
           <div className="w-full border-t-2 border-white shadow-sm"></div>
-          <div className="absolute left-1/2 -translate-x-1/2 -translate-y-full mb-1 px-3 py-2 bg-gray-900 text-white text-sm font-bold rounded-lg shadow-2xl border border-gray-700">
+          <div className="absolute left-1/2 -translate-x-1/2 -translate-y-full mb-1 px-3 py-2 bg-gray-900 text-white text-sm font-bold rounded-lg shadow-2xl">
             {hoveredPercentage.toFixed(1)}% Retention
             <div className="text-xs text-gray-400 font-normal text-center">
               {Math.round(
