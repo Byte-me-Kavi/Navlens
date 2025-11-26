@@ -528,7 +528,7 @@
         setTimeout(() => reject(new Error("Snapshot timeout")), 15000);
       });
 
-      const snap = await Promise.race([snapshotPromise, timeoutPromise]);
+      let snap = await Promise.race([snapshotPromise, timeoutPromise]);
 
       // Restore original Image constructor
       imageLoader.restore();
