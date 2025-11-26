@@ -152,10 +152,7 @@ export function ScrollHeatmapOverlay({
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const yPos = Math.max(
-      0,
-      Math.min(height, e.clientY - rect.top)
-    );
+    const yPos = Math.max(0, Math.min(height, e.clientY - rect.top));
     setHoveredPosition(yPos);
     setHoveredPercentage(getRetentionAtPosition(yPos));
   };
