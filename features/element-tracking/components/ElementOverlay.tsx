@@ -238,16 +238,22 @@ export function ElementOverlay({
       clickOverlay.style.cursor = "pointer";
       clickOverlay.style.zIndex = "101"; // Above the visual highlight
 
-      // Add wheel event handler to forward scroll events to window with increased speed
-      clickOverlay.addEventListener("wheel", (e) => {
-        // Scroll the main window with increased speed to match normal scrolling
-        const scrollMultiplier = 3.5;
-        window.scrollBy({
-          top: e.deltaY * scrollMultiplier,
-          left: e.deltaX * scrollMultiplier,
-          behavior: "auto",
-        });
-      });
+      // Add wheel event handler to forward scroll events to iframe
+      clickOverlay.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault(); // Prevent default to avoid double-scrolling
+          // Pass scroll to iframe
+          if (iframe?.contentWindow) {
+            iframe.contentWindow.scrollBy({
+              top: e.deltaY * 2,
+              left: e.deltaX * 2,
+              behavior: "instant",
+            });
+          }
+        },
+        { passive: false }
+      );
 
       // Add click handler to the invisible overlay
       clickOverlay.addEventListener("click", (e) => {

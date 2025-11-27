@@ -88,63 +88,72 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
 
     console.log("Creating new player with events length:", events.length);
 
-    const newPlayer = new rrwebPlayer({
-      target: playerRef.current,
-      props: {
-        events: events,
-        autoPlay: false,
-        showController: false,
-        speedOption: [0.5, 1, 1.5, 2, 4, 8],
-        skipInactive: true,
-        mouseTail: {
-          duration: 1000,
-          lineCap: "round",
-          lineWidth: 2,
-          strokeStyle: "#3b82f6",
+    try {
+      const newPlayer = new rrwebPlayer({
+        target: playerRef.current,
+        props: {
+          events: events,
+          autoPlay: false,
+          showController: false,
+          speedOption: [0.5, 1, 1.5, 2, 4, 8],
+          skipInactive: true,
+          mouseTail: {
+            duration: 1000,
+            lineCap: "round",
+            lineWidth: 2,
+            strokeStyle: "#3b82f6",
+          },
+          // Add error handling for DOM reconstruction issues
+          liveMode: false,
+          insertStyleRules: [],
+          triggerFocus: false,
         },
-      },
-    });
-
-    console.log("Player created:", newPlayer);
-
-    playerInstanceRef.current = newPlayer;
-
-    // Wait for iframe to load before accessing replayer
-    const iframe = playerRef.current?.querySelector("iframe");
-    if (iframe) {
-      iframe.addEventListener("load", () => {
-        console.log("Iframe loaded");
       });
-    }
 
-    // Setup event listeners
-    const handleUiUpdate = (payload: { payload: number }) => {
-      // Payload is a percentage (0 to 1)
-      const percentage = payload.payload;
+      console.log("Player created:", newPlayer);
 
-      // We calculate current time based on the Duration we already know
-      // Use the duration state, or recalculate safely
-      const totalTime =
-        events[events.length - 1].timestamp - events[0].timestamp;
+      playerInstanceRef.current = newPlayer;
 
-      setCurrentTime(percentage * totalTime);
-    };
-
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-
-    // Wait for player to be fully ready before adding listeners
-    setTimeout(() => {
-      try {
-        newPlayer.addEventListener("ui-update-progress", handleUiUpdate);
-        newPlayer.addEventListener("play", handlePlay);
-        newPlayer.addEventListener("pause", handlePause);
-        setPlayerReady(true);
-        console.log("Event listeners added");
-      } catch (e) {
-        console.error("Error adding event listeners:", e);
+      // Wait for iframe to load before accessing replayer
+      const iframe = playerRef.current?.querySelector("iframe");
+      if (iframe) {
+        iframe.addEventListener("load", () => {
+          console.log("Iframe loaded");
+        });
       }
-    }, 1000);
+
+      // Setup event listeners
+      const handleUiUpdate = (payload: { payload: number }) => {
+        // Payload is a percentage (0 to 1)
+        const percentage = payload.payload;
+
+        // We calculate current time based on the Duration we already know
+        // Use the duration state, or recalculate safely
+        const totalTime =
+          events[events.length - 1].timestamp - events[0].timestamp;
+
+        setCurrentTime(percentage * totalTime);
+      };
+
+      const handlePlay = () => setIsPlaying(true);
+      const handlePause = () => setIsPlaying(false);
+
+      // Wait for player to be fully ready before adding listeners
+      setTimeout(() => {
+        try {
+          newPlayer.addEventListener("ui-update-progress", handleUiUpdate);
+          newPlayer.addEventListener("play", handlePlay);
+          newPlayer.addEventListener("pause", handlePause);
+          setPlayerReady(true);
+          console.log("Event listeners added");
+        } catch (e) {
+          console.error("Error adding event listeners:", e);
+        }
+      }, 1000);
+    } catch (error) {
+      console.error("Error creating rrweb player:", error);
+      setPlayerReady(false);
+    }
 
     return () => {
       // Cleanup will be handled by useEffect cleanup
@@ -175,16 +184,33 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
   const handleSeek = (timeMs: number) => {
     if (!playerInstanceRef.current) return;
 
+    // Clamp time to valid range
+    const clampedTime = Math.max(0, Math.min(timeMs, duration));
+
     // 1. Optimistic UI update
-    setCurrentTime(timeMs);
+    setCurrentTime(clampedTime);
 
-    // 2. Command Player
-    // rrweb-player .goto() usually expects milliseconds relative to start
-    playerInstanceRef.current.goto(timeMs);
+    // 2. Command Player with error handling
+    // rrweb-player .goto() can throw if DOM state is corrupted
+    try {
+      playerInstanceRef.current.goto(clampedTime);
 
-    // 3. Keep playing if we were playing
-    if (isPlaying) {
-      playerInstanceRef.current.play();
+      // 3. Keep playing if we were playing
+      if (isPlaying) {
+        playerInstanceRef.current.play();
+      }
+    } catch (error) {
+      console.error("Seek error (rrweb DOM reconstruction issue):", error);
+      // Try to recover by pausing and seeking to a safe position
+      try {
+        playerInstanceRef.current.pause();
+        setIsPlaying(false);
+        // Try seeking to start if the seek failed
+        playerInstanceRef.current.goto(0);
+        setCurrentTime(0);
+      } catch (recoveryError) {
+        console.error("Recovery failed:", recoveryError);
+      }
     }
   };
 
