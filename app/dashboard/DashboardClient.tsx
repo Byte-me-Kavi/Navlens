@@ -13,9 +13,20 @@ import {
 import Link from "next/link";
 import useSWR from "swr"; // <--- IMPORT THIS
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { isEncryptedResponse, decryptResponse } from "@/lib/encryption";
 
-// 1. Define a "Fetcher" (Standard wrapper for browser fetch)
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+// 1. Define a "Fetcher" (Standard wrapper for browser fetch with decryption)
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  let data = await res.json();
+
+  // Decrypt if response is encrypted
+  if (isEncryptedResponse(data)) {
+    data = await decryptResponse(data);
+  }
+
+  return data;
+};
 
 // --- Type Definitions ---
 // (Keep your interfaces the same)

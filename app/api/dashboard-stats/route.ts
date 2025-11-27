@@ -2,7 +2,8 @@ import { createClient } from '@clickhouse/client';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { unstable_cache } from 'next/cache'; // <--- THE SECRET WEAPON
+import { unstable_cache } from 'next/cache';
+import { encryptedJsonResponse } from '@/lib/encryption';
 
 // --- Type Definitions ---
 interface ClickData {
@@ -197,7 +198,7 @@ export async function GET() {
 
     // 6. Return Data with Cache Headers (Enterprise Standard)
     // Tell the browser: "Keep this data for 60 seconds. Do not reload page on back button."
-    return NextResponse.json({
+    return encryptedJsonResponse({
       totalSites,
       stats: {
         totalClicks: { value: totalClicks, trend: clickTrend },

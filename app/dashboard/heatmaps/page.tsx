@@ -103,15 +103,11 @@ export default function HeatmapsPage() {
                   <h3 className="text-base font-bold text-gray-900 mb-1 truncate">
                     {site.site_name}
                   </h3>
-                  <a
-                    href={`https://${site.domain}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-700 transition-colors text-xs font-medium block truncate"
-                    onClick={(e) => e.stopPropagation()}
+                  <p
+                    className="text-gray-600 hover:text-black transition-colors text-xs font-medium block truncate"
                   >
                     {site.domain}
-                  </a>
+                  </p>
                 </div>
               </div>
 

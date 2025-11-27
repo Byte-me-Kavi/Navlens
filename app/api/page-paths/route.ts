@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { validators } from "@/lib/validation";
+import { encryptedJsonResponse } from "@/lib/encryption";
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ pagePaths: data });
+    return encryptedJsonResponse({ pagePaths: data });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Failed to fetch page paths";
     return NextResponse.json(

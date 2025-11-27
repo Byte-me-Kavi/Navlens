@@ -4,6 +4,7 @@ import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
+import { encryptedJsonResponse } from '@/lib/encryption';
 
 // Initialize ClickHouse client
 const client = (() => {
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
       clickCount: parseInt(row.click_count),
     }));
 
-    return NextResponse.json(transformedData, { status: 200 });
+    return encryptedJsonResponse(transformedData, { status: 200 });
 
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));

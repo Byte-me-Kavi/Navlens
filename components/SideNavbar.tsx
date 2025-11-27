@@ -12,6 +12,7 @@ import {
   XMarkIcon,
   ArrowRightOnRectangleIcon,
   EyeIcon,
+  FunnelIcon,
 } from "@heroicons/react/24/outline";
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useState } from "react";
@@ -37,6 +38,11 @@ const navItems = [
     name: "Sessions",
     href: "/dashboard/sessions",
     icon: EyeIcon,
+  },
+  {
+    name: "Funnels",
+    href: "/dashboard/funnels",
+    icon: FunnelIcon,
   },
   {
     name: "Settings",

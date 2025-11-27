@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { encryptedJsonResponse } from "@/lib/encryption";
+import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from "@/lib/auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function POST(req: NextRequest) {
   try {
+    // Authenticate user first
+    const authResult = await authenticateAndAuthorize(req);
+    if (!authResult.isAuthorized) {
+      return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+    }
+
     const { siteId } = await req.json();
 
     if (!siteId) {
@@ -13,6 +21,11 @@ export async function POST(req: NextRequest) {
         { error: "Site ID is required" },
         { status: 400 }
       );
+    }
+
+    // Check if user is authorized for this site
+    if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+      return createUnauthorizedResponse();
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -121,7 +134,7 @@ export async function POST(req: NextRequest) {
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    return NextResponse.json({ sessions });
+    return encryptedJsonResponse({ sessions });
   } catch (error) {
     console.error("Error in sessions API:", error);
     return NextResponse.json(

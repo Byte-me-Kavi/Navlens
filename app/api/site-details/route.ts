@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from "@/lib/auth";
+import { encryptedJsonResponse } from "@/lib/encryption";
 
 export async function POST(request: NextRequest) {
   try {
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[site-details] Success! Returning site data:", siteData);
-    return NextResponse.json(siteData);
+    return encryptedJsonResponse(siteData);
   } catch (error) {
     console.error("[site-details] Unexpected error:", error);
     return NextResponse.json(

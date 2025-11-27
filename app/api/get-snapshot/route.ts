@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
+import { encryptedJsonResponse } from '@/lib/encryption';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,7 +9,7 @@ const supabase = createClient(
 );
 
 // Shared logic for processing snapshot requests
-async function processSnapshotRequest(siteId: string, pagePath: string, deviceType: string) {
+async function processSnapshotRequest(siteId: string, pagePath: string, deviceType: string): Promise<NextResponse> {
     console.log('=== Snapshot Request Details ===');
     console.log('Site ID:', siteId);
     console.log('Page Path:', pagePath);
@@ -51,9 +53,10 @@ async function processSnapshotRequest(siteId: string, pagePath: string, deviceTy
     console.log('JSON parsed successfully, keys:', Object.keys(json));
 
     console.log('Returning snapshot data');
-    const response = NextResponse.json(json, { status: 200 });
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-    return response;
+    return encryptedJsonResponse(json, { 
+        status: 200, 
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+    });
 }
 
 /**
@@ -62,10 +65,22 @@ async function processSnapshotRequest(siteId: string, pagePath: string, deviceTy
 export async function POST(req: NextRequest) {
     try {
         console.log('=== Get Snapshot API Called (POST) ===');
+        
+        // Authenticate user first
+        const authResult = await authenticateAndAuthorize(req);
+        if (!authResult.isAuthorized) {
+            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
         const body = await req.json();
         const siteId = body.siteId;
         const pagePath = body.pagePath;
         const deviceType = body.deviceType;
+
+        // Check if user is authorized for this site
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
+        }
 
         return await processSnapshotRequest(siteId, pagePath, deviceType);
 

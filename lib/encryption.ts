@@ -18,9 +18,9 @@
 export async function encryptResponse(data: any): Promise<{ encrypted: string; iv: string }> {
   const crypto = await import('crypto');
   
-  // Use PBKDF2 instead of scrypt for browser compatibility
+  // Use environment variables for security (with fallbacks for development)
   const passphrase = process.env.API_ENCRYPTION_KEY || 'navlens-default-key-2024';
-  const salt = 'navlens-salt';
+  const salt = process.env.ENCRYPTION_SALT || 'navlens-salt';
   
   // Derive key using PBKDF2 (same as client-side)
   const key = crypto.pbkdf2Sync(passphrase, salt, 100000, 32, 'sha256');
@@ -40,9 +40,13 @@ export async function encryptResponse(data: any): Promise<{ encrypted: string; i
   };
 }
 
-// Client-side decryption key passphrase (must match server)
-const CLIENT_PASSPHRASE = 'navlens-default-key-2024';
-const CLIENT_SALT = 'navlens-salt';
+// Client-side decryption key passphrase (from environment with fallback)
+const CLIENT_PASSPHRASE = typeof window !== 'undefined' 
+  ? (process.env.NEXT_PUBLIC_ENCRYPTION_KEY || 'navlens-default-key-2024')
+  : 'navlens-default-key-2024';
+const CLIENT_SALT = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_ENCRYPTION_SALT || 'navlens-salt')
+  : 'navlens-salt';
 
 // Client-side decryption
 export async function decryptResponse(encryptedData: { encrypted: string; iv: string }): Promise<any> {

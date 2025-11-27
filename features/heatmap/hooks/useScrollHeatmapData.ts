@@ -1,5 +1,6 @@
 // features/heatmap/hooks/useScrollHeatmapData.ts
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import useSWR from 'swr';
+import { useMemo } from 'react';
 import { apiClient } from '@/shared/services/api/client';
 
 interface ScrollDataPoint {
@@ -20,31 +21,45 @@ interface UseScrollHeatmapDataParams {
   endDate?: string;
 }
 
+// SWR fetcher for scroll heatmap data
+const scrollFetcher = async ([url, params]: [string, UseScrollHeatmapDataParams]): Promise<ScrollHeatmapData> => {
+  console.log('📜 Fetching scroll heatmap data:', params);
+  const result = await apiClient.post<ScrollHeatmapData>('/heatmap-scrolls', params);
+  console.log('✓ Scroll data fetched:', { totalSessions: result.totalSessions, dataPoints: result.scrollData?.length });
+  return result;
+};
+
 export function useScrollHeatmapData(params: UseScrollHeatmapDataParams) {
-  const [data, setData] = useState<ScrollHeatmapData>({ totalSessions: 0, scrollData: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  // Create stable cache key
+  const cacheKey = useMemo(() => {
+    if (!params.siteId || !params.pagePath) return null;
+    return [
+      '/api/heatmap-scrolls',
+      {
+        siteId: params.siteId,
+        pagePath: params.pagePath,
+        deviceType: params.deviceType,
+        startDate: params.startDate,
+        endDate: params.endDate,
+      }
+    ] as [string, UseScrollHeatmapDataParams];
+  }, [params.siteId, params.pagePath, params.deviceType, params.startDate, params.endDate]);
 
-  const memoizedParams = useMemo(() => params, [params]);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await apiClient.post<ScrollHeatmapData>('/heatmap-scrolls', memoizedParams);
-      setData(result);
-    } catch (err) {
-      setError(err as Error);
-    } finally {
-      setLoading(false);
+  const { data, error, isLoading, mutate } = useSWR(
+    cacheKey,
+    scrollFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000, // 1 minute
+      errorRetryCount: 2,
     }
-  }, [memoizedParams]);
+  );
 
-  useEffect(() => {
-    if (memoizedParams.siteId && memoizedParams.pagePath) {
-      fetchData();
-    }
-  }, [memoizedParams, fetchData]); // Include fetchData to satisfy exhaustive-deps
-
-  return { data, loading, error, refetch: fetchData };
+  return {
+    data: data ?? { totalSessions: 0, scrollData: [] },
+    loading: isLoading,
+    error: error ?? null,
+    refetch: () => mutate(),
+  };
 }

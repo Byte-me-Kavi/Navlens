@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { unstable_cache } from 'next/cache';
+import { encryptedJsonResponse } from '@/lib/encryption';
 
 // Initialize ClickHouse client
 const clickhouseClient = (() => {
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
         
         console.log(`[get-pages-list] Fetched ${pagePaths.length} paths in ${elapsed}ms`);
 
-        return NextResponse.json(
+        return encryptedJsonResponse(
             { pagePaths },
             { 
                 status: 200,

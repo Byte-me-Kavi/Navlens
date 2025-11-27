@@ -7,9 +7,11 @@ import {
   useEffect,
   useCallback,
   useRef,
+  useMemo,
   ReactNode,
 } from "react";
 import { createBrowserClient } from "@supabase/ssr";
+import { isEncryptedResponse, decryptResponse } from "@/lib/encryption";
 
 // Full site interface with all details
 export interface Site {
@@ -77,11 +79,14 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   const pagesCacheRef = useRef<SitePagesCache>({});
   const [pagesLoading, setPagesLoading] = useState(false);
 
-  // Create Supabase client once
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  // Create Supabase client once using ref to prevent recreation on every render
+  const supabaseRef = useRef(
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
   );
+  const supabase = supabaseRef.current;
 
   useEffect(() => {
     setIsHydrated(true); // eslint-disable-line react-hooks/set-state-in-effect
@@ -186,7 +191,13 @@ export function SiteProvider({ children }: { children: ReactNode }) {
           throw new Error("Failed to fetch pages");
         }
 
-        const data = await response.json();
+        let data = await response.json();
+
+        // Decrypt if response is encrypted
+        if (isEncryptedResponse(data)) {
+          data = await decryptResponse(data);
+        }
+
         const pages = data.pagePaths || [];
 
         // Update cache ref
@@ -211,31 +222,47 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   );
 
   // Save to localStorage whenever selectedSiteId changes
-  const handleSetSelectedSiteId = (siteId: string | null) => {
+  const handleSetSelectedSiteId = useCallback((siteId: string | null) => {
     setSelectedSiteId(siteId);
     if (siteId) {
       localStorage.setItem("selectedSiteId", siteId);
     } else {
       localStorage.removeItem("selectedSiteId");
     }
-  };
+  }, []);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo<SiteContextType>(
+    () => ({
+      selectedSiteId,
+      setSelectedSiteId: handleSetSelectedSiteId,
+      sites,
+      sitesLoading,
+      sitesError,
+      fetchSites,
+      getSiteById,
+      lastFetchedAt,
+      getPagesList,
+      getPagesFromCache,
+      pagesLoading,
+    }),
+    [
+      selectedSiteId,
+      handleSetSelectedSiteId,
+      sites,
+      sitesLoading,
+      sitesError,
+      fetchSites,
+      getSiteById,
+      lastFetchedAt,
+      getPagesList,
+      getPagesFromCache,
+      pagesLoading,
+    ]
+  );
 
   return (
-    <SiteContext.Provider
-      value={{
-        selectedSiteId,
-        setSelectedSiteId: handleSetSelectedSiteId,
-        sites,
-        sitesLoading,
-        sitesError,
-        fetchSites,
-        getSiteById,
-        lastFetchedAt,
-        getPagesList,
-        getPagesFromCache,
-        pagesLoading,
-      }}
-    >
+    <SiteContext.Provider value={contextValue}>
       {isHydrated ? children : null}
     </SiteContext.Provider>
   );

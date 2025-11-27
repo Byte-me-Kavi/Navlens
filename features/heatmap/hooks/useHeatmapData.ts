@@ -8,7 +8,6 @@ import useSWR from 'swr';
 import { useMemo } from 'react';
 import { heatmapApi } from '../services/heatmapApi';
 import { HeatmapParams, HeatmapPoint } from '../types/heatmap.types';
-import { securePostFetcher } from '@/lib/secure-api-client';
 
 interface UseHeatmapDataResult {
   data: HeatmapPoint[];
