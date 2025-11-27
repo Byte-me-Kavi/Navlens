@@ -7,7 +7,7 @@ import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { Toast } from "@/components/Toast";
 import { createBrowserClient } from "@supabase/ssr";
-import { SiteProvider } from "@/app/context/SiteContext";
+import { SiteProvider, useSite } from "@/app/context/SiteContext";
 import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
 import { usePathname } from "next/navigation";
 
@@ -18,6 +18,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isNavigating } = useNavigation();
+  const { fetchSites } = useSite(); // Get fetchSites from context
   const pathname = usePathname();
 
   // Check if we're on heatmap viewer page
@@ -25,6 +26,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   // Use a ref to track if we've processed the login toast in this mount instance
   const processedLoginToast = useRef(false);
+  const hasFetchedSites = useRef(false);
 
   // Track if component has mounted on client
   const [mounted, setMounted] = useState(false);
@@ -56,6 +58,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
+
+  // Fetch sites once when dashboard mounts (centralized fetch)
+  useEffect(() => {
+    if (!hasFetchedSites.current && mounted) {
+      hasFetchedSites.current = true;
+      console.log("🚀 Dashboard mounted - fetching sites (centralized)");
+      fetchSites();
+    }
+  }, [mounted, fetchSites]);
 
   useEffect(() => {
     // Prevent running this logic multiple times if component re-renders

@@ -2,8 +2,10 @@
 
 import { createClient as createClickHouseClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
+import { encryptedJsonResponse } from '@/lib/encryption';
 
 // Initialize ClickHouse client
 function createClickHouseConfig() {
@@ -33,6 +35,58 @@ function createClickHouseConfig() {
 }
 
 const clickhouse = createClickHouseClient(createClickHouseConfig());
+
+// Cached query executor - caches results for 60 seconds
+const getCachedHeatmapClicks = unstable_cache(
+  async (siteId: string, pagePath: string, deviceType: string, documentWidth: number, documentHeight: number) => {
+    const allClicksQuery = `
+      SELECT
+        x_relative,
+        y_relative,
+        {documentWidth:UInt32} as document_width,
+        {documentHeight:UInt32} as document_height,
+        count(*) as value
+      FROM events
+      WHERE site_id = {siteId:String}
+        AND page_path = {pagePath:String}
+        AND device_type = {deviceType:String}
+        AND event_type = 'click'
+        AND timestamp >= subtractDays(now(), 30)
+        AND x_relative > 0 AND y_relative > 0
+        AND document_width = {documentWidth:UInt32}
+        AND document_height = {documentHeight:UInt32}
+      GROUP BY x_relative, y_relative
+      ORDER BY value DESC
+      LIMIT 5000
+    `;
+
+    const allClicksResult = await clickhouse.query({
+      query: allClicksQuery,
+      query_params: { siteId, pagePath, deviceType, documentWidth, documentHeight },
+      format: 'JSONEachRow',
+    });
+
+    const allClicksRows = await allClicksResult.json();
+
+    interface ClickRow {
+      x_relative: string;
+      y_relative: string;
+      document_width: string;
+      document_height: string;
+      value: string;
+    }
+
+    return (allClicksRows as ClickRow[]).map((row) => ({
+      x_relative: parseFloat(row.x_relative),
+      y_relative: parseFloat(row.y_relative),
+      document_width: parseInt(row.document_width),
+      document_height: parseInt(row.document_height),
+      value: parseInt(row.value),
+    }));
+  },
+  ['heatmap-clicks'],
+  { revalidate: 60 } // Cache for 60 seconds
+);
 
 // Shared logic for processing heatmap clicks
 async function processHeatmapClicks(
@@ -89,89 +143,20 @@ async function processHeatmapClicks(
   }
 
   console.log('Query parameters:');
-  console.log('- siteId:', siteId, 'type:', typeof siteId);
-  console.log('- pagePath:', pagePath, 'type:', typeof pagePath);
-  console.log('- deviceType:', deviceType, 'type:', typeof deviceType);
+  console.log('- siteId:', siteId);
+  console.log('- pagePath:', pagePath);
+  console.log('- deviceType:', deviceType);
 
-  // Query for all click points using relative positioning for accurate remapping
-  const allClicksQuery = `
-    SELECT
-      -- Use relative coordinates for positioning
-      x_relative,
-      y_relative,
-      -- Return the filtered document dimensions (constant for this query)
-      {documentWidth:UInt32} as document_width,
-      {documentHeight:UInt32} as document_height,
-      count(*) as value
-    FROM events
-    WHERE site_id = {siteId:String}
-      AND page_path = {pagePath:String}
-      AND device_type = {deviceType:String}
-      AND event_type = 'click'
-      AND timestamp >= subtractDays(now(), 30)
-      AND x_relative > 0 AND y_relative > 0
-      AND document_width = {documentWidth:UInt32}
-      AND document_height = {documentHeight:UInt32}
-    GROUP BY x_relative, y_relative
-    ORDER BY value DESC
-    LIMIT 5000
-  `;
+  // Use cached query for better performance
+  console.log('🚀 Fetching heatmap clicks (with caching)...');
+  const clickPoints = await getCachedHeatmapClicks(siteId, pagePath, deviceType, documentWidth, documentHeight);
 
-  console.log('=== RAW QUERIES BEFORE PARAMETER SUBSTITUTION ===');
-  console.log('All Clicks Query Template:', allClicksQuery);
-  console.log('Parameters:', { siteId, pagePath, deviceType });
-
-  // Execute all clicks query
-  console.log('🚀 EXECUTING ALL CLICKS QUERY...');
-  const allClicksResult = await clickhouse.query({
-    query: allClicksQuery,
-    query_params: {
-      siteId,
-      pagePath,
-      deviceType,
-      documentWidth,
-      documentHeight,
-    },
-    format: 'JSONEachRow',
-  });
-
-  const allClicksRows = await allClicksResult.json();
-
-  console.log('🔍 [HEATMAP-CLICKS] ClickHouse returned', allClicksRows.length, 'heatmap points');
-  console.log('🔍 [HEATMAP-CLICKS] Query params:', { siteId, pagePath, deviceType });
+  console.log('🔍 [HEATMAP-CLICKS] Returning', clickPoints.length, 'heatmap points');
   
-  // Debug: Show sample of raw data from ClickHouse
-  if (allClicksRows.length > 0) {
-    console.log('📊 [HEATMAP-CLICKS] Sample rows (first 3):');
-    allClicksRows.slice(0, 3).forEach((row, idx) => {
-      console.log(`  Row ${idx + 1}:`, JSON.stringify(row));
-    });
-  } else {
-    console.warn('⚠️ [HEATMAP-CLICKS] No heatmap data returned!');
-    console.warn('   Debugging: Check if clicks exist in database');
-    console.warn('   Run: SELECT COUNT(*) FROM events WHERE site_id =', siteId, 'AND page_path =', pagePath);
-  }
-
-  // Transform all click points using relative coordinates and original document dimensions
-  interface ClickRow {
-    x_relative: string;
-    y_relative: string;
-    document_width: string;
-    document_height: string;
-    value: string;
-  }
-  const clickPoints = (allClicksRows as ClickRow[]).map((row) => ({
-    x_relative: parseFloat(row.x_relative),
-    y_relative: parseFloat(row.y_relative),
-    document_width: parseInt(row.document_width),
-    document_height: parseInt(row.document_height),
-    value: parseInt(row.value),
-  }));
-
-  console.log('Returning', clickPoints.length, 'click points with relative positioning');
-  return NextResponse.json({
+  // Return encrypted response
+  return encryptedJsonResponse({
     clicks: clickPoints
-  }, { status: 200 });
+  });
 }
 
 /**

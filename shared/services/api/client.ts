@@ -3,12 +3,13 @@
  * 
  * Centralized HTTP client using Axios for all API requests.
  * Uses POST requests for security (no sensitive data in URL).
- * Handles authentication, error handling, and response transformation.
+ * Handles authentication, error handling, response transformation, and decryption.
  * 
  * @module shared/services/api/client
  */
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import { isEncryptedResponse, decryptResponse } from '@/lib/encryption';
 
 export class ApiError extends Error {
   constructor(
@@ -44,7 +45,7 @@ class ApiClient {
     this.axios.interceptors.request.use(
       (config) => {
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data || config.params);
+          console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`);
         }
         return config;
       },
@@ -103,18 +104,26 @@ class ApiClient {
   /**
    * POST request (primary method for security)
    * All data sent in request body, not URL
+   * Automatically decrypts encrypted responses
    */
   async post<T>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> {
     const response = await this.axios.post<T>(endpoint, data, {
       headers: options?.headers,
       timeout: options?.timeout,
     });
+    
+    // Check if response is encrypted and decrypt it
+    if (isEncryptedResponse(response.data)) {
+      return await decryptResponse(response.data as any) as T;
+    }
+    
     return response.data;
   }
 
   /**
    * GET request (deprecated - use POST for sensitive data)
    * Only use for public, non-sensitive endpoints
+   * Automatically decrypts encrypted responses
    */
   async get<T>(endpoint: string, params?: Record<string, unknown>, options?: RequestOptions): Promise<T> {
     console.warn('⚠️ GET request used - consider using POST for sensitive data');
@@ -123,6 +132,12 @@ class ApiClient {
       headers: options?.headers,
       timeout: options?.timeout,
     });
+    
+    // Check if response is encrypted and decrypt it
+    if (isEncryptedResponse(response.data)) {
+      return await decryptResponse(response.data as any) as T;
+    }
+    
     return response.data;
   }
 

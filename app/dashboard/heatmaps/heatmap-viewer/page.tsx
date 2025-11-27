@@ -7,7 +7,12 @@ import { HeatmapViewer, HeatmapSettings } from "@/features/heatmap";
 
 export default function HeatmapViewerPage() {
   const router = useRouter();
-  const { selectedSiteId: siteId } = useSite();
+  const {
+    selectedSiteId: siteId,
+    getPagesList,
+    getPagesFromCache,
+    pagesLoading,
+  } = useSite();
   const [selectedPage, setSelectedPage] = useState("/");
 
   // Detect user's actual device on mount
@@ -126,28 +131,36 @@ export default function HeatmapViewerPage() {
     }
   }, [selectedDataType]);
 
-  // Fetch available pages
+  // Fetch available pages (using centralized cache)
   useEffect(() => {
     if (!siteId) return;
 
     const fetchPages = async () => {
       try {
-        const response = await fetch("/api/get-pages-list", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ siteId }),
-        });
-        const data = await response.json();
-        console.log("[HeatmapViewerPage] Pages API response:", data);
-        setAvailablePages(data.pagePaths || []);
+        // First check if we have cached pages (instant)
+        const cachedPages = getPagesFromCache(siteId);
+        if (cachedPages && cachedPages.length > 0) {
+          console.log(
+            "[HeatmapViewerPage] Using cached pages:",
+            cachedPages.length
+          );
+          setAvailablePages(cachedPages);
+          if (!selectedPage || selectedPage === "/") {
+            setSelectedPage(cachedPages[0]);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Fetch from API (with context caching)
+        const pages = await getPagesList(siteId);
+        console.log("[HeatmapViewerPage] Pages fetched:", pages.length);
+        setAvailablePages(pages);
 
         // Set first page as default if available
-        if (data.pagePaths && data.pagePaths.length > 0) {
-          console.log(
-            "[HeatmapViewerPage] Setting initial page to:",
-            data.pagePaths[0]
-          );
-          setSelectedPage(data.pagePaths[0]);
+        if (pages.length > 0) {
+          console.log("[HeatmapViewerPage] Setting initial page to:", pages[0]);
+          setSelectedPage(pages[0]);
         } else {
           console.warn("[HeatmapViewerPage] No pages found for site:", siteId);
         }
@@ -159,7 +172,8 @@ export default function HeatmapViewerPage() {
     };
 
     fetchPages();
-  }, [siteId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteId]); // Only re-run when siteId changes, functions are stable from context
 
   // Don't render until we have pages loaded and a valid page selected
   if (loading || !siteId || availablePages.length === 0) {

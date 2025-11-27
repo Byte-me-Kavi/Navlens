@@ -2,6 +2,7 @@ import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
+import { unstable_cache } from 'next/cache';
 
 // Initialize ClickHouse client
 const clickhouseClient = (() => {
@@ -20,6 +21,37 @@ const clickhouseClient = (() => {
         });
     }
 })();
+
+// Cached query function - revalidates every 2 minutes
+// This dramatically speeds up repeated requests for the same site
+const getCachedPagePaths = unstable_cache(
+    async (siteId: string): Promise<string[]> => {
+        const query = `
+            SELECT DISTINCT
+                page_path
+            FROM events
+            WHERE
+                site_id = {siteId:String}
+                AND page_path IS NOT NULL
+                AND page_path != ''
+            ORDER BY page_path ASC
+            LIMIT 50
+        `;
+
+        const resultSet = await clickhouseClient.query({
+            query: query,
+            query_params: { siteId },
+            format: 'JSON',
+        });
+
+        const queryData = await resultSet.json();
+        return ((queryData.data || []) as Array<{ page_path: string }>).map(
+            (row) => row.page_path
+        );
+    },
+    ['pages-list'], // Cache key tag
+    { revalidate: 120, tags: ['pages-list'] } // Cache for 2 minutes
+);
 
 export async function POST(req: NextRequest) {
     try {
@@ -55,37 +87,22 @@ export async function POST(req: NextRequest) {
             return createUnauthorizedResponse();
         }
 
-        // Get all unique page paths that have any events (not just page_view)
-        const query = `
-            SELECT DISTINCT
-                page_path
-            FROM events
-            WHERE
-                site_id = {siteId:String}
-                AND page_path IS NOT NULL
-                AND page_path != ''
-            ORDER BY page_path ASC
-            LIMIT 50
-        `;
-
-        const resultSet = await clickhouseClient.query({
-            query: query,
-            query_params: {
-                siteId: siteId,
-            },
-            format: 'JSON',
-        });
-
-        const queryData = await resultSet.json();
-        console.log('[get-pages-list] Raw ClickHouse result:', JSON.stringify(queryData));
+        // Get cached page paths (fast!)
+        const start = performance.now();
+        const pagePaths = await getCachedPagePaths(siteId);
+        const elapsed = Math.round(performance.now() - start);
         
-        // Extract just the page_path strings
-        const pagePaths = ((queryData.data || []) as Array<{ page_path: string }>).map(
-            (row) => row.page_path
-        );
-        console.log('[get-pages-list] Extracted page paths:', pagePaths);
+        console.log(`[get-pages-list] Fetched ${pagePaths.length} paths in ${elapsed}ms`);
 
-        return NextResponse.json({ pagePaths: pagePaths }, { status: 200 });
+        return NextResponse.json(
+            { pagePaths },
+            { 
+                status: 200,
+                headers: {
+                    'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300'
+                }
+            }
+        );
 
     } catch (error: Error | unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';

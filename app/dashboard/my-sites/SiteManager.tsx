@@ -15,27 +15,24 @@ import {
 import { createSite, deleteSite } from "./action";
 import toast from "react-hot-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useSite } from "@/app/context/SiteContext";
+import { useSite, Site } from "@/app/context/SiteContext";
 import PagePathManager from "./PagePathManager";
 
 // Your deployed Vercel URL is the API host
 const NAVLENS_API_HOST = process.env.NEXT_PUBLIC_NAVLENS_API_HOST;
-
-export type Site = {
-  id: string;
-  created_at: string;
-  site_name: string;
-  domain: string;
-  api_key: string;
-  user_id: string;
-};
 
 interface SiteManagerProps {
   sites: Site[];
 }
 
 // --- Add Site Form Component ---
-function AddSiteForm({ onClose }: { onClose: () => void }) {
+function AddSiteForm({
+  onClose,
+  onSiteAdded,
+}: {
+  onClose: () => void;
+  onSiteAdded: () => void;
+}) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -50,6 +47,7 @@ function AddSiteForm({ onClose }: { onClose: () => void }) {
     if (result.success) {
       toast.success(result.message);
       setLoading(false);
+      onSiteAdded(); // Refresh sites in context
       onClose();
     } else {
       toast.error(result.message);
@@ -200,8 +198,13 @@ export default function SiteManager({ sites }: SiteManagerProps) {
     null
   );
   const [isLoading, setIsLoading] = useState(false);
-  const { setSelectedSiteId } = useSite();
+  const { setSelectedSiteId, fetchSites } = useSite();
   const router = useRouter();
+
+  // Force refresh sites in context (bypass cache)
+  const refreshSites = async () => {
+    await fetchSites(true); // Force refresh, bypass cache
+  };
 
   const handleViewHeatmap = (siteId: string) => {
     // Set the site ID in context
@@ -218,6 +221,7 @@ export default function SiteManager({ sites }: SiteManagerProps) {
     ) {
       setIsLoading(true);
       await deleteSite(siteId);
+      await refreshSites(); // Refresh sites after deletion
       setIsLoading(false);
       toast.success(`Site "${siteName}" has been deleted.`);
     }
@@ -251,7 +255,12 @@ export default function SiteManager({ sites }: SiteManagerProps) {
           </div>
 
           {/* Add Site Modal */}
-          {showAddForm && <AddSiteForm onClose={() => setShowAddForm(false)} />}
+          {showAddForm && (
+            <AddSiteForm
+              onClose={() => setShowAddForm(false)}
+              onSiteAdded={refreshSites}
+            />
+          )}
 
           {/* Empty State or Sites List */}
           {sites.length === 0 ? (

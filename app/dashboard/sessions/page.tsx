@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import { apiClient } from "@/shared/services/api/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { createBrowserClient } from "@supabase/ssr";
 import "flag-icons/css/flag-icons.min.css";
 import countries from "world-countries";
 import {
@@ -43,12 +42,6 @@ interface SessionData {
   screen_height: number;
   platform: string;
   user_agent: string;
-}
-
-interface Site {
-  id: string;
-  site_name: string;
-  domain: string;
 }
 
 const getCountryFlag = (countryCode: string) => {
@@ -130,66 +123,28 @@ const sessionsCache: Record<string, SessionData[]> = {};
 
 export default function SessionsPage() {
   const router = useRouter();
-  const { selectedSiteId, setSelectedSiteId } = useSite();
+  // Use centralized sites data from context
+  const {
+    selectedSiteId,
+    setSelectedSiteId,
+    sites,
+    sitesLoading: loadingSites,
+    fetchSites,
+  } = useSite();
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [filteredSessions, setFilteredSessions] = useState<SessionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [loadingSites, setLoadingSites] = useState(true);
-
-  // Create browser client for auth
-  const supabaseBrowser = useMemo(
-    () =>
-      createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      ),
-    []
-  );
 
   // Filters
   const [dateFilter, setDateFilter] = useState<string>("");
   const [deviceFilter, setDeviceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // Fetch user's sites
+  // Ensure sites are fetched (will use cache if available)
   useEffect(() => {
-    const fetchSites = async () => {
-      try {
-        // Check if user is authenticated
-        const {
-          data: { session },
-        } = await supabaseBrowser.auth.getSession();
-
-        if (!session) {
-          console.error("No authenticated session found");
-          setLoadingSites(false);
-          return;
-        }
-
-        // Fetch sites with RLS filtering by user
-        const { data, error } = await supabaseBrowser
-          .from("sites")
-          .select("id, site_name, domain")
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching sites:", error);
-          throw error;
-        }
-
-        console.log("✅ Sites fetched:", data);
-        setSites(data || []);
-      } catch (error) {
-        console.error("❌ Error fetching sites:", error);
-      } finally {
-        setLoadingSites(false);
-      }
-    };
-
     fetchSites();
-  }, [supabaseBrowser]);
+  }, [fetchSites]);
 
   useEffect(() => {
     if (!selectedSiteId) {

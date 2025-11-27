@@ -2,7 +2,9 @@
 
 import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
+import { encryptedJsonResponse } from '@/lib/encryption';
 
 const client = createClient({
   url: process.env.CLICKHOUSE_URL,
@@ -11,6 +13,89 @@ const client = createClient({
   password: process.env.CLICKHOUSE_PASSWORD,
   database: process.env.CLICKHOUSE_DATABASE,
 });
+
+// Cached scroll data fetcher
+const getCachedScrollData = unstable_cache(
+  async (siteId: string, pagePath: string, deviceType: string, startDate: string, endDate: string) => {
+    const query_params = { siteId, pagePath, deviceType, startDate, endDate };
+
+    const totalSessionsQuery = `
+      SELECT uniq(session_id) as total_sessions
+      FROM events
+      WHERE site_id = {siteId:String}
+        AND page_path = {pagePath:String}
+        AND device_type = {deviceType:String}
+        AND timestamp >= {startDate:DateTime}
+        AND timestamp <= {endDate:DateTime}
+        AND scroll_depth IS NOT NULL
+    `;
+
+    const histogramQuery = `
+      SELECT 
+          floor(max_visible_pct) as bucket,
+          count() as sessions
+      FROM
+      (
+          SELECT 
+              session_id,
+              max(
+                  CASE 
+                      WHEN document_height > 0 AND viewport_height > 0 THEN
+                         ( (scroll_depth * (document_height - viewport_height)) + viewport_height ) / document_height * 100
+                      ELSE 
+                         (scroll_depth * 100) + 10
+                  END
+              ) as max_visible_pct
+          FROM events
+          WHERE site_id = {siteId:String}
+            AND page_path = {pagePath:String}
+            AND device_type = {deviceType:String}
+            AND timestamp >= {startDate:DateTime}
+            AND timestamp <= {endDate:DateTime}
+            AND scroll_depth IS NOT NULL
+          GROUP BY session_id
+      )
+      WHERE bucket >= 0 AND bucket <= 100
+      GROUP BY bucket
+      ORDER BY bucket ASC
+    `;
+
+    const [totalSessionsResult, histogramResult] = await Promise.all([
+      client.query({ query: totalSessionsQuery, query_params, format: 'JSONEachRow' }),
+      client.query({ query: histogramQuery, query_params, format: 'JSONEachRow' }),
+    ]);
+
+    const totalSessionsData = await totalSessionsResult.json() as Array<{ total_sessions: number }>;
+    const histogramData = await histogramResult.json() as Array<{ bucket: number; sessions: number }>;
+
+    const totalSessions = totalSessionsData[0]?.total_sessions || 0;
+
+    // Calculate Cumulative Retention
+    const buckets = new Array(101).fill(0);
+    histogramData.forEach(row => {
+      if (row.bucket >= 0 && row.bucket <= 100) {
+        buckets[row.bucket] = Number(row.sessions);
+      }
+    });
+
+    const resultData = [];
+    let runningTotal = 0;
+
+    for (let i = 100; i >= 0; i--) {
+      runningTotal += Number(buckets[i]);
+      resultData.push({
+        scroll_percentage: i,
+        sessions: runningTotal
+      });
+    }
+
+    resultData.reverse();
+
+    return { totalSessions, scrollData: resultData };
+  },
+  ['heatmap-scrolls'],
+  { revalidate: 60 } // Cache for 60 seconds
+);
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,125 +116,18 @@ export async function POST(req: NextRequest) {
     }
     
     const endDate = rawEndDate ? new Date(rawEndDate) : new Date();
-    const startDate = rawStartDate ? new Date(rawStartDate) : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+    const startDate = rawStartDate ? new Date(rawStartDate) : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const query_params = {
-      siteId,
-      pagePath,
-      deviceType,
-      startDate: startDate.toISOString().slice(0, 19).replace('T', ' '),
-      endDate: endDate.toISOString().slice(0, 19).replace('T', ' '),
-    };
+    const startDateStr = startDate.toISOString().slice(0, 19).replace('T', ' ');
+    const endDateStr = endDate.toISOString().slice(0, 19).replace('T', ' ');
 
-    console.log('🔍 Heatmap-scrolls API called with params:', query_params);
+    console.log('🔍 Heatmap-scrolls API called (with caching)');
 
-    const totalSessionsQuery = `
-      SELECT uniq(session_id) as total_sessions
-      FROM events
-      WHERE site_id = {siteId:String}
-        AND page_path = {pagePath:String}
-        AND device_type = {deviceType:String}
-        AND timestamp >= {startDate:DateTime}
-        AND timestamp <= {endDate:DateTime}
-        AND scroll_depth IS NOT NULL
-    `;
+    // Use cached query for better performance
+    const result = await getCachedScrollData(siteId, pagePath, deviceType, startDateStr, endDateStr);
 
-    // Optimized Query: Fetches everything in ONE scan
-    // We calculate the "Max Seen Percentage" per session
-    const histogramQuery = `
-      SELECT 
-          -- Bucket into 1% increments (0 to 100)
-          floor(max_visible_pct) as bucket,
-          count() as sessions
-      FROM
-      (
-          SELECT 
-              session_id,
-              
-              -- CALCULATE TRUE VISIBILITY:
-              -- scroll_depth is usually scrollTop / (docHeight - viewHeight).
-              -- We want (scrollTop + viewHeight) / docHeight.
-              max(
-                  CASE 
-                      WHEN document_height > 0 AND viewport_height > 0 THEN
-                         -- Convert relative scroll to pixels, add viewport, divide by total doc height
-                         ( (scroll_depth * (document_height - viewport_height)) + viewport_height ) / document_height * 100
-                      ELSE 
-                         -- Fallback if DOM data missing: just use raw scroll_depth + 10% buffer for fold
-                         (scroll_depth * 100) + 10
-                  END
-              ) as max_visible_pct
-              
-          FROM events
-          WHERE site_id = {siteId:String}
-            AND page_path = {pagePath:String}
-            AND device_type = {deviceType:String}
-            AND timestamp >= {startDate:DateTime}
-            AND timestamp <= {endDate:DateTime}
-            AND scroll_depth IS NOT NULL
-          GROUP BY session_id
-      )
-      -- Filter out bad data (e.g. > 100% due to bounce effect)
-      WHERE bucket >= 0 AND bucket <= 100
-      GROUP BY bucket
-      ORDER BY bucket ASC
-    `;
-
-    const [totalSessionsResult, histogramResult] = await Promise.all([
-      client.query({ query: totalSessionsQuery, query_params, format: 'JSONEachRow' }),
-      client.query({ query: histogramQuery, query_params, format: 'JSONEachRow' }),
-    ]);
-
-    const totalSessionsData = await totalSessionsResult.json() as Array<{ total_sessions: number }>;
-    const histogramData = await histogramResult.json() as Array<{ bucket: number; sessions: number }>;
-
-    console.log('📊 ClickHouse totalSessionsData:', totalSessionsData);
-    console.log('📊 ClickHouse histogramData:', histogramData);
-
-    const totalSessions = totalSessionsData[0]?.total_sessions || 0;
-
-    // --- POST-PROCESSING (Node.js side) ---
-    // ClickHouse gives us: "5 people stopped at 20%, 3 people stopped at 21%"
-    // We need Cumulative: "How many people reached 20%?" (Answer: Everyone who stopped at 20, 21, 22... 100)
-
-    // 1. Create array of 0-100
-    const buckets = new Array(101).fill(0);
-    histogramData.forEach(row => {
-      // If bucket is 50, it means they stopped at 50%
-      if (row.bucket >= 0 && row.bucket <= 100) {
-          buckets[row.bucket] = Number(row.sessions);
-      }
-    });
-
-    // 2. Calculate Cumulative Retention (Iterate backwards)
-    // "People at 99%" = "People who stopped at 99%" + "People who stopped at 100%"
-    const resultData = [];
-    let runningTotal = 0;
-
-    for (let i = 100; i >= 0; i--) {
-        runningTotal += Number(buckets[i]);
-        
-        // Only add data points every 1% or 5% to keep payload small
-        // or send all 100 points for super smooth gradients
-        resultData.push({
-            scroll_percentage: i,
-            sessions: runningTotal // This is now a NUMBER, solving your frontend bug
-        });
-    }
-
-    // Reverse back to 0 -> 100 for the frontend
-    resultData.reverse();
-
-    return NextResponse.json({
-      totalSessions,
-      scrollData: resultData,
-    }, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-      },
-    });
+    // Return encrypted response
+    return encryptedJsonResponse(result);
 
   } catch (error) {
     console.error('Error fetching scroll heatmap data:', error);

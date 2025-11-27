@@ -188,13 +188,14 @@ export function ScrollHeatmapOverlay({
         style={{ pointerEvents: "auto" }}
         onMouseMove={handleMouseMove}
         onWheel={(e) => {
+          e.preventDefault(); // Prevent default to avoid double-scrolling
+          // Pass scroll to iframe - multiply for better scroll feel
           if (iframeRef?.current?.contentWindow) {
             iframeRef.current.contentWindow.scrollBy({
-              top: e.deltaY * 3.5,
-              behavior: "auto",
+              top: e.deltaY * 2,
+              left: e.deltaX * 2,
+              behavior: "instant",
             });
-          } else {
-            window.scrollBy({ top: e.deltaY });
           }
         }}
       />

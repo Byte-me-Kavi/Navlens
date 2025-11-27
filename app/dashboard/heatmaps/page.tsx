@@ -1,64 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import toast from "react-hot-toast";
 import {
   PresentationChartBarIcon,
   GlobeAltIcon,
   ArrowRightIcon,
 } from "@heroicons/react/24/outline";
 
-interface Site {
-  id: string;
-  created_at: string;
-  site_name: string;
-  domain: string;
-  api_key: string;
-  user_id: string;
-}
-
 export default function HeatmapsPage() {
-  const [sites, setSites] = useState<Site[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { setSelectedSiteId } = useSite();
+  // Use centralized sites data from context
+  const {
+    sites,
+    sitesLoading: loading,
+    sitesError: error,
+    setSelectedSiteId,
+    fetchSites,
+  } = useSite();
   const router = useRouter();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
+  // Ensure sites are fetched (will use cache if available)
   useEffect(() => {
-    const fetchSites = async () => {
-      try {
-        const { data: sites, error } = await supabase
-          .from("sites")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching sites:", error);
-          setError("Failed to load sites");
-          toast.error("Failed to load sites");
-        } else {
-          setSites(sites || []);
-        }
-      } catch (err) {
-        console.error("Error:", err);
-        setError("An unexpected error occurred");
-        toast.error("An unexpected error occurred");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchSites();
-  }, [supabase]);
+  }, [fetchSites]);
 
   const handleViewHeatmap = (siteId: string) => {
     setSelectedSiteId(siteId);
