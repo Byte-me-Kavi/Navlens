@@ -6,6 +6,33 @@ import { validators } from '@/lib/validation';
 
 const gzipAsync = promisify(gzip);
 
+// CORS headers for cross-origin tracker requests
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400',
+};
+
+// Helper to add CORS headers to response
+function addCorsHeaders(response: NextResponse): NextResponse {
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
+}
+
+// Helper to create JSON response with CORS headers
+function jsonResponse(data: object, status: number = 200): NextResponse {
+  const response = NextResponse.json(data, { status });
+  return addCorsHeaders(response);
+}
+
+// Handle CORS preflight requests
+export async function OPTIONS() {
+  return addCorsHeaders(new NextResponse(null, { status: 204 }));
+}
+
 // Initialize Admin Client (Service Role is required to bypass RLS for uploads)
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -121,16 +148,16 @@ export async function POST(req: NextRequest) {
         } = body;
 
         if (!site_id || !snapshot) {
-            return NextResponse.json({ error: 'Missing data' }, { status: 400 });
+            return jsonResponse({ error: 'Missing data' }, 400);
         }
 
         // 🔒 Security: Validate site_id exists and check API key if configured
         const validation = await validateSiteAndAuth(site_id, api_key);
         if (!validation.valid) {
             console.error('❌ Validation failed:', validation.reason);
-            return NextResponse.json(
+            return jsonResponse(
                 { error: validation.reason || 'Validation failed' }, 
-                { status: 401 }
+                401
             );
         }
 
@@ -194,11 +221,11 @@ export async function POST(req: NextRequest) {
         ]);
 
         console.log(`✅ Snapshot processed in ${(performance.now() - start).toFixed(2)}ms`);
-        return NextResponse.json({ success: true });
+        return jsonResponse({ success: true });
 
     } catch (error: unknown) {
         console.error('Snapshot upload failed:', error);
         const message = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json({ error: message }, { status: 500 });
+        return jsonResponse({ error: message }, 500);
     }
 }

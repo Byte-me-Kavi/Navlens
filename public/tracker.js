@@ -16,7 +16,7 @@
     (window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1"
       ? "http://localhost:3000"
-      : "https://navlens-git-v2-dom-recreation-kavishas-projects-947ef8e4.vercel.app");
+      : "https://navlens-rho.vercel.app");
 
   if (!SITE_ID) {
     console.warn(
