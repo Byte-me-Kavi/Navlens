@@ -95,15 +95,16 @@ async function validateSiteAndAuth(siteId: string, apiKey?: string): Promise<{ v
 }
 
 /**
- * Validate API key - BOTH site and tracker must have matching keys
+ * Validate API key - More permissive for backwards compatibility
+ * Sites without API keys are allowed, but if a site HAS an API key, tracker must provide matching key
  */
 function validateApiKey(siteApiKey: string | null, trackerApiKey?: string): { valid: boolean; reason?: string } {
     const siteHasKey = siteApiKey && siteApiKey.length > 0;
     const trackerHasKey = trackerApiKey && trackerApiKey.length > 0;
     
-    // Case 1: Neither has key - REJECT (require API keys for security)
+    // Case 1: Neither has key - ALLOW (backwards compatibility)
     if (!siteHasKey && !trackerHasKey) {
-        return { valid: false, reason: 'API key required - please configure api_key for this site' };
+        return { valid: true };
     }
     
     // Case 2: Site has key, tracker doesn't - REJECT
@@ -111,9 +112,9 @@ function validateApiKey(siteApiKey: string | null, trackerApiKey?: string): { va
         return { valid: false, reason: 'Missing API key in tracker' };
     }
     
-    // Case 3: Tracker has key, site doesn't - REJECT
+    // Case 3: Tracker has key, site doesn't - Allow (tracker is trying to be secure)
     if (!siteHasKey && trackerHasKey) {
-        return { valid: false, reason: 'Site does not have API key configured' };
+        return { valid: true };
     }
     
     // Case 4: Both have keys - verify they match
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
         console.log(`📦 Compression: ${(originalSize / 1024).toFixed(1)}KB → ${(compressedSize / 1024).toFixed(1)}KB (${Math.round((1 - compressedSize / originalSize) * 100)}% reduction)`);
 
         // 4. PARALLEL EXECUTION (The Optimization)
-        await Promise.all([
+        const results = await Promise.allSettled([
             // Task A: Upload COMPRESSED file to Storage Bucket
             supabase.storage
                 .from('snapshots')
@@ -198,8 +199,6 @@ export async function POST(req: NextRequest) {
                     contentType: 'application/gzip',
                     upsert: true,
                     cacheControl: '3600' // CDN cache for 1 hour
-                }).then(({ error }) => {
-                    if (error) throw new Error(`Storage Error: ${error.message}`);
                 }),
 
             // Task B: Update Database Index (Critical for Dashboard)
@@ -215,10 +214,40 @@ export async function POST(req: NextRequest) {
                 updated_at: new Date().toISOString()
             }, {
                 onConflict: 'site_id, page_path, device_type'
-            }).then(({ error }) => {
-                if (error) throw new Error(`DB Error: ${error.message}`);
             })
         ]);
+
+        // Check for errors in results
+        const errors: string[] = [];
+        
+        // Check storage upload result
+        if (results[0].status === 'fulfilled') {
+            const storageResult = results[0].value;
+            if (storageResult.error) {
+                console.error('Storage upload error:', storageResult.error);
+                errors.push(`Storage: ${storageResult.error.message}`);
+            }
+        } else {
+            console.error('Storage upload rejected:', results[0].reason);
+            errors.push(`Storage rejected: ${results[0].reason}`);
+        }
+        
+        // Check DB upsert result
+        if (results[1].status === 'fulfilled') {
+            const dbResult = results[1].value;
+            if (dbResult.error) {
+                console.error('DB upsert error:', dbResult.error);
+                errors.push(`DB: ${dbResult.error.message}`);
+            }
+        } else {
+            console.error('DB upsert rejected:', results[1].reason);
+            errors.push(`DB rejected: ${results[1].reason}`);
+        }
+
+        if (errors.length > 0) {
+            console.error('Snapshot operations failed:', errors);
+            return jsonResponse({ error: errors.join('; ') }, 500, requestOrigin);
+        }
 
         console.log(`✅ Snapshot processed in ${(performance.now() - start).toFixed(2)}ms`);
         return jsonResponse({ success: true }, 200, requestOrigin);
