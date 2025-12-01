@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
             site_id, api_key, page_path, session_id, visitor_id, events, timestamp,
             user_agent, screen_width, screen_height, language, timezone,
             referrer, viewport_width, viewport_height, device_pixel_ratio,
-            platform, cookie_enabled, online, device_type, load_time, dom_ready_time
+            platform, cookie_enabled, online, device_type, load_time, dom_ready_time,
+            session_signals // NEW: Session intelligence signals
         } = body;
 
         if (!site_id || !events) {
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
             online?: boolean;
             load_time?: number | null;
             dom_ready_time?: number | null;
+            session_signals?: unknown; // NEW: Session intelligence signals
         }
         const insertData: InsertData = {
             // Primary Data
@@ -172,6 +174,9 @@ export async function POST(req: NextRequest) {
             // Performance - ensure proper types and constraints
             load_time: load_time ? Math.min(parseFloat(load_time), 99999999.99) : null,
             dom_ready_time: dom_ready_time ? Math.min(parseFloat(dom_ready_time), 99999999.99) : null,
+            
+            // Session Intelligence Signals
+            session_signals: session_signals || [],
         };
 
         try {

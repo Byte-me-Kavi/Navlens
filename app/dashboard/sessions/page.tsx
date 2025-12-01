@@ -21,12 +21,22 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiX,
+  FiAlertTriangle,
+  FiAlertCircle,
+  FiMousePointer,
+  FiCornerUpLeft,
 } from "react-icons/fi";
 import { HiOutlineDesktopComputer } from "react-icons/hi";
 import { BsDisplay, BsWindows, BsApple } from "react-icons/bs";
 import { FaLinux, FaAndroid } from "react-icons/fa";
 import { AiOutlineApple } from "react-icons/ai";
 import { SiGooglechrome, SiFirefox, SiSafari, SiOpera } from "react-icons/si";
+
+interface SessionSignal {
+  type: string;
+  timestamp: string;
+  data: Record<string, unknown>;
+}
 
 interface SessionData {
   session_id: string;
@@ -42,6 +52,13 @@ interface SessionData {
   screen_height: number;
   platform: string;
   user_agent: string;
+  // Session Intelligence
+  signals?: SessionSignal[];
+  signal_counts?: Record<string, number>;
+  has_rage_clicks?: boolean;
+  has_dead_clicks?: boolean;
+  has_u_turns?: boolean;
+  has_errors?: boolean;
 }
 
 const getCountryFlag = (countryCode: string) => {
@@ -120,6 +137,69 @@ const getBrowserIcon = (userAgent: string) => {
 
 // Move cache OUTSIDE the component so it persists across navigation
 const sessionsCache: Record<string, SessionData[]> = {};
+
+// Signal badge component
+const SignalBadges = ({ session }: { session: SessionData }) => {
+  const badges = [];
+
+  if (session.has_rage_clicks) {
+    badges.push(
+      <span
+        key="rage"
+        className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full"
+        title="Rage clicks detected"
+      >
+        <FiMousePointer className="w-3 h-3" />
+        Rage
+      </span>
+    );
+  }
+
+  if (session.has_dead_clicks) {
+    badges.push(
+      <span
+        key="dead"
+        className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full"
+        title="Dead clicks detected"
+      >
+        <FiMousePointer className="w-3 h-3" />
+        Dead
+      </span>
+    );
+  }
+
+  if (session.has_u_turns) {
+    badges.push(
+      <span
+        key="uturn"
+        className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full"
+        title="U-turn/quick exit detected"
+      >
+        <FiCornerUpLeft className="w-3 h-3" />
+        U-turn
+      </span>
+    );
+  }
+
+  if (session.has_errors) {
+    badges.push(
+      <span
+        key="error"
+        className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full"
+        title="JavaScript errors detected"
+      >
+        <FiAlertTriangle className="w-3 h-3" />
+        Errors
+      </span>
+    );
+  }
+
+  if (badges.length === 0) {
+    return <span className="text-gray-400 text-xs">—</span>;
+  }
+
+  return <div className="flex flex-wrap gap-1">{badges}</div>;
+};
 
 export default function SessionsPage() {
   const router = useRouter();
@@ -252,7 +332,7 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-4">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 md:py-4 md:px-2">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-2">
@@ -504,6 +584,9 @@ export default function SessionsPage() {
                           Page Views
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-semibold">
+                          Signals
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold">
                           Screen
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-semibold">
@@ -587,6 +670,9 @@ export default function SessionsPage() {
                                     <FiChevronDown className="w-4 h-4" />
                                   )}
                                 </button>
+                              </td>
+                              <td className="px-6 py-4">
+                                <SignalBadges session={session} />
                               </td>
                               <td className="px-6 py-4">
                                 <div className="text-sm text-gray-900">
@@ -757,6 +843,19 @@ export default function SessionsPage() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Session Signals */}
+                        {(session.has_rage_clicks ||
+                          session.has_dead_clicks ||
+                          session.has_u_turns ||
+                          session.has_errors) && (
+                          <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="text-xs text-gray-600 mb-2 font-medium">
+                              Session Signals
+                            </div>
+                            <SignalBadges session={session} />
+                          </div>
+                        )}
 
                         {/* Pages Toggle */}
                         <button

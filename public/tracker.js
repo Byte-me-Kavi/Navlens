@@ -1,4 +1,4 @@
-// public/tracker.js - v3.2 (Enhanced rrweb Events with Rich Metadata)
+// public/tracker.js - v4.0 (Advanced Session Intelligence)
 
 (function () {
   // --- Configuration ---
@@ -39,6 +39,292 @@
   let rrwebStopRecording = null;
   const recordedEvents = [];
   const RRWEB_BATCH_SIZE = 50; // Send rrweb events in batches
+
+  // ===========================================
+  // ADVANCED SESSION INTELLIGENCE
+  // ===========================================
+
+  // Session signals storage
+  const sessionSignals = [];
+
+  // --- Rage Click Detection ---
+  const RAGE_CLICK_THRESHOLD = 3; // 3+ clicks = rage
+  const RAGE_CLICK_WINDOW = 1000; // within 1 second
+  const RAGE_CLICK_RADIUS = 30; // pixels proximity
+  let clickHistory = [];
+
+  function detectRageClick(x, y, element) {
+    const now = Date.now();
+    clickHistory.push({ x, y, time: now, element });
+
+    // Remove old clicks outside window
+    clickHistory = clickHistory.filter((c) => now - c.time < RAGE_CLICK_WINDOW);
+
+    // Check for rage clicks in same area
+    const nearbyClicks = clickHistory.filter(
+      (c) =>
+        Math.abs(c.x - x) < RAGE_CLICK_RADIUS &&
+        Math.abs(c.y - y) < RAGE_CLICK_RADIUS
+    );
+
+    if (nearbyClicks.length >= RAGE_CLICK_THRESHOLD) {
+      const signal = {
+        type: "rage_click",
+        timestamp: new Date().toISOString(),
+        data: {
+          x,
+          y,
+          click_count: nearbyClicks.length,
+          element_selector: getElementSelector(element),
+          element_text: (element.textContent || "").substring(0, 100),
+        },
+      };
+      sessionSignals.push(signal);
+      console.log("🔴 Rage click detected:", signal);
+      // Reset to avoid duplicate detections
+      clickHistory = [];
+    }
+  }
+
+  // --- Dead Click Detection ---
+  function detectDeadClick(element, event) {
+    // Check if element or parents have click handlers
+    const hasClickHandler = (el) => {
+      if (!el || el === document.body) return false;
+
+      // Check for onclick attribute
+      if (el.onclick || el.getAttribute("onclick")) return true;
+
+      // Check for interactive elements
+      const interactiveTags = [
+        "A",
+        "BUTTON",
+        "INPUT",
+        "SELECT",
+        "TEXTAREA",
+        "LABEL",
+      ];
+      if (interactiveTags.includes(el.tagName)) return true;
+
+      // Check for role attributes
+      const role = el.getAttribute("role");
+      if (
+        role &&
+        ["button", "link", "checkbox", "menuitem", "tab"].includes(role)
+      )
+        return true;
+
+      // Check for cursor pointer (indicates clickable)
+      const style = window.getComputedStyle(el);
+      if (style.cursor === "pointer") return true;
+
+      // Check parent
+      return hasClickHandler(el.parentElement);
+    };
+
+    // Check if it looks clickable but isn't
+    const looksClickable = (el) => {
+      const style = window.getComputedStyle(el);
+      // Has border, background, or looks like a button
+      return (
+        el.classList.contains("btn") ||
+        el.classList.contains("button") ||
+        style.cursor === "pointer" ||
+        (style.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+          style.borderRadius !== "0px")
+      );
+    };
+
+    // Delay check to see if navigation or state change occurred
+    const urlBefore = window.location.href;
+    setTimeout(() => {
+      const urlAfter = window.location.href;
+      const urlChanged = urlBefore !== urlAfter;
+
+      if (!urlChanged && !hasClickHandler(element) && looksClickable(element)) {
+        const signal = {
+          type: "dead_click",
+          timestamp: new Date().toISOString(),
+          data: {
+            x: event.clientX,
+            y: event.clientY,
+            element_selector: getElementSelector(element),
+            element_tag: element.tagName,
+            element_text: (element.textContent || "").substring(0, 100),
+          },
+        };
+        sessionSignals.push(signal);
+        console.log("⚫ Dead click detected:", signal);
+      }
+    }, 100);
+  }
+
+  // --- U-Turn Detection ---
+  const pageLoadTime = Date.now();
+  let hasDetectedUTurn = false;
+
+  window.addEventListener("popstate", () => {
+    if (hasDetectedUTurn) return;
+
+    const timeOnPage = Date.now() - pageLoadTime;
+    if (timeOnPage < 3000) {
+      // Left within 3 seconds
+      hasDetectedUTurn = true;
+      const signal = {
+        type: "u_turn",
+        timestamp: new Date().toISOString(),
+        data: {
+          time_on_page_ms: timeOnPage,
+          from_url: window.location.href,
+          referrer: document.referrer,
+        },
+      };
+      sessionSignals.push(signal);
+      console.log("↩️ U-turn detected:", signal);
+    }
+  });
+
+  // Also detect back button via beforeunload for quick exits
+  let isNavigatingAway = false;
+  window.addEventListener("beforeunload", () => {
+    isNavigatingAway = true;
+    const timeOnPage = Date.now() - pageLoadTime;
+    if (timeOnPage < 2000 && !hasDetectedUTurn) {
+      const signal = {
+        type: "quick_exit",
+        timestamp: new Date().toISOString(),
+        data: {
+          time_on_page_ms: timeOnPage,
+          page_url: window.location.href,
+        },
+      };
+      sessionSignals.push(signal);
+      // Send immediately before page unloads
+      sendRrwebEvents();
+    }
+  });
+
+  // --- Console Error Capture ---
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+  const capturedConsoleLogs = [];
+  const MAX_CONSOLE_LOGS = 50;
+
+  console.error = function (...args) {
+    captureConsoleLog("error", args);
+    originalConsoleError.apply(console, args);
+  };
+
+  console.warn = function (...args) {
+    captureConsoleLog("warn", args);
+    originalConsoleWarn.apply(console, args);
+  };
+
+  function captureConsoleLog(level, args) {
+    if (capturedConsoleLogs.length >= MAX_CONSOLE_LOGS) return;
+
+    // Skip our own logs
+    const message = args
+      .map((a) =>
+        typeof a === "object" ? JSON.stringify(a).substring(0, 500) : String(a)
+      )
+      .join(" ");
+
+    if (message.includes("Navlens") || message.includes("rrweb")) return;
+
+    const logEntry = {
+      type: "console",
+      timestamp: new Date().toISOString(),
+      data: {
+        level,
+        message: message.substring(0, 1000),
+        url: window.location.href,
+      },
+    };
+
+    capturedConsoleLogs.push(logEntry);
+
+    // Add to signals if it's an error
+    if (level === "error") {
+      sessionSignals.push({
+        type: "console_error",
+        timestamp: logEntry.timestamp,
+        data: logEntry.data,
+      });
+      console.log = originalConsoleError; // Temporarily restore
+      console.log("🔴 Console error captured");
+      console.error = function (...args) {
+        captureConsoleLog("error", args);
+        originalConsoleError.apply(console, args);
+      };
+    }
+  }
+
+  // --- JavaScript Error Capture ---
+  window.addEventListener("error", (event) => {
+    const signal = {
+      type: "js_error",
+      timestamp: new Date().toISOString(),
+      data: {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        stack: event.error?.stack?.substring(0, 1000) || "",
+      },
+    };
+    sessionSignals.push(signal);
+  });
+
+  // --- Unhandled Promise Rejection Capture ---
+  window.addEventListener("unhandledrejection", (event) => {
+    const signal = {
+      type: "unhandled_rejection",
+      timestamp: new Date().toISOString(),
+      data: {
+        reason: String(event.reason).substring(0, 1000),
+        stack: event.reason?.stack?.substring(0, 1000) || "",
+      },
+    };
+    sessionSignals.push(signal);
+  });
+
+  // --- Helper: Get CSS Selector for Element ---
+  function getElementSelector(el) {
+    if (!el || el === document.body) return "body";
+
+    const parts = [];
+    while (el && el !== document.body && parts.length < 5) {
+      let selector = el.tagName.toLowerCase();
+      if (el.id) {
+        selector += "#" + el.id;
+        parts.unshift(selector);
+        break;
+      }
+      if (el.className && typeof el.className === "string") {
+        const classes = el.className.trim().split(/\s+/).slice(0, 2).join(".");
+        if (classes) selector += "." + classes;
+      }
+      parts.unshift(selector);
+      el = el.parentElement;
+    }
+    return parts.join(" > ");
+  }
+
+  // --- Enhanced Click Handler for Signal Detection ---
+  document.addEventListener(
+    "click",
+    (event) => {
+      const element = event.target;
+      detectRageClick(event.clientX, event.clientY, element);
+      detectDeadClick(element, event);
+    },
+    true
+  );
+
+  // ===========================================
+  // END SESSION INTELLIGENCE
+  // ===========================================
 
   // Load rrweb library dynamically
   function loadRrweb() {
@@ -162,10 +448,13 @@
   }
 
   function sendRrwebEvents() {
-    if (recordedEvents.length === 0) return;
+    if (recordedEvents.length === 0 && sessionSignals.length === 0) return;
 
     const eventsToSend = [...recordedEvents];
     recordedEvents.length = 0; // Clear the array
+
+    // Collect signals to send (include console logs)
+    const signalsToSend = [...sessionSignals, ...capturedConsoleLogs];
 
     // Detect device type
     const width = window.innerWidth;
@@ -181,6 +470,9 @@
       visitor_id: getVisitorId(),
       events: eventsToSend, // The raw rrweb JSON
       timestamp: new Date().toISOString(), // Current time
+
+      // Session Intelligence Signals
+      session_signals: signalsToSend,
 
       // Browser/Device Metadata
       user_agent: navigator.userAgent,

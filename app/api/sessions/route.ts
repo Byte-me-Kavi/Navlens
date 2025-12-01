@@ -55,7 +55,8 @@ export async function POST(req: NextRequest) {
         screen_height,
         platform,
         user_agent,
-        timestamp
+        timestamp,
+        session_signals
       `, { count: 'exact' })
       .eq("site_id", siteId)
       .order("timestamp", { ascending: false });
@@ -69,6 +70,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Group events by session_id (still needed for proper aggregation)
+    interface SessionSignal {
+      type: string;
+      timestamp: string;
+      data: Record<string, unknown>;
+    }
+    
     const sessionMap = new Map<string, {
       session_id: string;
       visitor_id: string;
@@ -85,10 +92,12 @@ export async function POST(req: NextRequest) {
       user_agent: string;
       duration: number;
       page_views: number;
+      signals: SessionSignal[];
     }>();
 
     (sessionData || []).forEach((event) => {
       const sessionId = event.session_id;
+      const eventSignals = (event.session_signals || []) as SessionSignal[];
 
       if (!sessionMap.has(sessionId)) {
         sessionMap.set(sessionId, {
@@ -107,11 +116,14 @@ export async function POST(req: NextRequest) {
           user_agent: event.user_agent || "Unknown",
           duration: 0,
           page_views: 1,
+          signals: eventSignals,
         });
       } else {
         const session = sessionMap.get(sessionId);
         if (session) {
           session.pages.add(event.page_path);
+          // Merge signals from all events in the session
+          session.signals = [...session.signals, ...eventSignals];
 
           const eventTime = new Date(event.timestamp).getTime();
           const firstTime = new Date(session.first_timestamp).getTime();
@@ -133,6 +145,12 @@ export async function POST(req: NextRequest) {
       const lastTime = new Date(session.last_timestamp).getTime();
       const durationMs = lastTime - firstTime;
       const durationSeconds = Math.floor(durationMs / 1000);
+      
+      // Aggregate signal counts by type
+      const signalCounts: Record<string, number> = {};
+      session.signals.forEach(signal => {
+        signalCounts[signal.type] = (signalCounts[signal.type] || 0) + 1;
+      });
 
       return {
         session_id: session.session_id,
@@ -148,6 +166,13 @@ export async function POST(req: NextRequest) {
         screen_height: session.screen_height,
         platform: session.platform,
         user_agent: session.user_agent,
+        // Session Intelligence
+        signals: session.signals,
+        signal_counts: signalCounts,
+        has_rage_clicks: signalCounts['rage_click'] > 0,
+        has_dead_clicks: signalCounts['dead_click'] > 0,
+        has_u_turns: signalCounts['u_turn'] > 0 || signalCounts['quick_exit'] > 0,
+        has_errors: (signalCounts['js_error'] || 0) + (signalCounts['console_error'] || 0) + (signalCounts['unhandled_rejection'] || 0) > 0,
       };
     });
 

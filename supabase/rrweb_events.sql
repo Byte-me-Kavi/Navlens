@@ -25,6 +25,9 @@ create table public.rrweb_events (
   device_type text null,
   load_time numeric(10, 2) null,
   dom_ready_time numeric(10, 2) null,
+  -- Session Intelligence Signals (v4.0)
+  -- Stores detected user behavior signals: rage_click, dead_click, u_turn, quick_exit, js_error, console_error, console (warn)
+  session_signals jsonb null default '[]'::jsonb,
   constraint rrweb_events_pkey primary key (id)
 ) TABLESPACE pg_default;
 
@@ -35,3 +38,6 @@ create index IF not exists idx_rrweb_events_session_id on public.rrweb_events us
 create index IF not exists idx_rrweb_events_timestamp on public.rrweb_events using btree ("timestamp") TABLESPACE pg_default;
 
 create index IF not exists idx_rrweb_events_page_path on public.rrweb_events using btree (page_path) TABLESPACE pg_default;
+
+-- Index for querying sessions with specific signals (GIN index for JSONB)
+create index IF not exists idx_rrweb_events_signals on public.rrweb_events using gin (session_signals) TABLESPACE pg_default;
