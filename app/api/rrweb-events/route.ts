@@ -7,11 +7,14 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Helper to add CORS headers
-function addCorsHeaders(response: NextResponse): NextResponse {
-    response.headers.set('Access-Control-Allow-Origin', '*');
+// Helper to add CORS headers with dynamic origin
+function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
+    // Use the requesting origin if provided, otherwise allow all
+    // This is required because some browsers include credentials with fetch
+    response.headers.set('Access-Control-Allow-Origin', origin || '*');
     response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
     return response;
 }
 
@@ -51,6 +54,7 @@ function secureCompare(a: string, b: string): boolean {
 
 export async function POST(req: NextRequest) {
     const startTime = Date.now();
+    const origin = req.headers.get('origin');
     console.log('=== RRWeb Events API Called ===');
     
     try {
@@ -69,7 +73,7 @@ export async function POST(req: NextRequest) {
             return addCorsHeaders(NextResponse.json(
                 { error: 'Missing required data' }, 
                 { status: 400 }
-            ));
+            ), origin);
         }
 
         // Validate site exists and check API key
@@ -80,7 +84,7 @@ export async function POST(req: NextRequest) {
             return addCorsHeaders(NextResponse.json(
                 { error: 'Invalid site' }, 
                 { status: 403 }
-            ));
+            ), origin);
         }
 
         // If site has API key, require it from tracker
@@ -90,14 +94,14 @@ export async function POST(req: NextRequest) {
                 return addCorsHeaders(NextResponse.json(
                     { error: 'API key required' }, 
                     { status: 401 }
-                ));
+                ), origin);
             }
             if (!secureCompare(api_key, validation.apiKey)) {
                 console.warn(`[rrweb-events] Invalid API key for site ${site_id}`);
                 return addCorsHeaders(NextResponse.json(
                     { error: 'Invalid API key' }, 
                     { status: 401 }
-                ));
+                ), origin);
             }
         }
 
@@ -190,18 +194,18 @@ export async function POST(req: NextRequest) {
                     error: 'Database insert failed', 
                     details: error.message,
                     code: error.code 
-                }, { status: 500 }));
+                }, { status: 500 }), origin);
             }
 
             const duration = Date.now() - startTime;
             console.log(`[rrweb-events] Success - ${events.length} events in ${duration}ms`);
-            return addCorsHeaders(NextResponse.json({ success: true }));
+            return addCorsHeaders(NextResponse.json({ success: true }), origin);
         } catch (dbError) {
             console.error('[rrweb-events] Database operation failed:', dbError);
             return addCorsHeaders(NextResponse.json({ 
                 error: 'Database operation failed', 
                 details: dbError instanceof Error ? dbError.message : 'Unknown error'
-            }, { status: 500 }));
+            }, { status: 500 }), origin);
         }
 
     } catch (error: unknown) {
@@ -211,14 +215,13 @@ export async function POST(req: NextRequest) {
     }
 }
 
-export async function OPTIONS() {
-    return new Response(null, {
-        status: 200,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
-        },
-    });
+export async function OPTIONS(req: NextRequest) {
+    const origin = req.headers.get('origin');
+    const response = new NextResponse(null, { status: 204 });
+    response.headers.set('Access-Control-Allow-Origin', origin || '*');
+    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Access-Control-Max-Age', '86400');
+    return response;
 }

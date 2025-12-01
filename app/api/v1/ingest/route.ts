@@ -4,19 +4,15 @@ import { validators, ValidationError, validateRequestSize, ValidatedEventData } 
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
 
-// CORS headers for cross-origin tracker requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Max-Age': '86400', // 24 hours
-};
-
-// Helper to add CORS headers to response
-function addCorsHeaders(response: NextResponse): NextResponse {
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
+// Helper to add CORS headers to response with dynamic origin
+function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
+  // Use the requesting origin if provided, otherwise allow all
+  // This is required because sendBeacon may include credentials
+  response.headers.set('Access-Control-Allow-Origin', origin || '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set('Access-Control-Max-Age', '86400');
   return response;
 }
 
@@ -33,23 +29,25 @@ const clickhouse = getClickHouseClient();
 console.log(`[v1/ingest] Rate limiting backend: ${isRedisAvailable() ? 'Upstash Redis' : 'In-memory (development)'}`);
 
 // Handle CORS preflight requests
-export async function OPTIONS() {
-  return addCorsHeaders(new NextResponse(null, { status: 204 }));
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  return addCorsHeaders(new NextResponse(null, { status: 204 }), origin);
 }
 
 // Helper to create JSON response with CORS headers
-function jsonResponse(data: object, status: number = 200): NextResponse {
+function jsonResponse(data: object, status: number = 200, origin?: string | null): NextResponse {
   const response = NextResponse.json(data, { status });
-  return addCorsHeaders(response);
+  return addCorsHeaders(response, origin);
 }
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
+  const origin = request.headers.get('origin');
   
   try {
     // Validate request size (max 1MB)
     if (!validateRequestSize(request, 1)) {
-      return jsonResponse({ error: 'Request too large' }, 413);
+      return jsonResponse({ error: 'Request too large' }, 413, origin);
     }
 
     // Get client IP for rate limiting
@@ -68,23 +66,23 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields with proper type checking
     if (!events || !Array.isArray(events) || events.length === 0) {
-      return jsonResponse({ error: 'Invalid request: events must be a non-empty array' }, 400);
+      return jsonResponse({ error: 'Invalid request: events must be a non-empty array' }, 400, origin);
     }
 
     if (!siteId || typeof siteId !== 'string') {
-      return jsonResponse({ error: 'Invalid request: siteId must be a string' }, 400);
+      return jsonResponse({ error: 'Invalid request: siteId must be a string' }, 400, origin);
     }
 
     // Validate siteId format (UUID)
     if (!validators.isValidUUID(siteId)) {
       console.warn(`[v1/ingest] Invalid siteId format: ${siteId}`);
-      return jsonResponse({ error: 'Invalid site ID format' }, 400);
+      return jsonResponse({ error: 'Invalid site ID format' }, 400, origin);
     }
 
     // Combined rate limiting check (IP + site)
     const rateLimitResult = await checkRateLimits(clientIP, siteId);
     if (!rateLimitResult.allowed) {
-      const response = jsonResponse({ error: rateLimitResult.reason || 'Rate limit exceeded' }, 429);
+      const response = jsonResponse({ error: rateLimitResult.reason || 'Rate limit exceeded' }, 429, origin);
       // Add rate limit headers
       Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
         response.headers.set(key, value);
@@ -94,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // Limit number of events per request
     if (events.length > 100) {
-      return jsonResponse({ error: 'Too many events in single request (max 100)' }, 400);
+      return jsonResponse({ error: 'Too many events in single request (max 100)' }, 400, origin);
     }
 
     // Validate siteId exists in our system and is active
@@ -107,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     if (siteError || !siteData) {
       console.warn(`[v1/ingest] Invalid site ID: ${siteId}`, siteError?.message);
-      return jsonResponse({ error: 'Invalid site ID' }, 403);
+      return jsonResponse({ error: 'Invalid site ID' }, 403, origin);
     }
 
     console.log(`[v1/ingest] Processing ${events.length} events for site ${siteId}`);
@@ -140,7 +138,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (validEvents.length === 0) {
-      return jsonResponse({ error: 'No valid events to process after validation' }, 400);
+      return jsonResponse({ error: 'No valid events to process after validation' }, 400, origin);
     }
 
     // Insert events into ClickHouse
@@ -204,7 +202,7 @@ export async function POST(request: NextRequest) {
       success: true,
       processed: validEvents.length,
       duration_ms: duration
-    });
+    }, 200, origin);
     Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
       response.headers.set(key, value);
     });
@@ -212,15 +210,16 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[v1/ingest] Error:', error);
-    return jsonResponse({ error: 'Internal server error' }, 500);
+    return jsonResponse({ error: 'Internal server error' }, 500, origin);
   }
 }
 
 // Health check endpoint
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const origin = request.headers.get('origin');
   return jsonResponse({
     status: 'healthy',
     rateLimit: isRedisAvailable() ? 'redis' : 'memory',
     timestamp: new Date().toISOString()
-  });
+  }, 200, origin);
 }

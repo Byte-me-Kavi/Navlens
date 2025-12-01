@@ -6,31 +6,28 @@ import { validators } from '@/lib/validation';
 
 const gzipAsync = promisify(gzip);
 
-// CORS headers for cross-origin tracker requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Max-Age': '86400',
-};
-
-// Helper to add CORS headers to response
-function addCorsHeaders(response: NextResponse): NextResponse {
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
+// Helper to add CORS headers to response with dynamic origin
+function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
+  // Use the requesting origin if provided, otherwise allow all
+  // This is required because sendBeacon may include credentials
+  response.headers.set('Access-Control-Allow-Origin', origin || '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set('Access-Control-Max-Age', '86400');
   return response;
 }
 
 // Helper to create JSON response with CORS headers
-function jsonResponse(data: object, status: number = 200): NextResponse {
+function jsonResponse(data: object, status: number = 200, origin?: string | null): NextResponse {
   const response = NextResponse.json(data, { status });
-  return addCorsHeaders(response);
+  return addCorsHeaders(response, origin);
 }
 
 // Handle CORS preflight requests
-export async function OPTIONS() {
-  return addCorsHeaders(new NextResponse(null, { status: 204 }));
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  return addCorsHeaders(new NextResponse(null, { status: 204 }), origin);
 }
 
 // Initialize Admin Client (Service Role is required to bypass RLS for uploads)
@@ -129,6 +126,8 @@ function validateApiKey(siteApiKey: string | null, trackerApiKey?: string): { va
 
 export async function POST(req: NextRequest) {
     const start = performance.now();
+    const requestOrigin = req.headers.get('origin');
+    
     try {
         console.log('DOM snapshot POST received');
         
@@ -148,7 +147,7 @@ export async function POST(req: NextRequest) {
         } = body;
 
         if (!site_id || !snapshot) {
-            return jsonResponse({ error: 'Missing data' }, 400);
+            return jsonResponse({ error: 'Missing data' }, 400, requestOrigin);
         }
 
         // 🔒 Security: Validate site_id exists and check API key if configured
@@ -157,7 +156,8 @@ export async function POST(req: NextRequest) {
             console.error('❌ Validation failed:', validation.reason);
             return jsonResponse(
                 { error: validation.reason || 'Validation failed' }, 
-                401
+                401,
+                requestOrigin
             );
         }
 
@@ -221,11 +221,11 @@ export async function POST(req: NextRequest) {
         ]);
 
         console.log(`✅ Snapshot processed in ${(performance.now() - start).toFixed(2)}ms`);
-        return jsonResponse({ success: true });
+        return jsonResponse({ success: true }, 200, requestOrigin);
 
     } catch (error: unknown) {
         console.error('Snapshot upload failed:', error);
         const message = error instanceof Error ? error.message : 'Unknown error';
-        return jsonResponse({ error: message }, 500);
+        return jsonResponse({ error: message }, 500, requestOrigin);
     }
 }
