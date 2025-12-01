@@ -4,6 +4,22 @@ import { validators, ValidationError, validateRequestSize, ValidatedEventData } 
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
 
+// CORS headers for cross-origin tracker requests
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400', // 24 hours
+};
+
+// Helper to add CORS headers to response
+function addCorsHeaders(response: NextResponse): NextResponse {
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
+}
+
 // Create admin Supabase client for server-side operations
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,16 +32,24 @@ const clickhouse = getClickHouseClient();
 // Log rate limiting backend on startup
 console.log(`[v1/ingest] Rate limiting backend: ${isRedisAvailable() ? 'Upstash Redis' : 'In-memory (development)'}`);
 
+// Handle CORS preflight requests
+export async function OPTIONS() {
+  return addCorsHeaders(new NextResponse(null, { status: 204 }));
+}
+
+// Helper to create JSON response with CORS headers
+function jsonResponse(data: object, status: number = 200): NextResponse {
+  const response = NextResponse.json(data, { status });
+  return addCorsHeaders(response);
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
   try {
     // Validate request size (max 1MB)
     if (!validateRequestSize(request, 1)) {
-      return NextResponse.json(
-        { error: 'Request too large' },
-        { status: 413 }
-      );
+      return jsonResponse({ error: 'Request too large' }, 413);
     }
 
     // Get client IP for rate limiting
@@ -44,35 +68,23 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields with proper type checking
     if (!events || !Array.isArray(events) || events.length === 0) {
-      return NextResponse.json(
-        { error: 'Invalid request: events must be a non-empty array' },
-        { status: 400 }
-      );
+      return jsonResponse({ error: 'Invalid request: events must be a non-empty array' }, 400);
     }
 
     if (!siteId || typeof siteId !== 'string') {
-      return NextResponse.json(
-        { error: 'Invalid request: siteId must be a string' },
-        { status: 400 }
-      );
+      return jsonResponse({ error: 'Invalid request: siteId must be a string' }, 400);
     }
 
     // Validate siteId format (UUID)
     if (!validators.isValidUUID(siteId)) {
       console.warn(`[v1/ingest] Invalid siteId format: ${siteId}`);
-      return NextResponse.json(
-        { error: 'Invalid site ID format' },
-        { status: 400 }
-      );
+      return jsonResponse({ error: 'Invalid site ID format' }, 400);
     }
 
     // Combined rate limiting check (IP + site)
     const rateLimitResult = await checkRateLimits(clientIP, siteId);
     if (!rateLimitResult.allowed) {
-      const response = NextResponse.json(
-        { error: rateLimitResult.reason || 'Rate limit exceeded' },
-        { status: 429 }
-      );
+      const response = jsonResponse({ error: rateLimitResult.reason || 'Rate limit exceeded' }, 429);
       // Add rate limit headers
       Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
         response.headers.set(key, value);
@@ -82,10 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Limit number of events per request
     if (events.length > 100) {
-      return NextResponse.json(
-        { error: 'Too many events in single request (max 100)' },
-        { status: 400 }
-      );
+      return jsonResponse({ error: 'Too many events in single request (max 100)' }, 400);
     }
 
     // Validate siteId exists in our system and is active
@@ -98,10 +107,7 @@ export async function POST(request: NextRequest) {
 
     if (siteError || !siteData) {
       console.warn(`[v1/ingest] Invalid site ID: ${siteId}`, siteError?.message);
-      return NextResponse.json(
-        { error: 'Invalid site ID' },
-        { status: 403 }
-      );
+      return jsonResponse({ error: 'Invalid site ID' }, 403);
     }
 
     console.log(`[v1/ingest] Processing ${events.length} events for site ${siteId}`);
@@ -134,10 +140,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (validEvents.length === 0) {
-      return NextResponse.json(
-        { error: 'No valid events to process after validation' },
-        { status: 400 }
-      );
+      return jsonResponse({ error: 'No valid events to process after validation' }, 400);
     }
 
     // Insert events into ClickHouse
@@ -197,7 +200,7 @@ export async function POST(request: NextRequest) {
     console.log(`[v1/ingest] Processed ${validEvents.length} events in ${duration}ms`);
 
     // Add rate limit headers to success response
-    const response = NextResponse.json({
+    const response = jsonResponse({
       success: true,
       processed: validEvents.length,
       duration_ms: duration
@@ -209,16 +212,13 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[v1/ingest] Error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return jsonResponse({ error: 'Internal server error' }, 500);
   }
 }
 
 // Health check endpoint
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     status: 'healthy',
     rateLimit: isRedisAvailable() ? 'redis' : 'memory',
     timestamp: new Date().toISOString()

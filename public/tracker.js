@@ -631,7 +631,7 @@
       }
       isProcessing = false;
     } else {
-      // Fallback to fetch
+      // Fallback to fetch - explicitly no credentials for CORS compatibility
       fetch(API_COLLECT_ENDPOINT, {
         method: "POST",
         headers: {
@@ -639,6 +639,8 @@
         },
         body: payload,
         keepalive: true,
+        credentials: "omit", // Don't send cookies - allows CORS with wildcard origin
+        mode: "cors",
       })
         .then(() => {
           console.log(`✓ Sent ${eventsToSend.length} events to Navlens`);
