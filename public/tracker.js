@@ -614,9 +614,21 @@
     });
 
     // Use sendBeacon for better reliability on page unload
+    // Create Blob with proper Content-Type to ensure server receives JSON
     if (navigator.sendBeacon) {
-      navigator.sendBeacon(API_COLLECT_ENDPOINT, payload);
-      console.log(`✓ Sent ${eventsToSend.length} events via sendBeacon`);
+      const blob = new Blob([payload], { type: "application/json" });
+      const sent = navigator.sendBeacon(API_COLLECT_ENDPOINT, blob);
+      if (sent) {
+        console.log(`✓ Sent ${eventsToSend.length} events via sendBeacon`);
+      } else {
+        console.warn(
+          "sendBeacon returned false, events may not have been sent"
+        );
+        // Re-queue events if sendBeacon failed
+        if (eventQueue.length < BATCH_SIZE * 2) {
+          eventQueue.unshift(...eventsToSend);
+        }
+      }
       isProcessing = false;
     } else {
       // Fallback to fetch
@@ -1099,6 +1111,7 @@
   // --- Optimized Event Listeners ---
 
   // Page View Event - delayed to avoid blocking
+  // Important: page_view must be sent immediately for funnel tracking
   function handlePageView() {
     setTimeout(() => {
       addEventToQueue(
@@ -1106,6 +1119,9 @@
           load_time: performance.now(),
         })
       );
+      // Flush immediately to ensure page_view is captured for funnels
+      // This is critical because users might leave before the batch timer fires
+      flushEventQueue();
       // Start loading rrweb after page load
       loadRrwebSnapshot();
     }, 100);

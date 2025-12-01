@@ -6,7 +6,6 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
-import { Toast } from "@/components/Toast";
 import { createBrowserClient } from "@supabase/ssr";
 import { SiteProvider, useSite } from "@/app/context/SiteContext";
 import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
@@ -167,7 +166,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <Toast>
+    <>
       <div className="flex h-screen bg-gray-50/30">
         {/* Desktop Sidebar - hide on heatmap viewer */}
         {!isHeatmapViewer && (
@@ -222,7 +221,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           <LoadingSpinner message="Navigating..." />
         </div>
       )}
-    </Toast>
+    </>
   );
 }
 
