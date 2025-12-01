@@ -1,27 +1,12 @@
-import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { unstable_cache } from 'next/cache';
 import { encryptedJsonResponse } from '@/lib/encryption';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
-// Initialize ClickHouse client
-const clickhouseClient = (() => {
-    const url = process.env.CLICKHOUSE_URL;
-    
-    if (url) {
-        // Production: Use full URL for ClickHouse Cloud
-        return createClient({ url });
-    } else {
-        // Development: Use host-based configuration for local ClickHouse
-        return createClient({
-            url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
-            username: process.env.CLICKHOUSE_USER,
-            password: process.env.CLICKHOUSE_PASSWORD,
-            database: process.env.CLICKHOUSE_DATABASE,
-        });
-    }
-})();
+// Get the singleton ClickHouse client
+const clickhouseClient = getClickHouseClient();
 
 // Cached query function - revalidates every 2 minutes
 // This dramatically speeds up repeated requests for the same site

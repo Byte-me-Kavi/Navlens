@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@clickhouse/client';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { encryptedJsonResponse } from '@/lib/encryption';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
-const clickhouse = createClient({
-  url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
-});
+// Get the singleton ClickHouse client
+const clickhouse = getClickHouseClient();
 
 interface ElementMetricsRequest {
   siteId: string;

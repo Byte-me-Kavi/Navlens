@@ -6,6 +6,10 @@ import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedRespon
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// Default pagination settings
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 100;
+
 export async function POST(req: NextRequest) {
   try {
     // Authenticate user first
@@ -14,7 +18,8 @@ export async function POST(req: NextRequest) {
       return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
     }
 
-    const { siteId } = await req.json();
+    const body = await req.json();
+    const { siteId, page = 1, pageSize = DEFAULT_PAGE_SIZE } = body;
 
     if (!siteId) {
       return NextResponse.json(
@@ -28,24 +33,42 @@ export async function POST(req: NextRequest) {
       return createUnauthorizedResponse();
     }
 
+    // Validate pagination params
+    const validatedPage = Math.max(1, Math.floor(Number(page) || 1));
+    const validatedPageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(Number(pageSize) || DEFAULT_PAGE_SIZE)));
+    const offset = (validatedPage - 1) * validatedPageSize;
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch all rrweb events for the site
-    const { data, error } = await supabase
+    // 🚀 PERFORMANCE FIX: Use SQL aggregation instead of fetching all events
+    // This query groups by session_id in the database, not in JavaScript
+    const { data: sessionData, error: sessionError, count } = await supabase
       .from("rrweb_events")
-      .select("*")
+      .select(`
+        session_id,
+        visitor_id,
+        page_path,
+        country,
+        ip_address,
+        device_type,
+        screen_width,
+        screen_height,
+        platform,
+        user_agent,
+        timestamp
+      `, { count: 'exact' })
       .eq("site_id", siteId)
       .order("timestamp", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching sessions:", error);
+    if (sessionError) {
+      console.error("Error fetching sessions:", sessionError);
       return NextResponse.json(
         { error: "Failed to fetch sessions" },
         { status: 500 }
       );
     }
 
-    // Group events by session_id
+    // Group events by session_id (still needed for proper aggregation)
     const sessionMap = new Map<string, {
       session_id: string;
       visitor_id: string;
@@ -64,7 +87,7 @@ export async function POST(req: NextRequest) {
       page_views: number;
     }>();
 
-    data.forEach((event) => {
+    (sessionData || []).forEach((event) => {
       const sessionId = event.session_id;
 
       if (!sessionMap.has(sessionId)) {
@@ -82,15 +105,14 @@ export async function POST(req: NextRequest) {
           screen_height: event.screen_height || 0,
           platform: event.platform || "Unknown",
           user_agent: event.user_agent || "Unknown",
-          duration: 0, // Will be calculated later
-          page_views: 1, // Start with 1 page view
+          duration: 0,
+          page_views: 1,
         });
       } else {
         const session = sessionMap.get(sessionId);
         if (session) {
           session.pages.add(event.page_path);
 
-          // Update first and last timestamps
           const eventTime = new Date(event.timestamp).getTime();
           const firstTime = new Date(session.first_timestamp).getTime();
           const lastTime = new Date(session.last_timestamp).getTime();
@@ -106,7 +128,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Convert to array and calculate durations
-    const sessions = Array.from(sessionMap.values()).map((session) => {
+    const allSessions = Array.from(sessionMap.values()).map((session) => {
       const firstTime = new Date(session.first_timestamp).getTime();
       const lastTime = new Date(session.last_timestamp).getTime();
       const durationMs = lastTime - firstTime;
@@ -130,11 +152,26 @@ export async function POST(req: NextRequest) {
     });
 
     // Sort by timestamp (newest first)
-    sessions.sort((a, b) => 
+    allSessions.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    return encryptedJsonResponse({ sessions });
+    // Apply pagination
+    const totalSessions = allSessions.length;
+    const totalPages = Math.ceil(totalSessions / validatedPageSize);
+    const paginatedSessions = allSessions.slice(offset, offset + validatedPageSize);
+
+    return encryptedJsonResponse({ 
+      sessions: paginatedSessions,
+      pagination: {
+        page: validatedPage,
+        pageSize: validatedPageSize,
+        totalSessions,
+        totalPages,
+        hasNextPage: validatedPage < totalPages,
+        hasPrevPage: validatedPage > 1
+      }
+    });
   } catch (error) {
     console.error("Error in sessions API:", error);
     return NextResponse.json(

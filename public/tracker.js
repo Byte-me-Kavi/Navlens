@@ -10,6 +10,7 @@
 
   // Read parameters from the script tag attributes
   const SITE_ID = SCRIPT_TAG.getAttribute("data-site-id");
+  const API_KEY = SCRIPT_TAG.getAttribute("data-api-key"); // Optional API key for authenticated sites
   const API_HOST =
     SCRIPT_TAG.getAttribute("data-api-host") ||
     (window.location.hostname === "localhost" ||
@@ -174,6 +175,7 @@
     // Prepare the payload matching the Database Schema with rich metadata
     const payload = {
       site_id: SITE_ID,
+      api_key: API_KEY, // Include API key for authenticated sites
       page_path: window.location.pathname,
       session_id: getSessionId(),
       visitor_id: getVisitorId(),
@@ -660,6 +662,7 @@
 
       const payload = {
         site_id: SITE_ID,
+        api_key: API_KEY || undefined, // Include API key if provided
         page_path: window.location.pathname,
         device_type: deviceType,
         snapshot: snap, // compressedSnap,

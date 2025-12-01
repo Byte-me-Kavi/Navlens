@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createClickHouseClient } from '@clickhouse/client';
 import { createClient } from '@supabase/supabase-js';
 import { validators, ValidationError, validateRequestSize, ValidatedEventData } from '@/lib/validation';
+import { getClickHouseClient } from '@/lib/clickhouse';
+import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
 
 // Create admin Supabase client for server-side operations
 const supabaseAdmin = createClient(
@@ -9,70 +10,15 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Initialize ClickHouse client
-function createClickHouseConfig() {
-  const url = process.env.CLICKHOUSE_URL;
-  if (url) {
-    // Parse ClickHouse URL: https://username:password@host:port/database
-    const urlPattern = /^https?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/;
-    const match = url.match(urlPattern);
-    if (match) {
-      const [, username, password, host, port, database] = match;
-      return {
-        host: `https://${host}:${port}`,
-        username,
-        password,
-        database,
-      };
-    }
-  }
-}
+// Get the singleton ClickHouse client
+const clickhouse = getClickHouseClient();
 
-const clickhouse = createClickHouseClient(createClickHouseConfig());
-
-// Rate limiting store (in production, use Redis)
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 100; // requests per minute per IP
-const SITE_RATE_LIMIT_MAX_REQUESTS = 1000; // requests per minute per site
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const userLimit = rateLimitStore.get(ip);
-
-  if (!userLimit || now > userLimit.resetTime) {
-    rateLimitStore.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-
-  if (userLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return false;
-  }
-
-  userLimit.count++;
-  return true;
-}
-
-function checkSiteRateLimit(siteId: string): boolean {
-  const now = Date.now();
-  const siteKey = `site_${siteId}`;
-  const siteLimit = rateLimitStore.get(siteKey);
-
-  if (!siteLimit || now > siteLimit.resetTime) {
-    rateLimitStore.set(siteKey, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-
-  if (siteLimit.count >= SITE_RATE_LIMIT_MAX_REQUESTS) {
-    return false;
-  }
-
-  siteLimit.count++;
-  return true;
-}
+// Log rate limiting backend on startup
+console.log(`[v1/ingest] Rate limiting backend: ${isRedisAvailable() ? 'Upstash Redis' : 'In-memory (development)'}`);
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Validate request size (max 1MB)
     if (!validateRequestSize(request, 1)) {
@@ -83,23 +29,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Get client IP for rate limiting
-    const clientIP = request.headers.get('x-forwarded-for') ||
+    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0] ||
                     request.headers.get('x-real-ip') ||
                     'unknown';
 
     // Validate IP format
     if (!validators.isValidIP(clientIP) && clientIP !== 'unknown') {
-      console.warn(`Invalid IP format: ${clientIP}`);
+      console.warn(`[v1/ingest] Invalid IP format: ${clientIP}`);
     }
 
-    // Rate limiting check
-    if (!checkRateLimit(clientIP)) {
-      return NextResponse.json(
-        { error: 'Rate limit exceeded' },
-        { status: 429 }
-      );
-    }
-
+    // Parse body first to get siteId for combined rate limiting
     const body = await request.json();
     const { events, siteId } = body;
 
@@ -120,11 +59,25 @@ export async function POST(request: NextRequest) {
 
     // Validate siteId format (UUID)
     if (!validators.isValidUUID(siteId)) {
-      console.warn(`Invalid siteId format attempted: ${siteId}`);
+      console.warn(`[v1/ingest] Invalid siteId format: ${siteId}`);
       return NextResponse.json(
         { error: 'Invalid site ID format' },
         { status: 400 }
       );
+    }
+
+    // Combined rate limiting check (IP + site)
+    const rateLimitResult = await checkRateLimits(clientIP, siteId);
+    if (!rateLimitResult.allowed) {
+      const response = NextResponse.json(
+        { error: rateLimitResult.reason || 'Rate limit exceeded' },
+        { status: 429 }
+      );
+      // Add rate limit headers
+      Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
+        response.headers.set(key, value);
+      });
+      return response;
     }
 
     // Limit number of events per request
@@ -144,23 +97,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (siteError || !siteData) {
-      console.warn(`Invalid site ID attempted: ${siteId}`, siteError?.message);
+      console.warn(`[v1/ingest] Invalid site ID: ${siteId}`, siteError?.message);
       return NextResponse.json(
         { error: 'Invalid site ID' },
         { status: 403 }
       );
     }
 
-    console.log(`Analytics data received and processed for site`);
-
-    // Additional rate limiting per site to prevent abuse
-    if (!checkSiteRateLimit(siteId)) {
-      console.warn(`Site rate limit exceeded for site: ${siteId}`);
-      return NextResponse.json(
-        { error: 'Site rate limit exceeded' },
-        { status: 429 }
-      );
-    }
+    console.log(`[v1/ingest] Processing ${events.length} events for site ${siteId}`);
 
     // Process and validate events with comprehensive validation
     const validEvents: ValidatedEventData[] = [];
@@ -249,13 +193,22 @@ export async function POST(request: NextRequest) {
 
     await Promise.allSettled(insertPromises);
 
-    return NextResponse.json({
+    const duration = Date.now() - startTime;
+    console.log(`[v1/ingest] Processed ${validEvents.length} events in ${duration}ms`);
+
+    // Add rate limit headers to success response
+    const response = NextResponse.json({
       success: true,
-      processed: validEvents.length
+      processed: validEvents.length,
+      duration_ms: duration
     });
+    Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
 
   } catch (error) {
-    console.error('Analytics API error:', error);
+    console.error('[v1/ingest] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -267,6 +220,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: 'healthy',
+    rateLimit: isRedisAvailable() ? 'redis' : 'memory',
     timestamp: new Date().toISOString()
   });
 }

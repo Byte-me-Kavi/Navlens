@@ -1,18 +1,13 @@
 // app/api/heatmap-scrolls/route.ts
 
-import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { encryptedJsonResponse } from '@/lib/encryption';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
-const client = createClient({
-  url: process.env.CLICKHOUSE_URL,
-  host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-});
+// Get the singleton ClickHouse client
+const client = getClickHouseClient();
 
 // Cached scroll data fetcher
 const getCachedScrollData = unstable_cache(

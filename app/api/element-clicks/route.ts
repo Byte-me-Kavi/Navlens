@@ -1,30 +1,13 @@
 // app/api/element-clicks/route.ts
 
-import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { encryptedJsonResponse } from '@/lib/encryption';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
-// Initialize ClickHouse client - supports both Cloud (URL) and local (host-based) setups
-const client = (() => {
-  const url = process.env.CLICKHOUSE_URL;
-
-  if (url) {
-    // Production: Use full URL for ClickHouse Cloud (https://user:pass@host:8443/database)
-    console.log('[element-clicks] Initializing ClickHouse Cloud client');
-    return createClient({ url });
-  } else {
-    // Development: Use host-based configuration for local ClickHouse
-    console.log('[element-clicks] Initializing local ClickHouse client');
-    return createClient({
-      url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
-      username: process.env.CLICKHOUSE_USER,
-      password: process.env.CLICKHOUSE_PASSWORD,
-      database: process.env.CLICKHOUSE_DATABASE,
-    });
-  }
-})();
+// Get the singleton ClickHouse client
+const client = getClickHouseClient();
 
 export async function POST(req: NextRequest) {
   try {

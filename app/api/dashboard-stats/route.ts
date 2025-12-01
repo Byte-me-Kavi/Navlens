@@ -1,9 +1,9 @@
-import { createClient } from '@clickhouse/client';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { encryptedJsonResponse } from '@/lib/encryption';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
 // --- Type Definitions ---
 interface ClickData {
@@ -35,32 +35,8 @@ function calculateTrend(current: number, previous: number) {
   };
 }
 
-// --- Shared ClickHouse Client (Singleton) ---
-const clickHouseClient = (() => {
-    const url = process.env.CLICKHOUSE_URL;
-    
-    if (url) {
-        // Production: Use full URL for ClickHouse Cloud (https://user:pass@host:8443/database)
-        return createClient({ 
-          url,
-          clickhouse_settings: {
-            // Enterprise Tweak: Timeout faster so the dashboard doesn't hang if CH is down
-            max_execution_time: 10, 
-          }
-        });
-    } else {
-        // Development: Use host-based configuration for local ClickHouse
-        return createClient({
-            url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
-            username: process.env.CLICKHOUSE_USER,
-            password: process.env.CLICKHOUSE_PASSWORD,
-            database: process.env.CLICKHOUSE_DATABASE,
-            clickhouse_settings: {
-              max_execution_time: 10,
-            }
-        });
-    }
-})();
+// --- Use Singleton ClickHouse Client ---
+const clickHouseClient = getClickHouseClient();
 
 // --- 1. THE CACHED DATA FETCHER ---
 // This function will execute ONCE every 60 seconds per user. 

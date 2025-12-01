@@ -3,6 +3,7 @@
 import SideNavbar from "@/components/SideNavbar";
 import Header from "@/components/Header";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { Toast } from "@/components/Toast";
@@ -204,7 +205,15 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
               isHeatmapViewer ? "p-0" : "p-4"
             }`}
           >
-            {children}
+            <ErrorBoundary
+              onError={(error, errorInfo) => {
+                // Log to console in production for debugging
+                console.error("[Dashboard Error]", error.message);
+                console.error("[Dashboard Stack]", errorInfo.componentStack);
+              }}
+            >
+              {children}
+            </ErrorBoundary>
           </main>
         </div>
       </div>

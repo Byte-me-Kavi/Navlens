@@ -1,40 +1,14 @@
 // app/api/heatmap-clicks/route.ts
 
-import { createClient as createClickHouseClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { encryptedJsonResponse } from '@/lib/encryption';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
-// Initialize ClickHouse client
-function createClickHouseConfig() {
-  const url = process.env.CLICKHOUSE_URL;
-  if (url) {
-    // Parse ClickHouse URL: https://username:password@host:port/database
-    const urlPattern = /^https?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/;
-    const match = url.match(urlPattern);
-    if (match) {
-      const [, username, password, host, port, database] = match;
-      return {
-        host: `https://${host}:${port}`,
-        username,
-        password,
-        database,
-      };
-    }
-  }
-
-  // Fallback to individual env vars
-  return {
-    host: process.env.CLICKHOUSE_HOST!,
-    username: process.env.CLICKHOUSE_USERNAME!,
-    password: process.env.CLICKHOUSE_PASSWORD!,
-    database: process.env.CLICKHOUSE_DATABASE!,
-  };
-}
-
-const clickhouse = createClickHouseClient(createClickHouseConfig());
+// Get the singleton ClickHouse client
+const clickhouse = getClickHouseClient();
 
 // Cached query executor - caches results for 60 seconds
 const getCachedHeatmapClicks = unstable_cache(

@@ -1,28 +1,13 @@
 // app/api/element-clicks-all-viewports/route.ts
 
-import { createClient } from '@clickhouse/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { encryptedJsonResponse } from '@/lib/encryption';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
-// Initialize ClickHouse client
-const client = (() => {
-  const url = process.env.CLICKHOUSE_URL;
-
-  if (url) {
-    console.log('[element-clicks-all-viewports] Initializing ClickHouse Cloud client');
-    return createClient({ url });
-  } else {
-    console.log('[element-clicks-all-viewports] Initializing local ClickHouse client');
-    return createClient({
-      url: `http://${process.env.CLICKHOUSE_HOST || 'localhost'}:8123`,
-      username: process.env.CLICKHOUSE_USER,
-      password: process.env.CLICKHOUSE_PASSWORD,
-      database: process.env.CLICKHOUSE_DATABASE,
-    });
-  }
-})();
+// Get the singleton ClickHouse client
+const client = getClickHouseClient();
 
 export async function POST(req: NextRequest) {
   try {

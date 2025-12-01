@@ -6,40 +6,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createClickHouseClient } from '@clickhouse/client';
 import { unstable_cache } from 'next/cache';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { encryptedJsonResponse } from '@/lib/encryption';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
-// Initialize ClickHouse client
-function createClickHouseConfig() {
-  const url = process.env.CLICKHOUSE_URL;
-  if (url) {
-    const urlPattern = /^https?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/;
-    const match = url.match(urlPattern);
-    if (match) {
-      const [, username, password, host, port, database] = match;
-      return {
-        host: `https://${host}:${port}`,
-        username,
-        password,
-        database,
-      };
-    }
-  }
-
-  return {
-    host: process.env.CLICKHOUSE_HOST!,
-    username: process.env.CLICKHOUSE_USERNAME!,
-    password: process.env.CLICKHOUSE_PASSWORD!,
-    database: process.env.CLICKHOUSE_DATABASE!,
-  };
-}
-
-const clickhouse = createClickHouseClient(createClickHouseConfig());
+// Get the singleton ClickHouse client
+const clickhouse = getClickHouseClient();
 
 // Create Supabase server client
 async function createSupabaseClient() {
@@ -89,30 +65,60 @@ interface Funnel {
 // Cached funnel analysis using ClickHouse windowFunnel
 const getCachedFunnelAnalysis = unstable_cache(
   async (siteId: string, steps: FunnelStep[], startDate: string, endDate: string) => {
-    // Build windowFunnel conditions
+    // 🔒 Security: Sanitize step values to prevent SQL injection
+    const sanitizeValue = (value: string): string => {
+      // Escape single quotes and backslashes
+      return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    };
+    
+    // Validate step conditions
+    const validateCondition = (condition: { type: string; value: string }): boolean => {
+      const allowedTypes = ['contains', 'equals', 'starts_with', 'ends_with', 'regex'];
+      if (!allowedTypes.includes(condition.type)) return false;
+      // Prevent extremely long values that could cause issues
+      if (condition.value.length > 500) return false;
+      // For regex, validate it's a valid pattern (basic check)
+      if (condition.type === 'regex') {
+        try {
+          new RegExp(condition.value);
+        } catch {
+          return false;
+        }
+      }
+      return true;
+    };
+    
+    // Build windowFunnel conditions with sanitized values
     const stepConditions = steps
       .sort((a, b) => a.order_index - b.order_index)
       .map(step => {
         if (step.conditions && step.conditions.length > 0) {
-          const pathConditions = step.conditions.map(condition => {
+          const validConditions = step.conditions.filter(validateCondition);
+          if (validConditions.length === 0) {
+            // Fallback to page_path if all conditions are invalid
+            return `page_path = '${sanitizeValue(step.page_path)}'`;
+          }
+          
+          const pathConditions = validConditions.map(condition => {
+            const safeValue = sanitizeValue(condition.value);
             switch (condition.type) {
               case 'contains':
-                return `position(page_path, '${condition.value}') > 0`;
+                return `position(page_path, '${safeValue}') > 0`;
               case 'equals':
-                return `page_path = '${condition.value}'`;
+                return `page_path = '${safeValue}'`;
               case 'starts_with':
-                return `startsWith(page_path, '${condition.value}')`;
+                return `startsWith(page_path, '${safeValue}')`;
               case 'ends_with':
-                return `endsWith(page_path, '${condition.value}')`;
+                return `endsWith(page_path, '${safeValue}')`;
               case 'regex':
-                return `match(page_path, '${condition.value}')`;
+                return `match(page_path, '${safeValue}')`;
               default:
-                return `page_path = '${step.page_path}'`;
+                return `page_path = '${sanitizeValue(step.page_path)}'`;
             }
           }).join(' OR ');
           return `(${pathConditions})`;
         }
-        return `page_path = '${step.page_path}'`;
+        return `page_path = '${sanitizeValue(step.page_path)}'`;
       });
 
     // Query using windowFunnel function for accurate funnel analysis

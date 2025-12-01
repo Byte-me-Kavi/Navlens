@@ -1,68 +1,115 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Helper to add CORS headers
+function addCorsHeaders(response: NextResponse): NextResponse {
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    return response;
+}
+
+// Cached site validation (5 minutes)
+const validateSiteAndAuth = unstable_cache(
+    async (siteId: string) => {
+        const { data: siteData, error: siteError } = await supabase
+            .from('sites')
+            .select('id, user_id, api_key, domain')
+            .eq('id', siteId)
+            .single();
+
+        if (siteError || !siteData) {
+            return { valid: false, error: 'Site not found' };
+        }
+
+        return { 
+            valid: true, 
+            userId: siteData.user_id,
+            apiKey: siteData.api_key,
+            domain: siteData.domain
+        };
+    },
+    ['site-rrweb-validation'],
+    { revalidate: 300 } // 5 minutes cache
+);
+
+// Timing-safe string comparison to prevent timing attacks
+function secureCompare(a: string, b: string): boolean {
+    if (a.length !== b.length) return false;
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+        result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return result === 0;
+}
+
 export async function POST(req: NextRequest) {
+    const startTime = Date.now();
     console.log('=== RRWeb Events API Called ===');
-    console.log('Request method:', req.method);
-    console.log('Request headers:', Object.fromEntries(req.headers));
     
     try {
         const body = await req.json();
-        console.log('Received body keys:', Object.keys(body));
 
         // Destructure all fields sent by tracker.js
         const {
-            site_id, page_path, session_id, visitor_id, events, timestamp,
+            site_id, api_key, page_path, session_id, visitor_id, events, timestamp,
             user_agent, screen_width, screen_height, language, timezone,
             referrer, viewport_width, viewport_height, device_pixel_ratio,
             platform, cookie_enabled, online, device_type, load_time, dom_ready_time
         } = body;
 
         if (!site_id || !events) {
-            const response = NextResponse.json({ error: 'Missing required data' }, { status: 400 });
-            response.headers.set('Access-Control-Allow-Origin', '*');
-            response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-            response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-            return response;
+            return addCorsHeaders(NextResponse.json(
+                { error: 'Missing required data' }, 
+                { status: 400 }
+            ));
         }
 
-        // For rrweb events, we'll accept any site_id without validation
-        // This allows collecting data from sites that aren't registered yet
-        let ownerUserId = null;
+        // Validate site exists and check API key
+        const validation = await validateSiteAndAuth(site_id);
+        
+        if (!validation.valid) {
+            console.warn(`[rrweb-events] Invalid site_id: ${site_id}`);
+            return addCorsHeaders(NextResponse.json(
+                { error: 'Invalid site' }, 
+                { status: 403 }
+            ));
+        }
 
-        // Try to lookup the site owner if the site exists
-        try {
-            const { data: siteData, error: siteError } = await supabase
-                .from('sites')
-                .select('user_id')
-                .eq('id', site_id)
-                .single();
-
-            if (!siteError && siteData && siteData.user_id) {
-                ownerUserId = siteData.user_id;
-                console.log('Found site owner user_id:', ownerUserId);
-            } else {
-                console.log('Site not found or no user_id, proceeding without user_id');
+        // If site has API key, require it from tracker
+        if (validation.apiKey) {
+            if (!api_key) {
+                console.warn(`[rrweb-events] Site ${site_id} requires API key but none provided`);
+                return addCorsHeaders(NextResponse.json(
+                    { error: 'API key required' }, 
+                    { status: 401 }
+                ));
             }
-        } catch (error) {
-            console.log('Error looking up site, proceeding without user_id:', error);
+            if (!secureCompare(api_key, validation.apiKey)) {
+                console.warn(`[rrweb-events] Invalid API key for site ${site_id}`);
+                return addCorsHeaders(NextResponse.json(
+                    { error: 'Invalid API key' }, 
+                    { status: 401 }
+                ));
+            }
         }
+
+        const ownerUserId = validation.userId;
+        console.log(`[rrweb-events] Authenticated request for site ${site_id}, events: ${events.length}`);
 
         // --- 2. GET GEO LOCATION (IP & Country) ---
-        // Vercel/Next.js provides IP headers automatically
         const forwarded = req.headers.get('x-forwarded-for');
         const ip = forwarded ? forwarded.split(',')[0] : '127.0.0.1';
-
-        // Vercel also provides country code in headers (Free & Pro plans)
         const country = req.headers.get('x-vercel-ip-country') || 'Unknown';
 
         // --- 3. INSERT INTO SUPABASE ---
-        console.log('Inserting rrweb events for site_id:', site_id, 'events count:', events.length);
+        console.log(`[rrweb-events] Inserting ${events.length} events for site ${site_id}`);
         
         // Build insert data conditionally
         interface InsertData {
@@ -127,55 +174,35 @@ export async function POST(req: NextRequest) {
             dom_ready_time: dom_ready_time ? Math.min(parseFloat(dom_ready_time), 99999999.99) : null,
         };
 
-        console.log('Insert data keys:', Object.keys(insertData));
-        console.log('Insert data sample:', JSON.stringify(insertData).substring(0, 500));
-
         try {
             const { error } = await supabase
                 .from('rrweb_events')
                 .insert(insertData);
 
             if (error) {
-                console.error('Supabase Insert Error:', error);
-                console.error('Error details:', JSON.stringify(error, null, 2));
-                const response = NextResponse.json({ 
+                console.error('[rrweb-events] Supabase Insert Error:', error.message);
+                return addCorsHeaders(NextResponse.json({ 
                     error: 'Database insert failed', 
                     details: error.message,
                     code: error.code 
-                }, { status: 500 });
-                response.headers.set('Access-Control-Allow-Origin', '*');
-                response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-                response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-                return response;
+                }, { status: 500 }));
             }
 
-            console.log('Successfully inserted rrweb events');
-            console.log('Returning success response');
-            const response = NextResponse.json({ success: true });
-            response.headers.set('Access-Control-Allow-Origin', '*');
-            response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-            response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-            return response;
+            const duration = Date.now() - startTime;
+            console.log(`[rrweb-events] Success - ${events.length} events in ${duration}ms`);
+            return addCorsHeaders(NextResponse.json({ success: true }));
         } catch (dbError) {
-            console.error('Database operation failed:', dbError);
-            const response = NextResponse.json({ 
+            console.error('[rrweb-events] Database operation failed:', dbError);
+            return addCorsHeaders(NextResponse.json({ 
                 error: 'Database operation failed', 
                 details: dbError instanceof Error ? dbError.message : 'Unknown error'
-            }, { status: 500 });
-            response.headers.set('Access-Control-Allow-Origin', '*');
-            response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-            response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-            return response;
+            }, { status: 500 }));
         }
 
     } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error(String(error));
-        console.error('RRWeb Event Error:', err);
-        const response = NextResponse.json({ error: err.message }, { status: 500 });
-        response.headers.set('Access-Control-Allow-Origin', '*');
-        response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-        response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-        return response;
+        console.error('[rrweb-events] Error:', err.message);
+        return addCorsHeaders(NextResponse.json({ error: err.message }, { status: 500 }));
     }
 }
 

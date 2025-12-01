@@ -149,43 +149,100 @@ function AddSiteForm({
 
 // --- Snippet Code Block Component ---
 function SnippetCode({ site }: { site: Site }) {
-  const [copied, setCopied] = useState(false);
+  const [snippetCopied, setSnippetCopied] = useState(false);
+  const [apiKeyCopied, setApiKeyCopied] = useState(false);
 
+  // Include API key in the snippet for secure tracking
   const snippet = `<script 
   async 
   src="${NAVLENS_API_HOST}/tracker.js" 
   data-site-id="${site.id}"
+  data-api-key="${site.api_key}"
   data-api-host="${NAVLENS_API_HOST}"
 ></script>`;
 
-  const handleCopy = () => {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleSnippetCopy = () => {
+    setSnippetCopied(true);
+    setTimeout(() => setSnippetCopied(false), 2000);
   };
 
+  const handleApiKeyCopy = () => {
+    setApiKeyCopied(true);
+    setTimeout(() => setApiKeyCopied(false), 2000);
+  };
+
+  // Mask API key for display (show first 8 and last 4 chars)
+  const maskedApiKey = site.api_key
+    ? `${site.api_key.substring(0, 8)}...${site.api_key.substring(
+        site.api_key.length - 4
+      )}`
+    : "Not set";
+
   return (
-    <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <CodeBracketIcon className="w-5 h-5 text-blue-600" />
-          <h4 className="text-sm font-semibold text-gray-900">
-            Installation Code
-          </h4>
+    <div className="mt-6 space-y-4">
+      {/* API Key Section */}
+      <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-5 h-5 text-amber-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+              />
+            </svg>
+            <h4 className="text-sm font-semibold text-gray-900">API Key</h4>
+          </div>
+          <CopyToClipboard text={site.api_key || ""} onCopy={handleApiKeyCopy}>
+            <button
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all duration-200 shadow-sm hover:shadow-md"
+              disabled={!site.api_key}
+            >
+              <DocumentDuplicateIcon className="w-4 h-4" />
+              {apiKeyCopied ? "Copied!" : "Copy Key"}
+            </button>
+          </CopyToClipboard>
         </div>
-        <CopyToClipboard text={snippet} onCopy={handleCopy}>
-          <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
-            <DocumentDuplicateIcon className="w-4 h-4" />
-            {copied ? "Copied!" : "Copy"}
-          </button>
-        </CopyToClipboard>
+        <p className="text-xs text-gray-600 mb-2">
+          This API key authenticates your tracker. Keep it secure and never
+          share it publicly.
+        </p>
+        <div className="bg-white p-2 rounded border border-amber-200 font-mono text-xs text-gray-700">
+          {maskedApiKey}
+        </div>
       </div>
-      <p className="text-xs text-gray-600 mb-3">
-        Copy and paste this code into the &lt;head&gt; tag of your website.
-      </p>
-      <div className="bg-white p-3 rounded-lg border border-gray-200 overflow-x-auto">
-        <pre className="text-xs text-gray-800">
-          <code>{snippet}</code>
-        </pre>
+
+      {/* Installation Code Section */}
+      <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <CodeBracketIcon className="w-5 h-5 text-blue-600" />
+            <h4 className="text-sm font-semibold text-gray-900">
+              Installation Code
+            </h4>
+          </div>
+          <CopyToClipboard text={snippet} onCopy={handleSnippetCopy}>
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
+              <DocumentDuplicateIcon className="w-4 h-4" />
+              {snippetCopied ? "Copied!" : "Copy"}
+            </button>
+          </CopyToClipboard>
+        </div>
+        <p className="text-xs text-gray-600 mb-3">
+          Copy and paste this code into the &lt;head&gt; tag of your website.
+          The API key is included for secure tracking.
+        </p>
+        <div className="bg-white p-3 rounded-lg border border-gray-200 overflow-x-auto">
+          <pre className="text-xs text-gray-800">
+            <code>{snippet}</code>
+          </pre>
+        </div>
       </div>
     </div>
   );
