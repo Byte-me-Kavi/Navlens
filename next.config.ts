@@ -5,29 +5,9 @@ const nextConfig: NextConfig = {
   turbopack: {},
   experimental: {
   },
-  async headers() {
-    return [
-      {
-        // We want to apply these headers to our API route
-        // This will match /api/v1/ingest
-        source: "/api/v1/ingest",
-        headers: [
-          {
-            key: "Access-Control-Allow-Origin",
-            value: "*", // This allows ANY domain to send requests
-          },
-          {
-            key: "Access-Control-Allow-Methods",
-            value: "POST, OPTIONS", // Allow POST and the preflight OPTIONS requests
-          },
-          {
-            key: "Access-Control-Allow-Headers",
-            value: "Content-Type", // Allow the 'application/json' header
-          },
-        ],
-      },
-    ];
-  },
+  // CORS headers are handled dynamically in API route handlers
+  // This allows proper handling of credentials and specific origins
+  // See: app/api/v1/ingest/route.ts, app/api/dom-snapshot/route.ts, etc.
 
   // CRITICAL: This tells Next.js to let these packages manage their own files
   // Required for @sparticuz/chromium to work properly in Vercel serverless functions

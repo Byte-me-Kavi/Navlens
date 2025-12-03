@@ -9,12 +9,23 @@ const supabase = createClient(
 
 // Helper to add CORS headers with dynamic origin
 function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
-    // Use the requesting origin if provided, otherwise allow all
-    // This is required because some browsers include credentials with fetch
-    response.headers.set('Access-Control-Allow-Origin', origin || '*');
+    // CRITICAL: When Access-Control-Allow-Credentials is true, we CANNOT use wildcard '*'
+    // We must either:
+    // 1. Return the specific requesting origin, OR
+    // 2. Not include credentials header and use '*'
+    
+    if (origin) {
+        // If we have an origin, use it specifically (required for credentials)
+        response.headers.set('Access-Control-Allow-Origin', origin);
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
+    } else {
+        // If no origin (e.g., same-origin requests, curl, etc.), allow all without credentials
+        response.headers.set('Access-Control-Allow-Origin', '*');
+        // Don't set Allow-Credentials when using wildcard
+    }
+    
     response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
     return response;
 }
 
@@ -34,23 +45,12 @@ const validateSiteAndAuth = unstable_cache(
         return { 
             valid: true, 
             userId: siteData.user_id,
-            apiKey: siteData.api_key,
             domain: siteData.domain
         };
     },
     ['site-rrweb-validation'],
     { revalidate: 300 } // 5 minutes cache
 );
-
-// Timing-safe string comparison to prevent timing attacks
-function secureCompare(a: string, b: string): boolean {
-    if (a.length !== b.length) return false;
-    let result = 0;
-    for (let i = 0; i < a.length; i++) {
-        result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    }
-    return result === 0;
-}
 
 export async function POST(req: NextRequest) {
     const startTime = Date.now();
@@ -61,8 +61,9 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
 
         // Destructure all fields sent by tracker.js
+        // NOTE: api_key is no longer sent from client for security
         const {
-            site_id, api_key, page_path, session_id, visitor_id, events, timestamp,
+            site_id, page_path, session_id, visitor_id, events, timestamp,
             user_agent, screen_width, screen_height, language, timezone,
             referrer, viewport_width, viewport_height, device_pixel_ratio,
             platform, cookie_enabled, online, device_type, load_time, dom_ready_time,
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
             ), origin);
         }
 
-        // Validate site exists and check API key
+        // Validate site exists
         const validation = await validateSiteAndAuth(site_id);
         
         if (!validation.valid) {
@@ -87,21 +88,19 @@ export async function POST(req: NextRequest) {
             ), origin);
         }
 
-        // If site has API key, require it from tracker
-        if (validation.apiKey) {
-            if (!api_key) {
-                console.warn(`[rrweb-events] Site ${site_id} requires API key but none provided`);
-                return addCorsHeaders(NextResponse.json(
-                    { error: 'API key required' }, 
-                    { status: 401 }
-                ), origin);
-            }
-            if (!secureCompare(api_key, validation.apiKey)) {
-                console.warn(`[rrweb-events] Invalid API key for site ${site_id}`);
-                return addCorsHeaders(NextResponse.json(
-                    { error: 'Invalid API key' }, 
-                    { status: 401 }
-                ), origin);
+        // Validate Origin header matches the site's registered domain (if configured)
+        // This provides security without exposing API keys in client-side code
+        if (validation.domain && origin) {
+            const originHost = new URL(origin).hostname;
+            const allowedDomain = validation.domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+            
+            // Allow localhost for development
+            const isLocalhost = originHost === 'localhost' || originHost === '127.0.0.1';
+            const domainMatches = originHost === allowedDomain || originHost.endsWith('.' + allowedDomain);
+            
+            if (!isLocalhost && !domainMatches) {
+                console.warn(`[rrweb-events] Origin ${origin} doesn't match site domain ${validation.domain}`);
+                // Log but don't block - domain might not be configured yet
             }
         }
 

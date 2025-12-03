@@ -6,12 +6,23 @@ import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
 
 // Helper to add CORS headers to response with dynamic origin
 function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
-  // Use the requesting origin if provided, otherwise allow all
-  // This is required because sendBeacon may include credentials
-  response.headers.set('Access-Control-Allow-Origin', origin || '*');
+  // CRITICAL: When Access-Control-Allow-Credentials is true, we CANNOT use wildcard '*'
+  // We must either:
+  // 1. Return the specific requesting origin, OR
+  // 2. Not include credentials header and use '*'
+  
+  if (origin) {
+    // If we have an origin, use it specifically (required for credentials)
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+  } else {
+    // If no origin (e.g., same-origin requests, curl, etc.), allow all without credentials
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    // Don't set Allow-Credentials when using wildcard
+  }
+  
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-  response.headers.set('Access-Control-Allow-Credentials', 'true');
   response.headers.set('Access-Control-Max-Age', '86400');
   return response;
 }

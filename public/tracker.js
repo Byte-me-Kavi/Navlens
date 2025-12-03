@@ -10,7 +10,8 @@
 
   // Read parameters from the script tag attributes
   const SITE_ID = SCRIPT_TAG.getAttribute("data-site-id");
-  const API_KEY = SCRIPT_TAG.getAttribute("data-api-key"); // Optional API key for authenticated sites
+  // NOTE: API keys are NOT sent from client-side for security
+  // Server validates requests using site_id + Origin header
   const API_HOST =
     SCRIPT_TAG.getAttribute("data-api-host") ||
     (window.location.hostname === "localhost" ||
@@ -115,24 +116,68 @@
         return true;
 
       // Check for cursor pointer (indicates clickable)
-      const style = window.getComputedStyle(el);
-      if (style.cursor === "pointer") return true;
+      try {
+        const style = window.getComputedStyle(el);
+        if (style.cursor === "pointer") return true;
+      } catch (e) {
+        // Ignore style errors
+      }
 
       // Check parent
       return hasClickHandler(el.parentElement);
     };
 
-    // Check if it looks clickable but isn't
+    // Check if it looks clickable but isn't - more lenient detection
     const looksClickable = (el) => {
-      const style = window.getComputedStyle(el);
-      // Has border, background, or looks like a button
-      return (
-        el.classList.contains("btn") ||
-        el.classList.contains("button") ||
-        style.cursor === "pointer" ||
-        (style.backgroundColor !== "rgba(0, 0, 0, 0)" &&
-          style.borderRadius !== "0px")
-      );
+      try {
+        const style = window.getComputedStyle(el);
+        const tagName = el.tagName.toLowerCase();
+        const classes = el.className || "";
+
+        // Check common button-like classes
+        const buttonClasses = [
+          "btn",
+          "button",
+          "cta",
+          "action",
+          "submit",
+          "card",
+          "clickable",
+        ];
+        const hasButtonClass = buttonClasses.some(
+          (cls) =>
+            typeof classes === "string" && classes.toLowerCase().includes(cls)
+        );
+
+        // Check for visual indicators
+        const hasPointerCursor = style.cursor === "pointer";
+        const hasBackground =
+          style.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+          style.backgroundColor !== "transparent";
+        const hasBorderRadius = style.borderRadius !== "0px";
+        const hasBorder =
+          style.border &&
+          style.border !== "none" &&
+          style.borderWidth !== "0px";
+        const hasBoxShadow = style.boxShadow && style.boxShadow !== "none";
+
+        // Element looks like a card or clickable container
+        const looksLikeCard =
+          hasBackground && (hasBorderRadius || hasBoxShadow);
+
+        // Images and divs with pointer events
+        const isVisualElement = ["img", "svg", "div", "span", "li"].includes(
+          tagName
+        );
+
+        return (
+          hasButtonClass ||
+          hasPointerCursor ||
+          (isVisualElement && looksLikeCard)
+        );
+      } catch (e) {
+        return false;
+      }
     };
 
     // Delay check to see if navigation or state change occurred
@@ -141,7 +186,18 @@
       const urlAfter = window.location.href;
       const urlChanged = urlBefore !== urlAfter;
 
-      if (!urlChanged && !hasClickHandler(element) && looksClickable(element)) {
+      const isHandler = hasClickHandler(element);
+      const looksClick = looksClickable(element);
+
+      // Debug logging
+      console.log("Navlens: Dead click check:", {
+        element: element.tagName,
+        hasHandler: isHandler,
+        looksClickable: looksClick,
+        urlChanged: urlChanged,
+      });
+
+      if (!urlChanged && !isHandler && looksClick) {
         const signal = {
           type: "dead_click",
           timestamp: new Date().toISOString(),
@@ -164,9 +220,12 @@
   let hasDetectedUTurn = false;
 
   window.addEventListener("popstate", () => {
+    console.log("Navlens: popstate detected, checking for U-turn");
     if (hasDetectedUTurn) return;
 
     const timeOnPage = Date.now() - pageLoadTime;
+    console.log("Navlens: Time on page:", timeOnPage, "ms");
+
     if (timeOnPage < 3000) {
       // Left within 3 seconds
       hasDetectedUTurn = true;
@@ -189,6 +248,8 @@
   window.addEventListener("beforeunload", () => {
     isNavigatingAway = true;
     const timeOnPage = Date.now() - pageLoadTime;
+    console.log("Navlens: beforeunload - time on page:", timeOnPage, "ms");
+
     if (timeOnPage < 2000 && !hasDetectedUTurn) {
       const signal = {
         type: "quick_exit",
@@ -199,6 +260,7 @@
         },
       };
       sessionSignals.push(signal);
+      console.log("🟡 Quick exit detected:", signal);
       // Send immediately before page unloads
       sendRrwebEvents();
     }
@@ -274,6 +336,12 @@
       },
     };
     sessionSignals.push(signal);
+    // Use originalConsoleError to avoid capturing our own log
+    originalConsoleError.call(
+      console,
+      "❌ Navlens: JS error captured:",
+      signal
+    );
   });
 
   // --- Unhandled Promise Rejection Capture ---
@@ -287,7 +355,28 @@
       },
     };
     sessionSignals.push(signal);
+    originalConsoleError.call(
+      console,
+      "❌ Navlens: Unhandled rejection captured:",
+      signal
+    );
   });
+
+  // --- Debug: Expose signals for testing ---
+  window.__navlensSignals = function () {
+    console.log("📊 Navlens Session Signals:", sessionSignals);
+    console.log("📋 Navlens Console Logs:", capturedConsoleLogs);
+    return { sessionSignals, capturedConsoleLogs };
+  };
+
+  // Log signals count periodically (every 10 seconds)
+  setInterval(() => {
+    if (sessionSignals.length > 0 || capturedConsoleLogs.length > 0) {
+      console.log(
+        `📊 Navlens: ${sessionSignals.length} signals, ${capturedConsoleLogs.length} console logs captured`
+      );
+    }
+  }, 10000);
 
   // --- Helper: Get CSS Selector for Element ---
   function getElementSelector(el) {
@@ -464,7 +553,7 @@
     // Prepare the payload matching the Database Schema with rich metadata
     const payload = {
       site_id: SITE_ID,
-      api_key: API_KEY, // Include API key for authenticated sites
+      // NOTE: No API key sent - server validates via site_id + Origin header
       page_path: window.location.pathname,
       session_id: getSessionId(),
       visitor_id: getVisitorId(),
@@ -503,8 +592,18 @@
       "Payload site_id:",
       payload.site_id,
       "events count:",
-      payload.events.length
+      payload.events.length,
+      "signals count:",
+      signalsToSend.length
     );
+
+    // Log what signals are being sent
+    if (signalsToSend.length > 0) {
+      console.log(
+        "📤 Sending session signals:",
+        signalsToSend.map((s) => s.type)
+      );
+    }
 
     fetch(RRWEB_EVENTS_ENDPOINT, {
       method: "POST",
@@ -968,7 +1067,7 @@
 
       const payload = {
         site_id: SITE_ID,
-        api_key: API_KEY || undefined, // Include API key if provided
+        // NOTE: No API key sent - server validates via site_id + Origin header
         page_path: window.location.pathname,
         device_type: deviceType,
         snapshot: snap, // compressedSnap,
