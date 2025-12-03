@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { gzip } from 'zlib';
 import { promisify } from 'util';
 import { validators } from '@/lib/validation';
+import { parseRequestBody } from '@/lib/decompress';
 
 const gzipAsync = promisify(gzip);
 
@@ -24,7 +25,7 @@ function addCorsHeaders(response: NextResponse, origin?: string | null): NextRes
   }
   
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
   response.headers.set('Access-Control-Max-Age', '86400');
   return response;
 }
@@ -110,7 +111,19 @@ export async function POST(req: NextRequest) {
         
         // 1. Extract Data (Including new width/height/hash fields from tracker)
         // NOTE: api_key is no longer sent from client for security
-        const body = await req.json();
+        // Handles both gzip compressed and regular JSON payloads
+        interface SnapshotBody {
+            site_id: string;
+            page_path: string;
+            device_type: string;
+            snapshot: unknown;
+            styles?: unknown[];
+            origin?: string;
+            width?: number;
+            height?: number;
+            hash?: string;
+        }
+        const body = await parseRequestBody<SnapshotBody>(req);
         const { 
             site_id, 
             page_path, 

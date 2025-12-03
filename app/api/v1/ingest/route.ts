@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { validators, ValidationError, validateRequestSize, ValidatedEventData } from '@/lib/validation';
+import { validators, ValidationError, validateRequestSize, ValidatedEventData, EventData } from '@/lib/validation';
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
+import { parseRequestBody } from '@/lib/decompress';
 
 // Helper to add CORS headers to response with dynamic origin
 function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
@@ -22,7 +23,7 @@ function addCorsHeaders(response: NextResponse, origin?: string | null): NextRes
   }
   
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
   response.headers.set('Access-Control-Max-Age', '86400');
   return response;
 }
@@ -71,8 +72,8 @@ export async function POST(request: NextRequest) {
       console.warn(`[v1/ingest] Invalid IP format: ${clientIP}`);
     }
 
-    // Parse body first to get siteId for combined rate limiting
-    const body = await request.json();
+    // Parse body - handles both gzip compressed and regular JSON
+    const body = await parseRequestBody<{ events: unknown[]; siteId: string }>(request);
     const { events, siteId } = body;
 
     // Validate required fields with proper type checking
@@ -127,12 +128,13 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < events.length; i++) {
       try {
+        const rawEvent = events[i] as EventData;
         // Debug log to see what's coming in
-        console.log('📥 Raw event received:', JSON.stringify(events[i], null, 2));
-        console.log('📥 Raw event.data:', JSON.stringify(events[i].data, null, 2));
-        console.log('📥 document_width in event.data?:', events[i].data?.document_width);
-        console.log('📥 document_height in event.data?:', events[i].data?.document_height);
-        const validatedEvent = validators.validateEventData(events[i]);
+        console.log('📥 Raw event received:', JSON.stringify(rawEvent, null, 2));
+        console.log('📥 Raw event.data:', JSON.stringify(rawEvent?.data, null, 2));
+        console.log('📥 document_width in event.data?:', rawEvent?.data?.document_width);
+        console.log('📥 document_height in event.data?:', rawEvent?.data?.document_height);
+        const validatedEvent = validators.validateEventData(rawEvent);
         console.log('✅ Validated event:', JSON.stringify(validatedEvent, null, 2));
         console.log('✅ Validated event.data:', JSON.stringify(validatedEvent.data, null, 2));
         validEvents.push(validatedEvent);

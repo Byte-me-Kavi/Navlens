@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
+import { parseRequestBody } from '@/lib/decompress';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,7 +26,7 @@ function addCorsHeaders(response: NextResponse, origin?: string | null): NextRes
     }
     
     response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
     return response;
 }
 
@@ -58,7 +59,33 @@ export async function POST(req: NextRequest) {
     console.log('=== RRWeb Events API Called ===');
     
     try {
-        const body = await req.json();
+        // Parse body - handles both gzip compressed and regular JSON
+        const body = await parseRequestBody<{
+            site_id?: string;
+            page_path?: string;
+            session_id?: string;
+            visitor_id?: string;
+            events?: unknown[];
+            timestamp?: string;
+            user_agent?: string;
+            screen_width?: number;
+            screen_height?: number;
+            language?: string;
+            timezone?: string;
+            referrer?: string;
+            viewport_width?: number;
+            viewport_height?: number;
+            device_pixel_ratio?: number;
+            platform?: string;
+            cookie_enabled?: boolean;
+            online?: boolean;
+            device_type?: string;
+            load_time?: number;
+            dom_ready_time?: number;
+            session_signals?: unknown;
+            // Legacy field names
+            api_key?: string;
+        }>(req);
 
         // Destructure all fields sent by tracker.js
         // NOTE: api_key is no longer sent from client for security
@@ -166,17 +193,17 @@ export async function POST(req: NextRequest) {
             device_type,
 
             // Technical Specs - ensure proper types and constraints
-            screen_width: screen_width ? Math.min(parseInt(screen_width), 99999) : null,
-            screen_height: screen_height ? Math.min(parseInt(screen_height), 99999) : null,
-            viewport_width: viewport_width ? Math.min(parseInt(viewport_width), 99999) : null,
-            viewport_height: viewport_height ? Math.min(parseInt(viewport_height), 99999) : null,
-            device_pixel_ratio: device_pixel_ratio ? Math.min(parseFloat(device_pixel_ratio), 99.99) : null,
+            screen_width: screen_width != null ? Math.min(Number(screen_width), 99999) : null,
+            screen_height: screen_height != null ? Math.min(Number(screen_height), 99999) : null,
+            viewport_width: viewport_width != null ? Math.min(Number(viewport_width), 99999) : null,
+            viewport_height: viewport_height != null ? Math.min(Number(viewport_height), 99999) : null,
+            device_pixel_ratio: device_pixel_ratio != null ? Math.min(Number(device_pixel_ratio), 99.99) : null,
             cookie_enabled,
             online,
 
             // Performance - ensure proper types and constraints
-            load_time: load_time ? Math.min(parseFloat(load_time), 99999999.99) : null,
-            dom_ready_time: dom_ready_time ? Math.min(parseFloat(dom_ready_time), 99999999.99) : null,
+            load_time: load_time != null ? Math.min(Number(load_time), 99999999.99) : null,
+            dom_ready_time: dom_ready_time != null ? Math.min(Number(dom_ready_time), 99999999.99) : null,
             
             // Session Intelligence Signals
             session_signals: session_signals || [],
@@ -219,7 +246,7 @@ export async function OPTIONS(req: NextRequest) {
     const response = new NextResponse(null, { status: 204 });
     response.headers.set('Access-Control-Allow-Origin', origin || '*');
     response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
     response.headers.set('Access-Control-Allow-Credentials', 'true');
     response.headers.set('Access-Control-Max-Age', '86400');
     return response;

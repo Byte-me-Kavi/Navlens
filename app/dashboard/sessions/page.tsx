@@ -62,13 +62,20 @@ interface SessionData {
 }
 
 const getCountryFlag = (countryCode: string) => {
-  if (!countryCode || countryCode.length !== 2) return null;
+  if (
+    !countryCode ||
+    countryCode.length !== 2 ||
+    countryCode.toLowerCase() === "unknown"
+  )
+    return null;
   return countryCode.toUpperCase();
 };
 
 const getCountryName = (countryCode: string) => {
   try {
-    if (!countryCode || countryCode.length !== 2) return "Unknown";
+    if (!countryCode || countryCode.toLowerCase() === "unknown")
+      return "Unknown";
+    if (countryCode.length !== 2) return countryCode; // Return as-is if not a code
     const country = countries.find(
       (c: { cca2: string; name?: { common: string } }) =>
         c.cca2.toUpperCase() === countryCode.toUpperCase()
@@ -137,6 +144,38 @@ const getBrowserIcon = (userAgent: string) => {
 
 // Move cache OUTSIDE the component so it persists across navigation
 const sessionsCache: Record<string, SessionData[]> = {};
+
+// Color palette for visitor ID highlighting
+const VISITOR_COLORS = [
+  { bg: "bg-blue-100", text: "text-blue-700", border: "border-blue-300" },
+  { bg: "bg-purple-100", text: "text-purple-700", border: "border-purple-300" },
+  { bg: "bg-green-100", text: "text-green-700", border: "border-green-300" },
+  { bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-300" },
+  { bg: "bg-pink-100", text: "text-pink-700", border: "border-pink-300" },
+  { bg: "bg-teal-100", text: "text-teal-700", border: "border-teal-300" },
+  { bg: "bg-indigo-100", text: "text-indigo-700", border: "border-indigo-300" },
+  { bg: "bg-amber-100", text: "text-amber-700", border: "border-amber-300" },
+  { bg: "bg-cyan-100", text: "text-cyan-700", border: "border-cyan-300" },
+  { bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-300" },
+  { bg: "bg-lime-100", text: "text-lime-700", border: "border-lime-300" },
+  {
+    bg: "bg-fuchsia-100",
+    text: "text-fuchsia-700",
+    border: "border-fuchsia-300",
+  },
+];
+
+// Generate consistent color for a visitor ID
+const getVisitorColor = (visitorId: string) => {
+  if (!visitorId) return VISITOR_COLORS[0];
+  // Create a hash from the visitor ID to get consistent color
+  let hash = 0;
+  for (let i = 0; i < visitorId.length; i++) {
+    hash = visitorId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % VISITOR_COLORS.length;
+  return VISITOR_COLORS[index];
+};
 
 // Signal badge component
 const SignalBadges = ({ session }: { session: SessionData }) => {
@@ -290,14 +329,14 @@ export default function SessionsPage() {
       );
     }
 
-    // Search filter (visitor ID, country, IP)
+    // Search filter (visitor ID, country name)
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (s) =>
           s.visitor_id?.toLowerCase().includes(query) ||
           s.country?.toLowerCase().includes(query) ||
-          s.ip_address?.toLowerCase().includes(query)
+          getCountryName(s.country)?.toLowerCase().includes(query)
       );
     }
 
@@ -483,7 +522,7 @@ export default function SessionsPage() {
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Search by visitor ID, country, IP..."
+                      placeholder="Search by visitor ID or country..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full px-4 py-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white"
@@ -628,20 +667,19 @@ export default function SessionsPage() {
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2">
-                                  {getCountryFlag(session.country) && (
+                                  {getCountryFlag(session.country) ? (
                                     <span
                                       className={`fi fi-${getCountryFlag(
                                         session.country
                                       )?.toLowerCase()}`}
                                       style={{ width: "24px", height: "18px" }}
                                     />
+                                  ) : (
+                                    <FiGlobe className="w-5 h-5 text-gray-400" />
                                   )}
                                   <div className="text-sm">
                                     <div className="font-medium text-gray-900">
-                                      {session.country || "Unknown"}
-                                    </div>
-                                    <div className="text-gray-500 text-xs">
-                                      {session.ip_address}
+                                      {getCountryName(session.country)}
                                     </div>
                                   </div>
                                 </div>
@@ -704,9 +742,19 @@ export default function SessionsPage() {
                                 </div>
                               </td>
                               <td className="px-6 py-4">
-                                <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">
-                                  {session.visitor_id?.slice(0, 8)}...
-                                </code>
+                                {(() => {
+                                  const color = getVisitorColor(
+                                    session.visitor_id
+                                  );
+                                  return (
+                                    <code
+                                      className={`text-xs px-2 py-1 rounded border font-medium ${color.bg} ${color.text} ${color.border}`}
+                                      title={session.visitor_id}
+                                    >
+                                      {session.visitor_id?.slice(0, 8)}...
+                                    </code>
+                                  );
+                                })()}
                               </td>
                               <td className="px-6 py-4 text-center">
                                 <button
@@ -771,24 +819,37 @@ export default function SessionsPage() {
                         {/* Header */}
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            {getCountryFlag(session.country) && (
+                            {getCountryFlag(session.country) ? (
                               <span
                                 className={`fi fi-${getCountryFlag(
                                   session.country
                                 )?.toLowerCase()}`}
                                 style={{ width: "32px", height: "24px" }}
                               />
+                            ) : (
+                              <FiGlobe className="w-6 h-6 text-gray-400" />
                             )}
                             <div>
                               <div className="font-semibold text-gray-900">
                                 {getCountryName(session.country)}
                               </div>
                               <div className="text-xs text-gray-500">
-                                {date}
+                                {date} • {time}
                               </div>
-                              <div className="text-xs text-gray-500">
-                                {time}
-                              </div>
+                              {/* Visitor ID Badge */}
+                              {(() => {
+                                const color = getVisitorColor(
+                                  session.visitor_id
+                                );
+                                return (
+                                  <code
+                                    className={`text-xs px-2 py-0.5 rounded border font-medium mt-1 inline-block ${color.bg} ${color.text} ${color.border}`}
+                                    title={session.visitor_id}
+                                  >
+                                    {session.visitor_id?.slice(0, 8)}...
+                                  </code>
+                                );
+                              })()}
                             </div>
                           </div>
                           <button
