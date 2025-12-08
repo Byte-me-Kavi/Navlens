@@ -153,13 +153,19 @@ function SnippetCode({ site }: { site: Site }) {
   const [apiKeyCopied, setApiKeyCopied] = useState(false);
 
   // Include API key in the snippet for secure tracking
-  const snippet = `<script 
+  // rrweb libraries must be loaded BEFORE tracker.js
+  const snippet = `<!-- Load rrweb libraries first (required for session recording and snapshots) -->
+<script src="https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/rrweb-snapshot@latest/dist/rrweb-snapshot.min.js"><\/script>
+
+<!-- Load Navlens tracker -->
+<script 
   async 
   src="${NAVLENS_API_HOST}/tracker.js" 
   data-site-id="${site.id}"
   data-api-key="${site.api_key}"
   data-api-host="${NAVLENS_API_HOST}"
-></script>`;
+><\/script>`;
 
   const handleSnippetCopy = () => {
     setSnippetCopied(true);
@@ -235,8 +241,10 @@ function SnippetCode({ site }: { site: Site }) {
           </CopyToClipboard>
         </div>
         <p className="text-xs text-gray-600 mb-3">
-          Copy and paste this code into the &lt;head&gt; tag of your website.
-          The API key is included for secure tracking.
+          Copy and paste this code into the &lt;head&gt; tag of your website
+          (before closing &lt;/head&gt;). The rrweb libraries must load FIRST,
+          then the Navlens tracker. This enables session recording and DOM
+          snapshots.
         </p>
         <div className="bg-white p-3 rounded-lg border border-gray-200 overflow-x-auto">
           <pre className="text-xs text-gray-800">
