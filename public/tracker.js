@@ -928,10 +928,39 @@
   const MAX_EVENTS_PER_BATCH = 100;
   const EVENT_FLUSH_INTERVAL = 5000;
 
+  /**
+   * Dynamically load a script
+   * @param {string} src - Script URL
+   * @returns {Promise}
+   */
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) {
+        resolve();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
   async function initRRWebRecording() {
+    // Dynamically load rrweb if not present
     if (typeof rrweb === "undefined") {
-      console.warn("[Navlens] rrweb not loaded, session recording disabled");
-      return;
+      try {
+        console.log("[Navlens] Loading rrweb...");
+        await loadScript(
+          "https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.js"
+        );
+      } catch (e) {
+        console.warn(
+          "[Navlens] Failed to load rrweb, session recording disabled"
+        );
+        return;
+      }
     }
 
     if (isRecording) return;
@@ -1004,8 +1033,21 @@
 
   async function captureSnapshot(viewportConfig = null) {
     return scheduleTask(async () => {
+      // Dynamically load rrweb-snapshot if not present
       if (typeof rrwebSnapshot === "undefined" || !rrwebSnapshot.snapshot) {
-        console.warn("[Navlens] rrweb-snapshot not loaded");
+        try {
+          console.log("[Navlens] Loading rrweb-snapshot...");
+          await loadScript(
+            "https://cdn.jsdelivr.net/npm/rrweb-snapshot@latest/dist/rrweb-snapshot.min.js"
+          );
+        } catch (e) {
+          console.warn("[Navlens] Failed to load rrweb-snapshot");
+          return null;
+        }
+      }
+
+      if (typeof rrwebSnapshot === "undefined" || !rrwebSnapshot.snapshot) {
+        console.warn("[Navlens] rrweb-snapshot still not loaded after attempt");
         return null;
       }
 
