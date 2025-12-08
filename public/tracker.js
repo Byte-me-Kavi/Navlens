@@ -25,7 +25,20 @@
   // ============================================
   const script = document.currentScript;
   const API_KEY = script?.dataset?.apiKey || "";
+  const SITE_ID = script?.dataset?.siteId || "";
   const API_HOST = script?.dataset?.apiHost || "https://navlens-rho.vercel.app";
+
+  // Validate required configuration
+  if (!SITE_ID) {
+    console.warn(
+      "[Navlens] Missing data-site-id attribute. Tracker will not work."
+    );
+  }
+  if (!API_KEY) {
+    console.warn(
+      "[Navlens] Missing data-api-key attribute. Tracker will not work."
+    );
+  }
 
   // Normalize API host
   const normalizedHost = API_HOST.includes("://")
@@ -131,7 +144,7 @@
 
     return {
       events: [apiEvent],
-      siteId: API_KEY,
+      siteId: SITE_ID,
     };
   }
 
