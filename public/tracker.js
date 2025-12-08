@@ -1098,20 +1098,14 @@
         const snapshot = rrwebSnapshot.snapshot(document);
 
         const snapshotData = {
+          site_id: SITE_ID,
+          page_path: window.location.pathname,
+          device_type: viewportConfig ? viewportConfig.name : getDeviceType(),
           snapshot: scrubObjectPII(snapshot),
+          width: viewportConfig ? viewportConfig.width : window.innerWidth,
+          height: viewportConfig ? viewportConfig.height : window.innerHeight,
+          origin: window.location.origin,
           timestamp: new Date().toISOString(),
-          viewport: viewportConfig ? viewportConfig.name : getDeviceType(),
-          viewport_width: viewportConfig
-            ? viewportConfig.width
-            : window.innerWidth,
-          viewport_height: viewportConfig
-            ? viewportConfig.height
-            : window.innerHeight,
-          page_url: window.location.href,
-          page_title: document.title,
-          session_id: SESSION_ID,
-          api_key: API_KEY,
-          device_info: getDeviceInfo(),
         };
 
         return snapshotData;
@@ -1133,18 +1127,16 @@
         }
 
         try {
-          const [snapshotData] = rrwebSnapshot.snapshot(document);
+          const snapshotData = rrwebSnapshot.snapshot(document);
           return {
+            site_id: SITE_ID,
+            page_path: window.location.pathname,
+            device_type: config.name,
             snapshot: scrubObjectPII(snapshotData),
+            width: config.width,
+            height: config.height,
+            origin: window.location.origin,
             timestamp: new Date().toISOString(),
-            viewport: config.name,
-            viewport_width: config.width,
-            viewport_height: config.height,
-            page_url: window.location.href,
-            page_title: document.title,
-            session_id: SESSION_ID,
-            api_key: API_KEY,
-            device_info: getDeviceInfo(),
           };
         } catch (error) {
           console.error(
