@@ -184,6 +184,7 @@
   // Session Configuration
   const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
   const SESSION_STORAGE_KEY = "navlens_session";
+  const VISITOR_STORAGE_KEY = "navlens_visitor";
 
   // DOM Hash Configuration
   const DOM_HASH_CHECK_INTERVAL = 30 * 60 * 1000; // Check every 30 minutes
@@ -570,8 +571,36 @@
     );
   }
 
-  // Initialize session
+  function getOrCreateVisitorId() {
+    try {
+      const stored = localStorage.getItem(VISITOR_STORAGE_KEY);
+      if (stored) {
+        return stored;
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+
+    // Create new visitor ID
+    const visitorId =
+      "vis_" +
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15) +
+      "_" +
+      Date.now();
+
+    try {
+      localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+
+    return visitorId;
+  }
+
+  // Initialize session and visitor
   let SESSION_ID = getOrCreateSession();
+  let VISITOR_ID = getOrCreateVisitorId();
 
   // ============================================
   // BROWSER & DEVICE INFO
@@ -1003,14 +1032,28 @@
     if (recordedEvents.length === 0) return;
 
     const eventsToSend = recordedEvents.splice(0, recordedEvents.length);
+    const deviceInfo = getDeviceInfo();
 
     const payload = {
+      site_id: SITE_ID,
       session_id: SESSION_ID,
-      api_key: API_KEY,
+      visitor_id: VISITOR_ID,
       events: eventsToSend,
       timestamp: new Date().toISOString(),
-      page_url: window.location.href,
-      device_info: getDeviceInfo(),
+      page_path: window.location.pathname,
+      user_agent: navigator.userAgent,
+      screen_width: window.screen.width,
+      screen_height: window.screen.height,
+      viewport_width: window.innerWidth,
+      viewport_height: window.innerHeight,
+      language: navigator.language,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      referrer: document.referrer,
+      device_pixel_ratio: window.devicePixelRatio || 1,
+      platform: navigator.platform,
+      cookie_enabled: navigator.cookieEnabled,
+      online: navigator.onLine,
+      device_type: deviceInfo.deviceType,
     };
 
     try {
@@ -1052,7 +1095,7 @@
       }
 
       try {
-        const [snapshot] = rrwebSnapshot.snapshot(document);
+        const snapshot = rrwebSnapshot.snapshot(document);
 
         const snapshotData = {
           snapshot: scrubObjectPII(snapshot),
