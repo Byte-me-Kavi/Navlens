@@ -14,7 +14,7 @@ function addCorsHeaders(response: NextResponse, origin?: string | null): NextRes
     // We must either:
     // 1. Return the specific requesting origin, OR
     // 2. Not include credentials header and use '*'
-    
+
     if (origin) {
         // If we have an origin, use it specifically (required for credentials)
         response.headers.set('Access-Control-Allow-Origin', origin);
@@ -24,7 +24,7 @@ function addCorsHeaders(response: NextResponse, origin?: string | null): NextRes
         response.headers.set('Access-Control-Allow-Origin', '*');
         // Don't set Allow-Credentials when using wildcard
     }
-    
+
     response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
     return response;
@@ -43,8 +43,8 @@ const validateSiteAndAuth = unstable_cache(
             return { valid: false, error: 'Site not found' };
         }
 
-        return { 
-            valid: true, 
+        return {
+            valid: true,
             userId: siteData.user_id,
             domain: siteData.domain
         };
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     const startTime = Date.now();
     const origin = req.headers.get('origin');
     console.log('=== RRWeb Events API Called ===');
-    
+
     try {
         // Parse body - handles both gzip compressed and regular JSON
         const body = await parseRequestBody<{
@@ -99,18 +99,18 @@ export async function POST(req: NextRequest) {
 
         if (!site_id || !events) {
             return addCorsHeaders(NextResponse.json(
-                { error: 'Missing required data' }, 
+                { error: 'Missing required data' },
                 { status: 400 }
             ), origin);
         }
 
         // Validate site exists
         const validation = await validateSiteAndAuth(site_id);
-        
+
         if (!validation.valid) {
             console.warn(`[rrweb-events] Invalid site_id: ${site_id}`);
             return addCorsHeaders(NextResponse.json(
-                { error: 'Invalid site' }, 
+                { error: 'Invalid site' },
                 { status: 403 }
             ), origin);
         }
@@ -120,11 +120,11 @@ export async function POST(req: NextRequest) {
         if (validation.domain && origin) {
             const originHost = new URL(origin).hostname;
             const allowedDomain = validation.domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-            
+
             // Allow localhost for development
             const isLocalhost = originHost === 'localhost' || originHost === '127.0.0.1';
             const domainMatches = originHost === allowedDomain || originHost.endsWith('.' + allowedDomain);
-            
+
             if (!isLocalhost && !domainMatches) {
                 console.warn(`[rrweb-events] Origin ${origin} doesn't match site domain ${validation.domain}`);
                 // Log but don't block - domain might not be configured yet
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
 
         // --- 3. INSERT INTO SUPABASE ---
         console.log(`[rrweb-events] Inserting ${events.length} events for site ${site_id}`);
-        
+
         // Build insert data conditionally
         interface InsertData {
             site_id: string;
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
             // Performance - ensure proper types and constraints
             load_time: load_time != null ? Math.min(Number(load_time), 99999999.99) : null,
             dom_ready_time: dom_ready_time != null ? Math.min(Number(dom_ready_time), 99999999.99) : null,
-            
+
             // Session Intelligence Signals
             session_signals: session_signals || [],
         };
@@ -216,10 +216,10 @@ export async function POST(req: NextRequest) {
 
             if (error) {
                 console.error('[rrweb-events] Supabase Insert Error:', error.message);
-                return addCorsHeaders(NextResponse.json({ 
-                    error: 'Database insert failed', 
+                return addCorsHeaders(NextResponse.json({
+                    error: 'Database insert failed',
                     details: error.message,
-                    code: error.code 
+                    code: error.code
                 }, { status: 500 }), origin);
             }
 
@@ -228,8 +228,8 @@ export async function POST(req: NextRequest) {
             return addCorsHeaders(NextResponse.json({ success: true }), origin);
         } catch (dbError) {
             console.error('[rrweb-events] Database operation failed:', dbError);
-            return addCorsHeaders(NextResponse.json({ 
-                error: 'Database operation failed', 
+            return addCorsHeaders(NextResponse.json({
+                error: 'Database operation failed',
                 details: dbError instanceof Error ? dbError.message : 'Unknown error'
             }, { status: 500 }), origin);
         }
@@ -244,10 +244,19 @@ export async function POST(req: NextRequest) {
 export async function OPTIONS(req: NextRequest) {
     const origin = req.headers.get('origin');
     const response = new NextResponse(null, { status: 204 });
-    response.headers.set('Access-Control-Allow-Origin', origin || '*');
+
+    // CRITICAL: When Access-Control-Allow-Credentials is true, we CANNOT use wildcard '*'
+    // This was causing "Failed to fetch" errors in browsers
+    if (origin) {
+        response.headers.set('Access-Control-Allow-Origin', origin);
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
+    } else {
+        response.headers.set('Access-Control-Allow-Origin', '*');
+        // Don't set Allow-Credentials when using wildcard
+    }
+
     response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
     response.headers.set('Access-Control-Max-Age', '86400');
     return response;
 }
