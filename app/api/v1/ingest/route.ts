@@ -159,6 +159,7 @@ export async function POST(request: NextRequest) {
       try {
         const insertData = {
           site_id: siteId,
+          event_id: event.data?.event_id || crypto.randomUUID(), // Unique ID prevents deduplication
           event_type: event.type,
           timestamp: new Date(event.timestamp),
           session_id: event.session_id,
