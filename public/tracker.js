@@ -731,8 +731,8 @@
       scheduleTask(async () => {
         const snapshot = await captureSnapshot();
         if (snapshot) {
-          // Add hash to snapshot data
-          snapshot.dom_hash = currentHash;
+          // Add hash to snapshot data (backend expects 'hash' not 'dom_hash')
+          snapshot.hash = currentHash;
           snapshot.previous_hash = lastDomHash;
           await sendSnapshot(snapshot);
         }
@@ -804,8 +804,11 @@
           (c) => c.tagName === current.tagName
         );
         if (siblings.length > 1) {
-          const index = siblings.indexOf(current) + 1;
-          selector += `:nth-of-type(${index})`;
+          const index = siblings.indexOf(current);
+          // Guard against edge case where element is not found in siblings
+          if (index >= 0) {
+            selector += `:nth-of-type(${index + 1})`;
+          }
         }
       }
 
@@ -942,8 +945,9 @@
           return;
         }
 
-        // Check 4: Button/interactive element that did nothing
-        resolve(true);
+        // Check 4: Interactive element - if we got here, DOM didn't change
+        // but it's an interactive element, so it likely did something non-visual
+        resolve(false);
       }, 300); // 300ms delay to detect changes
     });
   }
@@ -1096,8 +1100,8 @@
 
   async function captureSnapshot(viewportConfig = null) {
     return scheduleTask(async () => {
-      // Dynamically load rrweb-snapshot if not present
-      if (typeof rrwebSnapshot === "undefined" || !rrwebSnapshot.snapshot) {
+      // Dynamically load rrweb-snapshot if not present (use window. for safer global check)
+      if (typeof window.rrwebSnapshot === "undefined" || !window.rrwebSnapshot?.snapshot) {
         try {
           console.log("[Navlens] Loading rrweb-snapshot...");
           await loadScript(
@@ -1109,13 +1113,13 @@
         }
       }
 
-      if (typeof rrwebSnapshot === "undefined" || !rrwebSnapshot.snapshot) {
+      if (typeof window.rrwebSnapshot === "undefined" || !window.rrwebSnapshot?.snapshot) {
         console.warn("[Navlens] rrweb-snapshot still not loaded after attempt");
         return null;
       }
 
       try {
-        const snapshot = rrwebSnapshot.snapshot(document);
+        const snapshot = window.rrwebSnapshot.snapshot(document);
 
         const snapshotData = {
           site_id: SITE_ID,
@@ -1141,13 +1145,13 @@
 
     for (const config of VIEWPORT_CONFIGS) {
       const snapshot = await scheduleTask(async () => {
-        // Use current viewport for snapshot
-        if (typeof rrwebSnapshot === "undefined" || !rrwebSnapshot.snapshot) {
+        // Use current viewport for snapshot (use window. for safer global check)
+        if (typeof window.rrwebSnapshot === "undefined" || !window.rrwebSnapshot?.snapshot) {
           return null;
         }
 
         try {
-          const snapshotData = rrwebSnapshot.snapshot(document);
+          const snapshotData = window.rrwebSnapshot.snapshot(document);
           return {
             site_id: SITE_ID,
             page_path: window.location.pathname,
@@ -1265,7 +1269,7 @@
       event_type: "click",
       event_id: generateEventId(),
       session_id: SESSION_ID,
-      api_key: API_KEY,
+      // Note: API key is sent via x-api-key header, not in body
       timestamp: new Date().toISOString(),
       page_url: window.location.href,
       page_path: window.location.pathname,
@@ -1321,7 +1325,7 @@
       event_type: "page_view",
       event_id: generateEventId(),
       session_id: SESSION_ID,
-      api_key: API_KEY,
+      // Note: API key is sent via x-api-key header, not in body
       timestamp: new Date().toISOString(),
       page_url: window.location.href,
       page_path: window.location.pathname,
@@ -1346,6 +1350,11 @@
     const now = Date.now();
     const x = event.clientX;
     const y = event.clientY;
+
+    // Bound history size to prevent memory leak
+    if (clickHistory.length > 100) {
+      clickHistory.splice(0, clickHistory.length - 100);
+    }
 
     // Add current click
     clickHistory.push({ x, y, time: now });
@@ -1393,7 +1402,7 @@
       event_type: "rage_click",
       event_id: generateEventId(),
       session_id: SESSION_ID,
-      api_key: API_KEY,
+      // Note: API key is sent via x-api-key header, not in body
       timestamp: new Date().toISOString(),
       page_url: window.location.href,
       page_path: window.location.pathname,
@@ -1438,7 +1447,7 @@
           event_type: "visibility_hidden",
           event_id: generateEventId(),
           session_id: SESSION_ID,
-          api_key: API_KEY,
+          // Note: API key is sent via x-api-key header, not in body
           timestamp: new Date().toISOString(),
           page_url: window.location.href,
           page_path: window.location.pathname,
@@ -1468,12 +1477,23 @@
 
     // Flush remaining rrweb events
     if (recordedEvents.length > 0) {
+      const deviceInfo = getDeviceInfo();
       const payload = {
+        site_id: SITE_ID,  // Required by backend
         session_id: SESSION_ID,
-        api_key: API_KEY,
+        visitor_id: VISITOR_ID,  // Required by backend
         events: recordedEvents,
         timestamp: new Date().toISOString(),
-        page_url: window.location.href,
+        page_path: window.location.pathname,
+        user_agent: navigator.userAgent,
+        screen_width: window.screen.width,
+        screen_height: window.screen.height,
+        viewport_width: window.innerWidth,
+        viewport_height: window.innerHeight,
+        language: navigator.language,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        referrer: document.referrer,
+        device_type: deviceInfo.device_type,
       };
 
       const blob = new Blob([JSON.stringify(payload)], {
@@ -1487,7 +1507,7 @@
       event_type: "session_end",
       event_id: generateEventId(),
       session_id: SESSION_ID,
-      api_key: API_KEY,
+      // Note: API key is sent via x-api-key header, not in body
       timestamp: new Date().toISOString(),
       page_url: window.location.href,
       page_path: window.location.pathname,
@@ -1548,7 +1568,7 @@
     scheduleTask(async () => {
       const snapshot = await captureSnapshot();
       if (snapshot) {
-        snapshot.dom_hash = generateDomHash();
+        snapshot.hash = generateDomHash();  // Backend expects 'hash' not 'dom_hash'
         sendSnapshot(snapshot);
       }
       // Start DOM hash monitoring after initial snapshot
@@ -1604,7 +1624,7 @@
         event_name: eventName,
         event_id: generateEventId(),
         session_id: SESSION_ID,
-        api_key: API_KEY,
+        // Note: API key is sent via x-api-key header, not in body
         timestamp: new Date().toISOString(),
         page_url: window.location.href,
         page_path: window.location.pathname,
@@ -1621,7 +1641,7 @@
         event_type: "identify",
         event_id: generateEventId(),
         session_id: SESSION_ID,
-        api_key: API_KEY,
+        // Note: API key is sent via x-api-key header, not in body
         timestamp: new Date().toISOString(),
         page_url: window.location.href,
         page_path: window.location.pathname,
@@ -1637,7 +1657,7 @@
     captureSnapshot: async () => {
       const snapshot = await captureSnapshot();
       if (snapshot) {
-        snapshot.dom_hash = generateDomHash();
+        snapshot.hash = generateDomHash();  // Backend expects 'hash' not 'dom_hash'
         await sendSnapshot(snapshot);
       }
       return snapshot;

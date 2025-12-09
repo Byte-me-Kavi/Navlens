@@ -11,7 +11,7 @@ function addCorsHeaders(response: NextResponse, origin?: string | null): NextRes
   // We must either:
   // 1. Return the specific requesting origin, OR
   // 2. Not include credentials header and use '*'
-  
+
   if (origin) {
     // If we have an origin, use it specifically (required for credentials)
     response.headers.set('Access-Control-Allow-Origin', origin);
@@ -21,7 +21,7 @@ function addCorsHeaders(response: NextResponse, origin?: string | null): NextRes
     response.headers.set('Access-Control-Allow-Origin', '*');
     // Don't set Allow-Credentials when using wildcard
   }
-  
+
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
   response.headers.set('Access-Control-Max-Age', '86400');
@@ -55,7 +55,7 @@ function jsonResponse(data: object, status: number = 200, origin?: string | null
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   const origin = request.headers.get('origin');
-  
+
   try {
     // Validate request size (max 1MB)
     if (!validateRequestSize(request, 1)) {
@@ -64,8 +64,8 @@ export async function POST(request: NextRequest) {
 
     // Get client IP for rate limiting
     const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0] ||
-                    request.headers.get('x-real-ip') ||
-                    'unknown';
+      request.headers.get('x-real-ip') ||
+      'unknown';
 
     // Validate IP format
     if (!validators.isValidIP(clientIP) && clientIP !== 'unknown') {
@@ -189,11 +189,16 @@ export async function POST(request: NextRequest) {
           element_tag: event.data?.element_tag || '',
           element_text: event.data?.element_text || '',
           element_selector: event.data?.element_selector || '',
+          // Additional element tracking fields
+          element_href: event.data?.element_href || '',
+          is_interactive: event.data?.is_interactive ?? false,
+          is_dead_click: event.data?.is_dead_click ?? false,
+          click_count: event.data?.click_count ?? 0,
           created_at: new Date(),
         };
-        
+
         console.log('💾 Inserting into ClickHouse:', JSON.stringify(insertData, null, 2));
-        
+
         await clickhouse.insert({
           table: 'events',
           values: [insertData],

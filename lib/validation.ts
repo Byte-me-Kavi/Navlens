@@ -23,8 +23,8 @@ const EVENT_TYPE_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]{0,49}$/;
 // Session ID validation (alphanumeric + hyphens + underscores)
 const SESSION_ID_REGEX = /^[a-zA-Z0-9\-_]{1,128}$/;
 
-// Page path validation (allow common URL path characters)
-const PAGE_PATH_REGEX = /^\/[a-zA-Z0-9\-._~!$&'()*+,;=:@%\/]*$/;
+// Page path validation (allow common URL path characters, query strings, and hash fragments)
+const PAGE_PATH_REGEX = /^\/[a-zA-Z0-9\-._~!$&'()*+,;=:@%\/?#]*$/;
 
 // User agent validation (basic length check)
 const USER_AGENT_MAX_LENGTH = 500;
@@ -106,9 +106,9 @@ export const validators = {
    */
   isValidSiteName: (value: string): boolean => {
     return typeof value === 'string' &&
-           value.length >= 1 &&
-           value.length <= 100 &&
-           SITE_NAME_REGEX.test(value);
+      value.length >= 1 &&
+      value.length <= 100 &&
+      SITE_NAME_REGEX.test(value);
   },
 
   /**
