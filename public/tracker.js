@@ -1226,11 +1226,10 @@
       { passive: true }
     );
   }
-
   // ============================================
   // CLICK TRACKING
   // ============================================
-  async function handleClick(event) {
+  function handleClick(event) {
     const element = event.target;
     if (!element) return;
 
@@ -1261,9 +1260,6 @@
     // Get element text with PII scrubbing
     let elementText = element.innerText || element.textContent || "";
     elementText = scrubPII(elementText.substring(0, 100).trim());
-
-    // Detect dead click
-    const isDeadClick = await detectDeadClick(element);
 
     const clickData = {
       event_type: "click",
@@ -1304,17 +1300,38 @@
 
       // Metadata
       is_interactive: isInteractiveElement(element),
-      is_dead_click: isDeadClick,
+      is_dead_click: false, // Will be updated if dead click detected
       scroll_depth: maxScrollDepth,
       device_info: getDeviceInfo(),
     };
 
-    // Send click data to v1/ingest using wrapped format
-    try {
-      await sendWrappedFetch(V1_INGEST_ENDPOINT, clickData);
-    } catch (error) {
-      console.error("[Navlens] Failed to send click data:", error);
-    }
+    // Send click data IMMEDIATELY using sendBeacon for reliability
+    // This ensures the click is recorded even if user navigates away
+    sendWrappedBeacon(V1_INGEST_ENDPOINT, clickData);
+
+    // Detect dead click asynchronously and send as separate event if needed
+    detectDeadClick(element).then((isDeadClick) => {
+      if (isDeadClick) {
+        const deadClickData = {
+          event_type: "dead_click",
+          event_id: generateEventId(),
+          session_id: SESSION_ID,
+          timestamp: new Date().toISOString(),
+          page_url: window.location.href,
+          page_path: window.location.pathname,
+          element_selector: selector,
+          element_tag: element.tagName?.toLowerCase() || "",
+          x: pageX,
+          y: pageY,
+          x_relative: xRelative,
+          y_relative: yRelative,
+          document_width: docDimensions.width,
+          document_height: docDimensions.height,
+          device_info: getDeviceInfo(),
+        };
+        sendWrappedFetch(V1_INGEST_ENDPOINT, deadClickData).catch(console.error);
+      }
+    });
   }
 
   // ============================================
