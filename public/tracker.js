@@ -1002,14 +1002,15 @@
           const scrubbedEvent = scrubObjectPII(event);
           recordedEvents.push(scrubbedEvent);
 
+          // Only schedule a throttled flush when hitting max batch size
           if (recordedEvents.length >= MAX_EVENTS_PER_BATCH) {
-            flushRRWebEvents();
+            scheduleThrottledFlush();
           }
         },
         sampling: {
           mousemove: 50,
           mouseInteraction: true,
-          scroll: 100,
+          scroll: 150, // Reduced scroll sampling (was 100)
           input: "last",
         },
         blockClass: "navlens-block",
@@ -1018,8 +1019,8 @@
         maskAllInputs: true,
       });
 
-      // Periodic flush
-      setInterval(flushRRWebEvents, EVENT_FLUSH_INTERVAL);
+      // Periodic flush (every 10 seconds instead of 5)
+      setInterval(flushRRWebEvents, EVENT_FLUSH_INTERVAL * 2);
 
       console.log("[Navlens] Session recording initialized");
     } catch (error) {
@@ -1028,8 +1029,24 @@
     }
   }
 
+  // Throttled flush scheduling - prevents request flooding
+  let flushScheduled = false;
+  let isFlushingEvents = false;
+  const MIN_FLUSH_INTERVAL = 5000; // Minimum 5 seconds between flushes
+
+  function scheduleThrottledFlush() {
+    if (flushScheduled || isFlushingEvents) return;
+    flushScheduled = true;
+    setTimeout(() => {
+      flushScheduled = false;
+      flushRRWebEvents();
+    }, MIN_FLUSH_INTERVAL);
+  }
+
   async function flushRRWebEvents() {
-    if (recordedEvents.length === 0) return;
+    // Prevent concurrent flushes
+    if (isFlushingEvents || recordedEvents.length === 0) return;
+    isFlushingEvents = true;
 
     const eventsToSend = recordedEvents.splice(0, recordedEvents.length);
     const deviceInfo = getDeviceInfo();
@@ -1053,15 +1070,18 @@
       platform: navigator.platform,
       cookie_enabled: navigator.cookieEnabled,
       online: navigator.onLine,
-      device_type: deviceInfo.deviceType,
+      device_type: deviceInfo.device_type,
     };
 
     try {
       await sendCompressedFetch(RRWEB_EVENTS_ENDPOINT, payload);
     } catch (error) {
       console.error("[Navlens] Failed to send rrweb events:", error);
-      // Re-add events to queue
-      recordedEvents.unshift(...eventsToSend);
+      // Re-add events to queue (but cap at 500 to prevent memory issues)
+      const eventsToRestore = eventsToSend.slice(0, 500 - recordedEvents.length);
+      recordedEvents.unshift(...eventsToRestore);
+    } finally {
+      isFlushingEvents = false;
     }
   }
 
@@ -1421,9 +1441,11 @@
           api_key: API_KEY,
           timestamp: new Date().toISOString(),
           page_url: window.location.href,
+          page_path: window.location.pathname,
           visible_time_ms: Date.now() - visibilityStartTime,
           total_visible_time_ms: totalVisibleTime,
           scroll_depth: maxScrollDepth,
+          device_info: getDeviceInfo(),
         };
 
         sendWrappedBeacon(V1_INGEST_ENDPOINT, visibilityData);
@@ -1468,8 +1490,10 @@
       api_key: API_KEY,
       timestamp: new Date().toISOString(),
       page_url: window.location.href,
+      page_path: window.location.pathname,
       max_scroll_depth: maxScrollDepth,
       total_visible_time_ms: totalVisibleTime,
+      device_info: getDeviceInfo(),
     };
 
     sendWrappedBeacon(V1_INGEST_ENDPOINT, sessionEndData);
@@ -1583,6 +1607,7 @@
         api_key: API_KEY,
         timestamp: new Date().toISOString(),
         page_url: window.location.href,
+        page_path: window.location.pathname,
         properties: scrubObjectPII(properties),
         device_info: getDeviceInfo(),
       };
@@ -1598,8 +1623,11 @@
         session_id: SESSION_ID,
         api_key: API_KEY,
         timestamp: new Date().toISOString(),
+        page_url: window.location.href,
+        page_path: window.location.pathname,
         user_id: scrubPII(String(userId)),
         traits: scrubObjectPII(traits),
+        device_info: getDeviceInfo(),
       };
 
       sendWrappedFetch(V1_INGEST_ENDPOINT, identifyData).catch(console.error);
