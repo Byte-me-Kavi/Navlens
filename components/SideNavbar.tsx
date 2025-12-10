@@ -14,6 +14,7 @@ import {
   EyeIcon,
   FunnelIcon,
   DocumentChartBarIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useState } from "react";
@@ -44,6 +45,12 @@ const navItems = [
     name: "Funnels",
     href: "/dashboard/funnels",
     icon: FunnelIcon,
+  },
+  {
+    name: "Frustration Signals",
+    href: "/dashboard/frustration-signals",
+    icon: ExclamationTriangleIcon,
+    badge: "New",
   },
   {
     name: "Form Analytics",

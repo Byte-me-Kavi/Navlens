@@ -1947,6 +1947,448 @@
       { passive: true }
     );
   }
+
+  // ============================================
+  // CONFUSION SCROLLING DETECTION
+  // Detects rapid up/down scrolling indicating user confusion
+  // ============================================
+  const CONFUSION_CONFIG = {
+    DIRECTION_CHANGE_THRESHOLD: 5,   // Direction changes to trigger confusion
+    TIME_WINDOW_MS: 2000,            // Time window for detection
+    MIN_SCROLL_DISTANCE: 50,         // Minimum scroll distance to count
+    COOLDOWN_MS: 5000,               // Cooldown between confusion events
+  };
+
+  let scrollDirectionHistory = [];
+  let lastScrollY = window.scrollY;
+  let lastScrollDirection = null;
+  let lastConfusionEventTime = 0;
+  let confusionScrollDebounce = null;
+
+  function detectConfusionScrolling() {
+    const currentY = window.scrollY;
+    const scrollDelta = currentY - lastScrollY;
+    const now = Date.now();
+
+    // Only consider significant scroll changes
+    if (Math.abs(scrollDelta) < CONFUSION_CONFIG.MIN_SCROLL_DISTANCE) {
+      lastScrollY = currentY;
+      return;
+    }
+
+    const currentDirection = scrollDelta > 0 ? 'down' : 'up';
+
+    // Record direction change
+    if (lastScrollDirection !== null && currentDirection !== lastScrollDirection) {
+      scrollDirectionHistory.push({
+        time: now,
+        direction: currentDirection,
+        delta: Math.abs(scrollDelta)
+      });
+    }
+
+    lastScrollDirection = currentDirection;
+    lastScrollY = currentY;
+
+    // Clean old entries
+    scrollDirectionHistory = scrollDirectionHistory.filter(
+      entry => now - entry.time < CONFUSION_CONFIG.TIME_WINDOW_MS
+    );
+
+    // Limit history size
+    if (scrollDirectionHistory.length > 20) {
+      scrollDirectionHistory = scrollDirectionHistory.slice(-20);
+    }
+
+    // Check for confusion pattern
+    if (scrollDirectionHistory.length >= CONFUSION_CONFIG.DIRECTION_CHANGE_THRESHOLD) {
+      // Check cooldown
+      if (now - lastConfusionEventTime < CONFUSION_CONFIG.COOLDOWN_MS) {
+        return;
+      }
+
+      // Calculate confusion score (0-1 based on intensity)
+      const totalDelta = scrollDirectionHistory.reduce((sum, e) => sum + e.delta, 0);
+      const avgDelta = totalDelta / scrollDirectionHistory.length;
+      const timeSpan = now - scrollDirectionHistory[0].time;
+      const changesPerSecond = (scrollDirectionHistory.length / timeSpan) * 1000;
+      
+      // Score: higher with more frequent changes and larger scroll distances
+      const confusionScore = Math.min(1, (changesPerSecond * avgDelta) / 500);
+
+      sendConfusionScrollEvent(confusionScore, scrollDirectionHistory.length);
+      lastConfusionEventTime = now;
+      scrollDirectionHistory = [];
+    }
+  }
+
+  function sendConfusionScrollEvent(score, directionChanges) {
+    const docDimensions = getDocumentDimensions();
+    const confusionData = {
+      event_type: 'confusion_scroll',
+      event_id: generateEventId(),
+      session_id: SESSION_ID,
+      timestamp: new Date().toISOString(),
+      page_url: window.location.href,
+      page_path: window.location.pathname,
+      scroll_depth: maxScrollDepth,
+      confusion_scroll_score: parseFloat(score.toFixed(3)),
+      cursor_direction_changes: directionChanges,
+      document_width: docDimensions.width,
+      document_height: docDimensions.height,
+      device_info: getDeviceInfo(),
+    };
+
+    sendWrappedFetch(V1_INGEST_ENDPOINT, confusionData).catch(console.error);
+    console.log('[Navlens] Confusion scrolling detected! Score:', score.toFixed(2));
+  }
+
+  function initConfusionScrollTracking() {
+    window.addEventListener('scroll', () => {
+      clearTimeout(confusionScrollDebounce);
+      confusionScrollDebounce = setTimeout(detectConfusionScrolling, 50);
+    }, { passive: true });
+  }
+
+  // ============================================
+  // HOVER/ATTENTION TRACKING
+  // Tracks mouse movement with dwell time for attention heatmaps
+  // ============================================
+  const HOVER_CONFIG = {
+    SAMPLE_INTERVAL_MS: 50,          // Mouse position sampling rate
+    MIN_HOVER_DURATION_MS: 500,      // Minimum attention time to track
+    BATCH_SIZE: 50,                  // Events before sending batch
+    FLUSH_INTERVAL_MS: 10000,        // Maximum time before flush
+    MAX_BUFFER_SIZE: 200,            // Maximum buffer size before dropping old events
+  };
+
+  let mousePositionBuffer = [];
+  let elementHoverTimes = new Map();  // element selector -> { startTime, totalTime }
+  let lastMousePosition = { x: 0, y: 0 };
+  let lastMouseMoveTime = 0;
+  let hoverBatchTimer = null;
+  let isMouseMoving = false;
+  let mouseThrottleTimer = null;
+
+  function trackMouseMovement(event) {
+    const now = Date.now();
+    
+    // Throttle mouse tracking
+    if (mouseThrottleTimer) return;
+    mouseThrottleTimer = setTimeout(() => mouseThrottleTimer = null, HOVER_CONFIG.SAMPLE_INTERVAL_MS);
+
+    const x = event.clientX;
+    const y = event.clientY;
+    const pageX = event.pageX;
+    const pageY = event.pageY;
+    const docDimensions = getDocumentDimensions();
+
+    // Calculate velocity
+    const deltaX = x - lastMousePosition.x;
+    const deltaY = y - lastMousePosition.y;
+    const deltaTime = now - lastMouseMoveTime;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    const velocity = deltaTime > 0 ? distance / deltaTime : 0;
+
+    lastMousePosition = { x, y };
+    lastMouseMoveTime = now;
+    isMouseMoving = true;
+
+    // Get element under cursor
+    const element = document.elementFromPoint(x, y);
+    let elementSelector = '';
+    let attentionZone = '';
+
+    if (element) {
+      elementSelector = generateElementSelector(element);
+      
+      // Determine attention zone based on element type
+      const tag = element.tagName.toLowerCase();
+      if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)) {
+        attentionZone = 'heading';
+      } else if (['p', 'article', 'section'].includes(tag)) {
+        attentionZone = 'content';
+      } else if (['a', 'button'].includes(tag) || element.getAttribute('role') === 'button') {
+        attentionZone = 'interactive';
+      } else if (['img', 'video', 'svg', 'canvas'].includes(tag)) {
+        attentionZone = 'media';
+      } else if (['nav', 'header', 'footer'].includes(tag)) {
+        attentionZone = 'navigation';
+      } else if (['form', 'input', 'select', 'textarea'].includes(tag)) {
+        attentionZone = 'form';
+      } else {
+        attentionZone = 'other';
+      }
+
+      // Track hover time on element
+      updateElementHoverTime(elementSelector, now);
+    }
+
+    // Add to buffer
+    mousePositionBuffer.push({
+      x: pageX,
+      y: pageY,
+      x_relative: docDimensions.width > 0 ? parseFloat((pageX / docDimensions.width).toFixed(4)) : 0,
+      y_relative: docDimensions.height > 0 ? parseFloat((pageY / docDimensions.height).toFixed(4)) : 0,
+      velocity: parseFloat(velocity.toFixed(2)),
+      timestamp: now,
+      attention_zone: attentionZone,
+      element_selector: elementSelector.substring(0, 200),
+    });
+
+    // Enforce buffer limit
+    if (mousePositionBuffer.length > HOVER_CONFIG.MAX_BUFFER_SIZE) {
+      mousePositionBuffer = mousePositionBuffer.slice(-HOVER_CONFIG.MAX_BUFFER_SIZE);
+    }
+
+    // Batch send
+    if (mousePositionBuffer.length >= HOVER_CONFIG.BATCH_SIZE) {
+      flushMousePositionBuffer();
+    } else if (!hoverBatchTimer) {
+      hoverBatchTimer = setTimeout(flushMousePositionBuffer, HOVER_CONFIG.FLUSH_INTERVAL_MS);
+    }
+  }
+
+  function updateElementHoverTime(selector, now) {
+    if (!elementHoverTimes.has(selector)) {
+      elementHoverTimes.set(selector, { startTime: now, totalTime: 0 });
+    }
+    
+    const hoverData = elementHoverTimes.get(selector);
+    // If last update was recent, add to total time
+    if (hoverData.lastUpdate && now - hoverData.lastUpdate < 200) {
+      hoverData.totalTime += now - hoverData.lastUpdate;
+    }
+    hoverData.lastUpdate = now;
+
+    // Limit tracker size
+    if (elementHoverTimes.size > 100) {
+      // Remove oldest entries
+      const entries = Array.from(elementHoverTimes.entries());
+      entries.sort((a, b) => (a[1].lastUpdate || 0) - (b[1].lastUpdate || 0));
+      for (let i = 0; i < 20; i++) {
+        elementHoverTimes.delete(entries[i][0]);
+      }
+    }
+  }
+
+  function flushMousePositionBuffer() {
+    if (hoverBatchTimer) {
+      clearTimeout(hoverBatchTimer);
+      hoverBatchTimer = null;
+    }
+
+    if (mousePositionBuffer.length === 0) return;
+
+    // Simplify path using Douglas-Peucker algorithm
+    const simplifiedPath = douglasPeuckerSimplify(mousePositionBuffer, 3);
+    const events = mousePositionBuffer.splice(0, mousePositionBuffer.length);
+    
+    // Calculate path metrics
+    const pathMetrics = calculatePathMetrics(events);
+
+    const docDimensions = getDocumentDimensions();
+    const hoverData = {
+      event_type: 'mouse_move',
+      event_id: generateEventId(),
+      session_id: SESSION_ID,
+      timestamp: new Date().toISOString(),
+      page_url: window.location.href,
+      page_path: window.location.pathname,
+      cursor_path_distance: pathMetrics.totalDistance,
+      cursor_direction_changes: pathMetrics.directionChanges,
+      is_erratic_movement: pathMetrics.isErratic,
+      document_width: docDimensions.width,
+      document_height: docDimensions.height,
+      // Store simplified path in data
+      path_points: simplifiedPath.length,
+      avg_velocity: pathMetrics.avgVelocity,
+      device_info: getDeviceInfo(),
+    };
+
+    sendWrappedFetch(V1_INGEST_ENDPOINT, hoverData).catch(console.error);
+  }
+
+  // ============================================
+  // CURSOR PATH ANALYSIS
+  // Path metrics and simplification for cursor tracking
+  // ============================================
+  const PATH_CONFIG = {
+    ERRATIC_THRESHOLD: 0.4,    // Direction changes per pixel ratio
+    MIN_DISTANCE: 100,         // Minimum distance to analyze
+  };
+
+  function calculatePathMetrics(points) {
+    if (points.length < 2) {
+      return { totalDistance: 0, directionChanges: 0, avgVelocity: 0, isErratic: false };
+    }
+
+    let totalDistance = 0;
+    let directionChanges = 0;
+    let totalVelocity = 0;
+    let lastAngle = null;
+
+    for (let i = 1; i < points.length; i++) {
+      const dx = points[i].x - points[i - 1].x;
+      const dy = points[i].y - points[i - 1].y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      totalDistance += distance;
+      totalVelocity += points[i].velocity || 0;
+
+      if (distance > 5) {  // Only count significant movements
+        const angle = Math.atan2(dy, dx);
+        if (lastAngle !== null) {
+          const angleDiff = Math.abs(angle - lastAngle);
+          // Count significant direction changes (> 45 degrees)
+          if (angleDiff > Math.PI / 4 && angleDiff < 7 * Math.PI / 4) {
+            directionChanges++;
+          }
+        }
+        lastAngle = angle;
+      }
+    }
+
+    const avgVelocity = totalVelocity / points.length;
+    
+    // Determine if movement is erratic
+    // Erratic = many direction changes relative to distance traveled
+    const isErratic = totalDistance > PATH_CONFIG.MIN_DISTANCE && 
+      (directionChanges / totalDistance) > PATH_CONFIG.ERRATIC_THRESHOLD;
+
+    return {
+      totalDistance: parseFloat(totalDistance.toFixed(2)),
+      directionChanges: directionChanges,
+      avgVelocity: parseFloat(avgVelocity.toFixed(2)),
+      isErratic: isErratic
+    };
+  }
+
+  /**
+   * Douglas-Peucker path simplification algorithm
+   * Reduces number of points while preserving path shape
+   */
+  function douglasPeuckerSimplify(points, epsilon) {
+    if (points.length <= 2) return points;
+
+    // Find point with maximum distance from line
+    let maxDist = 0;
+    let maxIndex = 0;
+    const start = points[0];
+    const end = points[points.length - 1];
+
+    for (let i = 1; i < points.length - 1; i++) {
+      const dist = perpendicularDistance(points[i], start, end);
+      if (dist > maxDist) {
+        maxDist = dist;
+        maxIndex = i;
+      }
+    }
+
+    // If max distance is greater than epsilon, recursively simplify
+    if (maxDist > epsilon) {
+      const left = douglasPeuckerSimplify(points.slice(0, maxIndex + 1), epsilon);
+      const right = douglasPeuckerSimplify(points.slice(maxIndex), epsilon);
+      return left.slice(0, -1).concat(right);
+    } else {
+      return [start, end];
+    }
+  }
+
+  function perpendicularDistance(point, lineStart, lineEnd) {
+    const dx = lineEnd.x - lineStart.x;
+    const dy = lineEnd.y - lineStart.y;
+    
+    if (dx === 0 && dy === 0) {
+      return Math.sqrt(
+        Math.pow(point.x - lineStart.x, 2) + 
+        Math.pow(point.y - lineStart.y, 2)
+      );
+    }
+
+    const t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / (dx * dx + dy * dy);
+    const closestX = lineStart.x + t * dx;
+    const closestY = lineStart.y + t * dy;
+
+    return Math.sqrt(
+      Math.pow(point.x - closestX, 2) + 
+      Math.pow(point.y - closestY, 2)
+    );
+  }
+
+  // ============================================
+  // HOVER EVENT TRACKING
+  // Send hover events when user dwells on elements
+  // ============================================
+  let hoverCheckInterval = null;
+  let lastHoverFlushTime = Date.now();
+
+  function initHoverTracking() {
+    // Check hover times periodically and send significant hovers
+    hoverCheckInterval = setInterval(() => {
+      const now = Date.now();
+      const significantHovers = [];
+
+      elementHoverTimes.forEach((data, selector) => {
+        if (data.totalTime >= HOVER_CONFIG.MIN_HOVER_DURATION_MS) {
+          significantHovers.push({
+            element_selector: selector.substring(0, 200),
+            hover_duration_ms: data.totalTime,
+          });
+        }
+      });
+
+      if (significantHovers.length > 0) {
+        sendHoverEvents(significantHovers);
+      }
+
+      // Clear processed hovers
+      elementHoverTimes.clear();
+      lastHoverFlushTime = now;
+    }, 30000);  // Check every 30 seconds
+  }
+
+  function sendHoverEvents(hovers) {
+    if (hovers.length === 0) return;
+
+    const docDimensions = getDocumentDimensions();
+    
+    // Send top 10 most significant hovers
+    const topHovers = hovers
+      .sort((a, b) => b.hover_duration_ms - a.hover_duration_ms)
+      .slice(0, 10);
+
+    topHovers.forEach(hover => {
+      const hoverData = {
+        event_type: 'hover',
+        event_id: generateEventId(),
+        session_id: SESSION_ID,
+        timestamp: new Date().toISOString(),
+        page_url: window.location.href,
+        page_path: window.location.pathname,
+        element_selector: hover.element_selector,
+        hover_duration_ms: hover.hover_duration_ms,
+        document_width: docDimensions.width,
+        document_height: docDimensions.height,
+        device_info: getDeviceInfo(),
+      };
+
+      sendWrappedFetch(V1_INGEST_ENDPOINT, hoverData).catch(console.error);
+    });
+  }
+
+  function initMouseTracking() {
+    // Use throttled mouse move tracking
+    document.addEventListener('mousemove', trackMouseMovement, { passive: true });
+    
+    // Track when mouse stops moving
+    document.addEventListener('mouseleave', () => {
+      isMouseMoving = false;
+      flushMousePositionBuffer();
+    });
+
+    // Initialize hover tracking
+    initHoverTracking();
+  }
   // ============================================
   // CLICK TRACKING
   // ============================================
@@ -2284,6 +2726,10 @@
     // Initialize visibility tracking
     initVisibilityTracking();
 
+    // Initialize behavioral tracking (Frustration Signals)
+    initConfusionScrollTracking();
+    initMouseTracking();
+
     // Track initial page view
     trackPageView();
 
@@ -2344,7 +2790,7 @@
 
     console.log("[Navlens] Tracker initialized successfully");
     console.log(
-      "[Navlens] Features: Time-Slicing ✓ | Compression ✓ | PII Scrubbing ✓ | Dead Click ✓ | DOM Hash ✓ | Retry Queue ✓ | Debug Capture ✓"
+      "[Navlens] Features: Time-Slicing ✓ | Compression ✓ | PII Scrubbing ✓ | Dead Click ✓ | DOM Hash ✓ | Retry Queue ✓ | Debug Capture ✓ | Frustration Signals ✓ | Hover Tracking ✓ | Cursor Paths ✓"
     );
   }
 
@@ -2352,7 +2798,7 @@
   // PUBLIC API
   // ============================================
   window.Navlens = {
-    version: "6.0.0",
+    version: "6.1.0",
     sessionId: SESSION_ID,
 
     // Manual tracking methods

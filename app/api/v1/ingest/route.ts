@@ -195,6 +195,13 @@ export async function POST(request: NextRequest) {
           is_interactive: event.data?.is_interactive ?? false,
           is_dead_click: event.data?.is_dead_click ?? false,
           click_count: event.data?.click_count ?? 0,
+          // Behavioral metrics columns
+          confusion_scroll_score: typeof event.data?.confusion_scroll_score === 'number' ? event.data.confusion_scroll_score : 0,
+          hover_duration_ms: typeof event.data?.hover_duration_ms === 'number' ? event.data.hover_duration_ms : 0,
+          cursor_path_distance: typeof event.data?.cursor_path_distance === 'number' ? event.data.cursor_path_distance : 0,
+          cursor_direction_changes: typeof event.data?.cursor_direction_changes === 'number' ? event.data.cursor_direction_changes : 0,
+          is_erratic_movement: event.data?.is_erratic_movement ?? false,
+          attention_zone: typeof event.data?.attention_zone === 'string' ? event.data.attention_zone : '',
           created_at: new Date(),
         };
 
