@@ -50,6 +50,7 @@
   const RRWEB_EVENTS_ENDPOINT = `${normalizedHost}/api/rrweb-events`;
   const DOM_SNAPSHOT_ENDPOINT = `${normalizedHost}/api/dom-snapshot`;
   const DEBUG_EVENTS_ENDPOINT = `${normalizedHost}/api/v1/debug-events`;
+  const FORM_EVENTS_ENDPOINT = `${normalizedHost}/api/v1/form-events`;
 
   // ============================================
   // EVENT FORMAT WRAPPER
@@ -930,6 +931,306 @@
   // Flush debug events before page unload
   window.addEventListener('beforeunload', flushDebugEvents);
   window.addEventListener('pagehide', flushDebugEvents);
+
+  // ============================================
+  // FORM ANALYTICS
+  // Track field drop-off, time-to-fill, refill rates
+  // ============================================
+  
+  // Form tracking state
+  const formEventBuffer = [];
+  const FORM_BATCH_INTERVAL_MS = 3000; // Send every 3 seconds
+  const FORM_BATCH_SIZE = 10;
+  let formBatchTimer = null;
+  const activeFields = new Map(); // field_id -> { focusTime, changeCount, lastValueLength }
+  const trackedForms = new Map(); // form_id -> { fields, hasSubmitted }
+  
+  // Sensitive field patterns to skip
+  const SENSITIVE_PATTERNS = [
+    /password/i, /ssn/i, /social.*security/i, /credit.*card/i,
+    /card.*number/i, /cvv/i, /cvc/i, /pin/i, /secret/i
+  ];
+
+  /**
+   * Check if field should be skipped
+   */
+  function isSensitiveField(field) {
+    if (field.type === 'password') return true;
+    const name = (field.name || '') + (field.id || '');
+    return SENSITIVE_PATTERNS.some(p => p.test(name));
+  }
+
+  /**
+   * Get form identifier (prefer id, then name, then selector)
+   */
+  function getFormId(form) {
+    if (form.id) return `id:${form.id}`;
+    if (form.name) return `name:${form.name}`;
+    // Generate selector-based ID
+    const index = Array.from(document.forms).indexOf(form);
+    return `form:${index}`;
+  }
+
+  /**
+   * Get field identifier
+   */
+  function getFieldId(field) {
+    if (field.id) return field.id;
+    if (field.name) return field.name;
+    // Use type + index as fallback
+    const form = field.form;
+    if (form) {
+      const sameTypeFields = Array.from(form.elements).filter(e => e.type === field.type);
+      const index = sameTypeFields.indexOf(field);
+      return `${field.type}_${index}`;
+    }
+    return `field_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Get field index within form
+   */
+  function getFieldIndex(field) {
+    const form = field.form;
+    if (!form) return 0;
+    const inputs = Array.from(form.elements).filter(e => 
+      ['input', 'select', 'textarea'].includes(e.tagName.toLowerCase()) &&
+      !['hidden', 'submit', 'button', 'reset'].includes(e.type)
+    );
+    return inputs.indexOf(field) + 1;
+  }
+
+  /**
+   * Buffer form event
+   */
+  function bufferFormEvent(event) {
+    formEventBuffer.push({
+      ...event,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (formEventBuffer.length >= FORM_BATCH_SIZE) {
+      flushFormEvents();
+    } else if (!formBatchTimer) {
+      formBatchTimer = setTimeout(flushFormEvents, FORM_BATCH_INTERVAL_MS);
+    }
+  }
+
+  /**
+   * Flush form events to server
+   */
+  async function flushFormEvents() {
+    if (formBatchTimer) {
+      clearTimeout(formBatchTimer);
+      formBatchTimer = null;
+    }
+
+    if (formEventBuffer.length === 0) return;
+
+    const events = formEventBuffer.splice(0, formEventBuffer.length);
+
+    try {
+      await sendCompressedFetch(FORM_EVENTS_ENDPOINT, {
+        events,
+        siteId: SITE_ID,
+        sessionId: SESSION_ID,
+      }, false);
+    } catch (error) {
+      // Silently fail - form analytics is non-critical
+    }
+  }
+
+  /**
+   * Handle field focus
+   */
+  function handleFieldFocus(event) {
+    const field = event.target;
+    if (!field.form || isSensitiveField(field)) return;
+
+    const fieldId = getFieldId(field);
+    const formId = getFormId(field.form);
+    const now = Date.now();
+
+    // Store field state
+    activeFields.set(fieldId, {
+      focusTime: now,
+      changeCount: 0,
+      lastValueLength: (field.value || '').length,
+      wasRefilled: false,
+    });
+
+    // Track form
+    if (!trackedForms.has(formId)) {
+      trackedForms.set(formId, { fields: new Set(), hasSubmitted: false });
+    }
+    trackedForms.get(formId).fields.add(fieldId);
+
+    bufferFormEvent({
+      form_id: formId,
+      form_url: window.location.href,
+      field_id: fieldId,
+      field_name: field.name || '',
+      field_type: field.type || 'text',
+      field_index: getFieldIndex(field),
+      interaction_type: 'focus',
+      focus_time: new Date(now).toISOString(),
+    });
+  }
+
+  /**
+   * Handle field blur
+   */
+  function handleFieldBlur(event) {
+    const field = event.target;
+    if (!field.form || isSensitiveField(field)) return;
+
+    const fieldId = getFieldId(field);
+    const formId = getFormId(field.form);
+    const fieldState = activeFields.get(fieldId);
+    const now = Date.now();
+
+    if (fieldState) {
+      const timeSpent = now - fieldState.focusTime;
+      const hasValue = (field.value || '').length > 0;
+
+      bufferFormEvent({
+        form_id: formId,
+        form_url: window.location.href,
+        field_id: fieldId,
+        field_name: field.name || '',
+        field_type: field.type || 'text',
+        field_index: getFieldIndex(field),
+        interaction_type: 'blur',
+        focus_time: new Date(fieldState.focusTime).toISOString(),
+        blur_time: new Date(now).toISOString(),
+        time_spent_ms: Math.min(timeSpent, 3600000), // Cap at 1 hour
+        change_count: fieldState.changeCount,
+        was_refilled: fieldState.wasRefilled,
+        field_had_value: hasValue,
+      });
+
+      activeFields.delete(fieldId);
+    }
+  }
+
+  /**
+   * Handle field change (for refill detection)
+   */
+  function handleFieldChange(event) {
+    const field = event.target;
+    if (!field.form || isSensitiveField(field)) return;
+
+    const fieldId = getFieldId(field);
+    const fieldState = activeFields.get(fieldId);
+
+    if (fieldState) {
+      fieldState.changeCount++;
+      
+      // Detect refill: value length decreased by >50% then increased
+      const currentLength = (field.value || '').length;
+      const lastLength = fieldState.lastValueLength;
+      
+      if (lastLength > 0 && currentLength < lastLength * 0.5) {
+        // User deleted significant content - mark for potential refill
+        fieldState.deletedContent = true;
+      } else if (fieldState.deletedContent && currentLength > lastLength) {
+        // User is retyping after deletion - this is a refill
+        fieldState.wasRefilled = true;
+        fieldState.deletedContent = false;
+      }
+      
+      fieldState.lastValueLength = currentLength;
+    }
+  }
+
+  /**
+   * Handle form submit
+   */
+  function handleFormSubmit(event) {
+    const form = event.target;
+    const formId = getFormId(form);
+    const formState = trackedForms.get(formId);
+
+    if (formState) {
+      formState.hasSubmitted = true;
+
+      // Send submit event
+      bufferFormEvent({
+        form_id: formId,
+        form_url: window.location.href,
+        field_id: '',
+        field_name: '',
+        field_type: '',
+        field_index: 0,
+        interaction_type: 'submit',
+        was_submitted: true,
+      });
+
+      // Flush immediately on submit
+      flushFormEvents();
+    }
+  }
+
+  /**
+   * Handle page abandonment - mark incomplete forms
+   */
+  function handleFormAbandonment() {
+    trackedForms.forEach((formState, formId) => {
+      if (!formState.hasSubmitted && formState.fields.size > 0) {
+        // Form was interacted with but not submitted
+        bufferFormEvent({
+          form_id: formId,
+          form_url: window.location.href,
+          field_id: '',
+          field_name: '',
+          field_type: '',
+          field_index: 0,
+          interaction_type: 'abandon',
+          was_submitted: false,
+        });
+      }
+    });
+
+    flushFormEvents();
+  }
+
+  /**
+   * Initialize form tracking
+   */
+  function initFormTracking() {
+    // Use event delegation for efficiency
+    document.addEventListener('focusin', (e) => {
+      if (e.target.tagName && ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+        handleFieldFocus(e);
+      }
+    }, true);
+
+    document.addEventListener('focusout', (e) => {
+      if (e.target.tagName && ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+        handleFieldBlur(e);
+      }
+    }, true);
+
+    document.addEventListener('input', (e) => {
+      if (e.target.tagName && ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+        handleFieldChange(e);
+      }
+    }, true);
+
+    document.addEventListener('submit', handleFormSubmit, true);
+
+    // Handle abandonment
+    window.addEventListener('beforeunload', handleFormAbandonment);
+    window.addEventListener('pagehide', handleFormAbandonment);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        handleFormAbandonment();
+      }
+    });
+  }
+
+  // Start form tracking
+  initFormTracking();
 
   // ============================================
   // SESSION MANAGEMENT (with timeout/renewal)
