@@ -13,6 +13,7 @@ import {
   ArrowRightOnRectangleIcon,
   EyeIcon,
   FunnelIcon,
+  DocumentChartBarIcon,
 } from "@heroicons/react/24/outline";
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useState } from "react";
@@ -43,6 +44,11 @@ const navItems = [
     name: "Funnels",
     href: "/dashboard/funnels",
     icon: FunnelIcon,
+  },
+  {
+    name: "Form Analytics",
+    href: "/dashboard/form-analytics",
+    icon: DocumentChartBarIcon,
   },
   {
     name: "Settings",

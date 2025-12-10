@@ -16,7 +16,6 @@ import {
   FiAlertTriangle,
   FiRefreshCw,
   FiChevronDown,
-  FiExternalLink,
 } from 'react-icons/fi';
 
 // Date range options
@@ -33,11 +32,14 @@ export default function FormAnalyticsPage() {
   const [days, setDays] = useState(7);
 
   // Fetch forms list
-  const { forms, summary, isLoading: formsLoading, refresh: refreshForms } = useFormList({
+  const { forms, isLoading: formsLoading, refresh: refreshForms } = useFormList({
     siteId: siteId || '',
     days,
     enabled: !!siteId,
   });
+
+  // Compute effective form ID (selected or first available)
+  const effectiveFormId = selectedFormId || (forms.length > 0 ? forms[0].form_id : null);
 
   // Fetch selected form metrics
   const { 
@@ -48,22 +50,15 @@ export default function FormAnalyticsPage() {
     isLoading: metricsLoading 
   } = useFormMetrics({
     siteId: siteId || '',
-    formId: selectedFormId,
+    formId: effectiveFormId,
     days,
-    enabled: !!siteId && !!selectedFormId,
+    enabled: !!siteId && !!effectiveFormId,
   });
-
-  // Auto-select first form
-  useMemo(() => {
-    if (forms.length > 0 && !selectedFormId) {
-      setSelectedFormId(forms[0].form_id);
-    }
-  }, [forms, selectedFormId]);
 
   // Get selected form details
   const selectedForm = useMemo(() => {
-    return forms.find(f => f.form_id === selectedFormId);
-  }, [forms, selectedFormId]);
+    return forms.find(f => f.form_id === effectiveFormId);
+  }, [forms, effectiveFormId]);
 
   if (!siteId) {
     return (
@@ -122,7 +117,7 @@ export default function FormAnalyticsPage() {
               </label>
               <div className="relative">
                 <select
-                  value={selectedFormId || ''}
+                  value={effectiveFormId || ''}
                   onChange={(e) => setSelectedFormId(e.target.value)}
                   className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
@@ -237,9 +232,8 @@ export default function FormAnalyticsPage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {fields.map((field, idx) => {
-                  const prevFocus = idx === 0 ? field.focus_count : fields[idx - 1].focus_count;
-                  const percentage = prevFocus > 0 
+                {fields.map((field) => {
+                  const percentage = fields[0].focus_count > 0 
                     ? Math.round((field.focus_count / fields[0].focus_count) * 100) 
                     : 0;
                   

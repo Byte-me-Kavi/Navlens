@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Transform to ClickHouse format
-        const insertData = validEvents.map((event, idx) => ({
+        const insertData = validEvents.map((event) => ({
             site_id: siteId,
             session_id: sessionId,
             form_id: sanitizeFieldId(event.form_id),

@@ -57,10 +57,9 @@ function formatRelativeTime(timestamp: string, sessionStartTime: number): string
 // Console Tab Component
 const ConsoleTab: React.FC<{
   events: ConsoleEvent[];
-  currentTime: number;
   sessionStartTime: number;
   onSeek?: (timeMs: number) => void;
-}> = ({ events, currentTime, sessionStartTime, onSeek }) => {
+}> = ({ events, sessionStartTime, onSeek }) => {
   const [filter, setFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState<string[]>(['log', 'warn', 'error', 'info', 'debug']);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -197,10 +196,9 @@ const ConsoleTab: React.FC<{
 // Network Tab Component
 const NetworkTab: React.FC<{
   events: NetworkEvent[];
-  currentTime: number;
   sessionStartTime: number;
   onSeek?: (timeMs: number) => void;
-}> = ({ events, currentTime, sessionStartTime, onSeek }) => {
+}> = ({ events, sessionStartTime, onSeek }) => {
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'error'>('all');
 
@@ -382,7 +380,7 @@ const PerformanceTab: React.FC<{
 export default function DebugPanel({
   sessionId,
   siteId,
-  currentTime,
+  currentTime: _currentTime,
   sessionStartTime,
   onSeek,
   isOpen,
@@ -507,7 +505,6 @@ export default function DebugPanel({
             {activeTab === 'console' && (
               <ConsoleTab
                 events={data?.console || []}
-                currentTime={currentTime}
                 sessionStartTime={sessionStartTime}
                 onSeek={onSeek}
               />
@@ -515,7 +512,6 @@ export default function DebugPanel({
             {activeTab === 'network' && (
               <NetworkTab
                 events={data?.network || []}
-                currentTime={currentTime}
                 sessionStartTime={sessionStartTime}
                 onSeek={onSeek}
               />

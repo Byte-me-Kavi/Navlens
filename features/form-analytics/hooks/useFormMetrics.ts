@@ -25,22 +25,25 @@ export function useFormMetrics({
         }
     );
 
+    // Extract fields for memoization
+    const fields = data?.fields;
+
     // Calculate derived metrics
     const overallDropoff = useMemo(() => {
-        if (!data?.fields) return 0;
-        return formAnalyticsApi.calculateOverallDropoff(data.fields);
-    }, [data?.fields]);
+        if (!fields) return 0;
+        return formAnalyticsApi.calculateOverallDropoff(fields);
+    }, [fields]);
 
     const worstRefillField = useMemo(() => {
-        if (!data?.fields) return null;
-        return formAnalyticsApi.findWorstRefillField(data.fields);
-    }, [data?.fields]);
+        if (!fields) return null;
+        return formAnalyticsApi.findWorstRefillField(fields);
+    }, [fields]);
 
     const avgTimeMs = useMemo(() => {
-        if (!data?.fields || data.fields.length === 0) return 0;
-        const total = data.fields.reduce((sum, f) => sum + f.avg_time_ms, 0);
-        return Math.round(total / data.fields.length);
-    }, [data?.fields]);
+        if (!fields || fields.length === 0) return 0;
+        const total = fields.reduce((sum, f) => sum + f.avg_time_ms, 0);
+        return Math.round(total / fields.length);
+    }, [fields]);
 
     return {
         fields: data?.fields || [],
