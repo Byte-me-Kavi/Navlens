@@ -56,7 +56,6 @@
   // EVENT FORMAT WRAPPER
   // Wraps events in the format expected by v1/ingest API:
   // { events: [...], siteId: "uuid" }
-  // ============================================
 
   /**
    * Wrap event data in the format expected by the API
