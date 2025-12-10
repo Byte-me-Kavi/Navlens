@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Validate site_id format
+        // Validate site_id format (UUID check only - no DB lookup to avoid RLS issues)
         if (!validators.isValidUUID(site_id)) {
             return NextResponse.json({ error: 'Invalid site_id format' }, { status: 400 });
         }
@@ -93,18 +93,7 @@ export async function POST(request: NextRequest) {
             ? rating
             : null;
 
-        // Verify site exists
-        const { data: site, error: siteError } = await supabase
-            .from('sites')
-            .select('id')
-            .eq('id', site_id)
-            .single();
-
-        if (siteError || !site) {
-            return NextResponse.json({ error: 'Invalid site_id' }, { status: 400 });
-        }
-
-        // Insert feedback
+        // Insert feedback (site_id foreign key will validate if site exists)
         const { data: feedback, error: insertError } = await supabase
             .from('feedback')
             .insert({
@@ -125,6 +114,10 @@ export async function POST(request: NextRequest) {
 
         if (insertError) {
             console.error('[feedback] Insert error:', insertError);
+            // Check if it's a foreign key violation (invalid site_id)
+            if (insertError.code === '23503') {
+                return NextResponse.json({ error: 'Invalid site_id' }, { status: 400 });
+            }
             return NextResponse.json({ error: 'Failed to save feedback' }, { status: 500 });
         }
 
