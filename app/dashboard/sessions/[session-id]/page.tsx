@@ -6,6 +6,7 @@ import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import SessionPlayer, { RRWebEvent } from "@/components/SessionPlayer";
 import { apiClient } from "@/shared/services/api/client";
+import { DebugPanel } from "@/features/dev-tools";
 import "flag-icons/css/flag-icons.min.css";
 import countries from "world-countries";
 import {
@@ -20,6 +21,7 @@ import {
   FiCalendar,
   FiMaximize,
   FiAlertTriangle,
+  FiTerminal,
 } from "react-icons/fi";
 import { HiOutlineDesktopComputer } from "react-icons/hi";
 
@@ -83,6 +85,8 @@ export default function SessionReplayPage() {
     "desktop"
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
+  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
 
   // Detect user's device type
   useEffect(() => {
@@ -340,25 +344,52 @@ export default function SessionReplayPage() {
       </div>
 
       {/* Toggle Button - Top Right */}
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="absolute right-4 top-4 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5 shadow-lg transition-all z-10 hover:shadow-xl"
-        title={sidebarOpen ? "Hide session info" : "Show session info"}
-      >
-        {sidebarOpen ? (
-          <div className="flex items-center gap-2">
-            <FiX className="w-5 h-5 text-gray-700" />
-            <span className="text-sm font-medium text-gray-700">Close</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <FiMenu className="w-5 h-5 text-gray-700" />
-            <span className="text-sm font-medium text-gray-700">
-              Session Info
-            </span>
-          </div>
-        )}
-      </button>
+      <div className="absolute right-4 top-4 flex gap-2 z-10">
+        {/* Dev Tools Button */}
+        <button
+          onClick={() => setDebugPanelOpen(!debugPanelOpen)}
+          className={`bg-white hover:bg-gray-50 border rounded-lg px-3 py-2.5 shadow-lg transition-all hover:shadow-xl flex items-center gap-2 ${
+            debugPanelOpen
+              ? "border-blue-500 bg-blue-50"
+              : "border-gray-300"
+          }`}
+          title={debugPanelOpen ? "Hide Dev Tools" : "Show Dev Tools"}
+        >
+          <FiTerminal
+            className={`w-5 h-5 ${
+              debugPanelOpen ? "text-blue-600" : "text-gray-700"
+            }`}
+          />
+          <span
+            className={`text-sm font-medium ${
+              debugPanelOpen ? "text-blue-600" : "text-gray-700"
+            }`}
+          >
+            Dev Tools
+          </span>
+        </button>
+
+        {/* Sidebar Toggle */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="bg-white hover:bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5 shadow-lg transition-all hover:shadow-xl"
+          title={sidebarOpen ? "Hide session info" : "Show session info"}
+        >
+          {sidebarOpen ? (
+            <div className="flex items-center gap-2">
+              <FiX className="w-5 h-5 text-gray-700" />
+              <span className="text-sm font-medium text-gray-700">Close</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <FiMenu className="w-5 h-5 text-gray-700" />
+              <span className="text-sm font-medium text-gray-700">
+                Session Info
+              </span>
+            </div>
+          )}
+        </button>
+      </div>
 
       {/* Player Container - Centered with increased height */}
       <div className="flex-1 p-0 bg-transparent flex flex-col items-center overflow-hidden h-screen">
@@ -384,6 +415,20 @@ export default function SessionReplayPage() {
           )}
         </div>
       </div>
+
+      {/* Debug Panel */}
+      {siteId && (
+        <DebugPanel
+          sessionId={sessionId}
+          siteId={siteId}
+          currentTime={currentPlaybackTime}
+          sessionStartTime={
+            events.length > 0 ? events[0].timestamp : Date.now()
+          }
+          isOpen={debugPanelOpen}
+          onClose={() => setDebugPanelOpen(false)}
+        />
+      )}
     </div>
   );
 }

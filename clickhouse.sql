@@ -1,6 +1,7 @@
 CREATE TABLE default.events
 (
     `site_id` String,
+    `event_id` String DEFAULT '',
     `event_type` String,
     `timestamp` DateTime,
     `x` Float64,
@@ -28,9 +29,16 @@ CREATE TABLE default.events
     `load_time` Float64,
     `variant_id` String,
     `document_width` Int32 DEFAULT 0,
-    `document_height` Int32 DEFAULT 0
+    `document_height` Int32 DEFAULT 0,
+    `element_href` String DEFAULT '',
+    `is_interactive` Bool DEFAULT false,
+    `is_dead_click` Bool DEFAULT false,
+    `click_count` Int32 DEFAULT 0,
+    `ip_address` String DEFAULT '',
+    `user_id` String DEFAULT '',
+    `created_at` DateTime DEFAULT now()
 )
 ENGINE = SharedMergeTree('/clickhouse/tables/{uuid}/{shard}', '{replica}')
-PRIMARY KEY (site_id, session_id, event_type, timestamp)
-ORDER BY (site_id, session_id, event_type, timestamp)
+PRIMARY KEY (site_id, event_type, timestamp, event_id)
+ORDER BY (site_id, event_type, timestamp, event_id, session_id)
 SETTINGS index_granularity = 8192

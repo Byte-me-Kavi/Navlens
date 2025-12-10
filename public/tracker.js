@@ -49,6 +49,7 @@
   const V1_INGEST_ENDPOINT = `${normalizedHost}/api/v1/ingest`;
   const RRWEB_EVENTS_ENDPOINT = `${normalizedHost}/api/rrweb-events`;
   const DOM_SNAPSHOT_ENDPOINT = `${normalizedHost}/api/dom-snapshot`;
+  const DEBUG_EVENTS_ENDPOINT = `${normalizedHost}/api/v1/debug-events`;
 
   // ============================================
   // EVENT FORMAT WRAPPER
@@ -509,6 +510,426 @@
 
     return obj;
   }
+
+  // ============================================
+  // DEVELOPER TOOLS DEBUG DATA CAPTURE
+  // Console logs, Network requests, Web Vitals
+  // ============================================
+  
+  // Debug event buffer and configuration
+  const debugEventBuffer = [];
+  const DEBUG_BATCH_INTERVAL_MS = 2000; // Send every 2 seconds
+  const DEBUG_BATCH_SIZE = 10; // Or when buffer reaches 10 events
+  const MAX_CONSOLE_EVENTS = 100; // Max console events per session
+  const MAX_NETWORK_EVENTS = 200; // Max network events per session
+  let consoleEventCount = 0;
+  let networkEventCount = 0;
+  let debugBatchTimer = null;
+  let webVitalsSent = false;
+
+  /**
+   * Add debug event to buffer and schedule send
+   * @param {Object} event - Debug event data
+   */
+  function bufferDebugEvent(event) {
+    debugEventBuffer.push({
+      ...event,
+      timestamp: new Date().toISOString(),
+      page_url: window.location.href,
+      page_path: window.location.pathname,
+    });
+
+    // Send immediately if buffer is full
+    if (debugEventBuffer.length >= DEBUG_BATCH_SIZE) {
+      flushDebugEvents();
+    } else if (!debugBatchTimer) {
+      // Schedule batch send
+      debugBatchTimer = setTimeout(flushDebugEvents, DEBUG_BATCH_INTERVAL_MS);
+    }
+  }
+
+  /**
+   * Flush debug events to server
+   */
+  async function flushDebugEvents() {
+    if (debugBatchTimer) {
+      clearTimeout(debugBatchTimer);
+      debugBatchTimer = null;
+    }
+
+    if (debugEventBuffer.length === 0) return;
+
+    // Copy and clear buffer
+    const events = debugEventBuffer.splice(0, debugEventBuffer.length);
+
+    try {
+      await sendCompressedFetch(DEBUG_EVENTS_ENDPOINT, {
+        events,
+        siteId: SITE_ID,
+        sessionId: SESSION_ID,
+      }, false); // Don't add to retry queue for debug events
+    } catch (error) {
+      // Silently fail - debug data is non-critical
+      console.warn('[Navlens] Debug event send failed:', error.message);
+    }
+  }
+
+  // ============================================
+  // CONSOLE INTERCEPTOR
+  // Captures console.log, warn, error, info, debug
+  // ============================================
+  const originalConsole = {
+    log: console.log,
+    warn: console.warn,
+    error: console.error,
+    info: console.info,
+    debug: console.debug,
+  };
+
+  /**
+   * Get stack trace for error logging
+   */
+  function getStackTrace() {
+    try {
+      throw new Error();
+    } catch (e) {
+      const stack = e.stack || '';
+      // Remove first 3 lines (Error, getStackTrace, interceptor)
+      return stack.split('\n').slice(3).join('\n').substring(0, 2000);
+    }
+  }
+
+  /**
+   * Intercept console method
+   * @param {string} level - Console level (log, warn, error, etc.)
+   */
+  function interceptConsole(level) {
+    console[level] = function (...args) {
+      // Always call original
+      originalConsole[level].apply(console, args);
+
+      // Skip if we've hit the limit or if it's a Navlens message
+      if (consoleEventCount >= MAX_CONSOLE_EVENTS) return;
+      const message = args.map(arg => {
+        try {
+          return typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
+        } catch {
+          return '[Unserializable]';
+        }
+      }).join(' ');
+
+      // Skip Navlens internal logs
+      if (message.includes('[Navlens]')) return;
+
+      consoleEventCount++;
+      bufferDebugEvent({
+        type: 'console',
+        level,
+        message: scrubPII(message.substring(0, 5000)),
+        stack: level === 'error' ? getStackTrace() : '',
+      });
+    };
+  }
+
+  // Apply console interceptors
+  ['log', 'warn', 'error', 'info', 'debug'].forEach(interceptConsole);
+
+  // Also capture uncaught errors
+  window.addEventListener('error', function (event) {
+    if (consoleEventCount >= MAX_CONSOLE_EVENTS) return;
+    consoleEventCount++;
+    bufferDebugEvent({
+      type: 'console',
+      level: 'error',
+      message: scrubPII(`Uncaught: ${event.message}`),
+      stack: event.error?.stack ? scrubPII(event.error.stack.substring(0, 2000)) : '',
+    });
+  });
+
+  // Capture unhandled promise rejections
+  window.addEventListener('unhandledrejection', function (event) {
+    if (consoleEventCount >= MAX_CONSOLE_EVENTS) return;
+    consoleEventCount++;
+    const reason = event.reason;
+    bufferDebugEvent({
+      type: 'console',
+      level: 'error',
+      message: scrubPII(`Unhandled Promise: ${reason?.message || String(reason)}`),
+      stack: reason?.stack ? scrubPII(reason.stack.substring(0, 2000)) : '',
+    });
+  });
+
+  // ============================================
+  // NETWORK REQUEST MONITOR
+  // Intercepts fetch() and XMLHttpRequest
+  // ============================================
+  
+  // URLs to ignore (our own endpoints)
+  const IGNORED_URL_PATTERNS = [
+    '/api/v1/ingest',
+    '/api/v1/debug-events',
+    '/api/rrweb-events',
+    '/api/dom-snapshot',
+    'navlens',
+  ];
+
+  function shouldIgnoreUrl(url) {
+    return IGNORED_URL_PATTERNS.some(pattern => url.includes(pattern));
+  }
+
+  /**
+   * Sanitize URL - remove sensitive query parameters
+   */
+  function sanitizeUrl(url) {
+    try {
+      const urlObj = new URL(url, window.location.origin);
+      const sensitiveParams = ['token', 'key', 'password', 'secret', 'auth', 'api_key', 'apikey', 'access_token'];
+      sensitiveParams.forEach(param => {
+        if (urlObj.searchParams.has(param)) {
+          urlObj.searchParams.set(param, '[REDACTED]');
+        }
+      });
+      return urlObj.toString();
+    } catch {
+      return scrubPII(url);
+    }
+  }
+
+  // Intercept fetch
+  const originalFetch = window.fetch;
+  window.fetch = async function (input, init) {
+    const url = typeof input === 'string' ? input : input.url;
+    
+    // Skip our own endpoints
+    if (shouldIgnoreUrl(url)) {
+      return originalFetch.apply(this, arguments);
+    }
+
+    const startTime = performance.now();
+    const method = init?.method || 'GET';
+
+    try {
+      const response = await originalFetch.apply(this, arguments);
+      const duration = Math.round(performance.now() - startTime);
+
+      if (networkEventCount < MAX_NETWORK_EVENTS) {
+        networkEventCount++;
+        bufferDebugEvent({
+          type: 'network',
+          method: method.toUpperCase(),
+          url: sanitizeUrl(url),
+          status: response.status,
+          duration_ms: duration,
+          network_type: 'fetch',
+          initiator: 'script',
+        });
+      }
+
+      return response;
+    } catch (error) {
+      const duration = Math.round(performance.now() - startTime);
+
+      if (networkEventCount < MAX_NETWORK_EVENTS) {
+        networkEventCount++;
+        bufferDebugEvent({
+          type: 'network',
+          method: method.toUpperCase(),
+          url: sanitizeUrl(url),
+          status: 0, // Failed
+          duration_ms: duration,
+          network_type: 'fetch',
+          initiator: 'script',
+        });
+      }
+
+      throw error;
+    }
+  };
+
+  // Intercept XMLHttpRequest
+  const originalXHROpen = XMLHttpRequest.prototype.open;
+  const originalXHRSend = XMLHttpRequest.prototype.send;
+
+  XMLHttpRequest.prototype.open = function (method, url) {
+    this._navlens_method = method;
+    this._navlens_url = url;
+    this._navlens_start = null;
+    return originalXHROpen.apply(this, arguments);
+  };
+
+  XMLHttpRequest.prototype.send = function () {
+    const url = this._navlens_url;
+    
+    // Skip our own endpoints
+    if (shouldIgnoreUrl(url)) {
+      return originalXHRSend.apply(this, arguments);
+    }
+
+    this._navlens_start = performance.now();
+    const method = this._navlens_method || 'GET';
+
+    this.addEventListener('loadend', () => {
+      if (networkEventCount >= MAX_NETWORK_EVENTS) return;
+
+      const duration = Math.round(performance.now() - this._navlens_start);
+      networkEventCount++;
+      
+      bufferDebugEvent({
+        type: 'network',
+        method: method.toUpperCase(),
+        url: sanitizeUrl(url),
+        status: this.status,
+        duration_ms: duration,
+        network_type: 'xhr',
+        initiator: 'script',
+      });
+    });
+
+    return originalXHRSend.apply(this, arguments);
+  };
+
+  // ============================================
+  // CORE WEB VITALS OBSERVER
+  // Tracks LCP, CLS, INP, FCP, TTFB
+  // ============================================
+
+  /**
+   * Get rating for a web vital
+   * @param {string} name - Vital name
+   * @param {number} value - Vital value
+   * @returns {string} - 'good', 'needs-improvement', or 'poor'
+   */
+  function getVitalRating(name, value) {
+    const thresholds = {
+      LCP: [2500, 4000],
+      FID: [100, 300],
+      CLS: [0.1, 0.25],
+      INP: [200, 500],
+      FCP: [1800, 3000],
+      TTFB: [800, 1800],
+    };
+
+    const [good, poor] = thresholds[name] || [Infinity, Infinity];
+    if (value <= good) return 'good';
+    if (value <= poor) return 'needs-improvement';
+    return 'poor';
+  }
+
+  /**
+   * Observe and report Web Vitals
+   */
+  function observeWebVitals() {
+    if (typeof PerformanceObserver === 'undefined') return;
+
+    // Largest Contentful Paint (LCP)
+    try {
+      const lcpObserver = new PerformanceObserver((entryList) => {
+        const entries = entryList.getEntries();
+        const lastEntry = entries[entries.length - 1];
+        if (lastEntry) {
+          bufferDebugEvent({
+            type: 'web_vital',
+            vital_name: 'LCP',
+            vital_value: Math.round(lastEntry.startTime),
+            vital_rating: getVitalRating('LCP', lastEntry.startTime),
+          });
+        }
+      });
+      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
+    } catch (e) { /* Not supported */ }
+
+    // First Contentful Paint (FCP)
+    try {
+      const fcpObserver = new PerformanceObserver((entryList) => {
+        const entries = entryList.getEntries();
+        const fcpEntry = entries.find(e => e.name === 'first-contentful-paint');
+        if (fcpEntry) {
+          bufferDebugEvent({
+            type: 'web_vital',
+            vital_name: 'FCP',
+            vital_value: Math.round(fcpEntry.startTime),
+            vital_rating: getVitalRating('FCP', fcpEntry.startTime),
+          });
+        }
+      });
+      fcpObserver.observe({ type: 'paint', buffered: true });
+    } catch (e) { /* Not supported */ }
+
+    // Cumulative Layout Shift (CLS)
+    try {
+      let clsValue = 0;
+      const clsObserver = new PerformanceObserver((entryList) => {
+        for (const entry of entryList.getEntries()) {
+          if (!entry.hadRecentInput) {
+            clsValue += entry.value;
+          }
+        }
+      });
+      clsObserver.observe({ type: 'layout-shift', buffered: true });
+
+      // Report CLS on page hide
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden' && !webVitalsSent) {
+          bufferDebugEvent({
+            type: 'web_vital',
+            vital_name: 'CLS',
+            vital_value: Math.round(clsValue * 1000) / 1000, // Round to 3 decimals
+            vital_rating: getVitalRating('CLS', clsValue),
+          });
+        }
+      });
+    } catch (e) { /* Not supported */ }
+
+    // Interaction to Next Paint (INP) - using event timing
+    try {
+      let maxINP = 0;
+      const inpObserver = new PerformanceObserver((entryList) => {
+        for (const entry of entryList.getEntries()) {
+          const duration = entry.processingEnd - entry.startTime;
+          if (duration > maxINP) {
+            maxINP = duration;
+          }
+        }
+      });
+      inpObserver.observe({ type: 'event', buffered: true });
+
+      // Report INP on page hide
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden' && maxINP > 0 && !webVitalsSent) {
+          bufferDebugEvent({
+            type: 'web_vital',
+            vital_name: 'INP',
+            vital_value: Math.round(maxINP),
+            vital_rating: getVitalRating('INP', maxINP),
+          });
+          webVitalsSent = true;
+          // Flush immediately on page hide
+          flushDebugEvents();
+        }
+      });
+    } catch (e) { /* Not supported */ }
+
+    // Time to First Byte (TTFB)
+    try {
+      const navEntry = performance.getEntriesByType('navigation')[0];
+      if (navEntry) {
+        const ttfb = navEntry.responseStart - navEntry.requestStart;
+        bufferDebugEvent({
+          type: 'web_vital',
+          vital_name: 'TTFB',
+          vital_value: Math.round(ttfb),
+          vital_rating: getVitalRating('TTFB', ttfb),
+        });
+      }
+    } catch (e) { /* Not supported */ }
+  }
+
+  // Start observing Web Vitals
+  observeWebVitals();
+
+  // Flush debug events before page unload
+  window.addEventListener('beforeunload', flushDebugEvents);
+  window.addEventListener('pagehide', flushDebugEvents);
 
   // ============================================
   // SESSION MANAGEMENT (with timeout/renewal)
@@ -1623,7 +2044,7 @@
 
     console.log("[Navlens] Tracker initialized successfully");
     console.log(
-      "[Navlens] Features: Time-Slicing ✓ | Compression ✓ | PII Scrubbing ✓ | Dead Click ✓ | DOM Hash ✓ | Retry Queue ✓"
+      "[Navlens] Features: Time-Slicing ✓ | Compression ✓ | PII Scrubbing ✓ | Dead Click ✓ | DOM Hash ✓ | Retry Queue ✓ | Debug Capture ✓"
     );
   }
 
@@ -1631,7 +2052,7 @@
   // PUBLIC API
   // ============================================
   window.Navlens = {
-    version: "5.2.0",
+    version: "6.0.0",
     sessionId: SESSION_ID,
 
     // Manual tracking methods

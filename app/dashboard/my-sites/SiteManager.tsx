@@ -154,18 +154,14 @@ function SnippetCode({ site }: { site: Site }) {
 
   // Include API key in the snippet for secure tracking
   // rrweb libraries must be loaded BEFORE tracker.js
-  const snippet = `<!-- Load rrweb libraries first (required for session recording and snapshots) -->
-<script src="https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.js"><\/script>
-<script src="https://cdn.jsdelivr.net/npm/rrweb-snapshot@latest/dist/rrweb-snapshot.min.js"><\/script>
-
-<!-- Load Navlens tracker -->
-<script 
-  async 
-  src="${NAVLENS_API_HOST}/tracker.js" 
-  data-site-id="${site.id}"
-  data-api-key="${site.api_key}"
-  data-api-host="${NAVLENS_API_HOST}"
-><\/script>`;
+  const snippet = `
+    <script 
+      async 
+      src="${NAVLENS_API_HOST}/tracker.js" 
+      data-site-id="${site.id}"
+      data-api-key="${site.api_key}"
+      data-api-host="${NAVLENS_API_HOST}"
+    ><\/script>`;
 
   const handleSnippetCopy = () => {
     setSnippetCopied(true);
