@@ -53,6 +53,11 @@ const navItems = [
     badge: "New",
   },
   {
+    name: "Feedback",
+    href: "/dashboard/feedback",
+    icon: DocumentChartBarIcon,
+  },
+  {
     name: "Form Analytics",
     href: "/dashboard/form-analytics",
     icon: DocumentChartBarIcon,

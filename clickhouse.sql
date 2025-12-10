@@ -36,9 +36,25 @@ CREATE TABLE default.events
     `click_count` Int32 DEFAULT 0,
     `ip_address` String DEFAULT '',
     `user_id` String DEFAULT '',
-    `created_at` DateTime DEFAULT now()
+    `created_at` DateTime DEFAULT now(),
+    -- Frustration Signals & Behavioral Tracking
+    `confusion_scroll_score` Float64 DEFAULT 0,
+    `is_erratic_movement` Bool DEFAULT false,
+    `cursor_direction_changes` Int32 DEFAULT 0,
+    `cursor_path_distance` Float64 DEFAULT 0,
+    `hover_duration_ms` Int32 DEFAULT 0,
+    `attention_zone` String DEFAULT ''
 )
 ENGINE = SharedMergeTree('/clickhouse/tables/{uuid}/{shard}', '{replica}')
 PRIMARY KEY (site_id, event_type, timestamp, event_id)
 ORDER BY (site_id, event_type, timestamp, event_id, session_id)
 SETTINGS index_granularity = 8192
+
+-- ALTER TABLE commands to add columns to existing table:
+-- 
+-- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS confusion_scroll_score Float64 DEFAULT 0;
+-- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS is_erratic_movement Bool DEFAULT false;
+-- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS cursor_direction_changes Int32 DEFAULT 0;
+-- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS cursor_path_distance Float64 DEFAULT 0;
+-- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS hover_duration_ms Int32 DEFAULT 0;
+-- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS attention_zone String DEFAULT '';

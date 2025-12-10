@@ -51,6 +51,8 @@
   const DOM_SNAPSHOT_ENDPOINT = `${normalizedHost}/api/dom-snapshot`;
   const DEBUG_EVENTS_ENDPOINT = `${normalizedHost}/api/v1/debug-events`;
   const FORM_EVENTS_ENDPOINT = `${normalizedHost}/api/v1/form-events`;
+  const FEEDBACK_ENDPOINT = `${normalizedHost}/api/feedback`;
+  const SURVEYS_ENDPOINT = `${normalizedHost}/api/surveys`;
 
   // ============================================
   // EVENT FORMAT WRAPPER
@@ -2389,6 +2391,528 @@
     // Initialize hover tracking
     initHoverTracking();
   }
+
+  // ============================================
+  // VOICE OF CUSTOMER (VoC) - FEEDBACK WIDGET
+  // Passive feedback collection with session context
+  // ============================================
+  const VOC_CONFIG = {
+    widgetEnabled: true,
+    buttonPosition: 'bottom-right', // 'bottom-right', 'bottom-left'
+    buttonText: '💬 Feedback',
+    primaryColor: '#3B82F6',
+    maxMessageLength: 2000,
+  };
+
+  let feedbackWidgetInitialized = false;
+  let feedbackModalVisible = false;
+  let activeSurveys = [];
+  let surveyShownThisSession = new Set();
+
+  function initFeedbackWidget() {
+    if (feedbackWidgetInitialized || !VOC_CONFIG.widgetEnabled) return;
+    feedbackWidgetInitialized = true;
+
+    // Create feedback button styles
+    const styles = document.createElement('style');
+    styles.textContent = `
+      .navlens-feedback-btn {
+        position: fixed;
+        ${VOC_CONFIG.buttonPosition === 'bottom-left' ? 'left: 20px;' : 'right: 20px;'}
+        bottom: 20px;
+        background: ${VOC_CONFIG.primaryColor};
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 50px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 999999;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .navlens-feedback-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+      }
+      .navlens-feedback-modal {
+        position: fixed;
+        ${VOC_CONFIG.buttonPosition === 'bottom-left' ? 'left: 20px;' : 'right: 20px;'}
+        bottom: 80px;
+        width: 360px;
+        max-width: calc(100vw - 40px);
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 999999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        overflow: hidden;
+        animation: navlens-slide-up 0.3s ease;
+      }
+      @keyframes navlens-slide-up {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .navlens-feedback-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        background: linear-gradient(135deg, ${VOC_CONFIG.primaryColor}, #6366F1);
+        color: white;
+      }
+      .navlens-feedback-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+      .navlens-feedback-close {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+      }
+      .navlens-feedback-body { padding: 20px; }
+      .navlens-feedback-type-btns {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .navlens-feedback-type-btn {
+        flex: 1;
+        padding: 10px;
+        border: 2px solid #E5E7EB;
+        background: white;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      .navlens-feedback-type-btn.active {
+        border-color: ${VOC_CONFIG.primaryColor};
+        background: #EFF6FF;
+        color: ${VOC_CONFIG.primaryColor};
+      }
+      .navlens-feedback-textarea {
+        width: 100%;
+        min-height: 100px;
+        border: 2px solid #E5E7EB;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 14px;
+        resize: vertical;
+        font-family: inherit;
+        box-sizing: border-box;
+      }
+      .navlens-feedback-textarea:focus {
+        outline: none;
+        border-color: ${VOC_CONFIG.primaryColor};
+      }
+      .navlens-feedback-submit {
+        width: 100%;
+        margin-top: 16px;
+        padding: 12px;
+        background: ${VOC_CONFIG.primaryColor};
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .navlens-feedback-submit:hover { background: #2563EB; }
+      .navlens-feedback-submit:disabled { background: #9CA3AF; cursor: not-allowed; }
+      .navlens-feedback-success {
+        text-align: center;
+        padding: 40px 20px;
+      }
+      .navlens-feedback-success svg { width: 48px; height: 48px; color: #10B981; }
+      .navlens-survey-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      .navlens-survey-content {
+        background: white;
+        border-radius: 16px;
+        max-width: 480px;
+        width: calc(100vw - 40px);
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      }
+      .navlens-nps-scale {
+        display: flex;
+        gap: 6px;
+        margin: 16px 0;
+      }
+      .navlens-nps-btn {
+        flex: 1;
+        padding: 12px 0;
+        border: 2px solid #E5E7EB;
+        background: white;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+      }
+      .navlens-nps-btn:hover { border-color: ${VOC_CONFIG.primaryColor}; }
+      .navlens-nps-btn.selected {
+        background: ${VOC_CONFIG.primaryColor};
+        border-color: ${VOC_CONFIG.primaryColor};
+        color: white;
+      }
+    `;
+    document.head.appendChild(styles);
+
+    // Create feedback button
+    const button = document.createElement('button');
+    button.className = 'navlens-feedback-btn';
+    button.textContent = VOC_CONFIG.buttonText;
+    button.onclick = showFeedbackModal;
+    document.body.appendChild(button);
+
+    console.log('[Navlens] Feedback widget initialized');
+  }
+
+  function showFeedbackModal() {
+    if (feedbackModalVisible) return;
+    feedbackModalVisible = true;
+
+    const modal = document.createElement('div');
+    modal.className = 'navlens-feedback-modal';
+    modal.id = 'navlens-feedback-modal';
+    modal.innerHTML = `
+      <div class="navlens-feedback-header">
+        <h3>Send Feedback</h3>
+        <button class="navlens-feedback-close" onclick="document.getElementById('navlens-feedback-modal').remove(); window._navlensFeedbackVisible = false;">×</button>
+      </div>
+      <div class="navlens-feedback-body">
+        <div class="navlens-feedback-type-btns">
+          <button class="navlens-feedback-type-btn active" data-type="bug">🐛 Bug</button>
+          <button class="navlens-feedback-type-btn" data-type="suggestion">💡 Suggestion</button>
+          <button class="navlens-feedback-type-btn" data-type="general">💬 General</button>
+        </div>
+        <textarea class="navlens-feedback-textarea" placeholder="Describe your feedback..." maxlength="${VOC_CONFIG.maxMessageLength}"></textarea>
+        <button class="navlens-feedback-submit">Submit Feedback</button>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    window._navlensFeedbackVisible = true;
+
+    // Type button handlers
+    let selectedType = 'bug';
+    modal.querySelectorAll('.navlens-feedback-type-btn').forEach(btn => {
+      btn.onclick = () => {
+        modal.querySelectorAll('.navlens-feedback-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedType = btn.dataset.type;
+      };
+    });
+
+    // Submit handler
+    const submitBtn = modal.querySelector('.navlens-feedback-submit');
+    const textarea = modal.querySelector('.navlens-feedback-textarea');
+    
+    submitBtn.onclick = async () => {
+      const message = textarea.value.trim();
+      if (!message) {
+        textarea.style.borderColor = '#EF4444';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+
+      try {
+        await submitFeedback({
+          feedback_type: selectedType,
+          message: message,
+        });
+
+        // Show success
+        modal.querySelector('.navlens-feedback-body').innerHTML = `
+          <div class="navlens-feedback-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <h3 style="margin: 16px 0 8px; color: #111827;">Thank you!</h3>
+            <p style="color: #6B7280; font-size: 14px;">Your feedback has been received.</p>
+          </div>
+        `;
+
+        setTimeout(() => {
+          modal.remove();
+          feedbackModalVisible = false;
+        }, 2000);
+      } catch (error) {
+        console.error('[Navlens] Feedback submission failed:', error);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Try Again';
+      }
+    };
+  }
+
+  async function submitFeedback(data) {
+    const deviceInfo = getDeviceInfo();
+    const payload = {
+      site_id: SITE_ID,
+      session_id: SESSION_ID,
+      visitor_id: VISITOR_ID,
+      feedback_type: data.feedback_type,
+      rating: data.rating || null,
+      message: scrubPII(data.message || ''),
+      page_path: window.location.pathname,
+      page_url: window.location.href,
+      device_type: deviceInfo.device_type,
+      user_agent: navigator.userAgent,
+      metadata: {
+        scroll_depth: maxScrollDepth,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    const response = await fetch(FEEDBACK_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error('Feedback submission failed');
+    }
+
+    return response.json();
+  }
+
+  // ============================================
+  // MICRO-SURVEYS
+  // Behavior-triggered popup surveys
+  // ============================================
+  const SURVEY_STORAGE_KEY = 'navlens_surveys_shown';
+  let exitIntentDetected = false;
+
+  async function loadSurveys() {
+    if (!SITE_ID) return;
+
+    try {
+      const url = `${SURVEYS_ENDPOINT}?site_id=${SITE_ID}&page_path=${encodeURIComponent(window.location.pathname)}&device_type=${getDeviceType()}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      activeSurveys = data.surveys || [];
+      
+      if (activeSurveys.length > 0) {
+        initSurveyTriggers();
+        console.log(`[Navlens] Loaded ${activeSurveys.length} surveys`);
+      }
+    } catch (error) {
+      console.warn('[Navlens] Failed to load surveys:', error);
+    }
+  }
+
+  function initSurveyTriggers() {
+    // Load shown surveys from storage
+    try {
+      const shown = JSON.parse(localStorage.getItem(SURVEY_STORAGE_KEY) || '{}');
+      Object.keys(shown).forEach(id => surveyShownThisSession.add(id));
+    } catch (e) {}
+
+    activeSurveys.forEach(survey => {
+      if (!shouldShowSurvey(survey)) return;
+
+      switch (survey.trigger_type) {
+        case 'exit_intent':
+          initExitIntentTrigger(survey);
+          break;
+        case 'scroll_depth':
+          initScrollDepthTrigger(survey);
+          break;
+        case 'time_on_page':
+          initTimeOnPageTrigger(survey);
+          break;
+        case 'frustration':
+          initFrustrationTrigger(survey);
+          break;
+      }
+    });
+  }
+
+  function shouldShowSurvey(survey) {
+    // Check if already shown this session
+    if (surveyShownThisSession.has(survey.id)) return false;
+
+    // Check frequency settings
+    const frequency = survey.display_frequency || 'once_per_session';
+    const storageKey = `navlens_survey_${survey.id}`;
+    
+    try {
+      const lastShown = localStorage.getItem(storageKey);
+      if (lastShown) {
+        const lastDate = new Date(lastShown);
+        const now = new Date();
+        
+        if (frequency === 'once_per_session') return false;
+        if (frequency === 'once_per_day' && (now - lastDate) < 86400000) return false;
+        if (frequency === 'once_per_week' && (now - lastDate) < 604800000) return false;
+      }
+    } catch (e) {}
+
+    return true;
+  }
+
+  function markSurveyShown(surveyId) {
+    surveyShownThisSession.add(surveyId);
+    try {
+      localStorage.setItem(`navlens_survey_${surveyId}`, new Date().toISOString());
+    } catch (e) {}
+  }
+
+  function initExitIntentTrigger(survey) {
+    const handler = (e) => {
+      if (exitIntentDetected) return;
+      if (e.clientY <= 0 && e.relatedTarget === null) {
+        exitIntentDetected = true;
+        showSurveyModal(survey);
+        document.removeEventListener('mouseout', handler);
+      }
+    };
+    document.addEventListener('mouseout', handler);
+  }
+
+  function initScrollDepthTrigger(survey) {
+    const threshold = survey.trigger_config?.threshold || 50;
+    let triggered = false;
+    
+    const handler = () => {
+      if (triggered) return;
+      const scrollPercent = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+      if (scrollPercent >= threshold) {
+        triggered = true;
+        showSurveyModal(survey);
+        window.removeEventListener('scroll', handler);
+      }
+    };
+    window.addEventListener('scroll', handler, { passive: true });
+  }
+
+  function initTimeOnPageTrigger(survey) {
+    const seconds = survey.trigger_config?.seconds || 30;
+    setTimeout(() => showSurveyModal(survey), seconds * 1000);
+  }
+
+  function initFrustrationTrigger(survey) {
+    // Hook into existing frustration detection
+    const originalSend = sendConfusionScrollEvent;
+    window._navlensSendConfusion = (score, changes) => {
+      originalSend(score, changes);
+      if (score > 0.5) {
+        showSurveyModal(survey);
+      }
+    };
+  }
+
+  function showSurveyModal(survey) {
+    if (!shouldShowSurvey(survey)) return;
+    markSurveyShown(survey.id);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'navlens-survey-modal';
+    overlay.id = 'navlens-survey-modal';
+
+    const isNPS = survey.type === 'nps';
+    const question = survey.questions?.[0] || { text: 'How likely are you to recommend us?', type: 'nps' };
+
+    overlay.innerHTML = `
+      <div class="navlens-survey-content">
+        <div class="navlens-feedback-header">
+          <h3>${isNPS ? 'Quick Question' : survey.name || 'Survey'}</h3>
+          <button class="navlens-feedback-close" onclick="document.getElementById('navlens-survey-modal').remove();">×</button>
+        </div>
+        <div class="navlens-feedback-body">
+          <p style="margin: 0 0 8px; font-weight: 500; color: #111827;">${question.text}</p>
+          ${isNPS ? `
+            <div class="navlens-nps-scale">
+              ${[0,1,2,3,4,5,6,7,8,9,10].map(n => 
+                `<button class="navlens-nps-btn" data-score="${n}">${n}</button>`
+              ).join('')}
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280;">
+              <span>Not likely</span>
+              <span>Very likely</span>
+            </div>
+          ` : `
+            <textarea class="navlens-feedback-textarea" placeholder="Your answer..."></textarea>
+          `}
+          <button class="navlens-feedback-submit" style="margin-top: 16px;">Submit</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // NPS button handlers
+    let selectedScore = null;
+    overlay.querySelectorAll('.navlens-nps-btn').forEach(btn => {
+      btn.onclick = () => {
+        overlay.querySelectorAll('.navlens-nps-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedScore = parseInt(btn.dataset.score);
+      };
+    });
+
+    // Submit handler
+    overlay.querySelector('.navlens-feedback-submit').onclick = async () => {
+      if (isNPS && selectedScore === null) return;
+      
+      const submitBtn = overlay.querySelector('.navlens-feedback-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+
+      try {
+        await submitFeedback({
+          feedback_type: 'survey_response',
+          rating: selectedScore,
+          message: isNPS ? `NPS Score: ${selectedScore}` : overlay.querySelector('.navlens-feedback-textarea')?.value || '',
+        });
+
+        overlay.querySelector('.navlens-feedback-body').innerHTML = `
+          <div class="navlens-feedback-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <h3 style="margin: 16px 0 8px; color: #111827;">Thank you!</h3>
+          </div>
+        `;
+        
+        setTimeout(() => overlay.remove(), 1500);
+      } catch (e) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Try Again';
+      }
+    };
+
+    // Close on overlay click
+    overlay.onclick = (e) => {
+      if (e.target === overlay) overlay.remove();
+    };
+  }
+
   // ============================================
   // CLICK TRACKING
   // ============================================
@@ -2730,6 +3254,12 @@
     initConfusionScrollTracking();
     initMouseTracking();
 
+    // Initialize VoC (Voice of Customer)
+    scheduleTask(() => {
+      initFeedbackWidget();
+      loadSurveys();
+    }, "idle");
+
     // Track initial page view
     trackPageView();
 
@@ -2790,7 +3320,7 @@
 
     console.log("[Navlens] Tracker initialized successfully");
     console.log(
-      "[Navlens] Features: Time-Slicing ✓ | Compression ✓ | PII Scrubbing ✓ | Dead Click ✓ | DOM Hash ✓ | Retry Queue ✓ | Debug Capture ✓ | Frustration Signals ✓ | Hover Tracking ✓ | Cursor Paths ✓"
+      "[Navlens] Features: VoC Widget ✓ | Micro-Surveys ✓ | Frustration ✓ | Compression ✓ | PII Scrubbing ✓ | Dead Click ✓ | Hover ✓ | Cursor Paths ✓"
     );
   }
 
@@ -2798,7 +3328,7 @@
   // PUBLIC API
   // ============================================
   window.Navlens = {
-    version: "6.1.0",
+    version: "7.0.0",
     sessionId: SESSION_ID,
 
     // Manual tracking methods
