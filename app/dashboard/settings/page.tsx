@@ -4,9 +4,11 @@ import {
   UserCircleIcon,
   BellIcon,
   ShieldCheckIcon,
+  ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
+import { FeedbackSettings } from "@/features/feedback/components/FeedbackSettings";
 
 export default function SettingsPage() {
   const [email, setEmail] = useState("");
@@ -287,7 +289,20 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+
+        {/* Feedback Widget Settings */}
+        <div className="bg-white rounded-lg border border-blue-200 p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <ChatBubbleLeftRightIcon className="w-5 h-5 text-blue-600" />
+            <h2 className="text-sm font-bold text-gray-900">Feedback Widget</h2>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">
+            Configure the feedback collection widget for your sites
+          </p>
+          <FeedbackSettings className="border-0 shadow-none p-0" />
+        </div>
       </div>
     </div>
   );
 }
+
