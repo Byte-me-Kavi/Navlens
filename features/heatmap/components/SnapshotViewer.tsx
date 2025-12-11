@@ -33,7 +33,7 @@ interface SnapshotViewerProps {
   userDevice?: "desktop" | "mobile" | "tablet";
   showElements?: boolean;
   showHeatmap?: boolean;
-  dataType?: "clicks" | "scrolls";
+  dataType?: "clicks" | "scrolls" | "hover" | "cursor-paths";
 }
 
 export function SnapshotViewer({

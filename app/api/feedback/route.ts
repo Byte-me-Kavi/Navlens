@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import { validators } from '@/lib/validation';
+
+// Use service role key for server-side inserts (bypasses RLS)
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Rate limiting: 5 feedback per session per minute
 const feedbackRateLimits = new Map<string, { count: number; resetTime: number }>();
@@ -94,7 +100,7 @@ export async function POST(request: NextRequest) {
             : null;
 
         // Insert feedback (site_id foreign key will validate if site exists)
-        const { data: feedback, error: insertError } = await supabase
+        const { data: feedback, error: insertError } = await supabaseAdmin
             .from('feedback')
             .insert({
                 site_id,

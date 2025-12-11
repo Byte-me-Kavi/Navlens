@@ -191,8 +191,8 @@ export interface HeatmapSettingsProps {
   userDevice?: "desktop" | "tablet" | "mobile";
 
   // Data type settings
-  selectedDataType: "clicks" | "scrolls";
-  onDataTypeChange: (dataType: "clicks" | "scrolls") => void;
+  selectedDataType: "clicks" | "scrolls" | "hover" | "cursor-paths";
+  onDataTypeChange: (dataType: "clicks" | "scrolls" | "hover" | "cursor-paths") => void;
 
   // Visibility toggles
   showElements: boolean;
@@ -376,6 +376,68 @@ export function HeatmapSettings({
                   <div className="font-semibold text-sm">Scroll Heatmap</div>
                   <div className="text-xs opacity-75">
                     See how deep users scroll
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => onDataTypeChange("hover")}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                  selectedDataType === "hover"
+                    ? "border-cyan-600 bg-cyan-50 text-cyan-600"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-cyan-300 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+                <div className="text-left">
+                  <div className="font-semibold text-sm">Hover Heatmap</div>
+                  <div className="text-xs opacity-75">
+                    Track attention & hover patterns
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => onDataTypeChange("cursor-paths")}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                  selectedDataType === "cursor-paths"
+                    ? "border-amber-600 bg-amber-50 text-amber-600"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                  />
+                </svg>
+                <div className="text-left">
+                  <div className="font-semibold text-sm">Cursor Paths</div>
+                  <div className="text-xs opacity-75">
+                    Analyze mouse movement patterns
                   </div>
                 </div>
               </button>

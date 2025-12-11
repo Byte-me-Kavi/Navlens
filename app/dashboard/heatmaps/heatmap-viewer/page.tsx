@@ -23,7 +23,7 @@ export default function HeatmapViewerPage() {
     "desktop" | "mobile" | "tablet"
   >("desktop");
   const [selectedDataType, setSelectedDataType] = useState<
-    "clicks" | "scrolls"
+    "clicks" | "scrolls" | "hover" | "cursor-paths"
   >("clicks");
   const [availablePages, setAvailablePages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);

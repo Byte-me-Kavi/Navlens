@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
         const cacheKey = getCacheKey(siteId, formId, `${days}d`);
         const cached = getFromCache(cacheKey);
         if (cached) {
-            console.log(`[analytics/forms] Cache hit for ${cacheKey}`);
+            console.log(`[insights/forms] Cache hit for ${cacheKey}`);
             return addCorsHeaders(NextResponse.json(cached));
         }
 
@@ -225,11 +225,11 @@ export async function GET(request: NextRequest) {
         // Cache response
         setCache(cacheKey, response);
 
-        console.log(`[analytics/forms] Returning data for site ${siteId}`);
+        console.log(`[insights/forms] Returning data for site ${siteId}`);
         return addCorsHeaders(NextResponse.json(response));
 
     } catch (error) {
-        console.error('[analytics/forms] Error:', error);
+        console.error('[insights/forms] Error:', error);
         return addCorsHeaders(
             NextResponse.json({ error: 'Internal server error' }, { status: 500 })
         );

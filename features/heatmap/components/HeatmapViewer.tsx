@@ -22,7 +22,7 @@ export interface HeatmapViewerProps {
   siteId: string;
   pagePath: string;
   deviceType: "desktop" | "tablet" | "mobile";
-  dataType: "clicks" | "scrolls";
+  dataType: "clicks" | "scrolls" | "hover" | "cursor-paths";
   showElements?: boolean;
   showHeatmap?: boolean;
   showAllViewports?: boolean;

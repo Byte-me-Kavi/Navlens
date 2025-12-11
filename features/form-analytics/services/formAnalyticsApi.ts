@@ -17,7 +17,7 @@ export async function getFormList(
         days: days.toString(),
     });
 
-    return apiClient.get<FormAnalyticsResponse>(`/analytics/forms?${params.toString()}`);
+    return apiClient.get<FormAnalyticsResponse>(`/insights/forms?${params.toString()}`);
 }
 
 /**
@@ -35,7 +35,7 @@ export async function getFormMetrics(
         fields: 'true',
     });
 
-    return apiClient.get<FormAnalyticsResponse>(`/analytics/forms?${params.toString()}`);
+    return apiClient.get<FormAnalyticsResponse>(`/insights/forms?${params.toString()}`);
 }
 
 /**
