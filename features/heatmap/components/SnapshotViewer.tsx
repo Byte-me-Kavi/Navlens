@@ -57,10 +57,19 @@ export function SnapshotViewer({
   dataType = "clicks",
 }: SnapshotViewerProps) {
   console.log("🎯 SnapshotViewer received:", {
+    dataType,
     heatmapPointsCount: heatmapPoints?.length ?? 0,
-    heatmapPointsType: typeof heatmapPoints,
-    isArray: Array.isArray(heatmapPoints),
-    firstPoint: heatmapPoints?.[0],
+    hoverData: hoverData ? {
+      pointsCount: hoverData.heatmapPoints?.length ?? 0,
+      zonesCount: hoverData.attentionZones?.length ?? 0,
+      note: hoverData.note,
+    } : null,
+    cursorPathsData: cursorPathsData ? {
+      totalSessions: cursorPathsData.totalSessions,
+      sessionsCount: cursorPathsData.sessions?.length ?? 0,
+      patternBreakdown: cursorPathsData.patternBreakdown,
+    } : null,
+    showHeatmap,
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
