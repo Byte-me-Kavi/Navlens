@@ -52,6 +52,7 @@
   const DEBUG_EVENTS_ENDPOINT = `${normalizedHost}/api/v1/debug-events`;
   const FORM_EVENTS_ENDPOINT = `${normalizedHost}/api/v1/form-events`;
   const FEEDBACK_ENDPOINT = `${normalizedHost}/api/feedback`;
+  const FEEDBACK_CONFIG_ENDPOINT = `${normalizedHost}/api/feedback-config`;
   const SURVEYS_ENDPOINT = `${normalizedHost}/api/surveys`;
 
   // ============================================
@@ -676,6 +677,7 @@
   ];
 
   function shouldIgnoreUrl(url) {
+    if (!url || typeof url !== 'string') return false;
     return IGNORED_URL_PATTERNS.some(pattern => url.includes(pattern));
   }
 
@@ -693,17 +695,26 @@
       });
       return urlObj.toString();
     } catch {
-      return scrubPII(url);
+      return scrubPII(String(url));
     }
   }
 
   // Intercept fetch
   const originalFetch = window.fetch;
   window.fetch = async function (input, init) {
-    const url = typeof input === 'string' ? input : input.url;
+    let url;
+    if (typeof input === 'string') {
+      url = input;
+    } else if (input instanceof URL) {
+      url = input.toString();
+    } else if (typeof input === 'object' && input !== null && 'url' in input) {
+      url = input.url;
+    } else {
+      url = String(input);
+    }
     
     // Skip our own endpoints
-    if (shouldIgnoreUrl(url)) {
+    if (url && shouldIgnoreUrl(url)) {
       return originalFetch.apply(this, arguments);
     }
 
@@ -3132,7 +3143,7 @@
     showFrustrationSurvey: true,
   };
   
-  const FEEDBACK_CONFIG_ENDPOINT = `${normalizedHost}/api/feedback-config`;
+
   
   /**
    * Fetch feedback config from dashboard API
@@ -3607,10 +3618,28 @@
           feedbackMessage = e.target.value;
         };
         
-        body.querySelector('.navlens-submit-btn').onclick = async () => {
-          await submitFeedback({ selectedRating, selectedIssues, selectedIntent, feedbackMessage });
-          currentStep = 'success';
-          renderStep();
+        body.querySelector('.navlens-submit-btn').onclick = async (e) => {
+          const btn = e.target;
+          const originalText = btn.textContent;
+          btn.textContent = 'Sending...';
+          btn.disabled = true;
+          btn.style.opacity = '0.7';
+          btn.style.cursor = 'wait';
+
+          const success = await submitFeedback({ selectedRating, selectedIssues, selectedIntent, feedbackMessage });
+          
+          if (success) {
+            currentStep = 'success';
+            renderStep();
+          } else {
+            btn.textContent = 'Failed. Try Again';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            setTimeout(() => {
+              btn.textContent = originalText;
+            }, 3000);
+          }
         };
         
       } else if (currentStep === 'success') {
@@ -3704,8 +3733,10 @@
     try {
       await sendCompressedFetch(FEEDBACK_ENDPOINT, payload, false);
       console.log('[Navlens] Feedback submitted successfully');
+      return true;
     } catch (error) {
       console.warn('[Navlens] Failed to submit feedback:', error.message);
+      return false;
     }
   }
   
