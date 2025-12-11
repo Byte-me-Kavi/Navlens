@@ -62,11 +62,19 @@ export function FeedbackSettings({ className = "" }: FeedbackSettingsProps) {
 
     setSaving(true);
     try {
-      // Save to localStorage (or API in production)
+      // Save to localStorage for immediate local use
       localStorage.setItem(`navlens_feedback_config_${selectedSiteId}`, JSON.stringify(config));
       
-      // TODO: Also save to database via API
-      // await fetch('/api/site-settings/feedback', { ... });
+      // Save to database via API (for tracker.js to fetch)
+      const response = await fetch('/api/feedback-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId: selectedSiteId, config }),
+      });
+      
+      if (!response.ok) {
+        console.warn('API save failed, config saved locally only');
+      }
       
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);

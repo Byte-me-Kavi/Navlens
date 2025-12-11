@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateAndAuthorize, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import { encryptedJsonResponse } from '@/lib/encryption';
+
+// Use service role to bypass RLS
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 interface FeedbackItem {
     feedback_type: string;
@@ -23,7 +29,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Build query
-        let query = supabase
+        let query = supabaseAdmin
             .from('feedback')
             .select('*', { count: 'exact' })
             .eq('site_id', siteId)
@@ -52,7 +58,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Get summary stats
-        const { data: stats } = await supabase
+        const { data: stats } = await supabaseAdmin
             .from('feedback')
             .select('feedback_type, rating')
             .eq('site_id', siteId)

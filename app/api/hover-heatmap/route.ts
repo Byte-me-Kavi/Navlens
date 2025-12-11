@@ -6,34 +6,35 @@ import { unstable_cache } from 'next/cache';
 
 const clickhouse = getClickHouseClient();
 
-// Cache hover heatmap data for 5 minutes
+// Cached hover heatmap function with fixed DateTime parsing
 const getCachedHoverHeatmap = unstable_cache(
     async (siteId: string, pagePath: string, deviceType: string, startDate: string, endDate: string) => {
         try {
+
             // Query using available click data as attention proxy
             // Get both relative and absolute coordinates for fallback
             const clickQuery = `
-              SELECT 
-                element_selector,
-                element_tag,
-                count() as click_count,
-                avg(x_relative) as x_relative,
-                avg(y_relative) as y_relative,
-                avg(x) as x_abs,
-                avg(y) as y_abs,
-                max(viewport_width) as viewport_width,
-                max(viewport_height) as viewport_height
-              FROM events
-              WHERE site_id = {siteId:String}
-                AND page_path = {pagePath:String}
-                AND device_type = {deviceType:String}
-                AND timestamp >= {startDate:DateTime}
-                AND timestamp <= {endDate:DateTime}
-                AND event_type = 'click'
-              GROUP BY element_selector, element_tag
-              ORDER BY click_count DESC
-              LIMIT 100
-            `;
+          SELECT 
+            element_selector,
+            element_tag,
+            count() as click_count,
+            avg(x_relative) as x_relative,
+            avg(y_relative) as y_relative,
+            avg(x) as x_abs,
+            avg(y) as y_abs,
+            max(viewport_width) as viewport_width,
+            max(viewport_height) as viewport_height
+          FROM events
+          WHERE site_id = {siteId:String}
+            AND page_path = {pagePath:String}
+            AND device_type = {deviceType:String}
+            AND timestamp >= parseDateTimeBestEffort({startDate:String})
+            AND timestamp <= parseDateTimeBestEffort({endDate:String})
+            AND event_type = 'click'
+          GROUP BY element_selector, element_tag
+          ORDER BY click_count DESC
+          LIMIT 100
+        `;
 
             const result = await clickhouse.query({
                 query: clickQuery,
@@ -146,7 +147,9 @@ export async function POST(req: NextRequest) {
         const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         const end = endDate || new Date().toISOString();
 
+        console.log('[hover-heatmap] Calling getCachedHoverHeatmap with:', { siteId, pagePath, deviceType, start, end });
         const data = await getCachedHoverHeatmap(siteId, pagePath, deviceType, start, end);
+        console.log('[hover-heatmap] Result points:', data.heatmapPoints?.length ?? 0);
 
         return encryptedJsonResponse(data, {
             status: 200,

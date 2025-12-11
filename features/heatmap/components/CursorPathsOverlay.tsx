@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import type { CursorPathsData, SessionPath } from "../hooks/useCursorPathsData";
 
 interface CursorPathsOverlayProps {
@@ -25,22 +25,34 @@ const patternColors: Record<SessionPath["pattern"], string> = {
   minimal: "#9ca3af",    // gray - little movement
 };
 
-// Generate mock path points for visualization
+// Simple seeded random for consistent path generation
+function seededRandom(seed: number): () => number {
+  return function() {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+}
+
+// Generate mock path points for visualization (deterministic based on sessionId)
 // In production, these would come from actual cursor tracking data
 function generateMockPathPoints(
   session: SessionPath,
   width: number,
   height: number
 ): { x: number; y: number }[] {
+  // Create a seeded random based on session ID for consistent paths
+  const seedNum = session.sessionId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const random = seededRandom(seedNum);
+  
   const points: { x: number; y: number }[] = [];
   const numPoints = Math.min(session.pathSegments, 20);
   
   // Use session characteristics to influence path shape
   const erraticness = session.pattern === "lost" ? 0.3 : 0.1;
   
-  // Starting position
-  let x = Math.random() * (width * 0.8) + width * 0.1;
-  let y = Math.random() * (height * 0.3);
+  // Starting position (deterministic)
+  let x = random() * (width * 0.8) + width * 0.1;
+  let y = random() * (height * 0.3);
   points.push({ x, y });
   
   // Generate path based on pattern
@@ -49,19 +61,19 @@ function generateMockPathPoints(
     
     if (session.pattern === "focused") {
       // Smooth downward movement with slight horizontal variance
-      x += (Math.random() - 0.5) * 50;
-      y += height / numPoints + (Math.random() - 0.5) * 20;
+      x += (random() - 0.5) * 50;
+      y += height / numPoints + (random() - 0.5) * 20;
     } else if (session.pattern === "exploring") {
       // Wide horizontal movement, slower vertical
-      x += (Math.random() - 0.5) * 150;
-      y += height / (numPoints * 1.5) + (Math.random() - 0.5) * 30;
+      x += (random() - 0.5) * 150;
+      y += height / (numPoints * 1.5) + (random() - 0.5) * 30;
     } else if (session.pattern === "lost") {
       // Erratic movement with backtracking
-      x += (Math.random() - 0.5) * 200;
-      y += (Math.random() - 0.3) * 80;
+      x += (random() - 0.5) * 200;
+      y += (random() - 0.3) * 80;
     } else {
       // Minimal - small movements
-      x += (Math.random() - 0.5) * 30;
+      x += (random() - 0.5) * 30;
       y += height / (numPoints * 2);
     }
     
@@ -139,9 +151,25 @@ export function CursorPathsOverlay({
       </div>
     );
   }
+  // Memoize path generation to prevent re-computation on scroll
+  const sessionsWithPaths = useMemo(() => {
+    if (!data?.sessions) return [];
+    // Take top 10 sessions for visualization
+    return data.sessions.slice(0, 10).map(session => ({
+      session,
+      points: generateMockPathPoints(session, width, height),
+      color: patternColors[session.pattern],
+      pathD: '',  // Will be computed below
+    }));
+  }, [data?.sessions, width, height]);
   
-  // Take top 10 sessions for visualization
-  const sessionsToShow = data.sessions.slice(0, 10);
+  // Pre-compute path strings
+  const sessionsToRender = useMemo(() => {
+    return sessionsWithPaths.map(item => ({
+      ...item,
+      pathD: createSmoothPath(item.points),
+    }));
+  }, [sessionsWithPaths]);
   
   return (
     <div
@@ -169,7 +197,7 @@ export function CursorPathsOverlay({
         </div>
         <div className="mt-2 pt-2 border-t border-gray-200">
           <p className="text-xs text-gray-500">
-            Showing {sessionsToShow.length} of {data.totalSessions} sessions
+            Showing {sessionsToRender.length} of {data.totalSessions} sessions
           </p>
         </div>
       </div>
@@ -220,10 +248,8 @@ export function CursorPathsOverlay({
           ))}
         </defs>
         
-        {sessionsToShow.map((session, index) => {
-          const points = generateMockPathPoints(session, width, height);
-          const pathD = createSmoothPath(points);
-          const color = patternColors[session.pattern];
+        {sessionsToRender.map((item, index) => {
+          const { session, points, pathD, color } = item;
           
           return (
             <g key={session.sessionId || index}>

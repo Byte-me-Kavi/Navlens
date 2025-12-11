@@ -3412,10 +3412,673 @@
     scrubObjectPII,
   };
 
+  // ============================================
+  // FEEDBACK WIDGET
+  // Custom survey/feedback collection widget
+  // Fetches configuration from dashboard settings
+  // ============================================
+  
+  // Default config (overridden by API fetch)
+  let FEEDBACK_CONFIG = {
+    enabled: true,
+    position: 'bottom-right',  // bottom-right, bottom-left, top-right, top-left
+    primaryColor: '#3B82F6',
+    showOnScroll: 50,          // Show after 50% scroll
+    showAfterTime: 30000,      // Show after 30 seconds (minTimeBeforeSurvey * 1000)
+    allowDismiss: true,
+    collectIntent: true,
+    collectIssues: true,
+    showExitIntent: true,
+    showFrustrationSurvey: true,
+  };
+  
+  const FEEDBACK_CONFIG_ENDPOINT = `${normalizedHost}/api/feedback-config`;
+  
+  /**
+   * Fetch feedback config from dashboard API
+   */
+  async function fetchFeedbackConfig() {
+    if (!SITE_ID) return;
+    
+    try {
+      const response = await fetch(`${FEEDBACK_CONFIG_ENDPOINT}?siteId=${SITE_ID}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.config) {
+          // Merge with defaults, mapping dashboard fields to tracker fields
+          FEEDBACK_CONFIG = {
+            ...FEEDBACK_CONFIG,
+            enabled: data.config.enabled ?? true,
+            position: data.config.position || 'bottom-right',
+            primaryColor: data.config.primaryColor || '#3B82F6',
+            allowDismiss: data.config.allowDismiss ?? true,
+            showExitIntent: data.config.showExitIntent ?? true,
+            showFrustrationSurvey: data.config.showFrustrationSurvey ?? true,
+            // Convert seconds to milliseconds for showAfterTime
+            showAfterTime: (data.config.minTimeBeforeSurvey || 30) * 1000,
+            showOnScroll: data.config.showOnScroll || 50,
+            collectIntent: data.config.collectIntent ?? true,
+            collectIssues: data.config.collectIssues ?? true,
+          };
+          console.log('[Navlens] Feedback config loaded from dashboard');
+        }
+      }
+    } catch (error) {
+      console.warn('[Navlens] Failed to fetch feedback config, using defaults:', error.message);
+    }
+  }
+  
+  const RATING_OPTIONS = [
+    { value: 1, emoji: '😡', label: 'Very Bad' },
+    { value: 2, emoji: '😞', label: 'Bad' },
+    { value: 3, emoji: '😐', label: 'Okay' },
+    { value: 4, emoji: '😊', label: 'Good' },
+    { value: 5, emoji: '😍', label: 'Excellent' },
+  ];
+  
+  const ISSUE_OPTIONS = [
+    { code: 'cant_find', label: "Couldn't find what I need", icon: '🔍' },
+    { code: 'confusing', label: 'Confusing navigation', icon: '🧭' },
+    { code: 'slow', label: 'Page too slow', icon: '⏳' },
+    { code: 'broken', label: 'Something broken', icon: '🔧' },
+    { code: 'pricing', label: 'Pricing unclear', icon: '💰' },
+    { code: 'other', label: 'Other issue', icon: '❓' },
+  ];
+  
+  const INTENT_OPTIONS = [
+    { code: 'buy', label: 'Buy', icon: '🛒' },
+    { code: 'learn', label: 'Learn', icon: '📚' },
+    { code: 'compare', label: 'Compare', icon: '⚖️' },
+    { code: 'support', label: 'Get Help', icon: '💬' },
+    { code: 'browse', label: 'Just Browsing', icon: '👀' },
+  ];
+  
+  let feedbackWidgetInstance = null;
+  let feedbackModalOpen = false;
+  let feedbackDismissed = false;
+  let feedbackSubmitted = false;
+  
+  /**
+   * Create and inject feedback widget styles
+   */
+  function injectFeedbackStyles() {
+    if (document.getElementById('navlens-feedback-styles')) return;
+    
+    const styles = document.createElement('style');
+    styles.id = 'navlens-feedback-styles';
+    styles.textContent = `
+      .navlens-feedback-btn {
+        position: fixed;
+        z-index: 99999;
+        padding: 12px 16px;
+        border-radius: 50px;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        color: white;
+        transition: all 0.3s ease;
+        animation: navlens-pulse 2s infinite;
+      }
+      .navlens-feedback-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 25px rgba(0,0,0,0.25);
+      }
+      .navlens-feedback-btn.bottom-right { bottom: 20px; right: 20px; }
+      .navlens-feedback-btn.bottom-left { bottom: 20px; left: 20px; }
+      .navlens-feedback-btn.top-right { top: 20px; right: 20px; }
+      .navlens-feedback-btn.top-left { top: 20px; left: 20px; }
+      
+      @keyframes navlens-pulse {
+        0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        50% { box-shadow: 0 4px 25px rgba(59,130,246,0.4); }
+      }
+      
+      .navlens-feedback-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .navlens-feedback-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(4px);
+      }
+      .navlens-feedback-content {
+        position: relative;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        max-width: 400px;
+        width: 100%;
+        animation: navlens-slide-up 0.3s ease;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      @keyframes navlens-slide-up {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .navlens-feedback-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .navlens-feedback-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #111827;
+        margin: 0;
+      }
+      .navlens-feedback-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 8px;
+        color: #6b7280;
+        transition: all 0.2s;
+      }
+      .navlens-feedback-close:hover {
+        background: #f3f4f6;
+        color: #111827;
+      }
+      .navlens-feedback-body {
+        padding: 24px;
+      }
+      .navlens-feedback-step-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #374151;
+        margin-bottom: 16px;
+        text-align: center;
+      }
+      .navlens-rating-group {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .navlens-rating-btn {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        border: 2px solid #e5e7eb;
+        background: white;
+        cursor: pointer;
+        font-size: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+      }
+      .navlens-rating-btn:hover {
+        border-color: #3B82F6;
+        transform: scale(1.1);
+      }
+      .navlens-rating-btn.selected {
+        border-color: #3B82F6;
+        background: #EFF6FF;
+        transform: scale(1.15);
+      }
+      .navlens-options-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .navlens-option-btn {
+        padding: 12px;
+        border-radius: 10px;
+        border: 2px solid #e5e7eb;
+        background: white;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+        color: #374151;
+      }
+      .navlens-option-btn:hover {
+        border-color: #3B82F6;
+        background: #EFF6FF;
+      }
+      .navlens-option-btn.selected {
+        border-color: #3B82F6;
+        background: #DBEAFE;
+      }
+      .navlens-option-icon {
+        font-size: 18px;
+      }
+      .navlens-textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        resize: none;
+        font-family: inherit;
+        font-size: 14px;
+        margin-bottom: 16px;
+        transition: border-color 0.2s;
+      }
+      .navlens-textarea:focus {
+        outline: none;
+        border-color: #3B82F6;
+      }
+      .navlens-submit-btn {
+        width: 100%;
+        padding: 14px;
+        border-radius: 10px;
+        border: none;
+        background: #3B82F6;
+        color: white;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .navlens-submit-btn:hover {
+        background: #2563EB;
+      }
+      .navlens-submit-btn:disabled {
+        background: #93C5FD;
+        cursor: not-allowed;
+      }
+      .navlens-skip-btn {
+        background: none;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 8px 16px;
+        font-size: 13px;
+        margin-top: 8px;
+      }
+      .navlens-skip-btn:hover {
+        color: #374151;
+      }
+      .navlens-success {
+        text-align: center;
+        padding: 40px 24px;
+      }
+      .navlens-success-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+      }
+      .navlens-success-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 8px;
+      }
+      .navlens-success-text {
+        color: #6b7280;
+        font-size: 14px;
+      }
+      .navlens-footer {
+        padding: 12px 24px;
+        border-top: 1px solid #e5e7eb;
+        text-align: center;
+      }
+      .navlens-dismiss-btn {
+        background: none;
+        border: none;
+        color: #9ca3af;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .navlens-dismiss-btn:hover {
+        color: #6b7280;
+      }
+      .navlens-hidden {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(styles);
+  }
+  
+  /**
+   * Create the feedback button
+   */
+  function createFeedbackButton() {
+    const btn = document.createElement('button');
+    btn.className = `navlens-feedback-btn ${FEEDBACK_CONFIG.position}`;
+    btn.style.backgroundColor = FEEDBACK_CONFIG.primaryColor;
+    btn.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>Feedback</span>
+    `;
+    btn.onclick = openFeedbackModal;
+    document.body.appendChild(btn);
+    feedbackWidgetInstance = btn;
+  }
+  
+  /**
+   * Open the feedback modal
+   */
+  function openFeedbackModal() {
+    if (feedbackModalOpen) return;
+    feedbackModalOpen = true;
+    
+    // Hide the button
+    if (feedbackWidgetInstance) {
+      feedbackWidgetInstance.classList.add('navlens-hidden');
+    }
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'navlens-feedback-modal';
+    modal.className = 'navlens-feedback-modal';
+    
+    let currentStep = 'rating';
+    let selectedRating = null;
+    let selectedIssues = [];
+    let selectedIntent = null;
+    let feedbackMessage = '';
+    
+    function renderStep() {
+      const body = modal.querySelector('.navlens-feedback-body');
+      if (!body) return;
+      
+      if (currentStep === 'rating') {
+        body.innerHTML = `
+          <p class="navlens-feedback-step-title">How would you rate your experience?</p>
+          <div class="navlens-rating-group">
+            ${RATING_OPTIONS.map(opt => `
+              <button class="navlens-rating-btn ${selectedRating === opt.value ? 'selected' : ''}" 
+                      data-rating="${opt.value}" title="${opt.label}">
+                ${opt.emoji}
+              </button>
+            `).join('')}
+          </div>
+        `;
+        
+        body.querySelectorAll('.navlens-rating-btn').forEach(btn => {
+          btn.onclick = () => {
+            selectedRating = parseInt(btn.dataset.rating);
+            if (FEEDBACK_CONFIG.collectIssues && selectedRating <= 3) {
+              currentStep = 'issues';
+            } else if (FEEDBACK_CONFIG.collectIntent) {
+              currentStep = 'intent';
+            } else {
+              currentStep = 'message';
+            }
+            renderStep();
+          };
+        });
+        
+      } else if (currentStep === 'issues') {
+        body.innerHTML = `
+          <p class="navlens-feedback-step-title">What went wrong?</p>
+          <div class="navlens-options-grid">
+            ${ISSUE_OPTIONS.map(opt => `
+              <button class="navlens-option-btn ${selectedIssues.includes(opt.code) ? 'selected' : ''}" 
+                      data-issue="${opt.code}">
+                <span class="navlens-option-icon">${opt.icon}</span>
+                <span>${opt.label}</span>
+              </button>
+            `).join('')}
+          </div>
+          <button class="navlens-submit-btn" ${selectedIssues.length === 0 ? 'disabled' : ''}>Continue</button>
+          <button class="navlens-skip-btn">Skip</button>
+        `;
+        
+        body.querySelectorAll('.navlens-option-btn').forEach(btn => {
+          btn.onclick = () => {
+            const code = btn.dataset.issue;
+            if (selectedIssues.includes(code)) {
+              selectedIssues = selectedIssues.filter(c => c !== code);
+            } else {
+              selectedIssues.push(code);
+            }
+            renderStep();
+          };
+        });
+        
+        body.querySelector('.navlens-submit-btn').onclick = () => {
+          currentStep = FEEDBACK_CONFIG.collectIntent ? 'intent' : 'message';
+          renderStep();
+        };
+        
+        body.querySelector('.navlens-skip-btn').onclick = () => {
+          currentStep = FEEDBACK_CONFIG.collectIntent ? 'intent' : 'message';
+          renderStep();
+        };
+        
+      } else if (currentStep === 'intent') {
+        body.innerHTML = `
+          <p class="navlens-feedback-step-title">What brought you here today?</p>
+          <div class="navlens-options-grid">
+            ${INTENT_OPTIONS.map(opt => `
+              <button class="navlens-option-btn ${selectedIntent === opt.code ? 'selected' : ''}" 
+                      data-intent="${opt.code}">
+                <span class="navlens-option-icon">${opt.icon}</span>
+                <span>${opt.label}</span>
+              </button>
+            `).join('')}
+          </div>
+          <button class="navlens-submit-btn" ${!selectedIntent ? 'disabled' : ''}>Continue</button>
+          <button class="navlens-skip-btn">Skip</button>
+        `;
+        
+        body.querySelectorAll('.navlens-option-btn').forEach(btn => {
+          btn.onclick = () => {
+            selectedIntent = btn.dataset.intent;
+            renderStep();
+          };
+        });
+        
+        body.querySelector('.navlens-submit-btn').onclick = () => {
+          currentStep = 'message';
+          renderStep();
+        };
+        
+        body.querySelector('.navlens-skip-btn').onclick = () => {
+          currentStep = 'message';
+          renderStep();
+        };
+        
+      } else if (currentStep === 'message') {
+        body.innerHTML = `
+          <p class="navlens-feedback-step-title">Any additional feedback? (optional)</p>
+          <textarea class="navlens-textarea" rows="4" placeholder="Tell us more about your experience..."></textarea>
+          <button class="navlens-submit-btn">Submit Feedback</button>
+        `;
+        
+        const textarea = body.querySelector('.navlens-textarea');
+        textarea.oninput = (e) => {
+          feedbackMessage = e.target.value;
+        };
+        
+        body.querySelector('.navlens-submit-btn').onclick = async () => {
+          await submitFeedback({ selectedRating, selectedIssues, selectedIntent, feedbackMessage });
+          currentStep = 'success';
+          renderStep();
+        };
+        
+      } else if (currentStep === 'success') {
+        feedbackSubmitted = true;
+        body.innerHTML = `
+          <div class="navlens-success">
+            <div class="navlens-success-icon">🎉</div>
+            <h3 class="navlens-success-title">Thank You!</h3>
+            <p class="navlens-success-text">Your feedback helps us improve.</p>
+          </div>
+        `;
+        
+        setTimeout(() => {
+          closeFeedbackModal();
+        }, 2000);
+      }
+    }
+    
+    modal.innerHTML = `
+      <div class="navlens-feedback-backdrop"></div>
+      <div class="navlens-feedback-content">
+        <div class="navlens-feedback-header">
+          <h2 class="navlens-feedback-title">Share Your Feedback</h2>
+          <button class="navlens-feedback-close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="navlens-feedback-body"></div>
+        ${FEEDBACK_CONFIG.allowDismiss ? `
+        <div class="navlens-footer">
+          <button class="navlens-dismiss-btn">Don't show again on this page</button>
+        </div>
+        ` : ''}
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    modal.querySelector('.navlens-feedback-backdrop').onclick = closeFeedbackModal;
+    modal.querySelector('.navlens-feedback-close').onclick = closeFeedbackModal;
+    
+    if (FEEDBACK_CONFIG.allowDismiss) {
+      modal.querySelector('.navlens-dismiss-btn').onclick = () => {
+        feedbackDismissed = true;
+        sessionStorage.setItem('navlens_feedback_dismissed', 'true');
+        closeFeedbackModal();
+      };
+    }
+    
+    renderStep();
+  }
+  
+  /**
+   * Close the feedback modal
+   */
+  function closeFeedbackModal() {
+    const modal = document.getElementById('navlens-feedback-modal');
+    if (modal) {
+      modal.remove();
+    }
+    feedbackModalOpen = false;
+    
+    // Show button again if not dismissed and not submitted
+    if (feedbackWidgetInstance && !feedbackDismissed && !feedbackSubmitted) {
+      feedbackWidgetInstance.classList.remove('navlens-hidden');
+    }
+  }
+  
+  /**
+   * Submit feedback to the server
+   */
+  async function submitFeedback(data) {
+    const payload = {
+      siteId: SITE_ID,
+      sessionId: SESSION_ID,
+      rating: data.selectedRating,
+      intent: data.selectedIntent,
+      issues: data.selectedIssues,
+      message: scrubPII(data.feedbackMessage || ''),
+      pagePath: window.location.pathname,
+      pageUrl: window.location.href,
+      deviceType: getDeviceType(),
+      userAgent: navigator.userAgent,
+      surveyType: 'manual',
+      timestamp: new Date().toISOString(),
+    };
+    
+    try {
+      await sendCompressedFetch(FEEDBACK_ENDPOINT, payload, false);
+      console.log('[Navlens] Feedback submitted successfully');
+    } catch (error) {
+      console.warn('[Navlens] Failed to submit feedback:', error.message);
+    }
+  }
+  
+  /**
+   * Initialize feedback widget
+   * Fetches config from dashboard first
+   */
+  async function initFeedback() {
+    // Fetch config from dashboard API first
+    await fetchFeedbackConfig();
+    
+    if (!FEEDBACK_CONFIG.enabled) return;
+    
+    // Check if dismissed this session
+    if (sessionStorage.getItem('navlens_feedback_dismissed') === 'true') {
+      feedbackDismissed = true;
+      return;
+    }
+    
+    injectFeedbackStyles();
+    
+    // Update button color dynamically
+    const updateButtonColor = () => {
+      if (feedbackWidgetInstance) {
+        feedbackWidgetInstance.style.backgroundColor = FEEDBACK_CONFIG.primaryColor;
+      }
+    };
+    
+    // Show after scroll threshold
+    let hasShownOnScroll = false;
+    function checkScrollTrigger() {
+      if (hasShownOnScroll || feedbackDismissed || feedbackSubmitted) return;
+      
+      const scrollPercent = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+      if (scrollPercent >= FEEDBACK_CONFIG.showOnScroll) {
+        hasShownOnScroll = true;
+        createFeedbackButton();
+        updateButtonColor();
+      }
+    }
+    
+    // Show after time delay
+    setTimeout(() => {
+      if (!feedbackWidgetInstance && !feedbackDismissed && !feedbackSubmitted) {
+        createFeedbackButton();
+        updateButtonColor();
+      }
+    }, FEEDBACK_CONFIG.showAfterTime);
+    
+    window.addEventListener('scroll', checkScrollTrigger, { passive: true });
+    
+    // Exit intent detection (if enabled)
+    if (FEEDBACK_CONFIG.showExitIntent) {
+      document.addEventListener('mouseleave', (e) => {
+        if (e.clientY < 0 && !feedbackModalOpen && !feedbackDismissed && !feedbackSubmitted) {
+          // User moving mouse to top of screen (likely to close tab)
+          if (!feedbackWidgetInstance) {
+            createFeedbackButton();
+            updateButtonColor();
+          }
+          // Optionally auto-open modal
+          // openFeedbackModal();
+        }
+      }, { once: true });
+    }
+  }
+
+  // Clean up old init reference and update
   // Start when DOM is ready
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", () => { init(); initFeedback(); });
   } else {
     init();
+    initFeedback();
   }
 })();

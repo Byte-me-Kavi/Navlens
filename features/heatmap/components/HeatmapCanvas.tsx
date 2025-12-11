@@ -9,13 +9,14 @@
 import { useEffect, useRef } from "react";
 import { HeatmapRenderer } from "../services/heatmapRenderer";
 import { heatmapApi } from "../services/heatmapApi";
-import type { HeatmapPoint } from "../types/heatmap.types";
+import type { HeatmapPoint, HeatmapConfig } from "../types/heatmap.types";
 
 interface HeatmapCanvasProps {
   points: HeatmapPoint[];
   width: number;
   height: number;
   iframe: HTMLIFrameElement | null;
+  config?: HeatmapConfig;  // Optional custom config for different visualizations
 }
 
 export function HeatmapCanvas({
@@ -23,6 +24,7 @@ export function HeatmapCanvas({
   width,
   height,
   iframe,
+  config,
 }: HeatmapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<HeatmapRenderer>(new HeatmapRenderer());
@@ -37,7 +39,7 @@ export function HeatmapCanvas({
     container.style.width = `${width}px`;
     container.style.height = `${height}px`;
 
-    rendererRef.current.create(container);
+    rendererRef.current.create(container, config);
 
     const currentRenderer = rendererRef.current;
     return () => {

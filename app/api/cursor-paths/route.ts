@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
         const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         const end = endDate || new Date().toISOString();
 
+        console.log('[cursor-paths] Query params:', { siteId, pagePath, start, end, limit });
+
         try {
             // Simplified query using available click/scroll data
             const pathQuery = `
@@ -38,8 +40,8 @@ export async function POST(req: NextRequest) {
               FROM events
               WHERE site_id = {siteId:String}
                 AND page_path = {pagePath:String}
-                AND timestamp >= {startDate:DateTime}
-                AND timestamp <= {endDate:DateTime}
+                AND timestamp >= parseDateTimeBestEffort({startDate:String})
+                AND timestamp <= parseDateTimeBestEffort({endDate:String})
                 ${sessionId ? 'AND session_id = {sessionId:String}' : ''}
               GROUP BY session_id
               HAVING event_count >= 1

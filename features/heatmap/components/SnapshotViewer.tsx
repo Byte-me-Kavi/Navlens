@@ -15,6 +15,7 @@ import { ScrollHeatmapOverlay } from "@/features/heatmap/components/ScrollHeatma
 import { CursorPathsOverlay } from "@/features/heatmap/components/CursorPathsOverlay";
 import type { SnapshotData } from "@/features/dom-snapshot/types/snapshot.types";
 import type { HeatmapPoint } from "@/features/heatmap/types/heatmap.types";
+import { HOVER_HEATMAP_CONFIG } from "@/features/heatmap/types/heatmap.types";
 import type { ElementClick } from "@/features/element-tracking/types/element.types";
 import type { HoverHeatmapData } from "@/features/heatmap/hooks/useHoverHeatmapData";
 import type { CursorPathsData } from "@/features/heatmap/hooks/useCursorPathsData";
@@ -298,7 +299,7 @@ export function SnapshotViewer({
       clearTimeout(timeoutId);
       scrollSync.cleanup();
     };
-  }, [isReady, overlaysRendered]);
+  }, [isReady, overlaysRendered, dataType]);
 
   return (
     <div className="w-full h-full flex items-start justify-center bg-blue-100 p-4 overflow-auto">
@@ -382,6 +383,7 @@ export function SnapshotViewer({
               width={contentDimensions.width}
               height={contentDimensions.height}
               iframe={iframeElement}
+              config={HOVER_HEATMAP_CONFIG}
             />
             {/* Attention zones summary */}
             <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 z-10">

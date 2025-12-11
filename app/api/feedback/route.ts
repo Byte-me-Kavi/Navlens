@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validators } from '@/lib/validation';
+import { authenticateAndAuthorize, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 
 // Use service role key for server-side inserts (bypasses RLS)
 const supabaseAdmin = createClient(
@@ -40,27 +41,77 @@ setInterval(() => {
     });
 }, 60000);
 
+/**
+ * GET - Fetch feedback for a site (dashboard use)
+ */
+export async function GET(request: NextRequest) {
+    try {
+        const authResult = await authenticateAndAuthorize(request);
+        if (!authResult.isAuthorized) {
+            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
+        const { searchParams } = new URL(request.url);
+        const siteId = searchParams.get('siteId');
+        const limit = parseInt(searchParams.get('limit') || '50');
+        const offset = parseInt(searchParams.get('offset') || '0');
+
+        if (!siteId) {
+            return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
+        }
+
+        // Fetch feedback for the site
+        const { data: feedbacks, error, count } = await supabaseAdmin
+            .from('feedback')
+            .select('*', { count: 'exact' })
+            .eq('site_id', siteId)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+
+        if (error) {
+            console.error('[feedback] Fetch error:', error);
+            return NextResponse.json({ error: 'Failed to fetch feedback' }, { status: 500 });
+        }
+
+        return NextResponse.json({
+            feedbacks: feedbacks || [],
+            total: count || 0,
+            limit,
+            offset,
+        });
+    } catch (error) {
+        console.error('[feedback] GET error:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}
+
+/**
+ * POST - Submit feedback (from tracker.js)
+ */
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const {
-            site_id,
-            session_id,
-            visitor_id,
-            feedback_type,
-            rating,
-            message,
-            page_path,
-            page_url,
-            device_type,
-            user_agent,
-            metadata,
-        } = body;
+
+        // Support both old format (site_id) and new format (siteId)
+        const site_id = body.site_id || body.siteId;
+        const session_id = body.session_id || body.sessionId;
+        const visitor_id = body.visitor_id || body.visitorId;
+        const feedback_type = body.feedback_type || body.surveyType || 'survey_response';
+        const rating = body.rating;
+        const message = body.message;
+        const page_path = body.page_path || body.pagePath;
+        const page_url = body.page_url || body.pageUrl;
+        const device_type = body.device_type || body.deviceType;
+        const user_agent = body.user_agent || body.userAgent;
+
+        // New enhanced fields
+        const intent = body.intent;
+        const issues = body.issues;
 
         // Validate required fields
-        if (!site_id || !session_id || !feedback_type) {
+        if (!site_id || !session_id) {
             return NextResponse.json(
-                { error: 'Missing required fields: site_id, session_id, feedback_type' },
+                { error: 'Missing required fields: siteId, sessionId' },
                 { status: 400 }
             );
         }
@@ -83,23 +134,24 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Validate feedback type
-        const validTypes = ['bug', 'suggestion', 'general', 'survey_response'];
-        if (!validTypes.includes(feedback_type)) {
-            return NextResponse.json({ error: 'Invalid feedback_type' }, { status: 400 });
-        }
-
         // Sanitize message
         const sanitizedMessage = message
             ? validators.sanitizeString(message, 2000)
             : null;
 
-        // Validate rating if provided
-        const validRating = typeof rating === 'number' && rating >= 0 && rating <= 10
+        // Validate rating if provided (support 1-5 scale)
+        const validRating = typeof rating === 'number' && rating >= 1 && rating <= 5
             ? rating
             : null;
 
-        // Insert feedback (site_id foreign key will validate if site exists)
+        // Build metadata with new fields
+        const metadata = {
+            intent: intent || null,
+            issues: Array.isArray(issues) ? issues : [],
+            ...(body.metadata || {}),
+        };
+
+        // Insert feedback
         const { data: feedback, error: insertError } = await supabaseAdmin
             .from('feedback')
             .insert({
@@ -113,7 +165,7 @@ export async function POST(request: NextRequest) {
                 page_url: page_url ? validators.sanitizeString(page_url, 2000) : null,
                 device_type: device_type ? validators.sanitizeString(device_type, 20) : null,
                 user_agent: user_agent ? validators.sanitizeString(user_agent, 500) : null,
-                metadata: metadata || {},
+                metadata,
             })
             .select('id')
             .single();
@@ -130,6 +182,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             feedback_id: feedback.id,
+        }, {
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
         });
     } catch (error) {
         console.error('[feedback] Error:', error);
@@ -143,8 +199,9 @@ export async function OPTIONS() {
         status: 200,
         headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
         },
     });
 }
+
