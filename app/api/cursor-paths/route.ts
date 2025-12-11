@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
                 AND timestamp <= {endDate:DateTime}
                 ${sessionId ? 'AND session_id = {sessionId:String}' : ''}
               GROUP BY session_id
-              HAVING event_count > 5
-              ORDER BY dead_clicks DESC, event_count DESC
+              HAVING event_count >= 1
+              ORDER BY event_count DESC, dead_clicks DESC
               LIMIT {limit:Int32}
             `;
 

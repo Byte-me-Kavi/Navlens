@@ -11,13 +11,18 @@ const getCachedHoverHeatmap = unstable_cache(
     async (siteId: string, pagePath: string, deviceType: string, startDate: string, endDate: string) => {
         try {
             // Query using available click data as attention proxy
+            // Get both relative and absolute coordinates for fallback
             const clickQuery = `
               SELECT 
                 element_selector,
                 element_tag,
                 count() as click_count,
                 avg(x_relative) as x_relative,
-                avg(y_relative) as y_relative
+                avg(y_relative) as y_relative,
+                avg(x) as x_abs,
+                avg(y) as y_abs,
+                max(viewport_width) as viewport_width,
+                max(viewport_height) as viewport_height
               FROM events
               WHERE site_id = {siteId:String}
                 AND page_path = {pagePath:String}
@@ -25,7 +30,6 @@ const getCachedHoverHeatmap = unstable_cache(
                 AND timestamp >= {startDate:DateTime}
                 AND timestamp <= {endDate:DateTime}
                 AND event_type = 'click'
-                AND element_selector != ''
               GROUP BY element_selector, element_tag
               ORDER BY click_count DESC
               LIMIT 100
@@ -43,6 +47,10 @@ const getCachedHoverHeatmap = unstable_cache(
                 click_count: number;
                 x_relative: number;
                 y_relative: number;
+                x_abs: number;
+                y_abs: number;
+                viewport_width: number;
+                viewport_height: number;
             }>;
 
             // Calculate total clicks for percentage calculations
@@ -50,12 +58,23 @@ const getCachedHoverHeatmap = unstable_cache(
 
             // Transform click data as attention heatmap (clicks = attention)
             const heatmapPoints = clickData.map(h => {
+                // Use relative coordinates if available, otherwise calculate from absolute
+                let xRel = Number(h.x_relative);
+                let yRel = Number(h.y_relative);
+
+                // If relative coords are 0 but we have absolute coords, calculate relative
+                if ((xRel === 0 && yRel === 0) && (h.x_abs > 0 || h.y_abs > 0)) {
+                    const vw = Number(h.viewport_width) || 1920;
+                    const vh = Number(h.viewport_height) || 1080;
+                    xRel = Number(h.x_abs) / vw;
+                    yRel = Number(h.y_abs) / vh;
+                }
+
                 // Infer zone from y position
-                const yPos = Number(h.y_relative);
                 let zone = 'content';
-                if (yPos < 0.15) zone = 'heading';
-                else if (yPos > 0.85) zone = 'footer';
-                else if (yPos < 0.3) zone = 'interactive';
+                if (yRel < 0.15) zone = 'heading';
+                else if (yRel > 0.85) zone = 'footer';
+                else if (yRel < 0.3) zone = 'interactive';
 
                 return {
                     selector: h.element_selector,
@@ -64,8 +83,8 @@ const getCachedHoverHeatmap = unstable_cache(
                     duration: Number(h.click_count) * 1000, // Simulate duration from clicks
                     count: Number(h.click_count),
                     avgDuration: 500,
-                    x: parseFloat(Number(h.x_relative).toFixed(4)),
-                    y: parseFloat(Number(h.y_relative).toFixed(4)),
+                    x: parseFloat(xRel.toFixed(4)),
+                    y: parseFloat(yRel.toFixed(4)),
                     intensity: totalClicks > 0 ? parseFloat((Number(h.click_count) / totalClicks).toFixed(4)) : 0,
                 };
             });

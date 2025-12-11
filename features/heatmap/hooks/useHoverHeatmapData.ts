@@ -1,0 +1,100 @@
+/**
+ * useHoverHeatmapData Hook
+ * 
+ * Custom hook for fetching hover heatmap data with SWR caching
+ */
+
+import useSWR from 'swr';
+import { useMemo } from 'react';
+import { apiClient } from '@/shared/services/api/client';
+
+export interface HoverHeatmapPoint {
+    selector: string;
+    tag: string;
+    zone: string;
+    duration: number;
+    count: number;
+    avgDuration: number;
+    x: number;
+    y: number;
+    intensity: number;
+}
+
+export interface HoverHeatmapData {
+    totalHoverTimeMs: number;
+    heatmapPoints: HoverHeatmapPoint[];
+    attentionZones: Array<{
+        zone: string;
+        totalTimeMs: number;
+        eventCount: number;
+        uniqueSessions: number;
+        percentage: number;
+    }>;
+    note?: string;
+    error?: string;
+}
+
+interface HoverHeatmapParams {
+    siteId: string;
+    pagePath: string;
+    deviceType: string;
+    startDate?: string;
+    endDate?: string;
+}
+
+interface UseHoverHeatmapDataResult {
+    data: HoverHeatmapData | null;
+    loading: boolean;
+    error: Error | null;
+    refetch: () => Promise<void>;
+}
+
+// SWR fetcher for hover heatmap
+const hoverHeatmapFetcher = async ([, params]: [string, HoverHeatmapParams]): Promise<HoverHeatmapData> => {
+    console.log('👁️ Fetching hover heatmap data:', params);
+
+    const result = await apiClient.post<HoverHeatmapData>('/hover-heatmap', params);
+
+    console.log('✓ Hover heatmap data fetched:', {
+        pointCount: result.heatmapPoints?.length || 0,
+        totalHoverTimeMs: result.totalHoverTimeMs,
+    });
+
+    return result;
+};
+
+export function useHoverHeatmapData(params: HoverHeatmapParams): UseHoverHeatmapDataResult {
+    // Create stable cache key
+    const cacheKey = useMemo(() => {
+        if (!params.siteId || !params.pagePath) return null;
+        return [
+            '/api/hover-heatmap',
+            {
+                siteId: params.siteId,
+                pagePath: params.pagePath,
+                deviceType: params.deviceType,
+            }
+        ] as [string, HoverHeatmapParams];
+    }, [params.siteId, params.pagePath, params.deviceType]);
+
+    const { data, error, isLoading, mutate } = useSWR(
+        cacheKey,
+        hoverHeatmapFetcher,
+        {
+            revalidateOnFocus: false,
+            revalidateOnReconnect: false,
+            dedupingInterval: 300000, // 5 minutes
+            keepPreviousData: true,
+            errorRetryCount: 2,
+            errorRetryInterval: 3000,
+            revalidateIfStale: false,
+        }
+    );
+
+    return {
+        data: data || null,
+        loading: isLoading,
+        error: error || null,
+        refetch: async () => { await mutate(); },
+    };
+}

@@ -11,6 +11,8 @@ import { useSnapshot } from "@/features/dom-snapshot/hooks/useSnapshot";
 import { useHeatmapData } from "@/features/heatmap/hooks/useHeatmapData";
 import { useElementClicks } from "@/features/element-tracking/hooks/useElementClicks";
 import { useScrollHeatmapData } from "@/features/heatmap/hooks/useScrollHeatmapData";
+import { useHoverHeatmapData } from "@/features/heatmap/hooks/useHoverHeatmapData";
+import { useCursorPathsData } from "@/features/heatmap/hooks/useCursorPathsData";
 import { SnapshotViewer } from "./SnapshotViewer";
 import { DeviceStatsBar } from "./DeviceStatsBar";
 import { LoadingSpinner } from "@/shared/components/feedback/LoadingSpinner";
@@ -209,8 +211,41 @@ export function HeatmapViewer({
   const { data: scrollData, loading: scrollLoading } =
     useScrollHeatmapData(scrollParams);
 
-  // Show loading state - wait for snapshot AND initial data attempts
-  if (snapshotLoading || heatmapLoading || elementLoading || scrollLoading) {
+  // Fetch hover heatmap data
+  const hoverParams = useMemo(
+    () => ({
+      siteId,
+      pagePath,
+      deviceType,
+    }),
+    [siteId, pagePath, deviceType]
+  );
+
+  const { data: hoverData, loading: hoverLoading } =
+    useHoverHeatmapData(hoverParams);
+
+  // Fetch cursor paths data
+  const cursorPathsParams = useMemo(
+    () => ({
+      siteId,
+      pagePath,
+      limit: 50,
+    }),
+    [siteId, pagePath]
+  );
+
+  const { data: cursorPathsData, loading: cursorPathsLoading } =
+    useCursorPathsData(cursorPathsParams);
+
+  // Show loading state - wait for snapshot AND relevant data type
+  const isLoadingRelevantData = 
+    dataType === "clicks" ? (heatmapLoading || elementLoading) :
+    dataType === "scrolls" ? scrollLoading :
+    dataType === "hover" ? hoverLoading :
+    dataType === "cursor-paths" ? cursorPathsLoading :
+    false;
+
+  if (snapshotLoading || isLoadingRelevantData) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50">
         <div className="text-center flex flex-col items-center justify-center">
@@ -342,6 +377,8 @@ export function HeatmapViewer({
         heatmapPoints={heatmapPointsToPass}
         elementClicks={elementClicksToPass}
         scrollData={scrollData}
+        hoverData={hoverData}
+        cursorPathsData={cursorPathsData}
         siteId={siteId}
         pagePath={pagePath}
         deviceType={deviceType}
