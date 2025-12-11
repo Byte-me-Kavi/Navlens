@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
         const avgRating = ratingCount > 0 ? totalRating / ratingCount : null;
 
-        return encryptedJsonResponse({
+        return NextResponse.json({
             feedback: feedback || [],
             totalCount: count || 0,
             page,
