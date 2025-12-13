@@ -12,18 +12,33 @@ import {
   FiFilter,
   FiExternalLink,
   FiStar,
+  FiUser,
+  FiGlobe,
+  FiSmartphone,
 } from 'react-icons/fi';
 import { HiBugAnt, HiLightBulb, HiChatBubbleLeftRight } from 'react-icons/hi2';
+import Link from 'next/link';
 
 interface Feedback {
   id: string;
   session_id: string;
+  visitor_id?: string;
   feedback_type: string;
   rating: number | null;
   message: string;
+  intent?: string;
+  issues?: string[];
   page_path: string;
+  page_url?: string;
   device_type: string;
+  user_agent?: string;
+  survey_type?: string;
   created_at: string;
+  metadata?: {
+    intent?: string;
+    issues?: string[];
+    [key: string]: unknown;
+  };
 }
 
 interface FeedbackStats {
@@ -277,43 +292,90 @@ export default function FeedbackDashboardPage() {
             {!loading && !error && feedback.length > 0 && (
               <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
                 <div className="divide-y divide-gray-100">
-                  {feedback.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            {getTypeIcon(item.feedback_type)}
-                            <span className="text-sm font-medium text-gray-700">
-                              {getTypeLabel(item.feedback_type)}
-                            </span>
-                            {item.rating !== null && (
-                              <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
-                                Score: {item.rating}
-                              </span>
-                            )}
-                            <span className="text-xs text-gray-400">
-                              {new Date(item.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <p className="text-gray-800 text-sm">{item.message}</p>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                            <span>📍 {item.page_path}</span>
-                            <span>📱 {item.device_type}</span>
-                            <a
-                              href={`/dashboard/sessions/${item.session_id}`}
-                              className="flex items-center gap-1 text-blue-600 hover:underline"
-                            >
-                              <FiExternalLink className="w-3 h-3" />
-                              View Session
-                            </a>
+                    {feedback.map((item) => {
+                      // Extract intent and issues from metadata if not at top level
+                      const intent = item.intent || item.metadata?.intent;
+                      const issues = item.issues || item.metadata?.issues || [];
+                      
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-4 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                {getTypeIcon(item.feedback_type)}
+                                <span className="text-sm font-medium text-gray-700">
+                                  {getTypeLabel(item.feedback_type)}
+                                </span>
+                                {item.rating !== null && (
+                                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                                    Score: {item.rating}
+                                  </span>
+                                )}
+                                {intent && (
+                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                                    Intent: {intent}
+                                  </span>
+                                )}
+                                {item.survey_type && (
+                                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">
+                                    {item.survey_type.replace('_', ' ')}
+                                  </span>
+                                )}
+                                <span className="text-xs text-gray-400">
+                                  {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString()}
+                                </span>
+                              </div>
+                              
+                              {/* Issues */}
+                              {issues.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                  {issues.map((issue, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 bg-red-50 text-red-600 text-xs rounded-full">
+                                      {issue.replace('_', ' ')}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Message */}
+                              {item.message && (
+                                <p className="text-gray-800 text-sm bg-gray-50 p-3 rounded-lg mb-2">
+                                  "{item.message}"
+                                </p>
+                              )}
+                              
+                              {/* Details Row */}
+                              <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                                <span className="flex items-center gap-1">
+                                  <FiGlobe className="w-3 h-3" />
+                                  {item.page_path}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <FiSmartphone className="w-3 h-3" />
+                                  {item.device_type}
+                                </span>
+                                {item.visitor_id && (
+                                  <span className="flex items-center gap-1">
+                                    <FiUser className="w-3 h-3" />
+                                    {item.visitor_id.slice(0, 8)}...
+                                  </span>
+                                )}
+                                <Link
+                                  href={`/dashboard/session-replayer?sessionId=${item.session_id}`}
+                                  className="flex items-center gap-1 text-blue-600 hover:underline"
+                                >
+                                  <FiExternalLink className="w-3 h-3" />
+                                  View Session
+                                </Link>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
 
                 {/* Pagination */}

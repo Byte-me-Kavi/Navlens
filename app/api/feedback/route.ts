@@ -4,6 +4,7 @@ import { validators } from '@/lib/validation';
 import { gunzip } from 'zlib';
 import { promisify } from 'util';
 import { authenticateAndAuthorize, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
+import { validateSiteAndOrigin, addTrackerCorsHeaders, createPreflightResponse } from '@/lib/trackerCors';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -133,28 +134,46 @@ export async function POST(request: NextRequest) {
 
         // Validate required fields
         if (!site_id || !session_id) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Missing required fields: siteId, sessionId' },
                 { status: 400 }
             );
+            return addTrackerCorsHeaders(response, request.headers.get('origin'), true);
         }
 
-        // Validate site_id format (UUID check only - no DB lookup to avoid RLS issues)
+        // Validate site_id format (UUID check)
         if (!validators.isValidUUID(site_id)) {
-            return NextResponse.json({ error: 'Invalid site_id format' }, { status: 400 });
+            const response = NextResponse.json({ error: 'Invalid site_id format' }, { status: 400 });
+            return addTrackerCorsHeaders(response, request.headers.get('origin'), true);
         }
 
         // Validate session_id format
         if (!validators.isValidSessionId(session_id)) {
-            return NextResponse.json({ error: 'Invalid session_id format' }, { status: 400 });
+            const response = NextResponse.json({ error: 'Invalid session_id format' }, { status: 400 });
+            return addTrackerCorsHeaders(response, request.headers.get('origin'), true);
+        }
+
+        // Validate site exists AND origin is allowed
+        const origin = request.headers.get('origin');
+        const validation = await validateSiteAndOrigin(site_id, origin);
+
+        if (!validation.valid) {
+            const response = NextResponse.json({ error: 'Invalid site ID' }, { status: 403 });
+            return addTrackerCorsHeaders(response, origin, false);
+        }
+
+        if (!validation.allowed) {
+            console.warn(`[feedback] Origin ${origin} not allowed for site ${site_id}`);
+            return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
         }
 
         // Rate limiting
         if (!checkRateLimit(session_id)) {
-            return NextResponse.json(
+            const response = NextResponse.json(
                 { error: 'Rate limit exceeded. Please try again later.' },
                 { status: 429 }
             );
+            return addTrackerCorsHeaders(response, origin, true);
         }
 
         // Sanitize message
@@ -227,14 +246,8 @@ export async function POST(request: NextRequest) {
 }
 
 // CORS preflight
-export async function OPTIONS() {
-    return new NextResponse(null, {
-        status: 200,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'content-type, x-api-key, content-encoding',
-        },
-    });
+export async function OPTIONS(request: NextRequest) {
+    const origin = request.headers.get('origin');
+    return createPreflightResponse(origin);
 }
 

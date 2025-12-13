@@ -47,9 +47,17 @@ export function calculateOverallDropoff(fields: FieldMetrics[]): number {
     const firstField = fields[0];
     const lastField = fields[fields.length - 1];
 
-    if (firstField.focus_count === 0) return 0;
+    // Prevent division by zero and handle edge cases
+    if (!firstField.focus_count || firstField.focus_count === 0) return 0;
+    if (!lastField.blur_count && lastField.blur_count !== 0) return 0;
 
-    return Math.round((1 - lastField.blur_count / firstField.focus_count) * 100);
+    const dropoff = Math.round((1 - lastField.blur_count / firstField.focus_count) * 100);
+
+    // Handle edge cases like NaN, Infinity, -Infinity
+    if (!Number.isFinite(dropoff) || Number.isNaN(dropoff)) return 0;
+
+    // Clamp between 0 and 100
+    return Math.max(0, Math.min(100, dropoff));
 }
 
 /**
@@ -80,6 +88,8 @@ export function formatTime(ms: number): string {
  * Get color for drop-off rate
  */
 export function getDropoffColor(rate: number): string {
+    // Handle invalid values
+    if (!Number.isFinite(rate) || Number.isNaN(rate) || rate < 0) return '#22c55e'; // green-500 for invalid/0
     if (rate >= 30) return '#ef4444'; // red-500
     if (rate >= 15) return '#f59e0b'; // amber-500
     return '#22c55e'; // green-500

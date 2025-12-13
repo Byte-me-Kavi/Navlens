@@ -121,11 +121,17 @@ export default function FormAnalyticsPage() {
                   onChange={(e) => setSelectedFormId(e.target.value)}
                   className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {forms.map(form => (
-                    <option key={form.form_id} value={form.form_id}>
-                      {form.form_id} ({form.total_submissions} submissions)
-                    </option>
-                  ))}
+                  {forms.map(form => {
+                    // Clean up form_id if it contains [object ...]
+                    const displayName = form.form_id.includes('[object') 
+                      ? `Form ${forms.indexOf(form) + 1}`
+                      : form.form_id;
+                    return (
+                      <option key={form.form_id} value={form.form_id}>
+                        {displayName} ({form.total_submissions} submissions)
+                      </option>
+                    );
+                  })}
                 </select>
                 <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
@@ -190,7 +196,7 @@ export default function FormAnalyticsPage() {
                 <div>
                   <p className="text-sm text-gray-600">Drop-off Rate</p>
                   <p className="text-2xl font-bold" style={{ color: formAnalyticsApi.getDropoffColor(overallDropoff) }}>
-                    {overallDropoff}%
+                    {Number.isFinite(overallDropoff) && overallDropoff >= 0 ? `${overallDropoff}%` : '0%'}
                   </p>
                 </div>
               </div>
@@ -232,15 +238,22 @@ export default function FormAnalyticsPage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {fields.map((field) => {
+                {fields
+                  .filter(field => field.field_name || field.field_id) // Filter out empty fields
+                  .map((field) => {
                   const percentage = fields[0].focus_count > 0 
                     ? Math.round((field.focus_count / fields[0].focus_count) * 100) 
                     : 0;
                   
+                  // Clean up field name
+                  const displayName = (field.field_name || field.field_id || '').includes('[object')
+                    ? `Field ${fields.indexOf(field) + 1}`
+                    : (field.field_name || field.field_id || 'Unknown Field');
+                  
                   return (
                     <div key={field.field_id} className="flex items-center gap-4">
-                      <div className="w-32 text-sm text-gray-700 font-medium truncate" title={field.field_name}>
-                        {field.field_name || field.field_id}
+                      <div className="w-32 text-sm text-gray-700 font-medium truncate" title={displayName}>
+                        {displayName}
                       </div>
                       <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden relative">
                         <div 
@@ -252,7 +265,7 @@ export default function FormAnalyticsPage() {
                         </span>
                       </div>
                       <div className="w-20 text-right">
-                        {field.drop_off_rate > 0 && (
+                        {field.drop_off_rate > 0 && Number.isFinite(field.drop_off_rate) && (
                           <span 
                             className="text-sm font-medium"
                             style={{ color: formAnalyticsApi.getDropoffColor(field.drop_off_rate) }}
@@ -294,42 +307,51 @@ export default function FormAnalyticsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {fields.map((field) => (
-                      <tr key={field.field_id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900">
-                            {field.field_name || field.field_id}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-                            {field.field_type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right text-gray-700">
-                          {formAnalyticsApi.formatTime(field.avg_time_ms)}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span 
-                            className="font-medium"
-                            style={{ color: formAnalyticsApi.getDropoffColor(field.drop_off_rate) }}
-                          >
-                            {field.drop_off_rate}%
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span 
-                            className="font-medium"
-                            style={{ color: formAnalyticsApi.getRefillColor(field.refill_rate) }}
-                          >
-                            {field.refill_rate}%
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right text-gray-700">
-                          {field.focus_count}
-                        </td>
-                      </tr>
-                    ))}
+                    {fields
+                      .filter(field => field.field_name || field.field_id) // Filter out empty fields
+                      .map((field) => {
+                        // Clean up field name
+                        const displayName = (field.field_name || field.field_id || '').includes('[object')
+                          ? `Field ${fields.indexOf(field) + 1}`
+                          : (field.field_name || field.field_id || 'Unknown Field');
+                        
+                        return (
+                          <tr key={field.field_id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4">
+                              <div className="font-medium text-gray-900">
+                                {displayName}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
+                                {field.field_type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right text-gray-700">
+                              {formAnalyticsApi.formatTime(field.avg_time_ms)}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <span 
+                                className="font-medium"
+                                style={{ color: formAnalyticsApi.getDropoffColor(field.drop_off_rate) }}
+                              >
+                                {Number.isFinite(field.drop_off_rate) ? `${field.drop_off_rate}%` : '0%'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <span 
+                                className="font-medium"
+                                style={{ color: formAnalyticsApi.getRefillColor(field.refill_rate) }}
+                              >
+                                {Number.isFinite(field.refill_rate) ? `${field.refill_rate}%` : '0%'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right text-gray-700">
+                              {field.focus_count}
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>

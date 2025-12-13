@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   FiAlertTriangle,
   FiMousePointer,
@@ -170,7 +171,7 @@ export function FrustrationSignalsPanel({
 
       {/* Frustration Distribution */}
       <div className="p-6 border-b border-gray-100">
-        <h4 className="text-sm font-semibold text-gray-700 mb-4">Session Distribution</h4>
+        <h4 className="text-sm font-semibold text-gray-700 mb-6">Session Distribution</h4>
         <div className="flex gap-2 items-end h-20">
           <DistributionBar
             label="Low"
@@ -220,6 +221,12 @@ export function FrustrationSignalsPanel({
                   } ${getFrustrationColor(session.frustrationScore).text}`}>
                     {session.frustrationScore}
                   </span>
+                  <Link
+                    href={`/dashboard/session-replayer?sessionId=${session.sessionId}`}
+                    className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded-lg transition-colors"
+                  >
+                    View Session
+                  </Link>
                 </div>
               </div>
             ))}

@@ -4,6 +4,7 @@ import { validators, validateRequestSize } from '@/lib/validation';
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
 import { parseRequestBody } from '@/lib/decompress';
+import { validateSiteAndOrigin, addTrackerCorsHeaders, createPreflightResponse } from '@/lib/trackerCors';
 
 // Sensitive field patterns to skip
 const SENSITIVE_FIELD_PATTERNS = [
@@ -56,20 +57,6 @@ interface FormEventsPayload {
     sessionId: string;
 }
 
-// CORS headers
-function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
-    if (origin) {
-        response.headers.set('Access-Control-Allow-Origin', origin);
-        response.headers.set('Access-Control-Allow-Credentials', 'true');
-    } else {
-        response.headers.set('Access-Control-Allow-Origin', '*');
-    }
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
-    response.headers.set('Access-Control-Max-Age', '86400');
-    return response;
-}
-
 // Supabase admin client
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -84,13 +71,13 @@ console.log(`[v1/form-events] Rate limiting: ${isRedisAvailable() ? 'Redis' : 'I
 // CORS preflight
 export async function OPTIONS(request: NextRequest) {
     const origin = request.headers.get('origin');
-    return addCorsHeaders(new NextResponse(null, { status: 204 }), origin);
+    return createPreflightResponse(origin);
 }
 
 // JSON response helper
-function jsonResponse(data: object, status: number = 200, origin?: string | null): NextResponse {
+function jsonResponse(data: object, status: number = 200, origin: string | null = null, isAllowed: boolean = true): NextResponse {
     const response = NextResponse.json(data, { status });
-    return addCorsHeaders(response, origin);
+    return addTrackerCorsHeaders(response, origin, isAllowed);
 }
 
 export async function POST(request: NextRequest) {
@@ -135,15 +122,16 @@ export async function POST(request: NextRequest) {
             return jsonResponse({ error: 'Too many events (max 20 per request)' }, 400, origin);
         }
 
-        // Validate site exists
-        const { data: siteData, error: siteError } = await supabaseAdmin
-            .from('sites')
-            .select('id')
-            .eq('id', siteId)
-            .single();
+        // Validate site exists AND origin is allowed
+        const validation = await validateSiteAndOrigin(siteId, origin);
 
-        if (siteError || !siteData) {
-            return jsonResponse({ error: 'Invalid site ID' }, 403, origin);
+        if (!validation.valid) {
+            return jsonResponse({ error: 'Invalid site ID' }, 403, origin, false);
+        }
+
+        if (!validation.allowed) {
+            console.warn(`[v1/form-events] Origin ${origin} not allowed for site ${siteId}`);
+            return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
         }
 
         console.log(`[v1/form-events] Processing ${events.length} form events for session ${sessionId}`);

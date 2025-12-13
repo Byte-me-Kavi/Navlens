@@ -160,7 +160,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   if (isLoading || !mounted) {
     return (
       <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-50 transition-opacity duration-500 ease-out">
-        <LoadingSpinner message="Loading dashboard..." />
+        <LoadingSpinner message="Authenticating..." />
       </div>
     );
   }

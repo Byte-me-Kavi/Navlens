@@ -4,29 +4,7 @@ import { validators, ValidationError, validateRequestSize, ValidatedEventData, E
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
 import { parseRequestBody } from '@/lib/decompress';
-
-// Helper to add CORS headers to response with dynamic origin
-function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
-  // CRITICAL: When Access-Control-Allow-Credentials is true, we CANNOT use wildcard '*'
-  // We must either:
-  // 1. Return the specific requesting origin, OR
-  // 2. Not include credentials header and use '*'
-
-  if (origin) {
-    // If we have an origin, use it specifically (required for credentials)
-    response.headers.set('Access-Control-Allow-Origin', origin);
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
-  } else {
-    // If no origin (e.g., same-origin requests, curl, etc.), allow all without credentials
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    // Don't set Allow-Credentials when using wildcard
-  }
-
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
-  response.headers.set('Access-Control-Max-Age', '86400');
-  return response;
-}
+import { validateSiteAndOrigin, addTrackerCorsHeaders, createPreflightResponse, isOriginAllowed } from '@/lib/trackerCors';
 
 // Create admin Supabase client for server-side operations
 const supabaseAdmin = createClient(
@@ -43,13 +21,13 @@ console.log(`[v1/ingest] Rate limiting backend: ${isRedisAvailable() ? 'Upstash 
 // Handle CORS preflight requests
 export async function OPTIONS(request: NextRequest) {
   const origin = request.headers.get('origin');
-  return addCorsHeaders(new NextResponse(null, { status: 204 }), origin);
+  return createPreflightResponse(origin);
 }
 
 // Helper to create JSON response with CORS headers
-function jsonResponse(data: object, status: number = 200, origin?: string | null): NextResponse {
+function jsonResponse(data: object, status: number = 200, origin: string | null = null, isAllowed: boolean = true): NextResponse {
   const response = NextResponse.json(data, { status });
-  return addCorsHeaders(response, origin);
+  return addTrackerCorsHeaders(response, origin, isAllowed);
 }
 
 export async function POST(request: NextRequest) {
@@ -107,17 +85,18 @@ export async function POST(request: NextRequest) {
       return jsonResponse({ error: 'Too many events in single request (max 100)' }, 400, origin);
     }
 
-    // Validate siteId exists in our system and is active
-    // This prevents unauthorized data collection for non-existent or inactive sites
-    const { data: siteData, error: siteError } = await supabaseAdmin
-      .from('sites')
-      .select('id, user_id')
-      .eq('id', siteId)
-      .single();
+    // Validate siteId exists in our system AND origin is allowed
+    const validation = await validateSiteAndOrigin(siteId, origin);
 
-    if (siteError || !siteData) {
-      console.warn(`[v1/ingest] Invalid site ID: ${siteId}`, siteError?.message);
-      return jsonResponse({ error: 'Invalid site ID' }, 403, origin);
+    if (!validation.valid) {
+      console.warn(`[v1/ingest] Invalid site ID: ${siteId}`);
+      return jsonResponse({ error: 'Invalid site ID' }, 403, origin, false);
+    }
+
+    if (!validation.allowed) {
+      console.warn(`[v1/ingest] Origin ${origin} not allowed for site ${siteId}`);
+      // Return without CORS headers - browser will block
+      return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
     }
 
     console.log(`[v1/ingest] Processing ${events.length} events for site ${siteId}`);

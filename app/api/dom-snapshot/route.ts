@@ -4,42 +4,20 @@ import { gzip } from 'zlib';
 import { promisify } from 'util';
 import { validators } from '@/lib/validation';
 import { parseRequestBody } from '@/lib/decompress';
+import { validateSiteAndOrigin, addTrackerCorsHeaders, createPreflightResponse } from '@/lib/trackerCors';
 
 const gzipAsync = promisify(gzip);
 
-// Helper to add CORS headers to response with dynamic origin
-function addCorsHeaders(response: NextResponse, origin?: string | null): NextResponse {
-  // CRITICAL: When Access-Control-Allow-Credentials is true, we CANNOT use wildcard '*'
-  // We must either:
-  // 1. Return the specific requesting origin, OR
-  // 2. Not include credentials header and use '*'
-  
-  if (origin) {
-    // If we have an origin, use it specifically (required for credentials)
-    response.headers.set('Access-Control-Allow-Origin', origin);
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
-  } else {
-    // If no origin (e.g., same-origin requests, curl, etc.), allow all without credentials
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    // Don't set Allow-Credentials when using wildcard
-  }
-  
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Content-Encoding, x-api-key');
-  response.headers.set('Access-Control-Max-Age', '86400');
-  return response;
-}
-
 // Helper to create JSON response with CORS headers
-function jsonResponse(data: object, status: number = 200, origin?: string | null): NextResponse {
-  const response = NextResponse.json(data, { status });
-  return addCorsHeaders(response, origin);
+function jsonResponse(data: object, status: number = 200, origin: string | null = null, isAllowed: boolean = true): NextResponse {
+    const response = NextResponse.json(data, { status });
+    return addTrackerCorsHeaders(response, origin, isAllowed);
 }
 
 // Handle CORS preflight requests
 export async function OPTIONS(request: NextRequest) {
-  const origin = request.headers.get('origin');
-  return addCorsHeaders(new NextResponse(null, { status: 204 }), origin);
+    const origin = request.headers.get('origin');
+    return createPreflightResponse(origin);
 }
 
 // Initialize Admin Client (Service Role is required to bypass RLS for uploads)
@@ -57,58 +35,13 @@ export const config = {
     },
 };
 
-// Simple in-memory cache for site validation (reduces DB calls)
-const siteValidationCache = new Map<string, { valid: boolean; expiresAt: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-/**
- * Validate site_id exists in database
- * SECURITY: API keys are no longer sent from client-side for security
- * Server validates using site_id + Origin header matching registered domain
- */
-async function validateSiteAndAuth(siteId: string): Promise<{ valid: boolean; reason?: string }> {
-    if (!validators.isValidUUID(siteId)) {
-        return { valid: false, reason: 'Invalid site_id format' };
-    }
-    
-    // Check cache first
-    const cached = siteValidationCache.get(siteId);
-    if (cached && Date.now() < cached.expiresAt) {
-        if (!cached.valid) {
-            return { valid: false, reason: 'Site not found' };
-        }
-        return { valid: true };
-    }
-    
-    // Query database for site
-    const { data: site, error } = await supabase
-        .from('sites')
-        .select('id')
-        .eq('id', siteId)
-        .single();
-    
-    if (error || !site) {
-        // Cache negative result
-        siteValidationCache.set(siteId, { valid: false, expiresAt: Date.now() + CACHE_TTL });
-        return { valid: false, reason: 'Site not found' };
-    }
-    
-    // Cache positive result
-    siteValidationCache.set(siteId, { 
-        valid: true, 
-        expiresAt: Date.now() + CACHE_TTL 
-    });
-    
-    return { valid: true };
-}
-
 export async function POST(req: NextRequest) {
     const start = performance.now();
     const requestOrigin = req.headers.get('origin');
-    
+
     try {
         console.log('DOM snapshot POST received');
-        
+
         // 1. Extract Data (Including new width/height/hash fields from tracker)
         // NOTE: api_key is no longer sent from client for security
         // Handles both gzip compressed and regular JSON payloads
@@ -124,12 +57,12 @@ export async function POST(req: NextRequest) {
             hash?: string;
         }
         const body = await parseRequestBody<SnapshotBody>(req);
-        const { 
-            site_id, 
-            page_path, 
-            device_type, 
-            snapshot, 
-            styles, 
+        const {
+            site_id,
+            page_path,
+            device_type,
+            snapshot,
+            styles,
             origin,
             width,     // Capture dimensions
             height,
@@ -137,27 +70,33 @@ export async function POST(req: NextRequest) {
         } = body;
 
         if (!site_id || !snapshot) {
-            return jsonResponse({ error: 'Missing data' }, 400, requestOrigin);
+            return jsonResponse({ error: 'Missing data' }, 400, requestOrigin, true);
         }
 
-        // 🔒 Security: Validate site_id exists (no API key validation needed)
-        // Origin header validation provides security without exposing keys
-        const validation = await validateSiteAndAuth(site_id);
+        // 🔒 Security: Validate site_id AND origin
+        const validation = await validateSiteAndOrigin(site_id, requestOrigin);
         if (!validation.valid) {
-            console.error('❌ Validation failed:', validation.reason);
+            console.error('❌ Validation failed: Site not found');
             return jsonResponse(
-                { error: validation.reason || 'Validation failed' }, 
+                { error: 'Site not found' },
                 401,
-                requestOrigin
+                requestOrigin,
+                false
             );
+        }
+
+        if (!validation.allowed) {
+            console.error(`❌ Origin ${requestOrigin} not allowed for site ${site_id}`);
+            // Return without CORS headers - browser will block
+            return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
         }
 
         // 2. Normalize Path for Filename (Safe for Storage)
         // URL: /blog/post-1  ->  File: blog_post-1
-        const normalizedPath = page_path === '/' 
-            ? 'homepage' 
+        const normalizedPath = page_path === '/'
+            ? 'homepage'
             : page_path.replace(/^\//, '').replace(/\//g, '_');
-            
+
         // Use .json.gz extension for compressed files
         const fileName = `${normalizedPath}.json.gz`;
         const storagePath = `${site_id}/${device_type}/${fileName}`;
@@ -167,14 +106,14 @@ export async function POST(req: NextRequest) {
         // 3. Prepare File Content and COMPRESS with gzip
         const fileContent = {
             snapshot,
-            styles: styles || [], 
-            origin: origin || '', 
+            styles: styles || [],
+            origin: origin || '',
             meta: { width, height, device_type }
         };
-        
+
         const jsonString = JSON.stringify(fileContent);
         const compressedData = await gzipAsync(Buffer.from(jsonString, 'utf-8'));
-        
+
         // Log compression stats
         const originalSize = Buffer.byteLength(jsonString, 'utf-8');
         const compressedSize = compressedData.length;
@@ -209,7 +148,7 @@ export async function POST(req: NextRequest) {
 
         // Check for errors in results
         const errors: string[] = [];
-        
+
         // Check storage upload result
         if (results[0].status === 'fulfilled') {
             const storageResult = results[0].value;
@@ -221,7 +160,7 @@ export async function POST(req: NextRequest) {
             console.error('Storage upload rejected:', results[0].reason);
             errors.push(`Storage rejected: ${results[0].reason}`);
         }
-        
+
         // Check DB upsert result
         if (results[1].status === 'fulfilled') {
             const dbResult = results[1].value;
@@ -236,15 +175,15 @@ export async function POST(req: NextRequest) {
 
         if (errors.length > 0) {
             console.error('Snapshot operations failed:', errors);
-            return jsonResponse({ error: errors.join('; ') }, 500, requestOrigin);
+            return jsonResponse({ error: errors.join('; ') }, 500, requestOrigin, true);
         }
 
         console.log(`✅ Snapshot processed in ${(performance.now() - start).toFixed(2)}ms`);
-        return jsonResponse({ success: true }, 200, requestOrigin);
+        return jsonResponse({ success: true }, 200, requestOrigin, true);
 
     } catch (error: unknown) {
         console.error('Snapshot upload failed:', error);
         const message = error instanceof Error ? error.message : 'Unknown error';
-        return jsonResponse({ error: message }, 500, requestOrigin);
+        return jsonResponse({ error: message }, 500, requestOrigin, true);
     }
 }
