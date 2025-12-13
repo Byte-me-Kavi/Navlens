@@ -26,7 +26,7 @@
   const script = document.currentScript;
   const API_KEY = script?.dataset?.apiKey || "";
   const SITE_ID = script?.dataset?.siteId || "";
-  const API_HOST = "http://localhost:3000";
+  const API_HOST = script?.dataset?.apiHost || "https://navlens-rho.vercel.app";
 
   // Validate required configuration
   if (!SITE_ID) {
