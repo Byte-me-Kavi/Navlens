@@ -11,6 +11,7 @@ export { HeatmapRenderer } from './services/heatmapRenderer';
 
 // Hooks
 export { useHeatmapData } from './hooks/useHeatmapData';
+export { useHeatmapExport, ExportHeatmapButton } from './components/HeatmapExport';
 
 // Components
 export { HeatmapViewer } from './components/HeatmapViewer';

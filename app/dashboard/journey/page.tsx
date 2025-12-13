@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSite } from "@/app/context/SiteContext";
 import { useDateRange } from "@/context/DateRangeContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -12,7 +13,14 @@ import {
   FiLogOut,
   FiMap,
   FiTrendingUp,
+  FiGitMerge,
 } from "react-icons/fi";
+
+// Dynamic import for Sankey to avoid SSR issues with D3
+const SankeyDiagram = dynamic(() => import("@/components/SankeyDiagram").then(m => ({ default: m.SankeyDiagram })), { 
+  ssr: false,
+  loading: () => <div className="h-96 bg-gray-100 animate-pulse rounded-xl" />
+});
 
 interface PathNode {
   source: string;
@@ -305,12 +313,27 @@ export default function JourneyDashboard() {
           </div>
         )}
 
-        {/* Note */}
-        <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-xl text-center">
-          <p className="text-sm text-purple-800">
-            <strong>Coming Soon:</strong> Interactive Sankey diagram visualization for complete user flow analysis.
-          </p>
-        </div>
+        {/* Sankey Flow Diagram */}
+        {data?.sankeyLinks && data.sankeyLinks.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FiGitMerge className="w-5 h-5 text-purple-600" />
+              User Flow Visualization
+            </h2>
+            <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+              <SankeyDiagram links={data.sankeyLinks} width={800} height={400} />
+            </div>
+          </div>
+        )}
+
+        {/* Note when no Sankey data */}
+        {(!data?.sankeyLinks || data.sankeyLinks.length === 0) && (
+          <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-xl text-center">
+            <p className="text-sm text-purple-800">
+              <strong>Note:</strong> Sankey diagram will appear once sufficient user journey data is collected.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
