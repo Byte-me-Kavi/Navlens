@@ -53,7 +53,7 @@ export function isOriginAllowed(origin: string | null, siteDomain: string | null
 
         // If site has no domain configured, block all 
         if (!siteDomain) {
-            console.warn(`[trackerCors] Site has no domain configured, allowing all origins`);
+            console.warn(`[trackerCors] Site has no domain configured, block all origins`);
             return false;
         }
 
@@ -73,34 +73,28 @@ export function isOriginAllowed(origin: string | null, siteDomain: string | null
     }
 }
 
-/**
- * Add CORS headers to response
- * Only sets Access-Control-Allow-Origin if the origin is allowed
- */
 export function addTrackerCorsHeaders(
     response: NextResponse,
     origin: string | null,
     isAllowed: boolean
 ): NextResponse {
     if (isAllowed && origin) {
-        // Set the specific origin (not wildcard) for proper CORS
+        // Set the specific origin (not wildcard) for proper CORS with credentials
         response.headers.set('Access-Control-Allow-Origin', origin);
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
     } else if (!origin) {
         // No origin header (server-side request) - use wildcard
         response.headers.set('Access-Control-Allow-Origin', '*');
+        // Don't set credentials with wildcard
     }
     // If not allowed, don't set CORS headers - browser will block the request
 
-    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, content-type, Content-Encoding, content-encoding, x-api-key');
     response.headers.set('Access-Control-Max-Age', '86400');
     return response;
 }
 
-/**
- * Create an OPTIONS response for preflight requests
- * For tracker APIs, we need to allow preflight from any origin to check the domain
- */
 export function createPreflightResponse(origin: string | null): NextResponse {
     const response = new NextResponse(null, { status: 204 });
 
@@ -108,11 +102,12 @@ export function createPreflightResponse(origin: string | null): NextResponse {
     // The actual POST request will validate the site_id + origin match
     if (origin) {
         response.headers.set('Access-Control-Allow-Origin', origin);
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
     } else {
         response.headers.set('Access-Control-Allow-Origin', '*');
     }
 
-    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, content-type, Content-Encoding, content-encoding, x-api-key');
     response.headers.set('Access-Control-Max-Age', '86400');
     return response;
