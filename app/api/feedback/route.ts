@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validators } from '@/lib/validation';
+import { gunzip } from 'zlib';
+import { promisify } from 'util';
 import { authenticateAndAuthorize, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
+
+const gunzipAsync = promisify(gunzip);
 
 // Use service role key for server-side inserts (bypasses RLS)
 const supabaseAdmin = createClient(
@@ -90,7 +94,26 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
+        // Handle gzip-compressed requests from tracker
+        let body;
+        const contentEncoding = request.headers.get('content-encoding');
+
+        if (contentEncoding === 'gzip') {
+            try {
+                const arrayBuffer = await request.arrayBuffer();
+                const buffer = Buffer.from(arrayBuffer);
+                const decompressed = await gunzipAsync(buffer);
+                body = JSON.parse(decompressed.toString('utf-8'));
+            } catch (decompressError) {
+                console.error('[feedback] Decompression error:', decompressError);
+                return NextResponse.json({ error: 'Failed to decompress request' }, {
+                    status: 400,
+                    headers: { 'Access-Control-Allow-Origin': '*' },
+                });
+            }
+        } else {
+            body = await request.json();
+        }
 
         // Support both old format (site_id) and new format (siteId)
         const site_id = body.site_id || body.siteId;
