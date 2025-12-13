@@ -225,6 +225,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { DateRangeProvider } from "@/context/DateRangeContext";
+import { PageFilterProvider } from "@/context/PageFilterContext";
+
 export default function DashboardLayout({
   children,
 }: {
@@ -233,8 +236,13 @@ export default function DashboardLayout({
   return (
     <NavigationProvider>
       <SiteProvider>
-        <DashboardLayoutContent>{children}</DashboardLayoutContent>
+        <DateRangeProvider>
+          <PageFilterProvider>
+            <DashboardLayoutContent>{children}</DashboardLayoutContent>
+          </PageFilterProvider>
+        </DateRangeProvider>
       </SiteProvider>
     </NavigationProvider>
   );
 }
+

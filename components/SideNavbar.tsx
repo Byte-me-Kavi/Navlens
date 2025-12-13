@@ -67,6 +67,24 @@ const navItems = [
     icon: DocumentChartBarIcon,
   },
   {
+    name: "Performance",
+    href: "/dashboard/performance",
+    icon: PresentationChartBarIcon,
+    badge: "New",
+  },
+  {
+    name: "User Journeys",
+    href: "/dashboard/journey",
+    icon: FunnelIcon,
+    badge: "New",
+  },
+  {
+    name: "Cohorts",
+    href: "/dashboard/cohorts",
+    icon: DocumentChartBarIcon,
+    badge: "New",
+  },
+  {
     name: "Settings",
     href: "/dashboard/settings",
     icon: Cog6ToothIcon,

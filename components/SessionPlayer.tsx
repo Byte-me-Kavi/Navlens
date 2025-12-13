@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
 import VideoControls from "./VideoControls";
@@ -161,7 +161,7 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
   }, [events]); // Re-create player when events change
 
   // Control handlers with direct access to player instance
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (!playerInstanceRef.current) return;
 
     try {
@@ -179,9 +179,9 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
     } catch (error) {
       console.error("Play/pause error:", error);
     }
-  };
+  }, [isPlaying]);
 
-  const handleSeek = (timeMs: number) => {
+  const handleSeek = useCallback((timeMs: number) => {
     if (!playerInstanceRef.current) return;
 
     // Clamp time to valid range
@@ -191,7 +191,6 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
     setCurrentTime(clampedTime);
 
     // 2. Command Player with error handling
-    // rrweb-player .goto() can throw if DOM state is corrupted
     try {
       playerInstanceRef.current.goto(clampedTime);
 
@@ -201,20 +200,18 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
       }
     } catch (error) {
       console.error("Seek error (rrweb DOM reconstruction issue):", error);
-      // Try to recover by pausing and seeking to a safe position
       try {
         playerInstanceRef.current.pause();
         setIsPlaying(false);
-        // Try seeking to start if the seek failed
         playerInstanceRef.current.goto(0);
         setCurrentTime(0);
       } catch (recoveryError) {
         console.error("Recovery failed:", recoveryError);
       }
     }
-  };
+  }, [duration, isPlaying]);
 
-  const handleSpeedChange = (newSpeed: number) => {
+  const handleSpeedChange = useCallback((newSpeed: number) => {
     if (!playerInstanceRef.current) return;
 
     try {
@@ -225,17 +222,67 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
     } catch (error) {
       console.error("Speed change error:", error);
     }
-  };
+  }, []);
 
-  const skipForward = () => {
+  const skipForward = useCallback(() => {
     const newTime = Math.min(currentTime + 10000, duration);
     handleSeek(newTime);
-  };
+  }, [currentTime, duration, handleSeek]);
 
-  const skipBackward = () => {
+  const skipBackward = useCallback(() => {
     const newTime = Math.max(currentTime - 10000, 0);
     handleSeek(newTime);
-  };
+  }, [currentTime, handleSeek]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          skipForward();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          skipBackward();
+          break;
+        case 'KeyF':
+          e.preventDefault();
+          // Toggle fullscreen
+          const container = playerRef.current?.parentElement?.parentElement;
+          if (container) {
+            if (document.fullscreenElement) {
+              document.exitFullscreen();
+            } else {
+              container.requestFullscreen?.();
+            }
+          }
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          // Increase speed
+          handleSpeedChange(speed < 8 ? speed * 2 : speed);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          // Decrease speed
+          handleSpeedChange(speed > 0.5 ? speed / 2 : speed);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [speed, togglePlay, skipForward, skipBackward, handleSpeedChange]);
 
   return (
     <div className="session-player-container h-96 flex flex-col bg-gray-900">

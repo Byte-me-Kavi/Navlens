@@ -1,600 +1,405 @@
-# Heatmap Application Architecture
+Navlens Heatmap Application - Functionality Report
+This document provides a comprehensive overview of all implemented functionality in the Navlens Heatmap Application, explaining how each feature works and its implementation flow.
 
-## 🎯 Design Principles
+Table of Contents
+Architecture Overview
+Client-Side Tracker (tracker.js)
+Dashboard Features
+Heatmap Visualization
+Session Replay
+Form Analytics
+Frustration Signals
+Feedback System
+Funnels
+API Layer
+Data Storage
+Architecture Overview
+The application follows a feature-based modular architecture with SOLID principles:
 
-This architecture follows **SOLID principles** and **industry best practices** for scalable, maintainable Next.js applications.
-
-### Core Principles Applied:
-
-1. **Single Responsibility Principle (SRP)**: Each module has one clear purpose
-2. **Open/Closed Principle (OCP)**: Extensible without modifying existing code
-3. **Liskov Substitution Principle (LSP)**: Components are interchangeable
-4. **Interface Segregation Principle (ISP)**: Focused, minimal interfaces
-5. **Dependency Inversion Principle (DIP)**: Depend on abstractions, not implementations
-
----
-
-## 📁 New Folder Structure
-
-```
 heatmap-app/
-├── app/                          # Next.js App Router
-│   ├── (auth)/                   # Auth route group
-│   │   └── login/
-│   ├── (dashboard)/              # Dashboard route group (requires auth)
-│   │   ├── dashboard/
-│   │   │   ├── experiments/
-│   │   │   ├── heatmaps/
-│   │   │   ├── my-sites/
-│   │   │   └── settings/
-│   │   └── layout.tsx            # Dashboard layout with sidebar
-│   ├── (public)/                 # Public pages route group
-│   │   ├── about/
-│   │   ├── docs/
-│   │   ├── features/
-│   │   └── pricing/
-│   ├── api/                      # API routes (current structure maintained)
-│   ├── globals.css
-│   └── layout.tsx                # Root layout
-│
-├── features/                     # ✨ NEW: Feature-based modules
-│   ├── heatmap/                  # Heatmap feature module
-│   │   ├── components/
-│   │   │   ├── HeatmapCanvas.tsx
-│   │   │   ├── HeatmapControls.tsx
-│   │   │   └── HeatmapViewer.tsx
-│   │   ├── hooks/
-│   │   │   ├── useHeatmapData.ts
-│   │   │   ├── useHeatmapRenderer.ts
-│   │   │   └── index.ts
-│   │   ├── services/
-│   │   │   ├── heatmapApi.ts
-│   │   │   ├── heatmapRenderer.ts
-│   │   │   └── index.ts
-│   │   ├── types/
-│   │   │   └── heatmap.types.ts
-│   │   └── index.ts              # Public exports
-│   │
-│   ├── element-tracking/         # Element click tracking feature
-│   │   ├── components/
-│   │   │   ├── ElementOverlay.tsx
-│   │   │   ├── ElementAnalysisModal.tsx
-│   │   │   └── ElementList.tsx
-│   │   ├── hooks/
-│   │   │   ├── useElementClicks.ts
-│   │   │   ├── useElementAnalysis.ts
-│   │   │   └── index.ts
-│   │   ├── services/
-│   │   │   ├── elementApi.ts
-│   │   │   ├── elementMatcher.ts
-│   │   │   └── index.ts
-│   │   ├── types/
-│   │   │   └── element.types.ts
-│   │   └── index.ts
-│   │
-│   ├── dom-snapshot/             # DOM snapshot & reconstruction
-│   │   ├── components/
-│   │   │   ├── SnapshotViewer.tsx
-│   │   │   └── IframeContainer.tsx
-│   │   ├── hooks/
-│   │   │   ├── useSnapshot.ts
-│   │   │   └── useDomRebuild.ts
-│   │   ├── services/
-│   │   │   ├── snapshotApi.ts
-│   │   │   ├── domBuilder.ts
-│   │   │   └── scrollSync.ts
-│   │   ├── types/
-│   │   │   └── snapshot.types.ts
-│   │   └── index.ts
-│   │
-│   ├── analytics/                # Analytics & metrics
-│   │   ├── components/
-│   │   │   ├── MetricsCard.tsx
-│   │   │   ├── TrendChart.tsx
-│   │   │   └── DeviceBreakdown.tsx
-│   │   ├── hooks/
-│   │   │   ├── useMetrics.ts
-│   │   │   └── useTrends.ts
-│   │   ├── services/
-│   │   │   ├── metricsApi.ts
-│   │   │   └── calculations.ts
-│   │   └── index.ts
-│   │
-│   ├── ab-testing/               # 🚀 FUTURE: A/B Testing module (extensible)
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   ├── services/
-│   │   └── types/
-│   │
-│   └── site-management/          # Site & page management
-│       ├── components/
-│       │   ├── SiteSelector.tsx
-│       │   ├── PagePathManager.tsx
-│       │   └── SiteManager.tsx
-│       ├── hooks/
-│       │   ├── useSites.ts
-│       │   └── usePagePaths.ts
-│       ├── services/
-│       │   └── siteApi.ts
-│       └── index.ts
-│
-├── shared/                       # ✨ NEW: Shared utilities
-│   ├── components/               # Reusable UI components
-│   │   ├── ui/                   # shadcn/ui components
-│   │   │   ├── Button.tsx
-│   │   │   ├── Card.tsx
-│   │   │   └── Modal.tsx
-│   │   ├── layout/
-│   │   │   ├── Header.tsx
-│   │   │   ├── Footer.tsx
-│   │   │   ├── Navbar.tsx
-│   │   │   └── SideNavbar.tsx
-│   │   ├── feedback/
-│   │   │   ├── LoadingSpinner.tsx
-│   │   │   ├── LoadingScreen.tsx
-│   │   │   ├── Toast.tsx
-│   │   │   └── ProgressBar.tsx
-│   │   └── index.ts
-│   │
-│   ├── hooks/                    # Shared custom hooks
-│   │   ├── useAuth.ts
-│   │   ├── useDebounce.ts
-│   │   ├── useLocalStorage.ts
-│   │   └── index.ts
-│   │
-│   ├── services/                 # Core services
-│   │   ├── api/
-│   │   │   ├── client.ts         # Axios/Fetch wrapper
-│   │   │   ├── endpoints.ts      # API endpoint constants
-│   │   │   └── interceptors.ts   # Request/response interceptors
-│   │   ├── auth/
-│   │   │   ├── authService.ts
-│   │   │   └── authHelpers.ts
-│   │   └── storage/
-│   │       ├── localStorage.ts
-│   │       └── sessionStorage.ts
-│   │
-│   ├── types/                    # Shared TypeScript types
-│   │   ├── api.types.ts
-│   │   ├── user.types.ts
-│   │   └── common.types.ts
-│   │
-│   ├── utils/                    # Utility functions
-│   │   ├── validation.ts
-│   │   ├── formatting.ts
-│   │   ├── constants.ts
-│   │   └── helpers.ts
-│   │
-│   └── context/                  # Global contexts
-│       ├── AuthContext.tsx
-│       ├── SiteContext.tsx
-│       ├── NavigationContext.tsx
-│       └── index.ts
-│
-├── config/                       # ✨ NEW: Configuration
-│   ├── app.config.ts             # App-level config
-│   ├── api.config.ts             # API config
-│   └── features.config.ts        # Feature flags
-│
-├── lib/                          # Keep for compatibility
-│   ├── supabaseClient.ts
-│   └── utils.ts
-│
-└── public/
-    ├── tracker.js
-    └── images/
-```
+├── app/                    # Next.js App Router pages
+│   ├── api/               # 26 API routes
+│   └── dashboard/         # Dashboard pages
+├── features/              # 9 feature modules
+│   ├── heatmap/          # Heatmap visualization
+│   ├── form-analytics/   # Form tracking
+│   ├── funnels/          # Funnel analysis
+│   ├── frustration-signals/
+│   ├── feedback/
+│   ├── dom-snapshot/
+│   ├── element-tracking/
+│   ├── dev-tools/
+│   └── customer-feedback/
+├── components/            # Shared UI components
+├── lib/                   # Core utilities (auth, clickhouse, encryption)
+└── public/tracker.js      # Client-side tracking script
+Data Flow:
 
----
+tracker.js
+Fetch
+User's Website
+API Endpoints
+ClickHouse Database
+Supabase
+Dashboard
+Client-Side Tracker
+The tracker (
+public/tracker.js
+, 3824 lines) is embedded on client websites and captures all user behavior.
 
-## 🏗️ Architecture Layers
+Configuration
+<script 
+  src="https://navlens-rho.vercel.app/tracker.js"
+  data-site-id="YOUR_SITE_ID"
+  data-api-key="YOUR_API_KEY"
+></script>
+Core Features
+1. Session Management
+30-minute timeout with automatic renewal
+Generates unique session_id and visitor_id
+Persisted in localStorage
+Flow:
 
-### 1. **Presentation Layer** (Components)
+Page Load → Check localStorage for existing session
+         → If expired (>30min), create new session
+         → Update lastActivity on every interaction
+2. Click Tracking
+Captures every click with comprehensive metadata:
 
-- Pure UI components
-- No business logic
-- Receive data via props or hooks
-- Emit events upward
+Data Captured	Description
+x, y	Page coordinates
+click_x, click_y	Relative coordinates
+element_selector	CSS selector path
+element_tag/id/classes	Element metadata
+is_dead_click	Click had no effect
+is_interactive	Element is clickable
+Dead Click Detection Flow:
 
-### 2. **Business Logic Layer** (Hooks & Services)
+Click Event → Start MutationObserver
+           → Wait 300ms for DOM changes
+           → If no changes AND element not interactive → Dead Click
+           → Send event with is_dead_click=true
+3. Scroll Tracking
+Tracks scroll depth and confusion scrolling:
 
-- **Hooks**: React-specific logic (state, effects, context)
-- **Services**: Pure TypeScript logic (API calls, calculations)
-- Separation allows testing without React
+// Configuration
+SESSION_TIMEOUT_MS: 30 * 60 * 1000,  // 30 minutes
+CONFUSION_THRESHOLD: 5,              // Direction changes
+TIME_WINDOW_MS: 2000                 // Detection window
+Confusion Scroll Detection:
 
-### 3. **Data Layer** (API Services)
+Monitors rapid up/down scroll direction changes
+If ≥5 direction changes within 2 seconds → Confusion event
+Calculates confusion_score (0-1) based on intensity
+4. Mouse Movement / Hover Tracking
+Builds attention heatmaps by tracking:
 
-- Centralized API communication
-- Request/response transformation
-- Error handling
-- Authentication
+Mouse position sampling (every 50ms)
+Element dwell times (minimum 500ms to count)
+Velocity and direction changes
+Attention zones (heading, content, interactive, media, navigation, form)
+Path Simplification: Uses Douglas-Peucker algorithm to reduce data while preserving path shape.
 
----
+5. rrweb Session Recording
+Full session replay using rrweb:
 
-## 🔄 Data Flow Pattern
-
-```
-User Interaction
-      ↓
-Component (UI)
-      ↓
-Custom Hook (State Management)
-      ↓
-Service (Business Logic)
-      ↓
-API Client (HTTP)
-      ↓
-Backend API
-      ↓
-Database (ClickHouse/Supabase)
-```
-
----
-
-## 📦 Feature Module Pattern
-
-Each feature is **self-contained** and follows this structure:
-
-```typescript
-features/[feature-name]/
-  ├── components/          # Feature-specific UI
-  ├── hooks/              # Feature-specific hooks
-  ├── services/           # Feature-specific business logic
-  ├── types/              # Feature-specific types
-  └── index.ts            # Public API (exports only what's needed)
-```
-
-### Benefits:
-
-✅ **Easy to understand**: Everything related to a feature is in one place  
-✅ **Easy to test**: Each module can be tested independently  
-✅ **Easy to extend**: Add new features without touching existing code  
-✅ **Easy to remove**: Delete a feature folder to remove it completely  
-✅ **Easy to collaborate**: Teams can work on different features without conflicts
-
----
-
-## 🎯 How to Add A/B Testing (Example)
-
-1. **Create the module**:
-
-```bash
-features/ab-testing/
-  ├── components/
-  │   ├── ExperimentList.tsx
-  │   ├── VariantSelector.tsx
-  │   └── ResultsChart.tsx
-  ├── hooks/
-  │   ├── useExperiment.ts
-  │   └── useVariants.ts
-  ├── services/
-  │   ├── experimentApi.ts
-  │   └── variantCalculations.ts
-  ├── types/
-  │   └── experiment.types.ts
-  └── index.ts
-```
-
-2. **Add API route**:
-
-```typescript
-// app/api/experiments/route.ts
-export async function GET(request: NextRequest) {
-  // Implementation
-}
-```
-
-3. **Add page**:
-
-```typescript
-// app/(dashboard)/dashboard/experiments/page.tsx
-import { ExperimentList } from "@/features/ab-testing";
-
-export default function ExperimentsPage() {
-  return <ExperimentList />;
-}
-```
-
-4. **Enable feature flag**:
-
-```typescript
-// config/features.config.ts
-export const features = {
-  abTesting: true, // ← Toggle on
-  heatmaps: true,
-  elementTracking: true,
-};
-```
-
----
-
-## 🔧 Service Layer Design
-
-### Example: API Service
-
-```typescript
-// shared/services/api/client.ts
-class ApiClient {
-  private baseURL: string;
-
-  constructor(baseURL: string) {
-    this.baseURL = baseURL;
-  }
-
-  async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      ...options,
-      method: "GET",
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      throw new ApiError(response.status, await response.text());
-    }
-
-    return response.json();
-  }
-
-  // post, put, delete methods...
-}
-
-export const apiClient = new ApiClient("/api");
-```
-
-### Example: Feature Service
-
-```typescript
-// features/heatmap/services/heatmapApi.ts
-import { apiClient } from "@/shared/services/api/client";
-import { HeatmapData } from "../types/heatmap.types";
-
-export const heatmapApi = {
-  async getHeatmapData(params: HeatmapParams): Promise<HeatmapData> {
-    return apiClient.get<HeatmapData>("/heatmap-clicks", { params });
+rrweb.record({
+  sampling: {
+    mousemove: 50,
+    mouseInteraction: true,
+    scroll: 150,
+    input: 'last'
   },
+  maskAllInputs: true,  // Privacy protection
+})
+Buffer Management:
 
-  async getSnapshot(params: SnapshotParams): Promise<Snapshot> {
-    return apiClient.get<Snapshot>("/get-snapshot", { params });
-  },
-};
-```
+Max 100 events per batch
+Flush every 10 seconds or when buffer full
+Throttled to prevent request flooding (min 5s between flushes)
+6. DOM Snapshot Capture
+Captures page structure using rrweb-snapshot:
 
----
+Device Type	Width	Height
+Mobile	375	667
+Tablet	768	1024
+Desktop	1440	900
+Hash-based Change Detection:
 
-## 🪝 Custom Hook Design
+Generates DOM structure hash (djb2 algorithm)
+Checks every 30 minutes for changes
+Re-captures snapshot if hash changes
+7. Form Analytics
+Tracks form field interactions:
 
-### Example: Feature Hook
+Event Type	Data Captured
+focus	Field entry time
+blur	Time spent, change count, refill detection
+submit
+Successful completion
+abandon	Left without submitting
+Refill Detection:
 
-```typescript
-// features/heatmap/hooks/useHeatmapData.ts
-import { useState, useEffect } from "react";
-import { heatmapApi } from "../services/heatmapApi";
-import { HeatmapData } from "../types/heatmap.types";
+Monitors if user deletes >50% of field content
+Marks as was_refilled if they retype
+8. Developer Tools Data
+Captures debugging information:
 
-export function useHeatmapData(
-  siteId: string,
-  pagePath: string,
-  deviceType: string
-) {
-  const [data, setData] = useState<HeatmapData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+Console logs: log, warn, error, info, debug (max 100 events)
+Network requests: fetch and XHR (max 200 events)
+Web Vitals: LCP, FCP, CLS, INP, TTFB
+9. PII Scrubbing
+Automatic redaction of sensitive data:
 
-  useEffect(() => {
-    let cancelled = false;
+Pattern	Replacement
+Email	[EMAIL_REDACTED]
+Phone	[PHONE_REDACTED]
+Credit Card	[CC_REDACTED]
+SSN	[SSN_REDACTED]
+IP Address	[IP_REDACTED]
+10. Data Transmission
+Compression: gzip using CompressionStream API
+Retry Queue: 3 retries with 5-second delay
+Keepalive Limit: 60KB max for keepalive requests
+Batch Processing: Events buffered and sent in batches
+Dashboard Features
+Located at /dashboard, provides analytics overview.
 
-    async function fetchData() {
-      try {
-        setLoading(true);
-        const result = await heatmapApi.getHeatmapData({
-          siteId,
-          pagePath,
-          deviceType,
-        });
+Navigation Structure
+Route	Feature
+/dashboard	Overview with stats cards
+/dashboard/my-sites	Site management
+/dashboard/heatmaps	Heatmap analytics hub
+/dashboard/sessions	Session recordings
+/dashboard/funnels	Funnel analysis
+/dashboard/feedback	User feedback
+/dashboard/frustration-signals	Frustration detection
+/dashboard/form-analytics	Form analytics
+/dashboard/settings	Configuration
+/dashboard/experiments	A/B Testing (Coming Soon)
+Overview Dashboard Stats
+Displays key metrics:
 
-        if (!cancelled) {
-          setData(result);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err as Error);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
+Total Clicks (with trend)
+Total Sessions (with trend)
+Average Scroll Depth (with trend)
+Total Heatmaps (with trend)
+Heatmap Visualization
+The heatmap feature provides visual representation of user interactions.
 
-    fetchData();
+Types of Heatmaps
+Type	Description	Data Source
+Click Heatmaps	Where users click	
+click
+ events
+Scroll Heatmaps	How far users scroll	scroll events
+Move/Attention	Mouse movement patterns	mouse_move events
+Cursor Paths	Actual cursor trajectories	Path data
+Implementation Flow
+ClickHouse
+API Layer
+SnapshotViewer
+HeatmapViewer
+Dashboard User
+ClickHouse
+API Layer
+SnapshotViewer
+HeatmapViewer
+Dashboard User
+Select site/page/device
+GET /api/get-snapshot
+Query dom_snapshots
+Snapshot HTML
+Snapshot data
+Render in iframe
+GET /api/heatmap-clicks
+Aggregate click data
+Heat points
+[{x, y, value}, ...]
+Overlay heatmap canvas
+Key Components
+Component	Purpose
+HeatmapViewer
+Main orchestrator
+SnapshotViewer
+Renders DOM in iframe
+HeatmapCanvas
+Canvas-based heat rendering
+ScrollHeatmapOverlay
+Scroll depth visualization
+CursorPathsOverlay
+Mouse trajectory lines
+Smart Elements Feature
+Overlay that highlights:
 
-    return () => {
-      cancelled = true;
-    };
-  }, [siteId, pagePath, deviceType]);
+Blue outlines: Interactive elements (links, buttons)
+Red outlines: Dead click hotspots
+Session Replay
+Full session playback using rrweb.
 
-  return { data, loading, error, refetch: () => fetchData() };
+Flow
+rrweb-player
+ClickHouse
+/api/sessions
+Sessions Page
+rrweb-player
+ClickHouse
+/api/sessions
+Sessions Page
+GET /api/sessions?siteId=X
+Query rrweb_events
+Session list
+Sessions with metadata
+GET /api/sessions/[id]/events
+Get session events
+rrweb event array
+Events JSON
+Initialize replay
+Video-like playback
+Session Metadata
+Field	Description
+session_id	Unique identifier
+visitor_id	Visitor tracking
+device_type	mobile/tablet/desktop
+duration	Session length
+page_views	Pages visited
+events_count	Total interactions
+Form Analytics
+Analyze form completion and drop-off rates.
+
+Tracked Metrics
+Metric	Description
+Field Drop-off	Which fields cause abandonment
+Time-to-Fill	How long each field takes
+Refill Rate	Fields users correct
+Completion Rate	Forms submitted vs started
+Data Structure
+interface FormEvent {
+  form_id: string;
+  field_id: string;
+  field_name: string;
+  field_type: string;
+  field_index: number;
+  interaction_type: 'focus' | 'blur' | 'submit' | 'abandon';
+  time_spent_ms?: number;
+  change_count?: number;
+  was_refilled?: boolean;
 }
-```
+Frustration Signals
+Detects user frustration through behavior patterns.
 
----
+Signal Types
+Signal	Detection Method
+Dead Clicks	Clicks with no DOM response
+Rage Clicks	Multiple rapid clicks (3+ in 1s)
+Confusion Scrolling	Rapid up/down scrolling
+Erratic Cursor	High direction changes/distance ratio
+Form Abandonment	Started but not submitted
+API Endpoint
+GET /api/frustration-signals?siteId=X&startDate=Y&endDate=Z
 
-## 🧩 Component Composition
+Returns aggregated frustration data per page.
 
-### Old Pattern (❌ Don't):
+Feedback System
+Collect and manage user feedback.
 
-```typescript
-// One giant component with everything
-<DomHeatmapViewer
-  siteId={siteId}
-  pagePath={pagePath}
-  deviceType={deviceType}
-  showElements={true}
-  showHeatmap={true}
-/>
-```
+Features
+Configurable feedback widget
+Rating and text feedback
+Session linking (View Session button)
+Timestamp and context capture
+Configuration Options
+Setting	Purpose
+Theme	Light/dark/custom
+Position	Screen location
+Trigger	Button/automatic
+Fields	Rating, text, etc.
+Funnels
+Analyze user journey through defined steps.
 
-### New Pattern (✅ Do):
-
-```typescript
-// Composed from smaller, focused components
-<SnapshotViewer siteId={siteId} pagePath={pagePath} deviceType={deviceType}>
-  <HeatmapCanvas data={heatmapData} />
-  <ElementOverlay elements={elementClicks} />
-  <HeatmapControls onToggle={handleToggle} />
-</SnapshotViewer>
-```
-
----
-
-## 🔒 Type Safety
-
-### Shared Types
-
-```typescript
-// shared/types/api.types.ts
-export interface ApiResponse<T> {
-  data: T;
-  status: number;
-  message?: string;
+Funnel Structure
+interface Funnel {
+  id: string;
+  name: string;
+  site_id: string;
+  steps: FunnelStep[];
+  created_at: string;
 }
-
-export interface ApiError {
-  status: number;
-  message: string;
-  code?: string;
+interface FunnelStep {
+  name: string;
+  page_path: string;
+  order: number;
 }
-```
+Metrics
+Metric	Description
+Conversion Rate	Start to completion
+Step Drop-off	Where users leave
+Average Time	Per step duration
+API Layer
+Event Ingestion API
+The primary entry point for all tracker events:
 
-### Feature Types
+POST /api/v1/ingest
 
-```typescript
-// features/heatmap/types/heatmap.types.ts
-export interface HeatmapPoint {
-  x: number;
-  y: number;
-  value: number;
+interface IngestPayload {
+  events: TrackingEvent[];
+  siteId: string;
 }
+Full API Reference
+Endpoint	Method	Purpose
+/api/v1/ingest	POST	Event ingestion
+/api/rrweb-events	POST	Session recording
+/api/dom-snapshot	POST	DOM snapshots
+/api/v1/form-events	POST	Form analytics
+/api/v1/debug-events	POST	Dev tools data
+/api/heatmap-clicks	GET	Click heatmap data
+/api/heatmap-scrolls	GET	Scroll heatmap data
+/api/hover-heatmap	GET	Attention heatmap
+/api/cursor-paths	GET	Cursor trajectories
+/api/get-snapshot	GET	DOM snapshot retrieval
+/api/sessions	GET	Session list
+/api/sessions/[id]	GET	Session details
+/api/frustration-signals	GET	Frustration data
+/api/feedback	GET/POST	Feedback CRUD
+/api/funnels	GET/POST	Funnel CRUD
+/api/dashboard-stats	GET	Overview metrics
+/api/element-clicks	GET	Element analysis
+Data Storage
+ClickHouse Tables
+High-performance analytics database:
 
-export interface HeatmapData {
-  max: number;
-  data: HeatmapPoint[];
-}
-```
+Table	Purpose
+events	All tracking events
+rrweb_events	Session recordings
+dom_snapshots	Page snapshots
+form_events	Form analytics
+debug_events	Dev tools data
+Supabase Tables
+Relational data storage:
 
----
-
-## 🧪 Testing Strategy
-
-### Unit Tests
-
-```typescript
-// features/heatmap/services/__tests__/heatmapApi.test.ts
-describe("heatmapApi", () => {
-  it("should fetch heatmap data", async () => {
-    const data = await heatmapApi.getHeatmapData({
-      siteId: "test",
-      pagePath: "/",
-      deviceType: "desktop",
-    });
-
-    expect(data).toBeDefined();
-    expect(data.data).toBeInstanceOf(Array);
-  });
-});
-```
-
-### Integration Tests
-
-```typescript
-// features/heatmap/components/__tests__/HeatmapViewer.test.tsx
-describe("HeatmapViewer", () => {
-  it("should render heatmap canvas", () => {
-    render(<HeatmapViewer siteId="test" pagePath="/" deviceType="desktop" />);
-    expect(screen.getByTestId("heatmap-canvas")).toBeInTheDocument();
-  });
-});
-```
-
----
-
-## 📊 Migration Plan
-
-### Phase 1: Create New Structure (No Breaking Changes)
-
-1. Create `features/` and `shared/` folders
-2. Copy existing code into new structure
-3. Keep old files for compatibility
-
-### Phase 2: Refactor Components
-
-1. Extract business logic from components to hooks
-2. Extract API calls to services
-3. Update imports gradually
-
-### Phase 3: Update Routes
-
-1. Migrate pages to use new components
-2. Test each page thoroughly
-3. Remove old components
-
-### Phase 4: Cleanup
-
-1. Delete old unused files
-2. Update documentation
-3. Run full test suite
-
----
-
-## 🚀 Benefits of This Architecture
-
-1. **Scalability**: Add new features without affecting existing ones
-2. **Maintainability**: Clear structure makes bugs easy to find
-3. **Testability**: Each layer can be tested independently
-4. **Collaboration**: Multiple developers can work without conflicts
-5. **Extensibility**: Add A/B testing, graphs, etc. as self-contained modules
-6. **Type Safety**: TypeScript catches errors at compile time
-7. **Performance**: Code splitting by feature reduces bundle size
-8. **Developer Experience**: Consistent patterns reduce cognitive load
-
----
-
-## 🎓 Learning Resources
-
-- [Next.js App Router](https://nextjs.org/docs/app)
-- [SOLID Principles](https://en.wikipedia.org/wiki/SOLID)
-- [Feature-Sliced Design](https://feature-sliced.design/)
-- [React Hooks](https://react.dev/reference/react)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-
----
-
-## 📝 Code Style Guidelines
-
-### Naming Conventions
-
-- **Components**: PascalCase (`HeatmapViewer.tsx`)
-- **Hooks**: camelCase with `use` prefix (`useHeatmapData.ts`)
-- **Services**: camelCase (`heatmapApi.ts`)
-- **Types**: PascalCase with descriptive suffix (`HeatmapData`, `HeatmapPoint`)
-- **Constants**: UPPER_SNAKE_CASE (`API_BASE_URL`)
-
-### File Organization
-
-- One component per file
-- Co-locate tests with implementation
-- Index files export public APIs only
-- Keep files under 300 lines
-
-### Import Order
-
-1. External dependencies (React, Next.js)
-2. Internal shared modules (`@/shared`)
-3. Internal feature modules (`@/features`)
-4. Relative imports (`./`, `../`)
-
----
-
-**Last Updated**: November 22, 2025  
-**Version**: 2.0.0
+Table	Purpose
+sites	Site configuration
+users	User accounts
+funnels	Funnel definitions
+feedback	User feedback
+feedback_config	Widget settings
+Security Features
+Feature	Implementation
+API Key Validation	Header-based authentication
+Rate Limiting	Per-endpoint limits
+Encryption	Response encryption for sensitive data
+PII Scrubbing	Automatic on tracker side
+CORS	Configured for tracker requests
+Core Libraries
+Library	Location	Purpose
+auth.ts
+lib/	Authentication helpers
+clickhouse.ts
+lib/	ClickHouse client
+encryption.ts
+lib/	Data encryption
+ratelimit.ts
+lib/	Rate limiting
+validation.ts
+lib/	Input validation
+Report generated: December 13, 2025

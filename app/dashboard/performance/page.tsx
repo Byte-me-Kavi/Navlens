@@ -1,0 +1,328 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useSite } from "@/app/context/SiteContext";
+import { useDateRange } from "@/context/DateRangeContext";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
+import DateRangePicker from "@/components/ui/DateRangePicker";
+import {
+  FiActivity,
+  FiMonitor,
+  FiSmartphone,
+  FiTablet,
+  FiTrendingUp,
+  FiAlertCircle,
+  FiCheckCircle,
+} from "react-icons/fi";
+
+interface PerformanceData {
+  trends: Array<{
+    time_bucket: string;
+    avg_lcp: number;
+    avg_cls: number;
+    avg_inp: number;
+    avg_fcp: number;
+    avg_ttfb: number;
+    sessions: number;
+  }>;
+  deviceBreakdown: Array<{
+    device_type: string;
+    avg_lcp: number;
+    avg_cls: number;
+    avg_inp: number;
+    avg_fcp: number;
+    avg_ttfb: number;
+    sessions: number;
+  }>;
+  browserBreakdown: Array<{
+    browser: string;
+    avg_lcp: number;
+    avg_cls: number;
+    sessions: number;
+  }>;
+  overall: {
+    avgLcp: number;
+    avgCls: string;
+    avgInp: number;
+    avgFcp: number;
+    avgTtfb: number;
+    totalSessions: number;
+  };
+}
+
+// Get performance grade based on LCP
+const getGrade = (lcp: number): { grade: string; color: string; icon: React.ReactNode } => {
+  if (lcp <= 2500) return { grade: "Good", color: "text-green-600", icon: <FiCheckCircle /> };
+  if (lcp <= 4000) return { grade: "Needs Work", color: "text-yellow-600", icon: <FiAlertCircle /> };
+  return { grade: "Poor", color: "text-red-600", icon: <FiAlertCircle /> };
+};
+
+// Metric card component
+const MetricCard = ({ label, value, unit, description, threshold }: {
+  label: string;
+  value: number | string;
+  unit: string;
+  description: string;
+  threshold?: { good: number; needsWork: number };
+}) => {
+  let statusColor = "text-gray-600";
+  if (threshold && typeof value === "number") {
+    if (value <= threshold.good) statusColor = "text-green-600";
+    else if (value <= threshold.needsWork) statusColor = "text-yellow-600";
+    else statusColor = "text-red-600";
+  }
+
+  return (
+    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+        {label}
+      </div>
+      <div className={`text-3xl font-bold ${statusColor}`}>
+        {typeof value === "number" ? value.toLocaleString() : value}
+        <span className="text-lg ml-1 font-normal text-gray-400">{unit}</span>
+      </div>
+      <div className="text-xs text-gray-500 mt-2">{description}</div>
+    </div>
+  );
+};
+
+// Device breakdown component
+const DeviceBreakdownCard = ({ data }: { data: PerformanceData["deviceBreakdown"] }) => {
+  const getDeviceIcon = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case "mobile": return <FiSmartphone className="w-5 h-5" />;
+      case "tablet": return <FiTablet className="w-5 h-5" />;
+      default: return <FiMonitor className="w-5 h-5" />;
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+      <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <FiMonitor className="w-4 h-4 text-blue-600" />
+        Performance by Device
+      </h3>
+      <div className="space-y-3">
+        {data.length === 0 ? (
+          <div className="text-gray-500 text-sm text-center py-4">No device data available</div>
+        ) : (
+          data.map((device) => (
+            <div key={device.device_type} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+              <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                {getDeviceIcon(device.device_type)}
+              </div>
+              <div className="flex-1">
+                <div className="font-medium capitalize">{device.device_type || "Unknown"}</div>
+                <div className="text-xs text-gray-500">{device.sessions} sessions</div>
+              </div>
+              <div className="text-right">
+                <div className={`font-semibold ${getGrade(device.avg_lcp).color}`}>
+                  {Math.round(device.avg_lcp)}ms
+                </div>
+                <div className="text-xs text-gray-500">LCP</div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default function PerformanceDashboard() {
+  const { selectedSiteId, sites, sitesLoading } = useSite();
+  const { dateRange, formatForApi } = useDateRange();
+  const [data, setData] = useState<PerformanceData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedSiteId) return;
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const { startDate, endDate } = formatForApi();
+        const response = await fetch("/api/performance-metrics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            siteId: selectedSiteId,
+            startDate,
+            endDate,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setData(result);
+        }
+      } catch (error) {
+        console.error("Failed to fetch performance data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [selectedSiteId, dateRange, formatForApi]);
+
+  if (sitesLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <LoadingSpinner message="Loading..." />
+      </div>
+    );
+  }
+
+  if (sites.length === 0) {
+    return <NoSitesAvailable />;
+  }
+
+  if (!selectedSiteId) {
+    return (
+      <NoSiteSelected
+        featureName="performance metrics"
+        description="View Core Web Vitals and performance trends for your site."
+      />
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <LoadingSpinner message="Loading performance data..." />
+      </div>
+    );
+  }
+
+  const overall = data?.overall || {
+    avgLcp: 0,
+    avgCls: "0",
+    avgInp: 0,
+    avgFcp: 0,
+    avgTtfb: 0,
+    totalSessions: 0,
+  };
+
+  const grade = getGrade(overall.avgLcp);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <FiActivity className="w-6 h-6 text-blue-600" />
+              Performance Dashboard
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Core Web Vitals and performance insights
+            </p>
+          </div>
+          <DateRangePicker />
+        </div>
+
+        {/* Performance Grade */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 mb-6 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-blue-100 text-sm mb-1">Overall Performance</div>
+              <div className="text-4xl font-bold flex items-center gap-3">
+                {grade.icon}
+                {grade.grade}
+              </div>
+              <div className="text-blue-200 mt-2">
+                Based on {overall.totalSessions.toLocaleString()} sessions
+              </div>
+            </div>
+            <div className="text-right">
+              <FiTrendingUp className="w-16 h-16 text-blue-300/50" />
+            </div>
+          </div>
+        </div>
+
+        {/* Core Web Vitals Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <MetricCard
+            label="LCP"
+            value={overall.avgLcp}
+            unit="ms"
+            description="Largest Contentful Paint"
+            threshold={{ good: 2500, needsWork: 4000 }}
+          />
+          <MetricCard
+            label="CLS"
+            value={parseFloat(overall.avgCls)}
+            unit=""
+            description="Cumulative Layout Shift"
+            threshold={{ good: 0.1, needsWork: 0.25 }}
+          />
+          <MetricCard
+            label="INP"
+            value={overall.avgInp}
+            unit="ms"
+            description="Interaction to Next Paint"
+            threshold={{ good: 200, needsWork: 500 }}
+          />
+          <MetricCard
+            label="FCP"
+            value={overall.avgFcp}
+            unit="ms"
+            description="First Contentful Paint"
+            threshold={{ good: 1800, needsWork: 3000 }}
+          />
+          <MetricCard
+            label="TTFB"
+            value={overall.avgTtfb}
+            unit="ms"
+            description="Time to First Byte"
+            threshold={{ good: 800, needsWork: 1800 }}
+          />
+        </div>
+
+        {/* Device Breakdown */}
+        <div className="grid md:grid-cols-2 gap-6">
+          <DeviceBreakdownCard data={data?.deviceBreakdown || []} />
+
+          {/* Browser Breakdown */}
+          <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FiMonitor className="w-4 h-4 text-blue-600" />
+              Performance by Browser
+            </h3>
+            <div className="space-y-3">
+              {(!data?.browserBreakdown || data.browserBreakdown.length === 0) ? (
+                <div className="text-gray-500 text-sm text-center py-4">No browser data available</div>
+              ) : (
+                data.browserBreakdown.map((browser) => (
+                  <div key={browser.browser} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="font-medium">{browser.browser || "Unknown"}</div>
+                      <div className="text-xs text-gray-500">{browser.sessions} sessions</div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-semibold ${getGrade(browser.avg_lcp).color}`}>
+                        {Math.round(browser.avg_lcp)}ms
+                      </div>
+                      <div className="text-xs text-gray-500">LCP</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Note */}
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-center">
+          <p className="text-sm text-blue-800">
+            <strong>Note:</strong> Performance metrics are collected from users with the tracking script installed.
+            Install Core Web Vitals tracking to start collecting data.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

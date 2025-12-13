@@ -18,7 +18,7 @@ async function withRetry<T>(
   initialDelayMs: number = 100
 ): Promise<T> {
   let lastError: Error | null = null;
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
@@ -31,7 +31,7 @@ async function withRetry<T>(
       }
     }
   }
-  
+
   throw lastError || new Error('Max retries exceeded');
 }
 
@@ -142,4 +142,23 @@ export function createUnauthenticatedResponse() {
     { error: 'Authentication required' },
     { status: 401 }
   );
+}
+
+/**
+ * Validates auth token from request headers or cookies
+ * Returns { valid: boolean, userId: string | null }
+ */
+export async function validateAuthToken(request: NextRequest): Promise<{ valid: boolean; userId: string | null }> {
+  try {
+    const authResult = await authenticateAndAuthorize(request);
+
+    if (!authResult.isAuthorized || !authResult.user) {
+      return { valid: false, userId: null };
+    }
+
+    return { valid: true, userId: authResult.user.id };
+  } catch (error) {
+    console.error('Token validation error:', error);
+    return { valid: false, userId: null };
+  }
 }

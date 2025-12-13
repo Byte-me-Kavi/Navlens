@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { HeatmapViewer, HeatmapSettings } from "@/features/heatmap";
+import { ArrowLeftIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
 
 export default function HeatmapViewerPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     selectedSiteId: siteId,
     getPagesList,
@@ -24,12 +26,20 @@ export default function HeatmapViewerPage() {
   >("desktop");
   const [selectedDataType, setSelectedDataType] = useState<
     "clicks" | "scrolls" | "hover" | "cursor-paths"
-  >("clicks");
+  >(() => {
+    // Read from URL query param if available
+    const typeFromUrl = searchParams.get("type");
+    if (typeFromUrl === "clicks" || typeFromUrl === "scrolls" || typeFromUrl === "hover" || typeFromUrl === "cursor-paths") {
+      return typeFromUrl;
+    }
+    return "clicks";
+  });
   const [availablePages, setAvailablePages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [noDataFound, setNoDataFound] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statsBarOpen, setStatsBarOpen] = useState(false);
-  const [showElements, setShowElements] = useState(true);
+  const [showElements, setShowElements] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showAllViewports, setShowAllViewports] = useState(false);
 
@@ -164,8 +174,10 @@ export default function HeatmapViewerPage() {
         } else {
           console.warn("[HeatmapViewerPage] No pages found for site:", siteId);
         }
+        setNoDataFound(pages.length === 0);
       } catch (error) {
         console.error("Failed to fetch pages:", error);
+        setNoDataFound(true);
       } finally {
         setLoading(false);
       }
@@ -175,19 +187,38 @@ export default function HeatmapViewerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId]); // Only re-run when siteId changes, functions are stable from context
 
-  // Don't render until we have pages loaded and a valid page selected
-  if (loading || !siteId || availablePages.length === 0) {
+  // Show loading state
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <LoadingSpinner
-          message={
-            loading
-              ? "Loading heatmap viewer..."
-              : availablePages.length === 0
-              ? "No pages found with snapshots..."
-              : "Initializing..."
-          }
-        />
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <LoadingSpinner message="Loading heatmap viewer..." />
+      </div>
+    );
+  }
+
+  // Show no-data state with friendly message
+  if (!siteId || noDataFound || availablePages.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-md text-center">
+          <div className="inline-flex p-4 bg-blue-50 rounded-full mb-6">
+            <GlobeAltIcon className="w-12 h-12 text-blue-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            No Visitor Data Yet
+          </h2>
+          <p className="text-gray-600 mb-6 leading-relaxed">
+            No users have visited your site yet, or no page snapshots have been captured. 
+            Heatmap previews will be available once visitors start interacting with your site.
+          </p>
+          <button
+            onClick={() => router.push("/dashboard/heatmaps")}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+            Back to Heatmaps
+          </button>
+        </div>
       </div>
     );
   }

@@ -5,6 +5,8 @@
 export { FrustrationSignalsPanel } from './components/FrustrationSignalsPanel';
 export { AttentionZonesChart } from './components/AttentionZonesChart';
 export { CursorPathsPanel } from './components/CursorPathsPanel';
+export { RageClickOverlay } from './components/RageClickOverlay';
+export type { RageClickPoint } from './components/RageClickOverlay';
 
 // Hooks
 export { useFrustrationSignals } from './hooks/useFrustrationSignals';

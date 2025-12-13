@@ -3820,4 +3820,109 @@
     init();
     initFeedback();
   }
+
+  // ============================================
+  // PUBLIC API - navlens.track()
+  // Allows users to track custom events
+  // ============================================
+  
+  /**
+   * Track a custom event
+   * @param {string} eventName - Name of the custom event
+   * @param {Object} properties - Optional properties for the event
+   * @returns {Promise<boolean>} - Whether the event was sent successfully
+   * 
+   * @example
+   * navlens.track('button_click', { button_id: 'signup', value: 100 });
+   * navlens.track('purchase', { product_id: 'abc123', amount: 49.99 });
+   */
+  async function trackCustomEvent(eventName, properties = {}) {
+    if (!eventName || typeof eventName !== 'string') {
+      console.warn('[Navlens] track() requires a valid event name string');
+      return false;
+    }
+
+    if (eventName.length > 100) {
+      console.warn('[Navlens] Event name too long (max 100 characters)');
+      return false;
+    }
+
+    // Sanitize properties - remove functions and limit depth
+    const sanitizedProps = {};
+    try {
+      for (const [key, value] of Object.entries(properties)) {
+        if (typeof key === 'string' && key.length <= 50) {
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            sanitizedProps[key] = value;
+          } else if (value === null || value === undefined) {
+            sanitizedProps[key] = null;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Navlens] Error sanitizing properties:', e);
+    }
+
+    const eventData = {
+      type: 'custom',
+      event_name: eventName,
+      properties: sanitizedProps,
+      timestamp: new Date().toISOString(),
+      session_id: SESSION_ID,
+      page_url: window.location.href,
+      page_path: window.location.pathname,
+    };
+
+    try {
+      const wrapped = wrapEventForApi(eventData);
+      const response = await sendWithCompression(V1_INGEST_ENDPOINT, wrapped);
+      return response.ok;
+    } catch (error) {
+      console.warn('[Navlens] Failed to send custom event:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Identify a user for tracking
+   * @param {string} userId - Unique user identifier
+   * @param {Object} traits - Optional user traits
+   */
+  function identifyUser(userId, traits = {}) {
+    if (!userId || typeof userId !== 'string') {
+      console.warn('[Navlens] identify() requires a valid user ID string');
+      return;
+    }
+
+    // Store user ID for future events
+    window.__navlens_user_id = userId.slice(0, 100);
+    
+    // Track identify event
+    trackCustomEvent('identify', {
+      user_id: userId.slice(0, 100),
+      ...traits,
+    });
+  }
+
+  /**
+   * Set a page context property
+   * @param {Object} context - Context properties to add to all events
+   */
+  function setContext(context = {}) {
+    if (typeof context !== 'object') return;
+    window.__navlens_context = { ...(window.__navlens_context || {}), ...context };
+  }
+
+  // Expose public API
+  window.navlens = {
+    track: trackCustomEvent,
+    identify: identifyUser,
+    setContext: setContext,
+    getSessionId: () => SESSION_ID,
+    getVisitorId: () => VISITOR_ID,
+    version: '5.3.0',
+  };
+
+  console.log('[Navlens] Tracker initialized. Use navlens.track() for custom events.');
 })();
+

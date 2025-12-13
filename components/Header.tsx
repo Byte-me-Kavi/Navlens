@@ -52,6 +52,18 @@ export default function Header({ onMenuToggle }: HeaderProps) {
     if (pathname?.includes("/dashboard")) {
       return "Navlens Analytics Dashboard";
     }
+    if (pathname?.includes("/dashboard/funnels")) {
+      return "Navlens Analytics Funnels";
+    }
+    if (pathname?.includes("/dashboard/frustration-signals")) {
+      return "Navlens Analytics Frustration Signals";
+    }
+    if (pathname?.includes("/dashboard/feedback")) {
+      return "Navlens Analytics Feedback";
+    }
+    if (pathname?.includes("/dashboard/form-analytics")) {
+      return "Navlens Analytics Form Analytics";
+    }
     return "Navlens Analytics Dashboard";
   };
 
