@@ -303,7 +303,7 @@ export default function FeedbackDashboardPage() {
                             <span>📍 {item.page_path}</span>
                             <span>📱 {item.device_type}</span>
                             <a
-                              href={`/dashboard/sessions?session=${item.session_id}`}
+                              href={`/dashboard/sessions/${item.session_id}`}
                               className="flex items-center gap-1 text-blue-600 hover:underline"
                             >
                               <FiExternalLink className="w-3 h-3" />
