@@ -9,6 +9,7 @@ import { useState, useMemo } from 'react';
 import { useSite } from '@/app/context/SiteContext';
 import { useFormList, useFormMetrics, formAnalyticsApi } from '@/features/form-analytics';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import NoSiteSelected, { NoSitesAvailable } from '@/components/NoSiteSelected';
 import {
   FiFileText,
   FiCheckCircle,
@@ -27,7 +28,7 @@ const DATE_RANGES = [
 ];
 
 export default function FormAnalyticsPage() {
-  const { selectedSiteId: siteId } = useSite();
+  const { selectedSiteId: siteId, sites, sitesLoading } = useSite();
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [days, setDays] = useState(7);
 
@@ -60,10 +61,30 @@ export default function FormAnalyticsPage() {
     return forms.find(f => f.form_id === effectiveFormId);
   }, [forms, effectiveFormId]);
 
-  if (!siteId) {
+  // No sites or no site selected
+  if (sitesLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <p className="text-gray-500">Please select a site to view form analytics</p>
+        <LoadingSpinner message="Loading sites..." />
+      </div>
+    );
+  }
+
+  if (sites.length === 0) {
+    return (
+      <div className="p-6">
+        <NoSitesAvailable />
+      </div>
+    );
+  }
+
+  if (!siteId) {
+    return (
+      <div className="p-6">
+        <NoSiteSelected 
+          featureName="form analytics"
+          description="Field-level drop-off, time-to-fill, and refill metrics will appear here."
+        />
       </div>
     );
   }

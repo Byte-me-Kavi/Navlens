@@ -15,10 +15,14 @@ import {
   FunnelIcon,
   DocumentChartBarIcon,
   ExclamationTriangleIcon,
+  ChevronUpDownIcon,
+  CheckIcon,
 } from "@heroicons/react/24/outline";
 import { createBrowserClient } from "@supabase/ssr";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigation } from "@/context/NavigationContext";
+import { useSite } from "@/app/context/SiteContext";
+
 
 const navItems = [
   {
@@ -83,12 +87,42 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
   const pathname = usePathname();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
+  const [siteDropdownOpen, setSiteDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
   const { navigateTo, isNavigating } = useNavigation();
+  const { 
+    selectedSiteId, 
+    setSelectedSiteId, 
+    sites, 
+    sitesLoading, 
+    getSiteById,
+    fetchSites 
+  } = useSite();
+
+  // Get current site name
+  const currentSite = selectedSiteId ? getSiteById(selectedSiteId) : null;
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setSiteDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch sites on mount
+  useEffect(() => {
+    fetchSites();
+  }, [fetchSites]);
 
   useEffect(() => {
     const getUser = async () => {
@@ -195,8 +229,85 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         </div>
       </div>
 
+      {/* Global Site Selector */}
+      <div className="p-3 border-b border-gray-200" ref={dropdownRef}>
+        <div className="relative">
+          <button
+            onClick={() => setSiteDropdownOpen(!siteDropdownOpen)}
+            disabled={sitesLoading}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 rounded-lg transition-all text-left"
+          >
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <GlobeAltIcon className="w-4 h-4 text-blue-600 shrink-0" />
+              <span className="text-sm font-medium text-gray-900 truncate">
+                {sitesLoading ? (
+                  "Loading..."
+                ) : currentSite ? (
+                  currentSite.site_name
+                ) : sites.length === 0 ? (
+                  "No sites"
+                ) : (
+                  "Select site..."
+                )}
+              </span>
+            </div>
+            <ChevronUpDownIcon className="w-4 h-4 text-gray-500 shrink-0" />
+          </button>
+
+          {/* Dropdown Menu */}
+          {siteDropdownOpen && !sitesLoading && sites.length > 0 && (
+            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {sites.map((site) => (
+                <button
+                  key={site.id}
+                  onClick={() => {
+                    setSelectedSiteId(site.id);
+                    setSiteDropdownOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-blue-50 transition-colors ${
+                    selectedSiteId === site.id ? 'bg-blue-50' : ''
+                  }`}
+                >
+                  <GlobeAltIcon className={`w-4 h-4 shrink-0 ${
+                    selectedSiteId === site.id ? 'text-blue-600' : 'text-gray-400'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm truncate ${
+                      selectedSiteId === site.id ? 'font-semibold text-blue-900' : 'font-medium text-gray-900'
+                    }`}>
+                      {site.site_name}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{site.domain}</p>
+                  </div>
+                  {selectedSiteId === site.id && (
+                    <CheckIcon className="w-4 h-4 text-blue-600 shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* No sites dropdown */}
+          {siteDropdownOpen && !sitesLoading && sites.length === 0 && (
+            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+              <p className="text-sm text-gray-600 text-center mb-2">No sites yet</p>
+              <button
+                onClick={() => {
+                  navigateTo("/dashboard/my-sites");
+                  setSiteDropdownOpen(false);
+                  onClose?.();
+                }}
+                className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Add your first site →
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Navigation Links */}
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;

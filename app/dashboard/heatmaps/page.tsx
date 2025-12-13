@@ -4,20 +4,17 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import {
-  PresentationChartBarIcon,
-  GlobeAltIcon,
-  ArrowRightIcon,
-} from "@heroicons/react/24/outline";
+import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
+import { PresentationChartBarIcon } from "@heroicons/react/24/outline";
 
 export default function HeatmapsPage() {
-  // Use centralized sites data from context
   const {
+    selectedSiteId,
     sites,
-    sitesLoading: loading,
-    sitesError: error,
-    setSelectedSiteId,
+    sitesLoading,
+    sitesError,
     fetchSites,
+    getSiteById,
   } = useSite();
   const router = useRouter();
 
@@ -26,32 +23,46 @@ export default function HeatmapsPage() {
     fetchSites();
   }, [fetchSites]);
 
-  const handleViewHeatmap = (siteId: string) => {
-    setSelectedSiteId(siteId);
-    router.push("/dashboard/heatmaps/heatmap-viewer");
-  };
+  // Auto-redirect to viewer when site is already selected
+  useEffect(() => {
+    if (selectedSiteId && !sitesLoading) {
+      router.push("/dashboard/heatmaps/heatmap-viewer");
+    }
+  }, [selectedSiteId, sitesLoading, router]);
 
-  if (loading) {
+  // Get current site for display
+  const currentSite = selectedSiteId ? getSiteById(selectedSiteId) : null;
+
+  if (sitesLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <LoadingSpinner message="Loading..." />
       </div>
     );
   }
 
-  if (error) {
+  if (sitesError) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <div className="text-red-600 text-lg font-semibold mb-2">Error</div>
-          <div className="text-gray-600">{error}</div>
+          <div className="text-gray-600">{sitesError}</div>
         </div>
       </div>
     );
   }
 
+  // If site is selected but we're still on this page (redirect in progress)
+  if (selectedSiteId && currentSite) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <LoadingSpinner message={`Loading ${currentSite.site_name} heatmaps...`} />
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Page Header */}
       <div className="mb-6 bg-white rounded-lg border border-gray-200 p-5 shadow-sm">
         <div className="flex items-center gap-3 mb-2">
@@ -61,68 +72,18 @@ export default function HeatmapsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Heatmaps</h1>
         </div>
         <p className="text-sm text-gray-600">
-          Select a site to view its heatmap data and user interactions.
+          View click, scroll, and mouse movement heatmaps for your sites.
         </p>
       </div>
 
+      {/* No sites or no site selected */}
       {sites.length === 0 ? (
-        <div className="bg-white rounded-lg border-2 border-dashed border-blue-200 p-12 text-center shadow-sm">
-          <div className="flex justify-center mb-4">
-            <div className="p-4 bg-blue-50 rounded-full">
-              <GlobeAltIcon className="w-12 h-12 text-blue-600" />
-            </div>
-          </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-2">
-            No sites found
-          </h3>
-          <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
-            You need to add a site before you can view heatmaps. Get started by
-            adding your first website.
-          </p>
-          <button
-            onClick={() => router.push("/dashboard/my-sites")}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow-md font-semibold"
-          >
-            Go to My Sites
-            <ArrowRightIcon className="w-4 h-4" />
-          </button>
-        </div>
+        <NoSitesAvailable />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {sites.map((site) => (
-            <div
-              key={site.id}
-              className="group bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-lg transition-all duration-200 cursor-pointer"
-              onClick={() => handleViewHeatmap(site.id)}
-            >
-              <div className="flex items-start gap-3 mb-4">
-                <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-blue-50 transition-colors shrink-0">
-                  <GlobeAltIcon className="w-6 h-6 text-gray-400 group-hover:text-blue-600 transition-colors" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-bold text-gray-900 mb-1 truncate">
-                    {site.site_name}
-                  </h3>
-                  <p
-                    className="text-gray-600 hover:text-black transition-colors text-xs font-medium block truncate"
-                  >
-                    {site.domain}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-500">
-                  Added {new Date(site.created_at).toLocaleDateString()}
-                </p>
-                <div className="flex items-center gap-1.5 text-blue-600 text-xs font-semibold group-hover:translate-x-1 transition-transform">
-                  <span>View</span>
-                  <ArrowRightIcon className="w-3.5 h-3.5" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <NoSiteSelected 
+          featureName="heatmap data"
+          description="Click and scroll patterns, mouse movements, and user interactions will appear here."
+        />
       )}
     </div>
   );

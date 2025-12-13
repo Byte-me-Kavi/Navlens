@@ -2995,16 +2995,18 @@
       initRRWebRecording();
     }, "idle");
 
-    // Capture initial snapshot and start DOM monitoring
-    scheduleTask(async () => {
-      const snapshot = await captureSnapshot();
-      if (snapshot) {
-        snapshot.hash = generateDomHash();  // Backend expects 'hash' not 'dom_hash'
-        sendSnapshot(snapshot);
-      }
-      // Start DOM hash monitoring after initial snapshot
-      startDomHashMonitoring();
-    }, "idle");
+    // Capture initial snapshot and start DOM monitoring (with 5s delay for page to render)
+    setTimeout(() => {
+      scheduleTask(async () => {
+        const snapshot = await captureSnapshot();
+        if (snapshot) {
+          snapshot.hash = generateDomHash();  // Backend expects 'hash' not 'dom_hash'
+          sendSnapshot(snapshot);
+        }
+        // Start DOM hash monitoring after initial snapshot
+        startDomHashMonitoring();
+      }, "idle");
+    }, 5000); // Wait 5 seconds for page to fully render
 
     // Handle page unload
     window.addEventListener("beforeunload", handleUnload);

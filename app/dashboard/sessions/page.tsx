@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import { apiClient } from "@/shared/services/api/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
 import "flag-icons/css/flag-icons.min.css";
 import countries from "world-countries";
 import {
@@ -245,7 +246,6 @@ export default function SessionsPage() {
   // Use centralized sites data from context
   const {
     selectedSiteId,
-    setSelectedSiteId,
     sites,
     sitesLoading: loadingSites,
     fetchSites,
@@ -381,129 +381,18 @@ export default function SessionsPage() {
           </p>
         </div>
 
-        {/* Site Selection */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Select Your Site
-              </h2>
-            </div>
+        {/* Show NoSitesAvailable if no sites, NoSiteSelected if no site selected */}
+        {loadingSites ? (
+          <div className="flex items-center justify-center py-12">
+            <LoadingSpinner message="Loading sites..." />
           </div>
-
-          {loadingSites ? (
-            <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-              <p className="text-gray-500 mt-3">Loading your sites...</p>
-            </div>
-          ) : sites.length === 0 ? (
-            <div className="bg-linear-to-br from-orange-50 to-red-50 rounded-xl shadow-lg p-8 border border-orange-200 text-center">
-              <div className="inline-flex p-3 bg-white rounded-full mb-3 shadow-sm">
-                <FiGlobe className="w-8 h-8 text-orange-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No Sites Available
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Get started by creating your first site
-              </p>
-              <button
-                onClick={() => router.push("/dashboard/my-sites")}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all hover:shadow-lg hover:scale-105"
-              >
-                <FiGlobe className="w-4 h-4" />
-                Create Site
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sites.map((site) => (
-                <button
-                  key={site.id}
-                  onClick={() => setSelectedSiteId(site.id)}
-                  className={`group relative bg-white rounded-xl shadow-lg p-6 border-2 transition-all hover:shadow-xl hover:scale-105 text-left ${
-                    selectedSiteId === site.id
-                      ? "border-blue-600 bg-linear-to-br from-blue-50 to-indigo-50"
-                      : "border-gray-200 hover:border-blue-300"
-                  }`}
-                >
-                  {/* Selection Indicator */}
-                  {selectedSiteId === site.id && (
-                    <div className="absolute -top-2 -right-2 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-full p-1.5 shadow-lg">
-                      <svg
-                        className="w-4 h-4"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                  )}
-
-                  {/* Site Icon */}
-                  <div
-                    className={`inline-flex p-3 rounded-xl mb-3 transition-all ${
-                      selectedSiteId === site.id
-                        ? "bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg"
-                        : "bg-linear-to-br from-gray-100 to-gray-200 group-hover:from-blue-100 group-hover:to-indigo-100"
-                    }`}
-                  >
-                    <FiGlobe
-                      className={`w-6 h-6 ${
-                        selectedSiteId === site.id
-                          ? "text-white"
-                          : "text-gray-600 group-hover:text-blue-600"
-                      }`}
-                    />
-                  </div>
-
-                  {/* Site Info */}
-                  <h3
-                    className={`text-lg font-bold mb-1 transition-colors ${
-                      selectedSiteId === site.id
-                        ? "text-blue-900"
-                        : "text-gray-900 group-hover:text-blue-600"
-                    }`}
-                  >
-                    {site.site_name}
-                  </h3>
-                  <p className="text-sm text-gray-500 truncate font-mono bg-gray-50 px-2 py-1 rounded">
-                    {site.domain}
-                  </p>
-
-                  {/* Hover Effect Overlay */}
-                  <div
-                    className={`absolute inset-0 rounded-xl transition-opacity ${
-                      selectedSiteId === site.id
-                        ? "opacity-0"
-                        : "opacity-0 group-hover:opacity-100"
-                    }`}
-                  >
-                    <div className="absolute inset-0 bg-linear-to-br from-blue-500/5 to-indigo-600/5 rounded-xl"></div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Show filters and sessions only when site is selected */}
-        {!selectedSiteId ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-100">
-            <div className="inline-flex p-4 bg-blue-50 rounded-full mb-4">
-              <FiGlobe className="w-8 h-8 text-blue-600" />
-            </div>
-            <p className="text-gray-600 text-lg font-medium">
-              Please select a site to view sessions
-            </p>
-            <p className="text-gray-500 text-sm mt-2">
-              Choose from your sites above to start viewing session replays
-            </p>
-          </div>
+        ) : sites.length === 0 ? (
+          <NoSitesAvailable />
+        ) : !selectedSiteId ? (
+          <NoSiteSelected 
+            featureName="session replays"
+            description="Watch user sessions, view device info, and analyze user behavior."
+          />
         ) : (
           <>
             {/* Filters */}

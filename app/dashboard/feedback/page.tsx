@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSite } from '@/app/context/SiteContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import NoSiteSelected, { NoSitesAvailable } from '@/components/NoSiteSelected';
 import {
   FiMessageCircle,
   FiAlertCircle,
@@ -223,15 +224,15 @@ export default function FeedbackDashboardPage() {
           </div>
         </div>
 
-        {/* No Site Selected */}
-        {!selectedSiteId && (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-100">
-            <FiMessageCircle className="w-12 h-12 mx-auto text-blue-300 mb-4" />
-            <p className="text-gray-600 text-lg font-medium">
-              Select a site from the sidebar to view feedback
-            </p>
-          </div>
-        )}
+        {/* No Sites or No Site Selected */}
+        {sites.length === 0 ? (
+          <NoSitesAvailable />
+        ) : !selectedSiteId ? (
+          <NoSiteSelected 
+            featureName="feedback"
+            description="Bug reports, suggestions, and user survey responses will appear here."
+          />
+        ) : null}
 
         {selectedSiteId && (
           <>

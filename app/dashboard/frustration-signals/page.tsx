@@ -8,6 +8,7 @@ import { CursorPathsPanel } from '@/features/frustration-signals/components/Curs
 import { frustrationSignalsApi } from '@/features/frustration-signals/services/frustrationSignalsApi';
 import { HoverHeatmapData, CursorPathsData } from '@/features/frustration-signals/types/frustrationSignals.types';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import NoSiteSelected, { NoSitesAvailable } from '@/components/NoSiteSelected';
 import { FiAlertTriangle, FiRefreshCw, FiCalendar, FiGlobe, FiLayers } from 'react-icons/fi';
 
 export default function FrustrationSignalsPage() {
@@ -98,6 +99,16 @@ export default function FrustrationSignalsPage() {
     return (
       <div className="flex items-center justify-center h-screen">
         <LoadingSpinner message="Loading sites..." />
+      </div>
+    );
+  }
+
+  if (sites.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-red-50 to-orange-50 px-4 py-4 md:px-6">
+        <div className="max-w-4xl mx-auto">
+          <NoSitesAvailable />
+        </div>
       </div>
     );
   }
@@ -196,14 +207,10 @@ export default function FrustrationSignalsPage() {
 
         {/* No Site Selected */}
         {!selectedSiteId && (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-100">
-            <div className="inline-flex p-4 bg-blue-50 rounded-full mb-4">
-              <FiGlobe className="w-8 h-8 text-blue-600" />
-            </div>
-            <p className="text-gray-600 text-lg font-medium">
-              Please select a site from the sidebar to view frustration signals
-            </p>
-          </div>
+          <NoSiteSelected 
+            featureName="frustration signals"
+            description="Rage clicks, dead clicks, U-turns, and other user frustration patterns will appear here."
+          />
         )}
 
         {/* Dashboard Grid */}
