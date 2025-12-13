@@ -420,14 +420,6 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
           <span className="font-medium">{isNavigating ? "Logging out..." : "Logout"}</span>
         </button>
       </div>
-
-      {/* Footer Info */}
-      <div className="p-3 border-t border-gray-200">
-        <div className="text-[10px] text-gray-500 text-center">
-          <p className="font-semibold text-gray-900">Navlens Analytics</p>
-          <p className="mt-0.5">Heatmap MVP v1.0</p>
-        </div>
-      </div>
     </aside>
   );
 }

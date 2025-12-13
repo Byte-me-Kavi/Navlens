@@ -25,11 +25,11 @@ export default function HeatmapViewerPage() {
     "desktop" | "mobile" | "tablet"
   >("desktop");
   const [selectedDataType, setSelectedDataType] = useState<
-    "clicks" | "scrolls" | "hover" | "cursor-paths"
+    "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements"
   >(() => {
     // Read from URL query param if available
     const typeFromUrl = searchParams.get("type");
-    if (typeFromUrl === "clicks" || typeFromUrl === "scrolls" || typeFromUrl === "hover" || typeFromUrl === "cursor-paths") {
+    if (typeFromUrl === "clicks" || typeFromUrl === "scrolls" || typeFromUrl === "hover" || typeFromUrl === "cursor-paths" || typeFromUrl === "elements") {
       return typeFromUrl;
     }
     return "clicks";
@@ -133,10 +133,13 @@ export default function HeatmapViewerPage() {
     }
   }, [siteId, router]);
 
-  // Automatically show heatmap blobs and element overlays when clicks mode is selected
+  // Set appropriate overlays based on data type
   useEffect(() => {
     if (selectedDataType === "clicks") {
       setShowHeatmap(true);
+      setShowElements(false); // Don't auto-show elements with clicks
+    } else if (selectedDataType === "elements") {
+      setShowHeatmap(false);
       setShowElements(true);
     }
   }, [selectedDataType]);

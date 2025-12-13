@@ -3923,6 +3923,172 @@
     version: '5.3.0',
   };
 
+  // ============================================
+  // WEB VITALS TRACKING
+  // Captures LCP, CLS, FID/INP, FCP, TTFB
+  // ============================================
+  
+  const webVitalsData = {
+    lcp: null,
+    cls: 0,
+    fid: null,
+    inp: null,
+    fcp: null,
+    ttfb: null,
+  };
+  
+  let clsValue = 0;
+  let lcpValue = 0;
+  let fidValue = null;
+  let fcpValue = null;
+  let ttfbValue = null;
+  
+  /**
+   * Send Web Vitals data to the server
+   */
+  function sendWebVitals() {
+    if (webVitalsSent) return;
+    webVitalsSent = true;
+    
+    const vitalsEvent = {
+      type: 'web_vitals',
+      timestamp: new Date().toISOString(),
+      session_id: SESSION_ID,
+      page_url: window.location.href,
+      page_path: window.location.pathname,
+      lcp_ms: Math.round(lcpValue),
+      cls: clsValue.toFixed(4),
+      fid_ms: fidValue ? Math.round(fidValue) : null,
+      inp_ms: webVitalsData.inp ? Math.round(webVitalsData.inp) : null,
+      fcp_ms: fcpValue ? Math.round(fcpValue) : null,
+      ttfb_ms: ttfbValue ? Math.round(ttfbValue) : null,
+    };
+    
+    console.log('[Navlens] Sending Web Vitals:', vitalsEvent);
+    
+    try {
+      const wrapped = wrapEventForApi(vitalsEvent);
+      sendCompressedFetch(V1_INGEST_ENDPOINT, wrapped, false);
+    } catch (error) {
+      console.warn('[Navlens] Failed to send Web Vitals:', error);
+    }
+  }
+  
+  /**
+   * Initialize Web Vitals observers
+   */
+  function initWebVitals() {
+    try {
+      // LCP (Largest Contentful Paint)
+      if ('PerformanceObserver' in window) {
+        try {
+          const lcpObserver = new PerformanceObserver((entryList) => {
+            const entries = entryList.getEntries();
+            if (entries.length > 0) {
+              const lastEntry = entries[entries.length - 1];
+              lcpValue = lastEntry.startTime;
+              webVitalsData.lcp = lcpValue;
+            }
+          });
+          lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
+        } catch (e) {
+          // LCP not supported
+        }
+        
+        // CLS (Cumulative Layout Shift)
+        try {
+          const clsObserver = new PerformanceObserver((entryList) => {
+            for (const entry of entryList.getEntries()) {
+              if (!entry.hadRecentInput) {
+                clsValue += entry.value;
+                webVitalsData.cls = clsValue;
+              }
+            }
+          });
+          clsObserver.observe({ type: 'layout-shift', buffered: true });
+        } catch (e) {
+          // CLS not supported
+        }
+        
+        // FID (First Input Delay) - being replaced by INP
+        try {
+          const fidObserver = new PerformanceObserver((entryList) => {
+            const entries = entryList.getEntries();
+            if (entries.length > 0 && fidValue === null) {
+              fidValue = entries[0].processingStart - entries[0].startTime;
+              webVitalsData.fid = fidValue;
+            }
+          });
+          fidObserver.observe({ type: 'first-input', buffered: true });
+        } catch (e) {
+          // FID not supported
+        }
+        
+        // INP (Interaction to Next Paint)
+        try {
+          let maxInp = 0;
+          const inpObserver = new PerformanceObserver((entryList) => {
+            for (const entry of entryList.getEntries()) {
+              const duration = entry.duration;
+              if (duration > maxInp) {
+                maxInp = duration;
+                webVitalsData.inp = maxInp;
+              }
+            }
+          });
+          inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 16 });
+        } catch (e) {
+          // INP not supported
+        }
+      }
+      
+      // FCP (First Contentful Paint)
+      try {
+        const paint = performance.getEntriesByType('paint');
+        const fcp = paint.find(entry => entry.name === 'first-contentful-paint');
+        if (fcp) {
+          fcpValue = fcp.startTime;
+          webVitalsData.fcp = fcpValue;
+        }
+      } catch (e) {
+        // FCP not supported
+      }
+      
+      // TTFB (Time to First Byte)
+      try {
+        const navigation = performance.getEntriesByType('navigation')[0];
+        if (navigation) {
+          ttfbValue = navigation.responseStart - navigation.requestStart;
+          webVitalsData.ttfb = ttfbValue;
+        }
+      } catch (e) {
+        // TTFB not supported
+      }
+      
+      // Send Web Vitals when page is about to unload or after 10 seconds
+      window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          sendWebVitals();
+        }
+      });
+      
+      window.addEventListener('pagehide', sendWebVitals);
+      
+      // Also send after 10 seconds in case user stays on page
+      setTimeout(sendWebVitals, 10000);
+      
+    } catch (error) {
+      console.warn('[Navlens] Web Vitals initialization failed:', error);
+    }
+  }
+  
+  // Initialize Web Vitals tracking
+  if (document.readyState === 'complete') {
+    initWebVitals();
+  } else {
+    window.addEventListener('load', initWebVitals);
+  }
+
   console.log('[Navlens] Tracker initialized. Use navlens.track() for custom events.');
 })();
 

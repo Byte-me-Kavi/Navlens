@@ -34,6 +34,7 @@ interface PerformanceData {
     avg_fcp: number;
     avg_ttfb: number;
     sessions: number;
+    total_events?: number;
   }>;
   browserBreakdown: Array<{
     browser: string;
@@ -97,33 +98,38 @@ const DeviceBreakdownCard = ({ data }: { data: PerformanceData["deviceBreakdown"
     }
   };
 
+  // Calculate total sessions for percentage
+  const totalSessions = data.reduce((sum, d) => sum + Number(d.sessions || 0), 0);
+
   return (
     <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
       <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
         <FiMonitor className="w-4 h-4 text-blue-600" />
-        Performance by Device
+        Traffic by Device
       </h3>
       <div className="space-y-3">
         {data.length === 0 ? (
           <div className="text-gray-500 text-sm text-center py-4">No device data available</div>
         ) : (
-          data.map((device) => (
-            <div key={device.device_type} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-              <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                {getDeviceIcon(device.device_type)}
-              </div>
-              <div className="flex-1">
-                <div className="font-medium capitalize">{device.device_type || "Unknown"}</div>
-                <div className="text-xs text-gray-500">{device.sessions} sessions</div>
-              </div>
-              <div className="text-right">
-                <div className={`font-semibold ${getGrade(device.avg_lcp).color}`}>
-                  {Math.round(device.avg_lcp)}ms
+          data.map((device) => {
+            const sessionCount = Number(device.sessions) || 0;
+            const percentage = totalSessions > 0 ? ((sessionCount / totalSessions) * 100).toFixed(1) : '0';
+            return (
+              <div key={device.device_type} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                  {getDeviceIcon(device.device_type)}
                 </div>
-                <div className="text-xs text-gray-500">LCP</div>
+                <div className="flex-1">
+                  <div className="font-medium capitalize">{device.device_type || "Unknown"}</div>
+                  <div className="text-xs text-gray-500">{sessionCount.toLocaleString()} sessions</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold text-blue-600 text-lg">{percentage}%</div>
+                  <div className="text-xs text-gray-500">of traffic</div>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -155,7 +161,26 @@ export default function PerformanceDashboard() {
 
         if (response.ok) {
           const result = await response.json();
-          setData(result);
+          // Convert string values to numbers (ClickHouse returns strings)
+          const parsed = {
+            ...result,
+            overall: {
+              avgLcp: Number(result.overall?.avgLcp) || 0,
+              avgCls: result.overall?.avgCls || "0",
+              avgInp: Number(result.overall?.avgInp) || 0,
+              avgFcp: Number(result.overall?.avgFcp) || 0,
+              avgTtfb: Number(result.overall?.avgTtfb) || 0,
+              totalSessions: Number(result.overall?.totalSessions) || 0,
+            },
+            deviceBreakdown: (result.deviceBreakdown || []).map((d: Record<string, unknown>) => ({
+              ...d,
+              sessions: Number(d.sessions) || 0,
+              total_events: Number(d.total_events) || 0,
+              avg_lcp: Number(d.avg_lcp) || 0,
+            })),
+          };
+          console.log('[PerformanceDashboard] Parsed data:', parsed);
+          setData(parsed);
         }
       } catch (error) {
         console.error("Failed to fetch performance data:", error);
@@ -290,27 +315,30 @@ export default function PerformanceDashboard() {
           <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <FiMonitor className="w-4 h-4 text-blue-600" />
-              Performance by Browser
+              Traffic by Browser
             </h3>
             <div className="space-y-3">
               {(!data?.browserBreakdown || data.browserBreakdown.length === 0) ? (
                 <div className="text-gray-500 text-sm text-center py-4">No browser data available</div>
-              ) : (
-                data.browserBreakdown.map((browser) => (
-                  <div key={browser.browser} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="font-medium">{browser.browser || "Unknown"}</div>
-                      <div className="text-xs text-gray-500">{browser.sessions} sessions</div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`font-semibold ${getGrade(browser.avg_lcp).color}`}>
-                        {Math.round(browser.avg_lcp)}ms
+              ) : (() => {
+                const totalBrowserSessions = data.browserBreakdown.reduce((sum, b) => sum + Number(b.sessions || 0), 0);
+                return data.browserBreakdown.map((browser) => {
+                  const sessionCount = Number(browser.sessions) || 0;
+                  const percentage = totalBrowserSessions > 0 ? ((sessionCount / totalBrowserSessions) * 100).toFixed(1) : '0';
+                  return (
+                    <div key={browser.browser} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <div className="font-medium">{browser.browser || "Unknown"}</div>
+                        <div className="text-xs text-gray-500">{sessionCount.toLocaleString()} sessions</div>
                       </div>
-                      <div className="text-xs text-gray-500">LCP</div>
+                      <div className="text-right">
+                        <div className="font-semibold text-blue-600 text-lg">{percentage}%</div>
+                        <div className="text-xs text-gray-500">of traffic</div>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>

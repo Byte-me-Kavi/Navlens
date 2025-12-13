@@ -191,8 +191,8 @@ export interface HeatmapSettingsProps {
   userDevice?: "desktop" | "tablet" | "mobile";
 
   // Data type settings
-  selectedDataType: "clicks" | "scrolls" | "hover" | "cursor-paths";
-  onDataTypeChange: (dataType: "clicks" | "scrolls" | "hover" | "cursor-paths") => void;
+  selectedDataType: "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements";
+  onDataTypeChange: (dataType: "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements") => void;
 
   // Visibility toggles
   showElements: boolean;
@@ -441,62 +441,40 @@ export function HeatmapSettings({
                   </div>
                 </div>
               </button>
+              <button
+                onClick={() => onDataTypeChange("elements")}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                  selectedDataType === "elements"
+                    ? "border-rose-600 bg-rose-50 text-rose-600"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-rose-300 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h7"
+                  />
+                </svg>
+                <div className="text-left">
+                  <div className="font-semibold text-sm">Smart Elements</div>
+                  <div className="text-xs opacity-75">
+                    View clicked elements (red/blue overlay)
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
 
-          {/* Show/Hide Elements Toggle */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 mb-2 block">
-              Element Visibility
-            </label>
-            <button
-              onClick={() => onShowElementsChange(!showElements)}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                showElements
-                  ? "border-green-600 bg-green-50 text-green-600"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:bg-gray-50"
-              }`}
-            >
-              {showElements ? <EyeIcon /> : <EyeOffIcon />}
-              <div className="text-left">
-                <div className="font-semibold text-sm">
-                  {showElements ? "Elements Visible" : "Elements Hidden"}
-                </div>
-                <div className="text-xs opacity-75">
-                  {showElements
-                    ? "Click overlays are shown"
-                    : "Click overlays are hidden"}
-                </div>
-              </div>
-            </button>
-          </div>
 
-          {/* Show/Hide Heatmap Overlay Toggle */}
-          <div>
-            <label className="text-xs font-semibold text-gray-700 mb-2 block">
-              Heatmap Data
-            </label>
-            <button
-              onClick={() => onShowHeatmapChange(!showHeatmap)}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                showHeatmap
-                  ? "border-orange-600 bg-orange-50 text-orange-600"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:bg-gray-50"
-              }`}
-            >
-              <HeatmapIcon />
-              <div className="text-left">
-                <div className="font-semibold text-sm">
-                  {showHeatmap ? "Heatmap Visible" : "Heatmap Hidden"}
-                </div>
-                <div className="text-xs opacity-75">
-                  {showHeatmap
-                    ? "Heatmap overlay is shown"
-                    : "Heatmap overlay is hidden"}
-                </div>
-              </div>
-            </button>
-          </div>
+
+
 
           {/* Viewport Filter Toggle */}
           <div>

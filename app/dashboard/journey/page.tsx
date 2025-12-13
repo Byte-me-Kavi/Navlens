@@ -151,6 +151,8 @@ export default function JourneyDashboard() {
       setLoading(true);
       try {
         const { startDate, endDate } = formatForApi();
+        console.log('[JourneyDashboard] Fetching with:', { siteId: selectedSiteId, startDate, endDate });
+        
         const response = await fetch("/api/user-journeys", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -163,7 +165,10 @@ export default function JourneyDashboard() {
 
         if (response.ok) {
           const result = await response.json();
+          console.log('[JourneyDashboard] API response:', result);
           setData(result);
+        } else {
+          console.error('[JourneyDashboard] API error:', response.status);
         }
       } catch (error) {
         console.error("Failed to fetch journey data:", error);

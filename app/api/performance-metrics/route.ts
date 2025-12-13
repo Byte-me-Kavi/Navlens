@@ -61,18 +61,22 @@ export async function POST(request: NextRequest) {
             async () => {
                 const clickhouse = getClickHouseClient();
 
-                // Build date filter
-                let dateFilter = 'timestamp > now() - INTERVAL 30 DAY';
+                // Build date filter - use 90 days by default
+                let dateFilter = 'timestamp > now() - INTERVAL 90 DAY';
                 if (startDate && endDate) {
-                    dateFilter = `timestamp BETWEEN toDateTime('${startDate}') AND toDateTime('${endDate}')`;
+                    // Convert ISO dates to YYYY-MM-DD HH:MM:SS format for ClickHouse
+                    const formatDate = (d: string) => d.replace('T', ' ').replace('Z', '').split('.')[0];
+                    dateFilter = `timestamp BETWEEN '${formatDate(startDate)}' AND '${formatDate(endDate)}'`;
                 }
+
+                console.log('[performance-metrics] Using date filter:', dateFilter);
 
                 // Granularity format
                 const timeFormat = granularity === 'hour' ? '%Y-%m-%d %H:00' :
                     granularity === 'week' ? '%Y-%W' : '%Y-%m-%d';
 
                 try {
-                    // Simple aggregate query from events table
+                    // Session/event counts from events table
                     const trendsQuery = `
                         SELECT 
                             formatDateTime(timestamp, '${timeFormat}') as time_bucket,
@@ -87,7 +91,7 @@ export async function POST(request: NextRequest) {
                         ORDER BY time_bucket
                     `;
 
-                    // Device breakdown
+                    // Device breakdown from events
                     const deviceQuery = `
                         SELECT 
                             device_type,
@@ -101,34 +105,98 @@ export async function POST(request: NextRequest) {
                         GROUP BY device_type
                     `;
 
-                    const [trendsResult, deviceResult] = await Promise.all([
+                    // Web Vitals from debug_events table
+                    const vitalsQuery = `
+                        SELECT 
+                            vital_name,
+                            avg(vital_value) as avg_value,
+                            count() as count
+                        FROM debug_events
+                        WHERE 
+                            site_id = {siteId:String}
+                            AND event_type = 'web_vital'
+                            AND ${dateFilter}
+                            ${pagePath ? 'AND page_path = {pagePath:String}' : ''}
+                        GROUP BY vital_name
+                    `;
+
+                    // Browser breakdown - extract browser from user_agent
+                    const browserQuery = `
+                        SELECT 
+                            multiIf(
+                                user_agent LIKE '%Chrome%' AND user_agent NOT LIKE '%Edge%' AND user_agent NOT LIKE '%OPR%', 'Chrome',
+                                user_agent LIKE '%Firefox%', 'Firefox',
+                                user_agent LIKE '%Safari%' AND user_agent NOT LIKE '%Chrome%', 'Safari',
+                                user_agent LIKE '%Edge%', 'Edge',
+                                user_agent LIKE '%OPR%' OR user_agent LIKE '%Opera%', 'Opera',
+                                'Other'
+                            ) as browser,
+                            uniq(session_id) as sessions,
+                            count() as total_events
+                        FROM events
+                        WHERE 
+                            site_id = {siteId:String}
+                            AND ${dateFilter}
+                            ${pagePath ? 'AND page_path = {pagePath:String}' : ''}
+                        GROUP BY browser
+                        ORDER BY sessions DESC
+                    `;
+
+                    const [trendsResult, deviceResult, vitalsResult, browserResult] = await Promise.all([
                         clickhouse.query({ query: trendsQuery, query_params: { siteId, pagePath: pagePath || '' }, format: 'JSONEachRow' }),
                         clickhouse.query({ query: deviceQuery, query_params: { siteId, pagePath: pagePath || '' }, format: 'JSONEachRow' }),
+                        clickhouse.query({ query: vitalsQuery, query_params: { siteId, pagePath: pagePath || '' }, format: 'JSONEachRow' }).catch(() => null),
+                        clickhouse.query({ query: browserQuery, query_params: { siteId, pagePath: pagePath || '' }, format: 'JSONEachRow' }),
                     ]);
 
-                    const [trends, devices] = await Promise.all([
+                    const [trends, devices, browsers] = await Promise.all([
                         trendsResult.json(),
                         deviceResult.json(),
+                        browserResult.json(),
                     ]);
 
-                    return { trends, devices, browsers: [] };
+                    // Parse vitals if available
+                    interface VitalRow { vital_name: string; avg_value: string; count: string }
+                    let vitals: VitalRow[] = [];
+                    if (vitalsResult) {
+                        try {
+                            vitals = await vitalsResult.json() as VitalRow[];
+                        } catch {
+                            vitals = [];
+                        }
+                    }
+
+                    // Build vitals map
+                    const vitalsMap: Record<string, number> = {};
+                    for (const v of vitals) {
+                        vitalsMap[v.vital_name] = Number(v.avg_value) || 0;
+                    }
+
+                    return {
+                        trends,
+                        devices,
+                        browsers,
+                        vitals: vitalsMap,
+                    };
                 } catch (queryError) {
                     console.error('[performance-metrics] Query error:', queryError);
-                    return { trends: [], devices: [], browsers: [] };
+                    return { trends: [], devices: [], browsers: [], vitals: {} };
                 }
             },
             120000 // 2 minute cache
         );
 
-        // Calculate overall averages
+        // Calculate overall averages - use vitals from debug_events if available
         const trends = data.trends as PerformanceMetric[];
+        const vitals = (data as { vitals?: Record<string, number> }).vitals || {};
+
         const overallMetrics = {
-            avgLcp: trends.length > 0 ? Math.round(trends.reduce((s, t) => s + (t.lcp || 0), 0) / trends.length) : 0,
-            avgCls: trends.length > 0 ? (trends.reduce((s, t) => s + (t.cls || 0), 0) / trends.length).toFixed(3) : '0',
-            avgInp: trends.length > 0 ? Math.round(trends.reduce((s, t) => s + (t.inp || 0), 0) / trends.length) : 0,
-            avgFcp: trends.length > 0 ? Math.round(trends.reduce((s, t) => s + (t.fcp || 0), 0) / trends.length) : 0,
-            avgTtfb: trends.length > 0 ? Math.round(trends.reduce((s, t) => s + (t.ttfb || 0), 0) / trends.length) : 0,
-            totalSessions: trends.reduce((s, t) => s + (t.sessions || 0), 0),
+            avgLcp: Math.round(vitals['LCP'] || 0),
+            avgCls: (vitals['CLS'] || 0).toFixed(3),
+            avgInp: Math.round(vitals['INP'] || 0),
+            avgFcp: Math.round(vitals['FCP'] || 0),
+            avgTtfb: Math.round(vitals['TTFB'] || 0),
+            totalSessions: trends.reduce((s, t) => s + Number((t as { sessions?: number | string }).sessions || 0), 0),
         };
 
         return NextResponse.json({

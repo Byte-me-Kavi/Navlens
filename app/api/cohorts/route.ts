@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'name and rules are required' }, { status: 400 });
         }
 
+        console.log('[cohorts] Creating cohort:', { siteId, name, rulesCount: rules.length, userId: authResult.user.id });
+
         const { data, error } = await supabase
             .from('cohorts')
             .insert({
@@ -90,14 +92,23 @@ export async function POST(request: NextRequest) {
                 name: name.trim(),
                 description: description?.trim() || '',
                 rules: rules,
-                created_by: authResult.user.id,
+                // created_by omitted - column may not exist
             })
             .select()
             .single();
 
         if (error) {
-            console.error('[cohorts] Insert error:', error);
-            return NextResponse.json({ error: 'Failed to create cohort' }, { status: 500 });
+            console.error('[cohorts] Insert error details:', {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint,
+            });
+            // Return more specific error message
+            if (error.code === '42P01') {
+                return NextResponse.json({ error: 'Cohorts table does not exist. Please create it in Supabase.' }, { status: 500 });
+            }
+            return NextResponse.json({ error: `Failed to create cohort: ${error.message}` }, { status: 500 });
         }
 
         return NextResponse.json({ cohort: data }, { status: 201 });

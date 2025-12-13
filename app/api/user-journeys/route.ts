@@ -41,11 +41,15 @@ export async function POST(request: NextRequest) {
             async () => {
                 const clickhouse = getClickHouseClient();
 
-                // Build date filter
-                let dateFilter = 'timestamp > now() - INTERVAL 30 DAY';
+                // Build date filter - use 90 days by default
+                let dateFilter = 'timestamp > now() - INTERVAL 90 DAY';
                 if (startDate && endDate) {
-                    dateFilter = `timestamp BETWEEN toDateTime('${startDate}') AND toDateTime('${endDate}')`;
+                    // Convert ISO dates to YYYY-MM-DD HH:MM:SS format for ClickHouse
+                    const formatDate = (d: string) => d.replace('T', ' ').replace('Z', '').split('.')[0];
+                    dateFilter = `timestamp BETWEEN '${formatDate(startDate)}' AND '${formatDate(endDate)}'`;
                 }
+
+                console.log('[user-journeys] Using date filter:', dateFilter);
 
                 try {
                     // Simple query - get page views by session
@@ -80,6 +84,8 @@ export async function POST(request: NextRequest) {
                     const rawData = await result.json();
                     const pageViews = rawData as PageViewRow[];
 
+                    console.log('[user-journeys] Raw data count:', pageViews.length);
+
                     // Group by session to build paths
                     const sessionPages = new Map<string, string[]>();
                     for (const row of pageViews) {
@@ -88,6 +94,8 @@ export async function POST(request: NextRequest) {
                         sessionPages.set(row.session_id, pages);
                     }
 
+                    console.log('[user-journeys] Unique sessions:', sessionPages.size);
+
                     // Build transitions
                     const transitions = new Map<string, number>();
                     const pathCounts = new Map<string, number>();
@@ -95,22 +103,22 @@ export async function POST(request: NextRequest) {
                     const exitPages = new Map<string, number>();
 
                     for (const [, pages] of sessionPages.entries()) {
-                        if (pages.length >= 2) {
-                            // Count path
-                            const pathKey = pages.slice(0, 5).join(' → ');
-                            pathCounts.set(pathKey, (pathCounts.get(pathKey) || 0) + 1);
+                        // Count paths (include single-page sessions too)
+                        const pathKey = pages.slice(0, 5).join(' → ');
+                        pathCounts.set(pathKey, (pathCounts.get(pathKey) || 0) + 1);
 
-                            // Count transitions
+                        // Entry & exit pages for ALL sessions
+                        if (pages.length > 0) {
+                            entryPages.set(pages[0], (entryPages.get(pages[0]) || 0) + 1);
+                            exitPages.set(pages[pages.length - 1], (exitPages.get(pages[pages.length - 1]) || 0) + 1);
+                        }
+
+                        // Transitions only for multi-page sessions
+                        if (pages.length >= 2) {
                             for (let i = 0; i < pages.length - 1; i++) {
                                 const key = `${pages[i]}|||${pages[i + 1]}`;
                                 transitions.set(key, (transitions.get(key) || 0) + 1);
                             }
-                        }
-
-                        // Entry & exit
-                        if (pages.length > 0) {
-                            entryPages.set(pages[0], (entryPages.get(pages[0]) || 0) + 1);
-                            exitPages.set(pages[pages.length - 1], (exitPages.get(pages[pages.length - 1]) || 0) + 1);
                         }
                     }
 

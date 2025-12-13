@@ -24,7 +24,7 @@ export interface HeatmapViewerProps {
   siteId: string;
   pagePath: string;
   deviceType: "desktop" | "tablet" | "mobile";
-  dataType: "clicks" | "scrolls" | "hover" | "cursor-paths";
+  dataType: "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements";
   showElements?: boolean;
   showHeatmap?: boolean;
   showAllViewports?: boolean;
@@ -239,7 +239,8 @@ export function HeatmapViewer({
 
   // Show loading state - wait for snapshot AND relevant data type
   const isLoadingRelevantData = 
-    dataType === "clicks" ? (heatmapLoading || elementLoading) :
+    dataType === "clicks" ? heatmapLoading :
+    dataType === "elements" ? elementLoading :
     dataType === "scrolls" ? scrollLoading :
     dataType === "hover" ? hoverLoading :
     dataType === "cursor-paths" ? cursorPathsLoading :
@@ -337,10 +338,13 @@ export function HeatmapViewer({
       ? allViewportsData.elements
       : elementClicks;
 
+  // Pass heatmap data when clicks OR elements mode is selected
+  // ElementOverlay needs heatmap points to calculate click counts for red highlights
   const heatmapPointsToPass: HeatmapPoint[] =
-    dataType === "clicks" ? currentHeatmapData : [];
+    dataType === "clicks" || dataType === "elements" ? currentHeatmapData : [];
 
-  const elementClicksToPass = dataType === "clicks" ? currentElementClicks : [];
+  // Only pass element data when elements mode is selected
+  const elementClicksToPass = dataType === "elements" ? currentElementClicks : [];
 
   console.log("📤 HeatmapViewer passing to SnapshotViewer:");
   console.log(

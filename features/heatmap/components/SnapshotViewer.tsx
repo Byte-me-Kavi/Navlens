@@ -39,7 +39,7 @@ interface SnapshotViewerProps {
   userDevice?: "desktop" | "mobile" | "tablet";
   showElements?: boolean;
   showHeatmap?: boolean;
-  dataType?: "clicks" | "scrolls" | "hover" | "cursor-paths";
+  dataType?: "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements";
 }
 
 export function SnapshotViewer({
@@ -358,8 +358,8 @@ export function SnapshotViewer({
           />
         )}
 
-        {/* Element Overlay Layer (z-100+) - Only render when dataType is "clicks" */}
-        {isReady && isIframeLoaded && dataType === "clicks" && showElements && (
+        {/* Element Overlay Layer (z-100+) - Render when dataType is "elements" */}
+        {isReady && isIframeLoaded && dataType === "elements" && (
           <ElementOverlay
             elements={elementClicks}
             iframe={iframeElement}
