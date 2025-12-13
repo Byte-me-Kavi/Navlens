@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseRequestBody } from '@/lib/decompress';
 import { validateSiteAndOrigin, addTrackerCorsHeaders, createPreflightResponse } from '@/lib/trackerCors';
 
+// Route segment config - increase body size limit for rrweb events
+export const maxDuration = 30; // 30 seconds max execution time
+export const dynamic = 'force-dynamic';
+
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -12,6 +16,7 @@ export async function POST(req: NextRequest) {
     const startTime = Date.now();
     const origin = req.headers.get('origin');
     console.log('=== RRWeb Events API Called ===');
+    console.log(`[rrweb-events] Origin: ${origin}, Method: POST`);
 
     try {
         // Parse body - handles both gzip compressed and regular JSON
@@ -196,5 +201,6 @@ export async function POST(req: NextRequest) {
 
 export async function OPTIONS(req: NextRequest) {
     const origin = req.headers.get('origin');
+    console.log(`[rrweb-events] OPTIONS preflight from origin: ${origin}`);
     return createPreflightResponse(origin);
 }
