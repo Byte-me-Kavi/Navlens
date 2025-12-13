@@ -17,84 +17,74 @@ import {
   ExclamationTriangleIcon,
   ChevronUpDownIcon,
   CheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  FireIcon,
+  ChartBarIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useState, useRef } from "react";
 import { useNavigation } from "@/context/NavigationContext";
 import { useSite } from "@/app/context/SiteContext";
 
+// Group definitions
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+}
 
-const navItems = [
+interface NavGroup {
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: NavItem[];
+  defaultOpen?: boolean;
+}
+
+// Standalone items (always visible)
+const standaloneItems: NavItem[] = [
+  { name: "Overview", href: "/dashboard", icon: HomeIcon },
+  { name: "My Sites", href: "/dashboard/my-sites", icon: GlobeAltIcon },
+];
+
+// Grouped navigation items
+const navGroups: NavGroup[] = [
   {
-    name: "Overview",
-    href: "/dashboard",
-    icon: HomeIcon,
+    name: "Analytics",
+    icon: ChartBarIcon,
+    defaultOpen: true,
+    items: [
+      { name: "Heatmaps", href: "/dashboard/heatmaps", icon: PresentationChartBarIcon },
+      { name: "Sessions", href: "/dashboard/sessions", icon: EyeIcon },
+      { name: "Funnels", href: "/dashboard/funnels", icon: FunnelIcon },
+      { name: "Form Analytics", href: "/dashboard/form-analytics", icon: DocumentChartBarIcon },
+    ],
   },
   {
-    name: "My Sites",
-    href: "/dashboard/my-sites",
-    icon: GlobeAltIcon,
-  },
-  {
-    name: "Heatmaps",
-    href: "/dashboard/heatmaps",
-    icon: PresentationChartBarIcon,
-  },
-  {
-    name: "Sessions",
-    href: "/dashboard/sessions",
-    icon: EyeIcon,
-  },
-  {
-    name: "Funnels",
-    href: "/dashboard/funnels",
-    icon: FunnelIcon,
-  },
-  {
-    name: "Frustration Signals",
-    href: "/dashboard/frustration-signals",
-    icon: ExclamationTriangleIcon,
-    badge: "New",
+    name: "Insights",
+    icon: FireIcon,
+    items: [
+      { name: "Frustration Signals", href: "/dashboard/frustration-signals", icon: ExclamationTriangleIcon },
+      { name: "Performance", href: "/dashboard/performance", icon: PresentationChartBarIcon, badge: "New" },
+      { name: "User Journeys", href: "/dashboard/journey", icon: FunnelIcon, badge: "New" },
+      { name: "Cohorts", href: "/dashboard/cohorts", icon: UserGroupIcon, badge: "New" },
+    ],
   },
   {
     name: "Feedback",
-    href: "/dashboard/feedback",
     icon: DocumentChartBarIcon,
+    items: [
+      { name: "User Feedback", href: "/dashboard/feedback", icon: DocumentChartBarIcon },
+    ],
   },
-  {
-    name: "Form Analytics",
-    href: "/dashboard/form-analytics",
-    icon: DocumentChartBarIcon,
-  },
-  {
-    name: "Performance",
-    href: "/dashboard/performance",
-    icon: PresentationChartBarIcon,
-    badge: "New",
-  },
-  {
-    name: "User Journeys",
-    href: "/dashboard/journey",
-    icon: FunnelIcon,
-    badge: "New",
-  },
-  {
-    name: "Cohorts",
-    href: "/dashboard/cohorts",
-    icon: DocumentChartBarIcon,
-    badge: "New",
-  },
-  {
-    name: "Settings",
-    href: "/dashboard/settings",
-    icon: Cog6ToothIcon,
-  },
-  {
-    name: "Experiments",
-    href: "/dashboard/experiments",
-    icon: BeakerIcon,
-    badge: "Soon",
-  },
+];
+
+// Footer items
+const footerItems: NavItem[] = [
+  { name: "Settings", href: "/dashboard/settings", icon: Cog6ToothIcon },
+  { name: "Experiments", href: "/dashboard/experiments", icon: BeakerIcon, badge: "Soon" },
 ];
 
 interface SideNavbarProps {
@@ -106,6 +96,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
   const [siteDropdownOpen, setSiteDropdownOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(['Analytics']));
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const { navigateTo, isNavigating } = useNavigation();
@@ -118,13 +109,29 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
     fetchSites 
   } = useSite();
 
-  // Get current site name
   const currentSite = selectedSiteId ? getSiteById(selectedSiteId) : null;
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+
+  const toggleGroup = (groupName: string) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupName)) {
+        next.delete(groupName);
+      } else {
+        next.add(groupName);
+      }
+      return next;
+    });
+  };
+
+  // Check if any item in a group is active
+  const isGroupActive = (group: NavGroup) => {
+    return group.items.some((item) => pathname === item.href || pathname.startsWith(item.href + '/'));
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -142,11 +149,18 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
     fetchSites();
   }, [fetchSites]);
 
+  // Auto-expand groups containing active items
+  useEffect(() => {
+    navGroups.forEach((group) => {
+      if (isGroupActive(group)) {
+        setOpenGroups((prev) => new Set([...prev, group.name]));
+      }
+    });
+  }, [pathname]);
+
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUserEmail(session.user.email || null);
         const userMetadata = session.user.user_metadata;
@@ -158,9 +172,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
 
     getUser();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUserEmail(session.user.email || null);
         const userMetadata = session.user.user_metadata;
@@ -179,36 +191,17 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
   const handleLogout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        console.error("Logout error:", error);
-        throw error;
-      }
-
-      // Only clear Supabase auth keys, preserve tracking and other session data
-      const keysToRemove = [];
+      if (error) throw error;
+      
+      // Only clear Supabase auth keys
+      const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (
-          key &&
-          (key.startsWith("sb-") ||
-            key.startsWith("supabase") ||
-            key.startsWith("profile_image_"))
-        ) {
+        if (key && (key.startsWith("sb-") || key.startsWith("supabase") || key.startsWith("profile_image_"))) {
           keysToRemove.push(key);
         }
       }
       keysToRemove.forEach((key) => localStorage.removeItem(key));
-
-      // Clear session storage auth keys
-      const sessionKeysToRemove = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && (key.startsWith("sb-") || key.startsWith("supabase"))) {
-          sessionKeysToRemove.push(key);
-        }
-      }
-      sessionKeysToRemove.forEach((key) => sessionStorage.removeItem(key));
 
       navigateTo("/");
     } catch (error) {
@@ -216,15 +209,81 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
     }
   };
 
+  const handleNavClick = (href: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigateTo(href);
+    onClose?.();
+  };
+
+  const renderNavItem = (item: NavItem, isNested = false) => {
+    const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+    const Icon = item.icon;
+
+    return (
+      <button
+        key={item.name}
+        onClick={handleNavClick(item.href)}
+        className={`
+          w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
+          ${isNested ? 'pl-9' : ''}
+          ${isActive
+            ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600 shadow-sm font-medium"
+            : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+          }
+        `}
+      >
+        <Icon className={`w-4 h-4 ${isActive ? "text-blue-600" : ""}`} />
+        <span className={isActive ? "font-semibold" : "font-medium"}>
+          {item.name}
+        </span>
+        {item.badge && (
+          <span className="ml-auto text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
+            {item.badge}
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  const renderGroup = (group: NavGroup) => {
+    const isOpen = openGroups.has(group.name);
+    const hasActive = isGroupActive(group);
+    const Icon = group.icon;
+
+    return (
+      <div key={group.name} className="mb-1">
+        <button
+          onClick={() => toggleGroup(group.name)}
+          className={`
+            w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
+            ${hasActive ? 'bg-blue-50/50' : 'hover:bg-gray-50'}
+          `}
+        >
+          <Icon className={`w-4 h-4 ${hasActive ? 'text-blue-600' : 'text-gray-500'}`} />
+          <span className={`flex-1 text-left font-medium ${hasActive ? 'text-blue-900' : 'text-gray-700'}`}>
+            {group.name}
+          </span>
+          {isOpen ? (
+            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+          )}
+        </button>
+        {isOpen && (
+          <div className="mt-1 space-y-0.5">
+            {group.items.map((item) => renderNavItem(item, true))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <aside className="w-56 bg-white/90 backdrop-blur-sm border-r border-gray-200 flex flex-col h-screen shadow-sm">
       {/* Logo Section */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex justify-between items-center">
-          <Link
-            href="/dashboard"
-            className="flex justify-center items-center flex-1"
-          >
+          <Link href="/dashboard" className="flex justify-center items-center flex-1">
             <Image
               src="/images/navlens.png"
               alt="Navlens"
@@ -258,21 +317,13 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <GlobeAltIcon className="w-4 h-4 text-blue-600 shrink-0" />
               <span className="text-sm font-medium text-gray-900 truncate">
-                {sitesLoading ? (
-                  "Loading..."
-                ) : currentSite ? (
-                  currentSite.site_name
-                ) : sites.length === 0 ? (
-                  "No sites"
-                ) : (
-                  "Select site..."
-                )}
+                {sitesLoading ? "Loading..." : currentSite ? currentSite.site_name : sites.length === 0 ? "No sites" : "Select site..."}
               </span>
             </div>
             <ChevronUpDownIcon className="w-4 h-4 text-gray-500 shrink-0" />
           </button>
 
-          {/* Dropdown Menu */}
+          {/* Site Dropdown Menu */}
           {siteDropdownOpen && !sitesLoading && sites.length > 0 && (
             <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
               {sites.map((site) => (
@@ -286,20 +337,14 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
                     selectedSiteId === site.id ? 'bg-blue-50' : ''
                   }`}
                 >
-                  <GlobeAltIcon className={`w-4 h-4 shrink-0 ${
-                    selectedSiteId === site.id ? 'text-blue-600' : 'text-gray-400'
-                  }`} />
+                  <GlobeAltIcon className={`w-4 h-4 shrink-0 ${selectedSiteId === site.id ? 'text-blue-600' : 'text-gray-400'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm truncate ${
-                      selectedSiteId === site.id ? 'font-semibold text-blue-900' : 'font-medium text-gray-900'
-                    }`}>
+                    <p className={`text-sm truncate ${selectedSiteId === site.id ? 'font-semibold text-blue-900' : 'font-medium text-gray-900'}`}>
                       {site.site_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">{site.domain}</p>
                   </div>
-                  {selectedSiteId === site.id && (
-                    <CheckIcon className="w-4 h-4 text-blue-600 shrink-0" />
-                  )}
+                  {selectedSiteId === site.id && <CheckIcon className="w-4 h-4 text-blue-600 shrink-0" />}
                 </button>
               ))}
             </div>
@@ -326,41 +371,20 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
 
       {/* Navigation Links */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          const Icon = item.icon;
-
-          const handleNavClick = (e: React.MouseEvent) => {
-            e.preventDefault();
-            navigateTo(item.href);
-            onClose?.();
-          };
-
-          return (
-            <button
-              key={item.name}
-              onClick={handleNavClick}
-              className={`
-                w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
-                ${
-                  isActive
-                    ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600 shadow-sm font-medium"
-                    : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
-                }
-                `}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? "text-blue-600" : ""}`} />
-              <span className={isActive ? "font-semibold" : "font-medium"}>
-                {item.name}
-              </span>
-              {item.badge && (
-                <span className="ml-auto text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {/* Standalone items */}
+        {standaloneItems.map((item) => renderNavItem(item))}
+        
+        {/* Divider */}
+        <div className="my-2 border-t border-gray-100" />
+        
+        {/* Grouped items */}
+        {navGroups.map((group) => renderGroup(group))}
+        
+        {/* Divider */}
+        <div className="my-2 border-t border-gray-100" />
+        
+        {/* Footer items */}
+        {footerItems.map((item) => renderNavItem(item))}
       </nav>
 
       {/* Account Info - Mobile Only */}
@@ -383,9 +407,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
             </div>
           )}
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-900">
-              {userEmail || "User"}
-            </p>
+            <p className="text-sm font-medium text-gray-900">{userEmail || "User"}</p>
             <p className="text-xs text-gray-500">Account</p>
           </div>
         </div>
@@ -395,9 +417,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
           className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
           <ArrowRightOnRectangleIcon className="w-5 h-5" />
-          <span className="font-medium">
-            {isNavigating ? "Logging out..." : "Logout"}
-          </span>
+          <span className="font-medium">{isNavigating ? "Logging out..." : "Logout"}</span>
         </button>
       </div>
 
