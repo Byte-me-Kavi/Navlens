@@ -8,31 +8,28 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { unstable_cache } from 'next/cache';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Cached site domain lookup (5 minutes)
-export const getSiteDomain = unstable_cache(
-    async (siteId: string): Promise<{ domain: string | null; valid: boolean }> => {
-        const { data, error } = await supabase
-            .from('sites')
-            .select('domain')
-            .eq('id', siteId)
-            .single();
+// Direct site domain lookup (no caching to avoid stale data issues)
+export async function getSiteDomain(siteId: string): Promise<{ domain: string | null; valid: boolean }> {
+    const { data, error } = await supabase
+        .from('sites')
+        .select('domain')
+        .eq('id', siteId)
+        .single();
 
-        if (error || !data) {
-            return { domain: null, valid: false };
-        }
+    console.log(`[trackerCors] getSiteDomain for ${siteId}:`, { data, error: error?.message });
 
-        return { domain: data.domain, valid: true };
-    },
-    ['site-domain-lookup'],
-    { revalidate: 300 } // 5 minutes
-);
+    if (error || !data) {
+        return { domain: null, valid: false };
+    }
+
+    return { domain: data.domain, valid: true };
+}
 
 /**
  * Check if an origin is allowed for a site
@@ -41,27 +38,41 @@ export const getSiteDomain = unstable_cache(
  * @returns boolean - true if origin is allowed
  */
 export function isOriginAllowed(origin: string | null, siteDomain: string | null): boolean {
+    console.log(`[trackerCors] isOriginAllowed - origin: ${origin}, siteDomain: ${siteDomain}`);
+
     // No origin header (server-side requests) - allow
-    if (!origin) return true;
+    if (!origin) {
+        console.log('[trackerCors] No origin header, allowing');
+        return true;
+    }
 
     // Always allow localhost for development
     try {
         const originHost = new URL(origin).hostname;
+        console.log(`[trackerCors] originHost: ${originHost}`);
+
         if (originHost === 'localhost' || originHost === '127.0.0.1') {
+            console.log('[trackerCors] Localhost origin, allowing');
             return true;
         }
 
         // If site has no domain configured, block all 
         if (!siteDomain) {
-            console.warn(`[trackerCors] Site has no domain configured, block all origins`);
+            console.warn(`[trackerCors] Site has no domain configured, blocking`);
             return false;
         }
 
         // Normalize the registered domain (remove protocol and trailing slash)
         const normalizedDomain = siteDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        console.log(`[trackerCors] normalizedDomain: ${normalizedDomain}`);
 
         // Exact match or subdomain match
-        if (originHost === normalizedDomain || originHost.endsWith('.' + normalizedDomain)) {
+        const isExactMatch = originHost === normalizedDomain;
+        const isSubdomain = originHost.endsWith('.' + normalizedDomain);
+        console.log(`[trackerCors] isExactMatch: ${isExactMatch}, isSubdomain: ${isSubdomain}`);
+
+        if (isExactMatch || isSubdomain) {
+            console.log('[trackerCors] Origin allowed');
             return true;
         }
 
