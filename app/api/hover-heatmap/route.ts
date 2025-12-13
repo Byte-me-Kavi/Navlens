@@ -17,6 +17,7 @@ const getCachedHoverHeatmap = unstable_cache(
           SELECT 
             element_selector,
             element_tag,
+            session_id,
             count() as click_count,
             avg(x_relative) as x_relative,
             avg(y_relative) as y_relative,
@@ -31,7 +32,7 @@ const getCachedHoverHeatmap = unstable_cache(
             AND timestamp >= parseDateTimeBestEffort({startDate:String})
             AND timestamp <= parseDateTimeBestEffort({endDate:String})
             AND event_type = 'click'
-          GROUP BY element_selector, element_tag
+          GROUP BY element_selector, element_tag, session_id
           ORDER BY click_count DESC
           LIMIT 100
         `;
@@ -45,6 +46,7 @@ const getCachedHoverHeatmap = unstable_cache(
             const clickData = await result.json() as Array<{
                 element_selector: string;
                 element_tag: string;
+                session_id: string;
                 click_count: number;
                 x_relative: number;
                 y_relative: number;
@@ -80,6 +82,7 @@ const getCachedHoverHeatmap = unstable_cache(
                 return {
                     selector: h.element_selector,
                     tag: h.element_tag,
+                    sessionId: h.session_id,
                     zone,
                     duration: Number(h.click_count) * 1000, // Simulate duration from clicks
                     count: Number(h.click_count),
@@ -96,6 +99,7 @@ const getCachedHoverHeatmap = unstable_cache(
                 const existing = zoneMap.get(p.zone) || { total: 0, count: 0, sessions: new Set() };
                 existing.total += p.duration;
                 existing.count += p.count;
+                existing.sessions.add(p.sessionId);
                 zoneMap.set(p.zone, existing);
             });
 
@@ -103,7 +107,7 @@ const getCachedHoverHeatmap = unstable_cache(
                 zone,
                 totalTimeMs: data.total,
                 eventCount: data.count,
-                uniqueSessions: 0,
+                uniqueSessions: data.sessions.size,
                 percentage: totalClicks > 0 ? parseFloat((data.count / totalClicks * 100).toFixed(1)) : 0,
             }));
 

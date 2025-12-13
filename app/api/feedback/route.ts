@@ -200,7 +200,7 @@ export async function OPTIONS() {
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, x-api-key, Content-Encoding',
+            'Access-Control-Allow-Headers': 'content-type, x-api-key, content-encoding',
         },
     });
 }
