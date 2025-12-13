@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -193,7 +194,7 @@ export default function HeatmapViewerPage() {
   // Show loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="flex items-center justify-center h-screen">
         <LoadingSpinner message="Loading heatmap viewer..." />
       </div>
     );
@@ -235,6 +236,15 @@ export default function HeatmapViewerPage() {
 
   return (
     <div className="h-screen relative bg-slate-50 dark:bg-slate-900">
+      {/* Floating Back Button - Positioned next to Settings Toggle */}
+      <Link 
+         href="/dashboard/heatmaps"
+         className="fixed top-4 sm:top-6 left-20 sm:left-24 z-[1000] p-3 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 border border-gray-200 transition-all hover:scale-105 flex items-center justify-center"
+         title="Back to Heatmaps"
+      >
+         <ArrowLeftIcon className="w-6 h-6" />
+      </Link>
+
       {/* Full Screen Heatmap Viewer */}
       {/* Key prop forces remount when page/device changes to load new snapshot */}
       <HeatmapViewer

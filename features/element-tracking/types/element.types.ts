@@ -13,6 +13,8 @@ export interface ElementClick {
   y_relative?: number; // Relative y position (0-1) for accurate cross-viewport positioning
   document_width?: number;
   document_height?: number;
+  width?: number;
+  height?: number;
   clickCount: number;
   percentage: number;
   avgTimeToClick?: number;

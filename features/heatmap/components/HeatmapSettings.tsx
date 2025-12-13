@@ -242,7 +242,7 @@ export function HeatmapSettings({
     <>
       {/* Collapsible Sidebar - Responsive Overlay */}
       <div
-        className={`fixed left-0 top-0 z-100 transition-all duration-300 ease-in-out bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col border-r border-gray-200 ${
+        className={`fixed left-0 top-0 z-[2000] transition-all duration-300 ease-in-out bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col border-r border-gray-200 ${
           sidebarOpen ? "w-full sm:w-96" : "w-0"
         } h-screen max-w-full sm:max-w-md rounded-r-xl`}
       >

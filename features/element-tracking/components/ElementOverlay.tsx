@@ -64,6 +64,8 @@ export function ElementOverlay({
   const [selectedElement, setSelectedElement] = useState<ElementClick | null>(
     null
   );
+  // State for masking fixed elements
+  const [fixedRects, setFixedRects] = useState<Array<{left: number, top: number, width: number, height: number}>>([]);
   const [iframeReady, setIframeReady] = useState(false);
   const hasNotifiedRef = useRef(false);
 
@@ -120,6 +122,8 @@ export function ElementOverlay({
     console.log("🔴 Rendering element overlays:", elements.length, "elements");
 
     const container = document.getElementById("element-overlay-container");
+    const fixedContainer = document.getElementById("fixed-element-overlay-container");
+
     if (!container) {
       console.warn("⚠️ Element overlay container not found");
       return;
@@ -127,6 +131,7 @@ export function ElementOverlay({
 
     // Clear previous overlays
     container.innerHTML = "";
+    if (fixedContainer) fixedContainer.innerHTML = "";
 
     // Clear previous element highlights in iframe
     const existingHighlights = iframe.contentDocument.querySelectorAll(
@@ -163,6 +168,12 @@ export function ElementOverlay({
       "video",
       "audio",
       "label",
+      "header",
+      "nav", 
+      "div[class*='nav']",
+      "div[class*='header']",
+      "div[class*='sticky']",
+      "div[class*='fixed']"
     ];
 
     const allImportantElements = iframe.contentDocument.querySelectorAll(
@@ -175,20 +186,49 @@ export function ElementOverlay({
     const scrollX = iframe.contentWindow.scrollX || 0;
     const scrollY = iframe.contentWindow.scrollY || 0;
 
+    // Calculate total clicks on page for percentage
+    const totalPageClicks = heatmapClicks.reduce((sum, p) => sum + p.value, 0);
+
+    // Store rects for masking
+    const newFixedRects: Array<{left: number, top: number, width: number, height: number}> = [];
+
     allImportantElements.forEach((element) => {
       const rect = element.getBoundingClientRect();
+      // Check if element OR ANY PARENT is fixed/sticky
+      let isFixed = false;
+      let currentEl: HTMLElement | null = element as HTMLElement;
+      while (currentEl && currentEl.tagName !== 'BODY' && currentEl.tagName !== 'HTML') {
+        const s = window.getComputedStyle(currentEl);
+        if (s.position === 'fixed' || s.position === 'sticky') {
+          isFixed = true;
+          break;
+        }
+        currentEl = currentEl.parentElement;
+      }
 
       // Skip invisible or zero-size elements
       if (rect.width === 0 || rect.height === 0) {
         return;
       }
+      
+      // If fixed, collect rect for masking
+      if (isFixed) {
+          newFixedRects.push({
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height
+          });
+      }
 
       // Generate selector for this element
       const elementSelector = getElementSelector(element as HTMLElement);
 
-      // Calculate absolute position for overlay positioning
-      const elementLeft = rect.left + scrollX;
-      const elementTop = rect.top + scrollY;
+      // COORDINATE CALCULATION:
+      // Fixed elements: Absolute to viewport (rect.left/top) - use fixed container
+      // Normal elements: Absolute to document (rect + scroll) - use scroll container
+      const elementLeft = isFixed ? rect.left : rect.left + scrollX;
+      const elementTop = isFixed ? rect.top : rect.top + scrollY;
 
       // Count clicks that fall within this element's bounding box
       let clicksInside = 0;
@@ -199,35 +239,43 @@ export function ElementOverlay({
         const clickX = click.x_relative * currentDocWidth;
         const clickY = click.y_relative * currentDocHeight;
 
-        // Check if click position is within element bounds
+        // MATCHING LOGIC:
+        // Always compare click position (Document coords) vs Element position (Document coords)
+        const elDocLeft = rect.left + scrollX;
+        const elDocTop = rect.top + scrollY;
+
         if (
-          clickX >= elementLeft &&
-          clickX <= elementLeft + rect.width &&
-          clickY >= elementTop &&
-          clickY <= elementTop + rect.height
+          clickX >= elDocLeft &&
+          clickX <= elDocLeft + rect.width &&
+          clickY >= elDocTop &&
+          clickY <= elDocTop + rect.height
         ) {
           clicksInside += click.value;
         }
       });
 
-      // Create overlay for this element
+      // Create visual overlay for this element
       const elementHighlight = document.createElement("div");
       elementHighlight.className =
         clicksInside > 0
           ? "navlens-element-highlight clicked"
           : "navlens-element-highlight not-clicked";
+      
       elementHighlight.style.position = "absolute";
       elementHighlight.style.left = `${elementLeft}px`;
       elementHighlight.style.top = `${elementTop}px`;
       elementHighlight.style.width = `${rect.width}px`;
       elementHighlight.style.height = `${rect.height}px`;
-      elementHighlight.style.pointerEvents = "none"; // Allow scroll events to pass through
+      elementHighlight.style.pointerEvents = "none"; // Allow scroll/clicks to pass through
       elementHighlight.style.cursor = "pointer";
       elementHighlight.style.borderRadius = "4px";
       elementHighlight.style.transition = "all 0.3s ease";
-      elementHighlight.style.zIndex = clicksInside > 0 ? "99" : "98";
+      
+      // Ensure fixed elements are visually above normal ones
+      const baseZ = isFixed ? 1000 : 98;
+      elementHighlight.style.zIndex = clicksInside > 0 ? `${baseZ + 1}` : `${baseZ}`;
 
-      // Add a separate invisible overlay for click handling that doesn't block scrolling
+      // Create invisible interactive overlay for clicks/scrolls
       const clickOverlay = document.createElement("div");
       clickOverlay.style.position = "absolute";
       clickOverlay.style.left = `${elementLeft}px`;
@@ -236,7 +284,7 @@ export function ElementOverlay({
       clickOverlay.style.height = `${rect.height}px`;
       clickOverlay.style.pointerEvents = "auto";
       clickOverlay.style.cursor = "pointer";
-      clickOverlay.style.zIndex = "101"; // Above the visual highlight
+      clickOverlay.style.zIndex = `${baseZ + 2}`; // Above highlight
 
       // Add wheel event handler to forward scroll events to iframe
       clickOverlay.addEventListener(
@@ -270,12 +318,19 @@ export function ElementOverlay({
           document_width: currentDocWidth,
           document_height: currentDocHeight,
           clickCount: clicksInside,
-          percentage: 0, // Could calculate if we had total clicks
+          percentage: totalPageClicks > 0 ? (clicksInside / totalPageClicks) * 100 : 0,
         };
         setSelectedElement(mockElementClick);
       });
 
-      container.appendChild(clickOverlay);
+      // Append to the correct container
+      if (isFixed && fixedContainer) {
+        fixedContainer.appendChild(elementHighlight);
+        fixedContainer.appendChild(clickOverlay);
+      } else {
+        container.appendChild(elementHighlight);
+        container.appendChild(clickOverlay);
+      }
 
       if (clicksInside > 0) {
         // RED overlay for clicked elements (reduced intensity)
@@ -284,7 +339,7 @@ export function ElementOverlay({
         elementHighlight.style.boxShadow =
           "0 0 10px rgba(255, 50, 50, 0.5), inset 0 0 6px rgba(255, 50, 50, 0.2)";
 
-        // Add label showing click count near bottom
+        // Add label showing click count
         const label = document.createElement("div");
         label.style.cssText = `
           position: absolute;
@@ -303,52 +358,12 @@ export function ElementOverlay({
         `;
         label.textContent = `${clicksInside}`;
         elementHighlight.appendChild(label);
-
-        // Add click handler for clicked elements
-        clickOverlay.addEventListener("click", (e) => {
-          e.stopPropagation();
-          // Create a mock ElementClick object for clicked elements
-          const mockElementClick: ElementClick = {
-            selector: elementSelector,
-            tag: element.tagName,
-            text: element.textContent || "",
-            x: elementLeft,
-            y: elementTop,
-            x_relative: elementLeft / currentDocWidth,
-            y_relative: elementTop / currentDocHeight,
-            document_width: currentDocWidth,
-            document_height: currentDocHeight,
-            clickCount: clicksInside,
-            percentage: 0, // Could calculate if we had total clicks
-          };
-          setSelectedElement(mockElementClick);
-        });
       } else {
         // BLUE overlay for non-clicked elements
         elementHighlight.style.border = "2px solid rgba(59, 130, 246, 0.6)";
         elementHighlight.style.backgroundColor = "rgba(59, 130, 246, 0.08)";
         elementHighlight.style.boxShadow =
           "0 0 8px rgba(59, 130, 246, 0.4), inset 0 0 5px rgba(59, 130, 246, 0.15)";
-
-        // Add click handler for non-clicked elements to show element details
-        clickOverlay.addEventListener("click", (e) => {
-          e.stopPropagation();
-          // Create a mock ElementClick object for non-clicked elements
-          const mockElementClick: ElementClick = {
-            selector: elementSelector,
-            tag: element.tagName,
-            text: element.textContent || "",
-            x: elementLeft,
-            y: elementTop,
-            x_relative: elementLeft / currentDocWidth,
-            y_relative: elementTop / currentDocHeight,
-            document_width: currentDocWidth,
-            document_height: currentDocHeight,
-            clickCount: 0,
-            percentage: 0,
-          };
-          setSelectedElement(mockElementClick);
-        });
       }
 
       // Add hover effect
@@ -375,8 +390,6 @@ export function ElementOverlay({
             "0 0 8px rgba(59, 130, 246, 0.4), inset 0 0 5px rgba(59, 130, 246, 0.15)";
         }
       });
-
-      container.appendChild(elementHighlight);
     });
 
     console.log(`✓ Rendered ${allImportantElements.length} element overlays`);
@@ -386,6 +399,9 @@ export function ElementOverlay({
       container.children[0]?.getAttribute("style")
     );
 
+    // Update rects for masking
+    setFixedRects(newFixedRects);
+    
     // Update container dimensions to match iframe content
     container.style.width = `${currentDocWidth}px`;
     container.style.height = `${currentDocHeight}px`;
@@ -449,6 +465,8 @@ export function ElementOverlay({
 
   return (
     <>
+
+
       <div
         id="element-overlay-container"
         className="absolute top-0 left-0 pointer-events-none"
@@ -456,6 +474,19 @@ export function ElementOverlay({
           zIndex: 100,
           transformOrigin: "top left",
           willChange: "transform",
+        }}
+      />
+
+       {/* Fixed element container - No ScrollSync transformation applied */}
+      <div
+        id="fixed-element-overlay-container"
+        className="absolute top-0 left-0 pointer-events-none"
+        style={{
+          zIndex: 1000,
+          transformOrigin: "top left",
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden'
         }}
       />
 
