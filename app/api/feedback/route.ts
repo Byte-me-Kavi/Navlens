@@ -176,7 +176,12 @@ export async function POST(request: NextRequest) {
             if (insertError.code === '23503') {
                 return NextResponse.json({ error: 'Invalid site_id' }, { status: 400 });
             }
-            return NextResponse.json({ error: 'Failed to save feedback' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to save feedback' }, {
+                status: 500,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                },
+            });
         }
 
         return NextResponse.json({
@@ -189,7 +194,12 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('[feedback] Error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Internal server error' }, {
+            status: 500,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
+        });
     }
 }
 

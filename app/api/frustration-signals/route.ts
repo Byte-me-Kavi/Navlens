@@ -6,30 +6,30 @@ import { unstable_cache } from 'next/cache';
 
 const clickhouse = getClickHouseClient();
 
-// Cache frustration signals for 2 minutes
+// Cache frustration signals for fast reloads (2 minutes)
 const getCachedFrustrationSignals = unstable_cache(
     async (siteId: string, pagePath: string, startDate: string, endDate: string) => {
         try {
             // Simplified query that works with basic columns
             const query = `
-              SELECT 
-                session_id,
-                -- Dead clicks (using existing is_dead_click column)
-                countIf(is_dead_click = true) as dead_clicks,
-                -- Rage clicks (event_type = 'rage_click')
-                countIf(event_type = 'rage_click') as rage_clicks,
-                -- Click count for pattern analysis
-                sum(click_count) as total_clicks
-              FROM events
-              WHERE site_id = {siteId:String}
-                AND page_path = {pagePath:String}
-                AND timestamp >= {startDate:DateTime}
-                AND timestamp <= {endDate:DateTime}
-              GROUP BY session_id
-              HAVING dead_clicks > 0 OR rage_clicks > 0
-              ORDER BY rage_clicks DESC, dead_clicks DESC
-              LIMIT 100
-            `;
+          SELECT 
+            session_id,
+            -- Dead clicks (using existing is_dead_click column)
+            countIf(is_dead_click = true) as dead_clicks,
+            -- Rage clicks (event_type = 'rage_click')
+            countIf(event_type = 'rage_click') as rage_clicks,
+            -- Click count for pattern analysis
+            sum(click_count) as total_clicks
+          FROM events
+          WHERE site_id = {siteId:String}
+            AND page_path = {pagePath:String}
+            AND timestamp >= parseDateTimeBestEffort({startDate:String})
+            AND timestamp <= parseDateTimeBestEffort({endDate:String})
+          GROUP BY session_id
+          HAVING dead_clicks > 0 OR rage_clicks > 0
+          ORDER BY rage_clicks DESC, dead_clicks DESC
+          LIMIT 100
+        `;
 
             const result = await clickhouse.query({
                 query,

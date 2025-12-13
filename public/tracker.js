@@ -1720,7 +1720,7 @@
       try {
         console.log("[Navlens] Loading rrweb...");
         await loadScript(
-          "https://cdn.jsdelivr.net/npm/rrweb@latest/dist/rrweb.min.js"
+          `${normalizedHost}/rrweb.min.js`
         );
       } catch (e) {
         console.warn(
