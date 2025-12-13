@@ -419,12 +419,18 @@
       headers["Content-Type"] = "application/json";
     }
 
+    // CRITICAL: keepalive has a 64KB limit in Chrome!
+    // Requests over this limit will hang forever in "pending" state.
+    // Only use keepalive for small payloads (under 60KB to be safe).
+    const payloadSize = compressed.size || 0;
+    const useKeepalive = payloadSize < 60000; // 60KB limit for safety
+
     try {
       const response = await fetch(url, {
         method: "POST",
         headers,
         body: compressed,
-        keepalive: true,
+        keepalive: useKeepalive,
       });
 
       if (!response.ok && addToRetry) {
