@@ -30,6 +30,7 @@ interface Experiment {
   description?: string;
   status: "draft" | "running" | "paused" | "completed";
   variants: Variant[];
+  modifications?: Array<{ id: string; selector: string; type: string }>;
   traffic_percentage: number;
   goal_event?: string;
   created_at: string;
@@ -660,9 +661,18 @@ export default function ExperimentsPage() {
                 )}
 
                 <div className="flex items-center justify-between">
-                  <div className="text-xs text-gray-400">
-                    {exp.variants.length} variants • {exp.traffic_percentage}%
-                    traffic
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <span>{exp.variants.length} variants</span>
+                    <span>•</span>
+                    <span>{exp.traffic_percentage}% traffic</span>
+                    {exp.modifications && exp.modifications.length > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">
+                          {exp.modifications.length} changes
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">

@@ -88,11 +88,11 @@
   }
 
   /**
-   * Load experiment config from CDN (fast static JSON)
+   * Load experiment config from API (works with private storage)
    */
   async function loadExperimentConfig() {
     try {
-      const resp = await fetch(`${NAVLENS_CONFIG_URL}/${SITE_ID}/config.json`, {
+      const resp = await fetch(`${normalizedHost}/api/experiments/config?siteId=${SITE_ID}`, {
         priority: 'high',
         cache: 'default'
       });
