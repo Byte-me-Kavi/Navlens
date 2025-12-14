@@ -181,6 +181,9 @@ export async function POST(request: NextRequest) {
           cursor_direction_changes: typeof event.data?.cursor_direction_changes === 'number' ? event.data.cursor_direction_changes : 0,
           is_erratic_movement: event.data?.is_erratic_movement ?? false,
           attention_zone: typeof event.data?.attention_zone === 'string' ? event.data.attention_zone : '',
+          // A/B Testing experiment tracking
+          experiment_ids: Array.isArray(event.experiment_ids) ? event.experiment_ids : [],
+          variant_ids: Array.isArray(event.variant_ids) ? event.variant_ids : [],
           created_at: new Date(),
         };
 

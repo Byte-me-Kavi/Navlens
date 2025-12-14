@@ -56,6 +56,39 @@
   const SURVEYS_ENDPOINT = `${normalizedHost}/api/surveys`;
 
   // ============================================
+  // A/B TESTING / EXPERIMENT CONTEXT
+  // Reads experiment assignments from middleware headers or window object
+  // ============================================
+  let experimentAssignments = {};
+
+  /**
+   * Get active experiment assignments
+   * Priority: window.__NAVLENS_EXPERIMENTS > stored assignments
+   * @returns {Object} - Map of experiment_id -> variant_id
+   */
+  function getActiveExperiments() {
+    // Check for injected experiments (from middleware or manual override)
+    if (window.__NAVLENS_EXPERIMENTS && typeof window.__NAVLENS_EXPERIMENTS === 'object') {
+      experimentAssignments = { ...experimentAssignments, ...window.__NAVLENS_EXPERIMENTS };
+    }
+    return experimentAssignments;
+  }
+
+  /**
+   * Set experiment assignment (for API-based assignment)
+   * @param {string} experimentId - Experiment ID
+   * @param {string} variantId - Variant ID
+   */
+  function setExperimentAssignment(experimentId, variantId) {
+    experimentAssignments[experimentId] = variantId;
+    // Also set on window for other scripts
+    window.__NAVLENS_EXPERIMENTS = { ...getActiveExperiments() };
+  }
+
+  // Expose experiment functions globally
+  window.navlens = window.navlens || {};
+  window.navlens.setExperiment = setExperimentAssignment;
+  window.navlens.getExperiments = getActiveExperiments;
   // EVENT FORMAT WRAPPER
   // Wraps events in the format expected by v1/ingest API:
   // { events: [...], siteId: "uuid" }
@@ -105,6 +138,9 @@
       device_type: deviceInfo.device_type || getDeviceType(),
       client_id: transformedEvent.client_id || API_KEY,
       load_time: transformedEvent.load_time || 0,
+      // A/B Testing: Include experiment assignments with every event
+      experiment_ids: Object.keys(getActiveExperiments()),
+      variant_ids: Object.values(getActiveExperiments()),
       // Store all extra fields in data object
       data: {
         event_id: transformedEvent.event_id,

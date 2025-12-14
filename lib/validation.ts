@@ -49,6 +49,8 @@ export interface EventData {
   device_type?: string;
   client_id?: string;
   load_time?: number;
+  experiment_ids?: string[];
+  variant_ids?: string[];
   data?: Record<string, unknown>;
 }
 
@@ -69,6 +71,8 @@ export interface ValidatedEventData {
   device_type: string;
   client_id: string;
   load_time: number;
+  experiment_ids: string[];
+  variant_ids: string[];
   data: Record<string, unknown>;
 }
 
@@ -216,6 +220,8 @@ export const validators = {
       device_type: event.device_type ? validators.sanitizeString(event.device_type, 20) : '',
       client_id: event.client_id ? validators.sanitizeString(event.client_id, 128) : '',
       load_time: typeof event.load_time === 'number' ? event.load_time : 0,
+      experiment_ids: Array.isArray(event.experiment_ids) ? event.experiment_ids.filter((id): id is string => typeof id === 'string') : [],
+      variant_ids: Array.isArray(event.variant_ids) ? event.variant_ids.filter((id): id is string => typeof id === 'string') : [],
       data: event.data || {}
     };
 

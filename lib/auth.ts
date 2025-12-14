@@ -162,3 +162,17 @@ export async function validateAuthToken(request: NextRequest): Promise<{ valid: 
     return { valid: false, userId: null };
   }
 }
+
+/**
+ * Get the authenticated user from request
+ * Returns the user object or null if not authenticated
+ */
+export async function getUserFromRequest(request: NextRequest): Promise<User | null> {
+  try {
+    const authResult = await authenticateAndAuthorize(request);
+    return authResult.user;
+  } catch (error) {
+    console.error('Get user from request error:', error);
+    return null;
+  }
+}

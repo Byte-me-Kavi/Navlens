@@ -1,0 +1,8 @@
+"site_id","form_id","field_id","field_name","field_type","field_index","date","focus_count","blur_count","submit_count","abandon_count","refill_count","total_time_ms","interaction_count"
+"9edcd4e0-d5be-476f-ba74-dc0c1289fc63","name:[object HTMLInputElement]","","","text","0","2025-12-13","0","0","2","0","0","0","2"
+"9edcd4e0-d5be-476f-ba74-dc0c1289fc63","name:[object HTMLInputElement]","company","company","text","4","2025-12-13","1","1","0","0","0","2947","2"
+"9edcd4e0-d5be-476f-ba74-dc0c1289fc63","name:[object HTMLInputElement]","email","email","email","4","2025-12-13","1","1","0","0","0","3687","2"
+"9edcd4e0-d5be-476f-ba74-dc0c1289fc63","name:[object HTMLInputElement]","message","message","textarea","18","2025-12-13","2","2","0","0","0","6734","4"
+"9edcd4e0-d5be-476f-ba74-dc0c1289fc63","name:[object HTMLInputElement]","name","name","text","2","2025-12-13","1","1","0","0","0","4558","2"
+"9edcd4e0-d5be-476f-ba74-dc0c1289fc63","name:[object HTMLInputElement]","phone","phone","tel","6","2025-12-13","1","1","0","0","0","7208","2"
+"9edcd4e0-d5be-476f-ba74-dc0c1289fc63","name:[object HTMLInputElement]","subject","subject","select-one","10","2025-12-13","1","1","0","0","0","1489","2"
