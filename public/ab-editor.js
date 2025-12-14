@@ -1083,15 +1083,34 @@
     
     // Try to use unique attributes for images
     if (element.tagName === 'IMG') {
-      // Use src-based selector for images (more specific)
-      const src = element.getAttribute('src');
+      const src = element.getAttribute('src') || '';
+      
+      // Handle Next.js Image URLs: /_next/image?url=%2Fimg%2Flec1.webp&w=256
+      if (src.includes('/_next/image')) {
+        try {
+          const urlParam = new URL(src, window.location.origin).searchParams.get('url');
+          if (urlParam) {
+            // Get the filename from the url param (decoded)
+            const decodedUrl = decodeURIComponent(urlParam);
+            const filename = decodedUrl.split('/').pop();
+            if (filename && filename.length > 3) {
+              console.log('[navlens-editor] Using Next.js image filename:', filename);
+              return `img[src*="${CSS.escape(filename)}"]`;
+            }
+          }
+        } catch (e) {
+          console.warn('[navlens-editor] Failed to parse Next.js image URL');
+        }
+      }
+      
+      // Regular image - extract filename from src
       if (src) {
-        // Extract a short, unique part of the src
         const srcPart = src.split('/').pop()?.split('?')[0];
-        if (srcPart && srcPart.length > 3) {
+        if (srcPart && srcPart.length > 3 && srcPart !== 'image') {
           return `img[src*="${CSS.escape(srcPart)}"]`;
         }
       }
+      
       // Fallback: use alt attribute
       const alt = element.getAttribute('alt');
       if (alt) {
