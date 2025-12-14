@@ -929,16 +929,33 @@
           case 'image':
             if (changes.imageUrl) {
               // Handle both direct IMG elements and Next.js Image wrappers
+              const replaceImage = (img) => {
+                console.log('[navlens-editor] Replacing image:', img.src, '->', changes.imageUrl);
+                
+                // Clear srcset to prevent Next.js from overriding
+                img.removeAttribute('srcset');
+                img.removeAttribute('data-srcset');
+                
+                // Set the new src
+                img.src = changes.imageUrl;
+                
+                // Use CSS to ensure the image stays replaced even if React re-renders
+                // This creates a visual override that persists
+                img.style.cssText += `
+                  content: url(${changes.imageUrl}) !important;
+                  object-fit: cover !important;
+                `;
+                
+                // Mark as modified to prevent re-application loops
+                img.dataset.nvModified = 'true';
+              };
+              
               if (el.tagName === 'IMG') {
-                console.log('[navlens-editor] Replacing image src:', el.src, '->', changes.imageUrl);
-                el.src = changes.imageUrl;
+                replaceImage(el);
               } else {
                 // Check for img inside the element (Next.js Image wrapper)
-                const img = el.querySelector('img');
-                if (img) {
-                  console.log('[navlens-editor] Replacing nested image src:', img.src, '->', changes.imageUrl);
-                  img.src = changes.imageUrl;
-                }
+                const imgs = el.querySelectorAll('img');
+                imgs.forEach(replaceImage);
               }
             }
             break;

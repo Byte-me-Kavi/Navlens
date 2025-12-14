@@ -143,12 +143,29 @@
           
         case 'image':
           if (changes.imageUrl) {
-            // Handle both direct IMG elements and Next.js Image wrappers
+            // Robust image replacement for Next.js
+            const replaceImage = (img) => {
+              // Skip if already modified with this URL
+              if (img.dataset.nvImgUrl === changes.imageUrl) return;
+              
+              // Clear srcset to prevent Next.js from overriding
+              img.removeAttribute('srcset');
+              img.removeAttribute('data-srcset');
+              
+              // Set the new src
+              img.src = changes.imageUrl;
+              
+              // Use CSS content to ensure image stays replaced even if React re-renders
+              img.style.cssText += `content: url(${changes.imageUrl}) !important; object-fit: cover !important;`;
+              
+              // Mark with the URL to prevent re-application loops
+              img.dataset.nvImgUrl = changes.imageUrl;
+            };
+            
             if (element.tagName === 'IMG') {
-              element.src = changes.imageUrl;
+              replaceImage(element);
             } else {
-              const img = element.querySelector('img');
-              if (img) img.src = changes.imageUrl;
+              element.querySelectorAll('img').forEach(replaceImage);
             }
           }
           break;
