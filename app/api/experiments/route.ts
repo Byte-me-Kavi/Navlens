@@ -20,6 +20,7 @@ import type {
     Variant
 } from '@/lib/experiments/types';
 import { getUserFromRequest } from '@/lib/auth';
+import { secureCorsHeaders } from '@/lib/security';
 
 // Supabase admin client
 const supabaseAdmin = createClient(
@@ -27,14 +28,8 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// CORS headers
-function corsHeaders(origin: string | null) {
-    return {
-        'Access-Control-Allow-Origin': origin || '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    };
-}
+// SECURITY: Use secure CORS headers (validates origin instead of wildcard)
+const corsHeaders = secureCorsHeaders;
 
 export async function OPTIONS(request: NextRequest) {
     const origin = request.headers.get('origin');

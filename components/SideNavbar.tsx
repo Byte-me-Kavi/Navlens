@@ -67,9 +67,9 @@ const navGroups: NavGroup[] = [
     icon: FireIcon,
     items: [
       { name: "Frustration Signals", href: "/dashboard/frustration-signals", icon: ExclamationTriangleIcon },
-      { name: "Performance", href: "/dashboard/performance", icon: PresentationChartBarIcon, badge: "New" },
-      { name: "User Journeys", href: "/dashboard/journey", icon: FunnelIcon, badge: "New" },
-      { name: "Cohorts", href: "/dashboard/cohorts", icon: UserGroupIcon, badge: "New" },
+      { name: "Performance", href: "/dashboard/performance", icon: PresentationChartBarIcon},
+      { name: "User Journeys", href: "/dashboard/journey", icon: FunnelIcon},
+      { name: "Cohorts", href: "/dashboard/cohorts", icon: UserGroupIcon},
     ],
   },
   {
@@ -83,8 +83,8 @@ const navGroups: NavGroup[] = [
 
 // Footer items
 const footerItems: NavItem[] = [
-  { name: "Settings", href: "/dashboard/settings", icon: Cog6ToothIcon },
   { name: "Experiments", href: "/dashboard/experiments", icon: BeakerIcon, badge: "Soon" },
+  { name: "Settings", href: "/dashboard/settings", icon: Cog6ToothIcon },
 ];
 
 interface SideNavbarProps {

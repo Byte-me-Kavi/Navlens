@@ -7,7 +7,15 @@
 
 import { createHmac } from 'crypto';
 
-const EDITOR_SECRET = process.env.NAVLENS_EDITOR_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'fallback-secret';
+// SECURITY: Must have a secret configured - no fallback allowed
+function getEditorSecret(): string {
+    const secret = process.env.NAVLENS_EDITOR_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!secret) {
+        throw new Error('NAVLENS_EDITOR_SECRET or SUPABASE_SERVICE_ROLE_KEY must be configured');
+    }
+    return secret;
+}
+
 const URL_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
 /**
@@ -21,7 +29,7 @@ export function generateEditorUrl(
     const timestamp = Date.now();
     const payload = `${experimentId}:${variantId}:${timestamp}`;
 
-    const signature = createHmac('sha256', EDITOR_SECRET)
+    const signature = createHmac('sha256', getEditorSecret())
         .update(payload)
         .digest('hex')
         .slice(0, 16); // Use first 16 chars for shorter URL
@@ -61,7 +69,7 @@ export function validateEditorSignature(
 
     // Verify signature
     const payload = `${experimentId}:${variantId}:${timestamp}`;
-    const expectedSig = createHmac('sha256', EDITOR_SECRET)
+    const expectedSig = createHmac('sha256', getEditorSecret())
         .update(payload)
         .digest('hex')
         .slice(0, 16);

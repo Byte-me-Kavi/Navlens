@@ -47,6 +47,7 @@ CREATE TABLE default.events
     `survey_action` String DEFAULT '',
     `experiment_ids` Array(String) DEFAULT [],
     `variant_ids` Array(String) DEFAULT [],
+    `data` String DEFAULT '',
     INDEX idx_experiments experiment_ids TYPE bloom_filter GRANULARITY 4
 )
 ENGINE = SharedMergeTree('/clickhouse/tables/{uuid}/{shard}', '{replica}')

@@ -14,6 +14,7 @@ import {
   PencilSquareIcon,
   ClipboardIcon,
   ArrowTopRightOnSquareIcon,
+  Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 import { useSite } from "@/app/context/SiteContext";
 
@@ -359,6 +360,154 @@ function EditVariantModal({
   );
 }
 
+// Edit Settings Modal (traffic percentage)
+function EditSettingsModal({
+  isOpen,
+  onClose,
+  experiment,
+  siteId,
+  onSave,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  experiment: Experiment | null;
+  siteId: string;
+  onSave: () => void;
+}) {
+  const [trafficPercentage, setTrafficPercentage] = useState(100);
+  const [variantWeights, setVariantWeights] = useState<Record<string, number>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (experiment) {
+      setTrafficPercentage(experiment.traffic_percentage);
+      // Initialize variant weights
+      const weights: Record<string, number> = {};
+      experiment.variants.forEach((v, i) => {
+        weights[v.id || `variant_${i}`] = v.weight;
+      });
+      setVariantWeights(weights);
+    }
+  }, [experiment]);
+
+  const updateVariantWeight = (variantId: string, newWeight: number) => {
+    const totalOthers = Object.entries(variantWeights)
+      .filter(([id]) => id !== variantId)
+      .reduce((sum, [, w]) => sum + w, 0);
+    
+    // Ensure weights sum to 100
+    const clampedWeight = Math.min(100 - totalOthers, Math.max(0, newWeight));
+    setVariantWeights({ ...variantWeights, [variantId]: clampedWeight });
+  };
+
+  const handleSave = async () => {
+    if (!experiment) return;
+    
+    setIsSaving(true);
+    try {
+      // Build updated variants array with new weights
+      const updatedVariants = experiment.variants.map((v, i) => ({
+        ...v,
+        weight: variantWeights[v.id || `variant_${i}`] || v.weight,
+      }));
+
+      const res = await fetch(`/api/experiments/${experiment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siteId: siteId,
+          traffic_percentage: trafficPercentage,
+          variants: updatedVariants,
+        }),
+      });
+      
+      if (res.ok) {
+        onSave();
+        onClose();
+      }
+    } catch (err) {
+      console.error('Failed to update:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isOpen || !experiment) return null;
+
+  const totalWeight = Object.values(variantWeights).reduce((a, b) => a + b, 0);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h2 className="text-lg font-bold mb-4">Edit Experiment Settings</h2>
+        
+        <div className="space-y-6">
+          {/* Traffic Percentage */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Traffic Percentage: {trafficPercentage}%
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={trafficPercentage}
+              onChange={(e) => setTrafficPercentage(parseInt(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {trafficPercentage}% of visitors will be in the experiment.
+            </p>
+          </div>
+
+          {/* Variant Weights */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Variant Distribution {totalWeight !== 100 && <span className="text-red-500">(must = 100%)</span>}
+            </label>
+            <div className="space-y-3">
+              {experiment.variants.map((v, i) => {
+                const variantId = v.id || `variant_${i}`;
+                const weight = variantWeights[variantId] || 0;
+                return (
+                  <div key={variantId} className="flex items-center gap-3">
+                    <span className="w-24 text-sm font-medium truncate">{v.name}</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={weight}
+                      onChange={(e) => updateVariantWeight(variantId, parseInt(e.target.value))}
+                      className="flex-1 h-2 bg-gray-200 rounded-lg cursor-pointer"
+                    />
+                    <span className="w-12 text-right text-sm">{weight}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving || totalWeight !== 100}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Results panel
 function ResultsPanel({ results }: { results: ExperimentResults | null }) {
   if (!results) {
@@ -457,6 +606,7 @@ export default function ExperimentsPage() {
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [editingExperiment, setEditingExperiment] = useState<Experiment | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -736,6 +886,18 @@ export default function ExperimentsPage() {
                     >
                       <PencilSquareIcon className="w-4 h-4" />
                     </button>
+                    {/* Settings button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingExperiment(exp);
+                        setShowSettingsModal(true);
+                      }}
+                      className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
+                      title="Experiment settings"
+                    >
+                      <Cog6ToothIcon className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -777,6 +939,18 @@ export default function ExperimentsPage() {
         experiment={editingExperiment}
         siteId={selectedSite?.id || ''}
         siteDomain={selectedSite?.domain}
+      />
+
+      {/* Edit Settings modal */}
+      <EditSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => {
+          setShowSettingsModal(false);
+          setEditingExperiment(null);
+        }}
+        experiment={editingExperiment}
+        siteId={selectedSite?.id || ''}
+        onSave={fetchExperiments}
       />
     </div>
   );

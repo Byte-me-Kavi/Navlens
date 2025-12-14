@@ -52,9 +52,15 @@ SETTINGS index_granularity = 8192
 
 -- ALTER TABLE commands to add columns to existing table:
 -- 
+-- Frustration Signals columns:
 -- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS confusion_scroll_score Float64 DEFAULT 0;
 -- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS is_erratic_movement Bool DEFAULT false;
 -- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS cursor_direction_changes Int32 DEFAULT 0;
 -- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS cursor_path_distance Float64 DEFAULT 0;
 -- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS hover_duration_ms Int32 DEFAULT 0;
 -- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS attention_zone String DEFAULT '';
+--
+-- A/B Testing columns (REQUIRED for experiment results):
+-- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS experiment_ids Array(String) DEFAULT [];
+-- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS variant_ids Array(String) DEFAULT [];
+-- ALTER TABLE default.events ADD COLUMN IF NOT EXISTS data String DEFAULT '';

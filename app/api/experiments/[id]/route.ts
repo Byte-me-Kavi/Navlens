@@ -13,6 +13,7 @@ import { invalidateExperiment } from '@/lib/experiments/cache';
 import { publishSiteConfig } from '@/lib/experiments/publisher';
 import type { UpdateExperimentRequest, ExperimentStatus } from '@/lib/experiments/types';
 import { getUserFromRequest } from '@/lib/auth';
+import { secureCorsHeaders } from '@/lib/security';
 
 // Supabase admin client
 const supabaseAdmin = createClient(
@@ -20,14 +21,8 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// CORS headers
-function corsHeaders(origin: string | null) {
-    return {
-        'Access-Control-Allow-Origin': origin || '*',
-        'Access-Control-Allow-Methods': 'GET, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    };
-}
+// SECURITY: Use secure CORS headers (validates origin instead of wildcard)
+const corsHeaders = secureCorsHeaders;
 
 export async function OPTIONS() {
     return new NextResponse(null, {
@@ -52,9 +47,10 @@ export async function GET(
         const siteId = searchParams.get('siteId');
 
         if (!siteId) {
+            // Return 404 instead of 400 for missing siteId (quieter for browser prefetch)
             return NextResponse.json(
-                { error: 'siteId is required' },
-                { status: 400, headers: corsHeaders(origin) }
+                { error: 'Not found' },
+                { status: 404, headers: corsHeaders(origin) }
             );
         }
 

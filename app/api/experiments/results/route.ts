@@ -19,6 +19,7 @@ import {
 } from '@/lib/experiments/stats';
 import type { VariantStats, ExperimentResults } from '@/lib/experiments/types';
 import { getUserFromRequest } from '@/lib/auth';
+import { secureCorsHeaders } from '@/lib/security';
 
 // Supabase admin client
 const supabaseAdmin = createClient(
@@ -29,14 +30,8 @@ const supabaseAdmin = createClient(
 // ClickHouse client
 const clickhouse = getClickHouseClient();
 
-// CORS headers
-function corsHeaders(origin: string | null) {
-    return {
-        'Access-Control-Allow-Origin': origin || '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    };
-}
+// SECURITY: Use secure CORS headers (validates origin instead of wildcard)
+const corsHeaders = secureCorsHeaders;
 
 export async function OPTIONS() {
     return new NextResponse(null, {
@@ -137,30 +132,38 @@ async function computeResults(
     startDate: string | null,
     endDate: string | null
 ): Promise<ExperimentResults> {
-    // Build date filter
+    // Get goal event from experiment config
+    const goalEvent = (experiment.goal_event as string) || 'conversion';
+
+    // Build date filter with parameterized values
+    const queryParams: Record<string, string> = {
+        siteId: siteId,
+        experimentId: experimentId,
+        goalEvent: goalEvent,
+    };
+
     let dateFilter = '';
     if (startDate) {
-        dateFilter += ` AND timestamp >= '${startDate}'`;
+        queryParams.startDate = startDate;
+        dateFilter += ` AND timestamp >= {startDate:String}`;
     }
     if (endDate) {
-        dateFilter += ` AND timestamp <= '${endDate}'`;
+        queryParams.endDate = endDate;
+        dateFilter += ` AND timestamp <= {endDate:String}`;
     }
 
-    // Query ClickHouse for variant stats
-    // Using has() function to check if experiment_id is in the array
-    const goalEvent = experiment.goal_event || 'conversion';
-
+    // SECURITY: Parameterized query to prevent SQL injection
     const query = `
     SELECT 
       arrayJoin(variant_ids) as variant_id,
       countDistinct(session_id) as users,
       countIf(
-        JSONExtractString(assumeNotNull(data), 'event_name') = '${goalEvent}'
-        OR event_type = '${goalEvent}'
+        JSONExtractString(assumeNotNull(data), 'event_name') = {goalEvent:String}
+        OR event_type = {goalEvent:String}
       ) as conversions
     FROM events
-    WHERE site_id = '${siteId}'
-      AND has(experiment_ids, '${experimentId}')
+    WHERE site_id = {siteId:String}
+      AND has(experiment_ids, {experimentId:String})
       ${dateFilter}
     GROUP BY variant_id
     ORDER BY variant_id
@@ -169,7 +172,8 @@ async function computeResults(
     try {
         const result = await clickhouse.query({
             query,
-            format: 'JSONEachRow'
+            format: 'JSONEachRow',
+            query_params: queryParams,
         });
 
         const rawRows = await result.json();
