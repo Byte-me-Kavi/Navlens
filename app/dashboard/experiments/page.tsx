@@ -17,6 +17,7 @@ import {
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 import { useSite } from "@/app/context/SiteContext";
+import { secureApi } from "@/lib/secureApi";
 
 // Types
 interface Variant {
@@ -610,7 +611,7 @@ export default function ExperimentsPage() {
   const [editingExperiment, setEditingExperiment] = useState<Experiment | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch experiments
+  // Fetch experiments using secure API
   const fetchExperiments = useCallback(async () => {
     if (!selectedSite?.id) return;
 
@@ -618,14 +619,9 @@ export default function ExperimentsPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/experiments?siteId=${selectedSite.id}`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch experiments");
-      }
-
-      setExperiments(data.experiments || []);
+      // SECURITY: Uses POST with encrypted response
+      const data = await secureApi.experiments.list(selectedSite.id);
+      setExperiments((data.experiments as Experiment[]) || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -633,21 +629,16 @@ export default function ExperimentsPage() {
     }
   }, [selectedSite?.id]);
 
-  // Fetch results for selected experiment
+  // Fetch results using secure API
   const fetchResults = useCallback(async (experimentId: string) => {
     if (!selectedSite?.id) return;
 
     setIsLoadingResults(true);
 
     try {
-      const res = await fetch(
-        `/api/experiments/results?siteId=${selectedSite.id}&experimentId=${experimentId}`
-      );
-      const data = await res.json();
-
-      if (res.ok) {
-        setResults(data.results);
-      }
+      // SECURITY: Uses POST with encrypted response
+      const data = await secureApi.experiments.results(selectedSite.id, experimentId);
+      setResults((data as { results: ExperimentResults }).results);
     } catch (err) {
       console.error("Failed to fetch results:", err);
     } finally {

@@ -117,6 +117,8 @@ export async function OPTIONS() {
 
 /**
  * GET /api/experiments/modifications?experimentId=xxx&siteId=yyy
+ * 
+ * Authentication: Cookie-based OR signature-based (for cross-origin editor)
  */
 export async function GET(request: NextRequest) {
     const origin = request.headers.get('origin');
@@ -125,6 +127,8 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const experimentId = searchParams.get('experimentId');
         const siteId = searchParams.get('siteId');
+        const timestamp = searchParams.get('ts');
+        const signature = searchParams.get('sig');
 
         if (!experimentId || !siteId) {
             return NextResponse.json(
@@ -133,9 +137,39 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Authenticate
+        // Try cookie-based auth first
+        let isAuthorized = false;
         const user = await getUserFromRequest(request);
-        if (!user) {
+
+        if (user) {
+            // Verify user owns this site
+            const { data: site } = await supabaseAdmin
+                .from('sites')
+                .select('user_id')
+                .eq('id', siteId)
+                .single();
+
+            if (site && site.user_id === user.id) {
+                isAuthorized = true;
+            }
+        }
+
+        // If no cookie auth, try signature-based auth (for cross-origin editor)
+        if (!isAuthorized && signature && timestamp) {
+            try {
+                const { validateEditorSignature } = await import('@/lib/experiments/editor-security');
+                // Need to get variantId from params for validation
+                const variantId = searchParams.get('variantId') || '';
+                const result = validateEditorSignature(experimentId, variantId, timestamp, signature);
+                if (result.valid) {
+                    isAuthorized = true;
+                }
+            } catch {
+                // Signature verification failed
+            }
+        }
+
+        if (!isAuthorized) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401, headers: corsHeaders(origin) }

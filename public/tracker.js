@@ -28,6 +28,15 @@
   const SITE_ID = script?.dataset?.siteId || "";
   const API_HOST = script?.dataset?.apiHost || "https://navlens-rho.vercel.app";
 
+  // ============================================
+  // EDITOR MODE - Disable tracking when in editor
+  // ============================================
+  const IS_EDITOR_MODE = new URLSearchParams(window.location.search).has('__navlens_editor');
+  
+  if (IS_EDITOR_MODE) {
+    console.log('[Navlens] Editor mode detected - tracking disabled');
+  }
+
   // Validate required configuration
   if (!SITE_ID) {
     console.warn(
@@ -4052,11 +4061,14 @@
 
   // Clean up old init reference and update
   // Start when DOM is ready
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => { init(); initFeedback(); });
-  } else {
-    init();
-    initFeedback();
+  // Skip tracking entirely when in editor mode
+  if (!IS_EDITOR_MODE) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => { init(); initFeedback(); });
+    } else {
+      init();
+      initFeedback();
+    }
   }
 
   // ============================================

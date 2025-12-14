@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { FiMessageSquare, FiTag, FiPlus, FiX, FiEdit2, FiTrash2, FiSave } from "react-icons/fi";
+import { secureApi } from "@/lib/secureApi";
 
 interface SessionNote {
   id: string;
@@ -36,11 +37,9 @@ export default function SessionNotesPanel({ sessionId, siteId, isOpen, onClose }
     const fetchNotes = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/session-notes?sessionId=${sessionId}&siteId=${siteId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setNotes(data.notes || []);
-        }
+        // SECURITY: Uses POST with encrypted response
+        const data = await secureApi.sessions.notes.list(sessionId, siteId);
+        setNotes((data.notes as SessionNote[]) || []);
       } catch (error) {
         console.error("Failed to fetch notes:", error);
       } finally {

@@ -310,6 +310,77 @@
   document.body.appendChild(overlay);
 
   // ============================================
+  // LOAD EXISTING MODIFICATIONS
+  // ============================================
+  async function loadExistingModifications() {
+    try {
+      // Include signature and timestamp for cross-origin auth
+      const params = new URLSearchParams({
+        experimentId: experimentId,
+        siteId: siteId,
+        variantId: variantId || '',
+        ts: timestamp || '',
+        sig: signature || ''
+      });
+      
+      console.log('[navlens-editor] Loading modifications from:', `${apiHost}/api/experiments/modifications?${params}`);
+      
+      const resp = await fetch(`${apiHost}/api/experiments/modifications?${params}`);
+      
+      console.log('[navlens-editor] Response status:', resp.status);
+      
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}));
+        console.error('[navlens-editor] Failed to load modifications:', resp.status, errorData);
+        return;
+      }
+      
+      const data = await resp.json();
+      console.log('[navlens-editor] Received data:', data);
+      
+      if (data.modifications && data.modifications.length > 0) {
+        // Filter to only show modifications for this variant
+        const variantMods = variantId 
+          ? data.modifications.filter(m => m.variant_id === variantId)
+          : data.modifications;
+        
+        console.log('[navlens-editor] Filtered mods for variant', variantId, ':', variantMods);
+        
+        modifications = variantMods;
+        updateModList();
+        
+        // Apply modifications visually
+        modifications.forEach(mod => {
+          try {
+            const elements = document.querySelectorAll(mod.selector);
+            console.log('[navlens-editor] Applying mod', mod.type, 'to', mod.selector, '- found', elements.length, 'elements');
+            elements.forEach(el => {
+              if (mod.type === 'css' && mod.changes.css) {
+                Object.assign(el.style, mod.changes.css);
+              } else if (mod.type === 'text' && mod.changes.text !== undefined) {
+                el.textContent = mod.changes.text;
+              } else if (mod.type === 'hide') {
+                el.style.display = 'none';
+              }
+            });
+          } catch (e) {
+            console.warn('[navlens-editor] Could not apply modification:', mod.selector, e);
+          }
+        });
+        
+        console.log(`[navlens-editor] Loaded ${modifications.length} existing modifications for ${variantId || 'all variants'}`);
+      } else {
+        console.log('[navlens-editor] No existing modifications found');
+      }
+    } catch (e) {
+      console.error('[navlens-editor] Could not load existing modifications:', e);
+    }
+  }
+  
+  // Load existing modifications on startup
+  loadExistingModifications();
+
+  // ============================================
   // ELEMENT SELECTION
   // ============================================
   

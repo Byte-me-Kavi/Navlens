@@ -19,3 +19,8 @@ export {
     trackerCorsHeaders,
     validateOriginForSite,
 } from './cors';
+
+export {
+    requestQueue,
+    RequestQueue,
+} from './requestQueue';

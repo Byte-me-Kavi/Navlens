@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useSite } from "@/app/context/SiteContext";
+import { secureApi } from "@/lib/secureApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
 import {
@@ -539,15 +540,14 @@ export default function CohortsDashboard() {
   const [comparison, setComparison] = useState<ComparisonData[] | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
 
+  // Fetch cohorts using secure API
   const fetchCohorts = async () => {
     if (!selectedSiteId) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/cohorts?siteId=${selectedSiteId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setCohorts(data.cohorts || []);
-      }
+      // SECURITY: Uses POST with encrypted response
+      const data = await secureApi.cohorts.list(selectedSiteId);
+      setCohorts((data.cohorts as Cohort[]) || []);
     } catch (error) {
       console.error("Failed to fetch cohorts:", error);
     } finally {
