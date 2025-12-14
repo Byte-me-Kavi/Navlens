@@ -1061,16 +1061,59 @@
   // ============================================
   
   function getSelector(element) {
-    if (element.id) return `#${element.id}`;
+    // If element has an ID, use it directly
+    if (element.id) return `#${CSS.escape(element.id)}`;
     
+    // Try to use unique attributes for images
+    if (element.tagName === 'IMG') {
+      // Use src-based selector for images (more specific)
+      const src = element.getAttribute('src');
+      if (src) {
+        // Extract a short, unique part of the src
+        const srcPart = src.split('/').pop()?.split('?')[0];
+        if (srcPart && srcPart.length > 3) {
+          return `img[src*="${CSS.escape(srcPart)}"]`;
+        }
+      }
+      // Fallback: use alt attribute
+      const alt = element.getAttribute('alt');
+      if (alt) {
+        return `img[alt="${CSS.escape(alt)}"]`;
+      }
+    }
+    
+    // For links, use href
+    if (element.tagName === 'A') {
+      const href = element.getAttribute('href');
+      if (href && href !== '#' && href !== '/') {
+        return `a[href="${CSS.escape(href)}"]`;
+      }
+    }
+    
+    // Build path with nth-child for uniqueness
     let path = [];
-    while (element && element.nodeType === Node.ELEMENT_NODE) {
-      let selector = element.tagName.toLowerCase();
+    let current = element;
+    
+    while (current && current.nodeType === Node.ELEMENT_NODE && current !== document.body) {
+      let selector = current.tagName.toLowerCase();
       
-      if (element.className && typeof element.className === 'string') {
-        const classes = element.className.trim().split(/\s+/)
+      // Add nth-child for specificity (especially useful for repeated elements)
+      const parent = current.parentElement;
+      if (parent) {
+        const siblings = Array.from(parent.children).filter(
+          child => child.tagName === current.tagName
+        );
+        if (siblings.length > 1) {
+          const index = siblings.indexOf(current) + 1;
+          selector += `:nth-of-type(${index})`;
+        }
+      }
+      
+      // Add a class if available (limit to 1 to keep selector short)
+      if (current.className && typeof current.className === 'string') {
+        const classes = current.className.trim().split(/\s+/)
           .filter(c => c && !c.startsWith('nv-'))
-          .slice(0, 2);
+          .slice(0, 1);
         if (classes.length) {
           selector += '.' + classes.map(c => CSS.escape(c)).join('.');
         }
@@ -1078,8 +1121,9 @@
       
       path.unshift(selector);
       
-      if (element.id || path.length >= 3) break;
-      element = element.parentElement;
+      // Stop if we have enough specificity
+      if (current.id || path.length >= 4) break;
+      current = current.parentElement;
     }
     
     return path.join(' > ');
