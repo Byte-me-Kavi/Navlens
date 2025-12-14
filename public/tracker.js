@@ -141,6 +141,25 @@
           element.style.display = 'none';
           break;
           
+        case 'remove':
+          element.remove();
+          break;
+          
+        case 'clone':
+          const cloneCount = changes.cloneCount || 1;
+          const clonePos = changes.clonePosition || 'after';
+          for (let i = 0; i < cloneCount; i++) {
+            const cloned = element.cloneNode(true);
+            cloned.removeAttribute('id');
+            cloned.removeAttribute('data-nv-applied');
+            if (clonePos === 'before') {
+              element.parentNode.insertBefore(cloned, element);
+            } else {
+              element.parentNode.insertBefore(cloned, element.nextSibling);
+            }
+          }
+          break;
+          
         case 'image':
           if (changes.imageUrl) {
             // Robust image replacement for Next.js
@@ -203,12 +222,21 @@
           if (changes.height) element.style.height = changes.height;
           break;
           
-        case 'clone':
-          const cloneCount = changes.cloneCount || 1;
-          for (let i = 0; i < cloneCount && i < 10; i++) {
-            const clone = element.cloneNode(true);
-            delete clone.dataset.nvApplied; // Allow re-processing
-            element.parentNode.insertBefore(clone, element.nextSibling);
+        case 'dragMove':
+          // Replay drag-and-drop move
+          if (changes.targetSelector && changes.position) {
+            try {
+              const target = document.querySelector(changes.targetSelector);
+              if (target && target.parentNode) {
+                if (changes.position === 'before') {
+                  target.parentNode.insertBefore(element, target);
+                } else {
+                  target.parentNode.insertBefore(element, target.nextSibling);
+                }
+              }
+            } catch (e) {
+              console.warn('[navlens] Failed to replay dragMove:', e);
+            }
           }
           break;
           

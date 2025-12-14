@@ -335,13 +335,39 @@
   highlight.style.display = 'none';
   overlay.appendChild(highlight);
   
-  // Toolbar HTML - now with all 18 modification types
+  // Toolbar HTML - with all modification types + UX controls
   const toolbar = document.createElement('div');
   toolbar.className = 'nv-toolbar';
   toolbar.innerHTML = `
     <div class="nv-toolbar-header">
       <span class="nv-toolbar-title">🧪 Navlens Editor</span>
       <button class="nv-btn nv-btn-danger" id="nv-close">✕</button>
+    </div>
+    
+    <!-- Mode & Viewport Controls -->
+    <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 160px;">
+        <div class="nv-panel-label" style="margin-bottom: 4px;">Mode</div>
+        <div style="display: flex; background: #374151; border-radius: 6px; overflow: hidden;">
+          <button id="nv-mode-edit" class="nv-mode-btn nv-mode-active" style="flex:1; padding: 6px 6px; font-size: 10px; border: none; cursor: pointer; background: #3b82f6; color: white;">🖱️ Edit</button>
+          <button id="nv-mode-drag" class="nv-mode-btn" style="flex:1; padding: 6px 6px; font-size: 10px; border: none; cursor: pointer; background: transparent; color: #9ca3af;">✋ Drag</button>
+          <button id="nv-mode-navigate" class="nv-mode-btn" style="flex:1; padding: 6px 6px; font-size: 10px; border: none; cursor: pointer; background: transparent; color: #9ca3af;">🔗 Nav</button>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 150px;">
+        <div class="nv-panel-label" style="margin-bottom: 4px;">Viewport</div>
+        <div style="display: flex; gap: 4px;">
+          <button id="nv-viewport-mobile" class="nv-viewport-btn" title="Mobile 375px" style="flex:1; padding: 6px 4px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; background: #374151; color: #9ca3af;">📱</button>
+          <button id="nv-viewport-tablet" class="nv-viewport-btn" title="Tablet 768px" style="flex:1; padding: 6px 4px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; background: #374151; color: #9ca3af;">📱</button>
+          <button id="nv-viewport-desktop" class="nv-viewport-btn nv-viewport-active" title="Desktop 100%" style="flex:1; padding: 6px 4px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; background: #3b82f6; color: white;">💻</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Undo/Redo Row -->
+    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+      <button id="nv-undo" class="nv-btn" style="flex:1;" disabled title="Undo (Ctrl+Z)">↩️ Undo</button>
+      <button id="nv-redo" class="nv-btn" style="flex:1;" disabled title="Redo (Ctrl+Shift+Z)">↪️ Redo</button>
     </div>
     
     <div id="nv-instructions" style="color: #9ca3af; font-size: 12px;">
@@ -387,11 +413,29 @@
         <textarea id="nv-new-text" class="nv-input" rows="3" placeholder="Enter replacement text..."></textarea>
       </div>
 
-      <!-- Hide Panel - no additional inputs needed -->
+      <!-- Hide Panel -->
       <div id="nv-hide-panel" class="nv-panel-section" style="display: none;">
         <div style="color: #fbbf24; font-size: 12px;">
-          ⚠️ This will hide the selected element from visitors in this variant.
+          ⚠️ This will hide the selected element (CSS display: none). Element stays in DOM.
         </div>
+      </div>
+
+      <!-- Remove Panel (Hard Delete) -->
+      <div id="nv-remove-panel" class="nv-panel-section" style="display: none;">
+        <div style="color: #ef4444; font-size: 12px;">
+          🗑️ This will <strong>permanently remove</strong> the element from the DOM for this variant.
+        </div>
+      </div>
+
+      <!-- Clone Panel -->
+      <div id="nv-clone-panel" class="nv-panel-section" style="display: none;">
+        <div class="nv-panel-label">Number of Clones</div>
+        <input type="number" id="nv-clone-count" class="nv-input" min="1" max="10" value="1" placeholder="1-10">
+        <div class="nv-panel-label" style="margin-top: 8px;">Position</div>
+        <select id="nv-clone-position" class="nv-input">
+          <option value="after">After Original</option>
+          <option value="before">Before Original</option>
+        </select>
       </div>
 
       <!-- Image Panel -->
@@ -604,7 +648,11 @@
     // Universal types (work on any element)
     css: { label: '🎨 Change Style (CSS)', hint: 'Modify colors, fonts, spacing', universal: true },
     text: { label: '✏️ Change Text', hint: 'Replace text content', universal: true },
-    hide: { label: '👁️ Hide Element', hint: 'Hide from visitors', universal: true },
+    hide: { label: '👁️ Hide Element', hint: 'Hide from visitors (CSS)', universal: true },
+    remove: { label: '🗑️ Remove Element', hint: 'Delete from DOM', universal: true },
+    clone: { label: '📋 Clone Element', hint: 'Duplicate this element', universal: true },
+    insertHtml: { label: '➕ Insert HTML', hint: 'Add HTML before/after', universal: true },
+    replaceHtml: { label: '🔄 Replace HTML', hint: 'Replace with custom HTML', universal: true },
     resize: { label: '📐 Resize Element', hint: 'Change width/height', universal: true },
     reorder: { label: '↕️ Reorder Element', hint: 'Move among siblings', universal: true },
     move: { label: '✋ Move Element', hint: 'Offset position', universal: true },
@@ -926,6 +974,22 @@
           case 'hide':
             el.style.display = 'none';
             break;
+          case 'remove':
+            el.remove();
+            break;
+          case 'clone':
+            const count = changes.cloneCount || 1;
+            const position = changes.clonePosition || 'after';
+            for (let i = 0; i < count; i++) {
+              const clone = el.cloneNode(true);
+              clone.removeAttribute('id'); // Avoid duplicate IDs
+              if (position === 'before') {
+                el.parentNode.insertBefore(clone, el);
+              } else {
+                el.parentNode.insertBefore(clone, el.nextSibling);
+              }
+            }
+            break;
           case 'image':
             if (changes.imageUrl) {
               // Handle both direct IMG elements and Next.js Image wrappers
@@ -983,13 +1047,7 @@
             if (changes.width) el.style.width = changes.width;
             if (changes.height) el.style.height = changes.height;
             break;
-          case 'clone':
-            const count = changes.cloneCount || 1;
-            for (let i = 0; i < count; i++) {
-              const clone = el.cloneNode(true);
-              el.parentNode.insertBefore(clone, el.nextSibling);
-            }
-            break;
+
           case 'reorder':
             const parent = el.parentNode;
             const siblings = Array.from(parent.children);
@@ -1178,18 +1236,24 @@
     highlight.style.height = rect.height + 'px';
   }
   
-  // Mouse move - highlight
+  // Mouse move - highlight (only in edit mode)
   document.addEventListener('mousemove', (e) => {
-    if (isDragging || isEditorElement(e.target)) {
+    // Skip if in navigate mode or dragging or clicking on editor
+    if (window.navlensInteractionMode === 'navigate' || isDragging || isEditorElement(e.target)) {
       highlight.style.display = 'none';
       return;
     }
     positionHighlight(e.target);
   });
   
-  // Click - select
+  // Click - select (only in edit mode, allow navigation in nav mode)
   document.addEventListener('click', (e) => {
     if (isEditorElement(e.target)) return;
+    
+    // In navigate mode, allow normal clicks (links work)
+    if (window.navlensInteractionMode === 'navigate') {
+      return; // Don't prevent default, allow navigation
+    }
     
     e.preventDefault();
     e.stopPropagation();
@@ -1285,7 +1349,11 @@
         break;
         
       case 'hide':
-        // No additional changes needed
+        // No additional changes needed - just hides with CSS
+        break;
+        
+      case 'remove':
+        // No additional changes needed - removes from DOM
         break;
         
       case 'image':
@@ -1318,6 +1386,7 @@
         
       case 'clone':
         mod.changes.cloneCount = parseInt(document.getElementById('nv-clone-count').value) || 1;
+        mod.changes.clonePosition = document.getElementById('nv-clone-position').value || 'after';
         break;
         
       case 'reorder':
@@ -1547,5 +1616,258 @@
   toolbar.addEventListener('mousedown', () => { isDragging = true; });
   document.addEventListener('mouseup', () => { isDragging = false; });
 
-  console.log('[navlens-editor] Visual editor loaded with 18 modification types');
+  // ============================================
+  // MODE TOGGLE (EDIT vs DRAG vs NAVIGATE)
+  // ============================================
+  window.navlensInteractionMode = 'edit'; // 'edit', 'drag', 'navigate'
+  let draggedElement = null;
+  let draggedSelector = null;
+  
+  function updateModeButtons(activeMode) {
+    const modes = ['edit', 'drag', 'navigate'];
+    modes.forEach(mode => {
+      const btn = document.getElementById(`nv-mode-${mode}`);
+      if (btn) {
+        if (mode === activeMode) {
+          btn.style.background = '#3b82f6';
+          btn.style.color = 'white';
+        } else {
+          btn.style.background = 'transparent';
+          btn.style.color = '#9ca3af';
+        }
+      }
+    });
+    highlight.style.display = 'none';
+  }
+  
+  document.getElementById('nv-mode-edit').addEventListener('click', () => {
+    window.navlensInteractionMode = 'edit';
+    updateModeButtons('edit');
+    disableDragMode();
+  });
+  
+  document.getElementById('nv-mode-drag').addEventListener('click', () => {
+    window.navlensInteractionMode = 'drag';
+    updateModeButtons('drag');
+    enableDragMode();
+  });
+  
+  document.getElementById('nv-mode-navigate').addEventListener('click', () => {
+    window.navlensInteractionMode = 'navigate';
+    updateModeButtons('navigate');
+    disableDragMode();
+  });
+  
+  // ============================================
+  // DRAG MODE FUNCTIONS
+  // ============================================
+  function enableDragMode() {
+    // Make all major elements draggable
+    document.querySelectorAll('div, section, article, aside, header, footer, nav, main, p, h1, h2, h3, h4, h5, h6, ul, ol, li, a, button, img').forEach(el => {
+      if (isEditorElement(el)) return;
+      el.setAttribute('draggable', 'true');
+      el.style.cursor = 'grab';
+    });
+    console.log('[navlens-editor] Drag mode enabled');
+  }
+  
+  function disableDragMode() {
+    document.querySelectorAll('[draggable="true"]').forEach(el => {
+      if (isEditorElement(el)) return;
+      el.removeAttribute('draggable');
+      el.style.cursor = '';
+    });
+  }
+  
+  // Drag event handlers
+  document.addEventListener('dragstart', (e) => {
+    if (window.navlensInteractionMode !== 'drag' || isEditorElement(e.target)) return;
+    
+    draggedElement = e.target;
+    draggedSelector = getSelector(draggedElement);
+    e.target.style.opacity = '0.5';
+    e.dataTransfer.effectAllowed = 'move';
+    console.log('[navlens-editor] Dragging:', draggedSelector);
+  });
+  
+  document.addEventListener('dragend', (e) => {
+    if (window.navlensInteractionMode !== 'drag') return;
+    e.target.style.opacity = '';
+    draggedElement = null;
+    // Remove drop indicators
+    document.querySelectorAll('.nv-drop-indicator').forEach(el => el.remove());
+  });
+  
+  document.addEventListener('dragover', (e) => {
+    if (window.navlensInteractionMode !== 'drag' || !draggedElement) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Show drop indicator
+    const target = e.target;
+    if (target !== draggedElement && !isEditorElement(target) && target.tagName !== 'HTML' && target.tagName !== 'BODY') {
+      // Remove old indicators
+      document.querySelectorAll('.nv-drop-indicator').forEach(el => el.remove());
+      
+      // Add new indicator
+      const rect = target.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      const position = e.clientY < midY ? 'before' : 'after';
+      
+      const indicator = document.createElement('div');
+      indicator.className = 'nv-drop-indicator';
+      indicator.style.cssText = `
+        position: absolute;
+        left: ${rect.left}px;
+        width: ${rect.width}px;
+        height: 3px;
+        background: #3b82f6;
+        z-index: 10000;
+        pointer-events: none;
+        top: ${position === 'before' ? rect.top + window.scrollY : rect.bottom + window.scrollY}px;
+      `;
+      document.body.appendChild(indicator);
+      target.dataset.nvDropPosition = position;
+    }
+  });
+  
+  document.addEventListener('drop', (e) => {
+    if (window.navlensInteractionMode !== 'drag' || !draggedElement) return;
+    e.preventDefault();
+    
+    const target = e.target;
+    if (target === draggedElement || isEditorElement(target)) return;
+    
+    const position = target.dataset.nvDropPosition || 'after';
+    delete target.dataset.nvDropPosition;
+    
+    // Perform the move
+    const parent = target.parentNode;
+    if (position === 'before') {
+      parent.insertBefore(draggedElement, target);
+    } else {
+      parent.insertBefore(draggedElement, target.nextSibling);
+    }
+    
+    // Save as modification
+    saveUndoState();
+    const mod = {
+      id: 'mod_' + Date.now(),
+      variant_id: variantId || 'variant_0',
+      selector: draggedSelector,
+      type: 'dragMove',
+      changes: {
+        targetSelector: getSelector(target),
+        position: position
+      }
+    };
+    modifications.push(mod);
+    updateModList();
+    
+    console.log('[navlens-editor] Moved element:', draggedSelector, position, 'target');
+    
+    // Clean up
+    document.querySelectorAll('.nv-drop-indicator').forEach(el => el.remove());
+  });
+
+  // ============================================
+  // VIEWPORT TOGGLE
+  // ============================================
+  const viewportSizes = { mobile: 375, tablet: 768, desktop: null };
+  let currentViewport = 'desktop';
+  
+  function setViewport(size) {
+    const btns = ['mobile', 'tablet', 'desktop'];
+    btns.forEach(v => {
+      const btn = document.getElementById(`nv-viewport-${v}`);
+      if (v === size) {
+        btn.style.background = '#3b82f6';
+        btn.style.color = 'white';
+      } else {
+        btn.style.background = '#374151';
+        btn.style.color = '#9ca3af';
+      }
+    });
+    
+    currentViewport = size;
+    const width = viewportSizes[size];
+    
+    if (width) {
+      document.documentElement.style.maxWidth = width + 'px';
+      document.documentElement.style.margin = '0 auto';
+      document.documentElement.style.boxShadow = '0 0 20px rgba(0,0,0,0.3)';
+    } else {
+      document.documentElement.style.maxWidth = '';
+      document.documentElement.style.margin = '';
+      document.documentElement.style.boxShadow = '';
+    }
+  }
+  
+  document.getElementById('nv-viewport-mobile').addEventListener('click', () => setViewport('mobile'));
+  document.getElementById('nv-viewport-tablet').addEventListener('click', () => setViewport('tablet'));
+  document.getElementById('nv-viewport-desktop').addEventListener('click', () => setViewport('desktop'));
+
+  // ============================================
+  // UNDO/REDO
+  // ============================================
+  const undoStack = [];
+  const redoStack = [];
+  
+  function saveUndoState() {
+    undoStack.push(JSON.parse(JSON.stringify(modifications)));
+    redoStack.length = 0; // Clear redo on new action
+    updateUndoRedoButtons();
+  }
+  
+  function updateUndoRedoButtons() {
+    document.getElementById('nv-undo').disabled = undoStack.length === 0;
+    document.getElementById('nv-redo').disabled = redoStack.length === 0;
+  }
+  
+  function undo() {
+    if (undoStack.length === 0) return;
+    redoStack.push(JSON.parse(JSON.stringify(modifications)));
+    modifications.length = 0;
+    const prev = undoStack.pop();
+    prev.forEach(m => modifications.push(m));
+    updateModList();
+    updateUndoRedoButtons();
+    // Refresh page to reapply modifications
+    location.reload();
+  }
+  
+  function redo() {
+    if (redoStack.length === 0) return;
+    undoStack.push(JSON.parse(JSON.stringify(modifications)));
+    modifications.length = 0;
+    const next = redoStack.pop();
+    next.forEach(m => modifications.push(m));
+    updateModList();
+    updateUndoRedoButtons();
+    location.reload();
+  }
+  
+  document.getElementById('nv-undo').addEventListener('click', undo);
+  document.getElementById('nv-redo').addEventListener('click', redo);
+  
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'z') {
+      if (e.shiftKey) {
+        e.preventDefault();
+        redo();
+      } else {
+        e.preventDefault();
+        undo();
+      }
+    }
+  });
+  
+  // Hook into add modification to save undo state
+  const origAddHandler = document.getElementById('nv-add-mod').onclick;
+  document.getElementById('nv-add-mod').addEventListener('click', () => {
+    saveUndoState();
+  }, true);
+
+  console.log('[navlens-editor] Visual editor loaded with 22 modification types + UX controls');
 })();
