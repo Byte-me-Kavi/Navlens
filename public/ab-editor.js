@@ -1902,24 +1902,30 @@
     const width = viewportSizes[size];
     
     if (width) {
-      // Open current page in new window with exact viewport dimensions
+      // Open page in PREVIEW mode (without editor) for viewport testing
       const height = size === 'mobile' ? 667 : 1024; // iPhone height or iPad height
-      const url = window.location.href;
+      
+      // Build preview URL - remove editor params, add preview flag
+      const previewUrl = new URL(window.location.href);
+      previewUrl.searchParams.delete('__navlens_editor');
+      previewUrl.searchParams.delete('__variant');
+      previewUrl.searchParams.delete('__ts');
+      previewUrl.searchParams.delete('__sig');
+      previewUrl.searchParams.set('__navlens_preview', variantId || 'variant_0');
       
       // Close any previously opened viewport window
       if (window.nvViewportWindow && !window.nvViewportWindow.closed) {
         window.nvViewportWindow.close();
       }
       
-      // Open new window with exact dimensions
+      // Open new window with exact dimensions (preview only, no editor)
       window.nvViewportWindow = window.open(
-        url,
+        previewUrl.toString(),
         'NavlensViewport',
         `width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`
       );
       
-      // Show info to user
-      alert(`Opened ${size} viewport (${width}x${height}px) in new window.\n\nMake changes there and save - they'll sync!`);
+      console.log(`[navlens-editor] Opened ${size} preview at ${width}x${height}px`);
     } else {
       // Desktop - close viewport window if open
       if (window.nvViewportWindow && !window.nvViewportWindow.closed) {
