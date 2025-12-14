@@ -610,8 +610,24 @@
           <option value="shake">Shake</option>
           <option value="custom">Custom CSS</option>
         </select>
-        <div class="nv-panel-label" style="margin-top: 8px;">Duration</div>
-        <input type="text" id="nv-animation-duration" class="nv-input" placeholder="e.g., 0.5s or 500ms" value="0.5s">
+        <div class="nv-two-col" style="margin-top: 8px;">
+          <div>
+            <div class="nv-panel-label">Duration</div>
+            <input type="text" id="nv-animation-duration" class="nv-input" placeholder="0.5s" value="0.5s">
+          </div>
+          <div>
+            <div class="nv-panel-label">Repeat</div>
+            <select id="nv-animation-iteration" class="nv-input">
+              <option value="1">Once</option>
+              <option value="2">2 times</option>
+              <option value="3">3 times</option>
+              <option value="5">5 times</option>
+              <option value="infinite">∞ Infinite</option>
+            </select>
+          </div>
+        </div>
+        <div class="nv-panel-label" style="margin-top: 8px;">Delay (before start)</div>
+        <input type="text" id="nv-animation-delay" class="nv-input" placeholder="0s" value="0s">
         <div id="nv-animation-custom-container" style="display: none; margin-top: 8px;">
           <div class="nv-panel-label">Custom CSS Animation</div>
           <textarea id="nv-animation-custom" class="nv-input" rows="2" placeholder="transform: scale(1.1);" style="font-family: monospace;"></textarea>
@@ -1439,6 +1455,8 @@
       case 'animation':
         mod.changes.animationName = document.getElementById('nv-animation-name').value;
         mod.changes.animationDuration = document.getElementById('nv-animation-duration').value;
+        mod.changes.animationIteration = document.getElementById('nv-animation-iteration').value || '1';
+        mod.changes.animationDelay = document.getElementById('nv-animation-delay').value || '0s';
         if (mod.changes.animationName === 'custom') {
           mod.changes.animationCustom = document.getElementById('nv-animation-custom').value;
         }
@@ -1709,6 +1727,9 @@
       // Remove old indicators
       document.querySelectorAll('.nv-drop-indicator').forEach(el => el.remove());
       
+      // Check if target is a sibling (same parent)
+      const isSibling = target.parentNode === draggedElement.parentNode;
+      
       // Add new indicator
       const rect = target.getBoundingClientRect();
       const midY = rect.top + rect.height / 2;
@@ -1721,13 +1742,14 @@
         left: ${rect.left}px;
         width: ${rect.width}px;
         height: 3px;
-        background: #3b82f6;
+        background: ${isSibling ? '#3b82f6' : '#ef4444'};
         z-index: 10000;
         pointer-events: none;
         top: ${position === 'before' ? rect.top + window.scrollY : rect.bottom + window.scrollY}px;
       `;
       document.body.appendChild(indicator);
       target.dataset.nvDropPosition = position;
+      target.dataset.nvIsSibling = isSibling ? 'true' : 'false';
     }
   });
   
@@ -1738,8 +1760,20 @@
     const target = e.target;
     if (target === draggedElement || isEditorElement(target)) return;
     
+    // Check if sibling drop
+    const isSibling = target.dataset.nvIsSibling === 'true';
     const position = target.dataset.nvDropPosition || 'after';
     delete target.dataset.nvDropPosition;
+    delete target.dataset.nvIsSibling;
+    
+    // Clean up indicators
+    document.querySelectorAll('.nv-drop-indicator').forEach(el => el.remove());
+    
+    // Only allow sibling moves
+    if (!isSibling) {
+      console.log('[navlens-editor] Drop rejected: can only move within same parent');
+      return;
+    }
     
     // Perform the move
     const parent = target.parentNode;
@@ -1765,9 +1799,6 @@
     updateModList();
     
     console.log('[navlens-editor] Moved element:', draggedSelector, position, 'target');
-    
-    // Clean up
-    document.querySelectorAll('.nv-drop-indicator').forEach(el => el.remove());
   });
 
   // ============================================
@@ -1792,14 +1823,59 @@
     currentViewport = size;
     const width = viewportSizes[size];
     
+    // Apply viewport constraints to both html and body
+    const html = document.documentElement;
+    const body = document.body;
+    
     if (width) {
-      document.documentElement.style.maxWidth = width + 'px';
-      document.documentElement.style.margin = '0 auto';
-      document.documentElement.style.boxShadow = '0 0 20px rgba(0,0,0,0.3)';
+      // Create viewport wrapper effect
+      html.style.cssText += `
+        max-width: ${width}px !important;
+        margin: 0 auto !important;
+        box-shadow: 0 0 30px rgba(0,0,0,0.4) !important;
+        overflow-x: hidden !important;
+        background: #1f2937 !important;
+      `;
+      body.style.cssText += `
+        max-width: ${width}px !important;
+        margin: 0 auto !important;
+        overflow-x: hidden !important;
+      `;
+      // Add viewport badge
+      let badge = document.getElementById('nv-viewport-badge');
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.id = 'nv-viewport-badge';
+        badge.style.cssText = `
+          position: fixed;
+          bottom: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #3b82f6;
+          color: white;
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-family: system-ui;
+          z-index: 10001;
+          pointer-events: none;
+        `;
+        document.body.appendChild(badge);
+      }
+      badge.textContent = `${width}px viewport`;
+      badge.style.display = 'block';
     } else {
-      document.documentElement.style.maxWidth = '';
-      document.documentElement.style.margin = '';
-      document.documentElement.style.boxShadow = '';
+      // Reset to full width
+      html.style.maxWidth = '';
+      html.style.margin = '';
+      html.style.boxShadow = '';
+      html.style.overflowX = '';
+      html.style.background = '';
+      body.style.maxWidth = '';
+      body.style.margin = '';
+      body.style.overflowX = '';
+      const badge = document.getElementById('nv-viewport-badge');
+      if (badge) badge.style.display = 'none';
     }
   }
   
@@ -1832,8 +1908,9 @@
     prev.forEach(m => modifications.push(m));
     updateModList();
     updateUndoRedoButtons();
-    // Refresh page to reapply modifications
-    location.reload();
+    // Note: DOM changes from previous modification are already applied
+    // User must save and refresh to see current state
+    console.log('[navlens-editor] Undo completed. Save and refresh to see baseline state.');
   }
   
   function redo() {
@@ -1844,7 +1921,9 @@
     next.forEach(m => modifications.push(m));
     updateModList();
     updateUndoRedoButtons();
-    location.reload();
+    // Re-apply all current modifications
+    modifications.forEach(applyModification);
+    console.log('[navlens-editor] Redo completed.');
   }
   
   document.getElementById('nv-undo').addEventListener('click', undo);

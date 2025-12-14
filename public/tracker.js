@@ -355,7 +355,9 @@
                 }
               });
             } else {
-              element.style.animation = `${changes.animationName} ${duration}`;
+              const iteration = changes.animationIteration || '1';
+              const delay = changes.animationDelay || '0s';
+              element.style.animation = `${changes.animationName} ${duration} ${delay} ${iteration}`;
             }
           }
           break;
