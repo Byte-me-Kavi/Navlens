@@ -358,38 +358,9 @@
       <div class="nv-panel-section">
         <div class="nv-panel-label">Modification Type</div>
         <select id="nv-mod-type" class="nv-input">
-          <optgroup label="Content">
-            <option value="css">🎨 Change Style (CSS)</option>
-            <option value="text">✏️ Change Text</option>
-            <option value="hide">👁️ Hide Element</option>
-            <option value="image">🖼️ Replace Image</option>
-            <option value="link">🔗 Replace Link</option>
-            <option value="insertHtml">➕ Insert HTML</option>
-            <option value="replaceHtml">🔄 Replace HTML</option>
-          </optgroup>
-          <optgroup label="Visual">
-            <option value="resize">📐 Resize Element</option>
-            <option value="clone">📋 Clone Element</option>
-            <option value="reorder">↕️ Reorder Element</option>
-            <option value="move">✋ Move Element</option>
-          </optgroup>
-          <optgroup label="Attributes">
-            <option value="attribute">⚙️ Modify Attribute</option>
-            <option value="class">🏷️ Toggle Classes</option>
-          </optgroup>
-          <optgroup label="Interactive">
-            <option value="clickRedirect">🖱️ Click Redirect</option>
-            <option value="tooltip">💬 Add Tooltip</option>
-            <option value="sticky">📌 Make Sticky</option>
-          </optgroup>
-          <optgroup label="Forms">
-            <option value="placeholder">📝 Change Placeholder</option>
-            <option value="formAction">📤 Change Form Action</option>
-          </optgroup>
-          <optgroup label="Animation">
-            <option value="animation">✨ Add Animation</option>
-          </optgroup>
+          <!-- Options populated dynamically based on selected element -->
         </select>
+        <div id="nv-type-hint" style="font-size: 10px; color: #6b7280; margin-top: 4px;"></div>
       </div>
       
       <!-- CSS Panel -->
@@ -622,6 +593,158 @@
   document.body.appendChild(overlay);
 
   // ============================================
+  // SMART MODIFICATION TYPES & ORIGINAL STATE
+  // ============================================
+  
+  // Store original element states for undo
+  const originalStates = new Map();
+  
+  // All available modification types with their requirements
+  const modificationTypes = {
+    // Universal types (work on any element)
+    css: { label: '🎨 Change Style (CSS)', hint: 'Modify colors, fonts, spacing', universal: true },
+    text: { label: '✏️ Change Text', hint: 'Replace text content', universal: true },
+    hide: { label: '👁️ Hide Element', hint: 'Hide from visitors', universal: true },
+    resize: { label: '📐 Resize Element', hint: 'Change width/height', universal: true },
+    reorder: { label: '↕️ Reorder Element', hint: 'Move among siblings', universal: true },
+    move: { label: '✋ Move Element', hint: 'Offset position', universal: true },
+    attribute: { label: '⚙️ Modify Attribute', hint: 'Change any attribute', universal: true },
+    class: { label: '🏷️ Toggle Classes', hint: 'Add/remove CSS classes', universal: true },
+    tooltip: { label: '💬 Add Tooltip', hint: 'Show text on hover', universal: true },
+    sticky: { label: '📌 Make Sticky', hint: 'Stick to viewport', universal: true },
+    animation: { label: '✨ Add Animation', hint: 'Animate on load', universal: true },
+    clickRedirect: { label: '🖱️ Click Redirect', hint: 'Navigate on click', universal: true },
+    
+    // Element-specific types
+    image: { label: '🖼️ Replace Image', hint: 'Swap image source', tags: ['IMG'] },
+    link: { label: '🔗 Replace Link', hint: 'Change link URL', tags: ['A'] },
+    placeholder: { label: '📝 Change Placeholder', hint: 'Modify placeholder text', tags: ['INPUT', 'TEXTAREA'] },
+    formAction: { label: '📤 Change Form Action', hint: 'Redirect form submission', tags: ['FORM'] }
+  };
+  
+  // Populate modification types based on selected element
+  function populateModTypes(element) {
+    const select = document.getElementById('nv-mod-type');
+    const hint = document.getElementById('nv-type-hint');
+    const tagName = element.tagName.toUpperCase();
+    
+    select.innerHTML = '';
+    
+    // Add universal types
+    const universalGroup = document.createElement('optgroup');
+    universalGroup.label = 'All Elements';
+    
+    Object.entries(modificationTypes).forEach(([value, config]) => {
+      if (config.universal) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = config.label;
+        universalGroup.appendChild(option);
+      }
+    });
+    select.appendChild(universalGroup);
+    
+    // Add element-specific types
+    const specificTypes = Object.entries(modificationTypes).filter(
+      ([, config]) => config.tags && config.tags.includes(tagName)
+    );
+    
+    if (specificTypes.length > 0) {
+      const specificGroup = document.createElement('optgroup');
+      specificGroup.label = `${tagName} Specific`;
+      
+      specificTypes.forEach(([value, config]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = config.label;
+        specificGroup.appendChild(option);
+      });
+      select.appendChild(specificGroup);
+      
+      // Default to element-specific type
+      select.value = specificTypes[0][0];
+    }
+    
+    // Show hint
+    const selected = modificationTypes[select.value];
+    hint.textContent = selected ? selected.hint : '';
+    
+    // Show appropriate panel
+    showPanel(`nv-${select.value}-panel`);
+  }
+  
+  // Store original state for undo
+  function storeOriginalState(element, modId) {
+    if (!originalStates.has(modId)) {
+      originalStates.set(modId, {
+        outerHTML: element.outerHTML,
+        style: element.getAttribute('style') || '',
+        textContent: element.textContent,
+        src: element.src,
+        href: element.href,
+        placeholder: element.placeholder,
+        action: element.action,
+        className: element.className,
+        title: element.title
+      });
+    }
+  }
+  
+  // Restore original state on undo
+  function restoreOriginalState(mod) {
+    const original = originalStates.get(mod.id);
+    if (!original) return;
+    
+    try {
+      const elements = document.querySelectorAll(mod.selector);
+      elements.forEach(el => {
+        switch (mod.type) {
+          case 'css':
+          case 'hide':
+          case 'resize':
+          case 'sticky':
+          case 'move':
+            el.setAttribute('style', original.style);
+            break;
+          case 'text':
+            el.textContent = original.textContent;
+            break;
+          case 'image':
+            if (el.tagName === 'IMG') el.src = original.src;
+            break;
+          case 'link':
+            if (el.tagName === 'A') el.href = original.href;
+            break;
+          case 'placeholder':
+            el.placeholder = original.placeholder;
+            break;
+          case 'formAction':
+            if (el.tagName === 'FORM') el.action = original.action;
+            break;
+          case 'class':
+            el.className = original.className;
+            break;
+          case 'tooltip':
+            el.title = original.title;
+            break;
+          case 'animation':
+            el.style.animation = '';
+            el.style.transition = '';
+            break;
+          case 'attribute':
+            // For attributes, we restore the full style and outer state
+            el.setAttribute('style', original.style);
+            break;
+        }
+        delete el.dataset.nvApplied;
+      });
+      originalStates.delete(mod.id);
+    } catch (e) {
+      console.warn('[navlens-editor] Could not restore original state:', e);
+    }
+  }
+
+  // ============================================
   // PANEL VISIBILITY MANAGEMENT
   // ============================================
   const allPanels = [
@@ -643,6 +766,11 @@
   document.getElementById('nv-mod-type').addEventListener('change', (e) => {
     const type = e.target.value;
     showPanel(`nv-${type}-panel`);
+    
+    // Update hint
+    const hint = document.getElementById('nv-type-hint');
+    const config = modificationTypes[type];
+    hint.textContent = config ? config.hint : '';
     
     // Show current classes for class modification
     if (type === 'class' && selectedElement) {
@@ -974,9 +1102,8 @@
     document.getElementById('nv-bg-color-text').value = computed.backgroundColor;
     document.getElementById('nv-text-color-text').value = computed.color;
     
-    // Reset to css panel
-    document.getElementById('nv-mod-type').value = 'css';
-    showPanel('nv-css-panel');
+    // Populate modification types based on selected element
+    populateModTypes(selectedElement);
     
     // Show current classes for class modification
     const classes = Array.from(selectedElement.classList).filter(c => !c.startsWith('nv-'));
@@ -1114,6 +1241,9 @@
         break;
     }
     
+    // Store original state for undo before applying
+    storeOriginalState(selectedElement, mod.id);
+    
     // Apply preview
     applyModification(mod);
     
@@ -1198,10 +1328,17 @@
       </div>
     `).join('');
     
-    // Delete handlers
+    // Delete handlers with undo
     list.querySelectorAll('.nv-mod-delete').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const idx = parseInt(e.target.dataset.index);
+        const mod = modifications[idx];
+        
+        // Restore original state before removing
+        if (mod) {
+          restoreOriginalState(mod);
+        }
+        
         modifications.splice(idx, 1);
         updateModList();
       });
