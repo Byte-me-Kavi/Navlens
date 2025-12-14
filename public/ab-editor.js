@@ -644,16 +644,32 @@
     });
     select.appendChild(universalGroup);
     
-    // Add element-specific types
-    const specificTypes = Object.entries(modificationTypes).filter(
-      ([, config]) => config.tags && config.tags.includes(tagName)
-    );
+    // Check for nested elements (handles Next.js Image wrappers, etc.)
+    const nestedTypes = [];
     
-    if (specificTypes.length > 0) {
+    // Check if this element or its children contain special elements
+    if (tagName === 'IMG' || element.querySelector('img')) {
+      nestedTypes.push(['image', modificationTypes.image]);
+    }
+    if (tagName === 'A' || element.querySelector('a')) {
+      nestedTypes.push(['link', modificationTypes.link]);
+    }
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || element.querySelector('input, textarea')) {
+      nestedTypes.push(['placeholder', modificationTypes.placeholder]);
+    }
+    if (tagName === 'FORM' || element.querySelector('form')) {
+      nestedTypes.push(['formAction', modificationTypes.formAction]);
+    }
+    
+    // Add element-specific types (including nested)
+    if (nestedTypes.length > 0) {
       const specificGroup = document.createElement('optgroup');
-      specificGroup.label = `${tagName} Specific`;
+      const label = tagName === 'IMG' ? 'IMG Specific' : 
+                    tagName === 'A' ? 'Link Specific' :
+                    'Contains Special Elements';
+      specificGroup.label = label;
       
-      specificTypes.forEach(([value, config]) => {
+      nestedTypes.forEach(([value, config]) => {
         const option = document.createElement('option');
         option.value = value;
         option.textContent = config.label;
@@ -662,7 +678,7 @@
       select.appendChild(specificGroup);
       
       // Default to element-specific type
-      select.value = specificTypes[0][0];
+      select.value = nestedTypes[0][0];
     }
     
     // Show hint
@@ -911,7 +927,20 @@
             el.style.display = 'none';
             break;
           case 'image':
-            if (changes.imageUrl && el.tagName === 'IMG') el.src = changes.imageUrl;
+            if (changes.imageUrl) {
+              // Handle both direct IMG elements and Next.js Image wrappers
+              if (el.tagName === 'IMG') {
+                console.log('[navlens-editor] Replacing image src:', el.src, '->', changes.imageUrl);
+                el.src = changes.imageUrl;
+              } else {
+                // Check for img inside the element (Next.js Image wrapper)
+                const img = el.querySelector('img');
+                if (img) {
+                  console.log('[navlens-editor] Replacing nested image src:', img.src, '->', changes.imageUrl);
+                  img.src = changes.imageUrl;
+                }
+              }
+            }
             break;
           case 'link':
             if (changes.linkUrl && el.tagName === 'A') {
@@ -1160,6 +1189,11 @@
         
       case 'image':
         mod.changes.imageUrl = document.getElementById('nv-image-url').value;
+        console.log('[navlens-editor] Adding image modification:', {
+          selector: mod.selector,
+          imageUrl: mod.changes.imageUrl,
+          selectedElement: selectedElement.tagName
+        });
         break;
         
       case 'link':

@@ -142,8 +142,14 @@
           break;
           
         case 'image':
-          if (changes.imageUrl && element.tagName === 'IMG') {
-            element.src = changes.imageUrl;
+          if (changes.imageUrl) {
+            // Handle both direct IMG elements and Next.js Image wrappers
+            if (element.tagName === 'IMG') {
+              element.src = changes.imageUrl;
+            } else {
+              const img = element.querySelector('img');
+              if (img) img.src = changes.imageUrl;
+            }
           }
           break;
           
@@ -329,13 +335,21 @@
   function startExperimentEngine(modifications) {
     if (!modifications?.length) return;
     
+    // Helper to escape selectors with special characters (Tailwind responsive prefixes like md:)
+    function escapeSelector(selector) {
+      // Escape colons that are part of class names (Tailwind responsive prefixes)
+      // But don't escape pseudo-selectors like :hover, :first-child which start with :
+      return selector.replace(/\.([a-z0-9-]+):([a-z0-9-]+)/gi, '.$1\\:$2');
+    }
+    
     // A. Apply to existing elements immediately
     modifications.forEach(mod => {
       try {
-        const elements = document.querySelectorAll(mod.selector);
+        const escapedSelector = escapeSelector(mod.selector);
+        const elements = document.querySelectorAll(escapedSelector);
         elements.forEach(el => applyModification(el, mod));
       } catch (e) {
-        console.warn('[navlens] Invalid selector:', mod.selector);
+        console.warn('[navlens] Invalid selector:', mod.selector, e);
       }
     });
     
@@ -347,7 +361,8 @@
     experimentObserver = new MutationObserver(() => {
       modifications.forEach(mod => {
         try {
-          const elements = document.querySelectorAll(mod.selector);
+          const escapedSelector = escapeSelector(mod.selector);
+          const elements = document.querySelectorAll(escapedSelector);
           elements.forEach(el => {
             if (el.dataset.nvApplied !== mod.id) {
               applyModification(el, mod);
