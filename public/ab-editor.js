@@ -357,14 +357,6 @@
           <button id="nv-mode-navigate" class="nv-mode-btn" style="flex:1; padding: 6px 6px; font-size: 10px; border: none; cursor: pointer; background: transparent; color: #9ca3af;">🔗 Nav</button>
         </div>
       </div>
-      <div style="flex: 1; min-width: 150px;">
-        <div class="nv-panel-label" style="margin-bottom: 4px;">Viewport</div>
-        <div style="display: flex; gap: 4px;">
-          <button id="nv-viewport-mobile" class="nv-viewport-btn" title="Mobile 375px" style="flex:1; padding: 6px 4px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; background: #374151; color: #9ca3af;">📱</button>
-          <button id="nv-viewport-tablet" class="nv-viewport-btn" title="Tablet 768px" style="flex:1; padding: 6px 4px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; background: #374151; color: #9ca3af;">📱</button>
-          <button id="nv-viewport-desktop" class="nv-viewport-btn nv-viewport-active" title="Desktop 100%" style="flex:1; padding: 6px 4px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; background: #3b82f6; color: white;">💻</button>
-        </div>
-      </div>
     </div>
     
     <!-- Undo/Redo Row -->
@@ -1878,65 +1870,6 @@
     
     console.log('[navlens-editor] Moved element:', draggedSelector, position, 'target');
   });
-
-  // ============================================
-  // VIEWPORT TOGGLE
-  // ============================================
-  const viewportSizes = { mobile: 375, tablet: 768, desktop: null };
-  let currentViewport = 'desktop';
-  
-  function setViewport(size) {
-    const btns = ['mobile', 'tablet', 'desktop'];
-    btns.forEach(v => {
-      const btn = document.getElementById(`nv-viewport-${v}`);
-      if (v === size) {
-        btn.style.background = '#3b82f6';
-        btn.style.color = 'white';
-      } else {
-        btn.style.background = '#374151';
-        btn.style.color = '#9ca3af';
-      }
-    });
-    
-    currentViewport = size;
-    const width = viewportSizes[size];
-    
-    if (width) {
-      // Open page in PREVIEW mode (without editor) for viewport testing
-      const height = size === 'mobile' ? 667 : 1024; // iPhone height or iPad height
-      
-      // Build preview URL - remove editor params, add preview flag
-      const previewUrl = new URL(window.location.href);
-      previewUrl.searchParams.delete('__navlens_editor');
-      previewUrl.searchParams.delete('__variant');
-      previewUrl.searchParams.delete('__ts');
-      previewUrl.searchParams.delete('__sig');
-      previewUrl.searchParams.set('__navlens_preview', variantId || 'variant_0');
-      
-      // Close any previously opened viewport window
-      if (window.nvViewportWindow && !window.nvViewportWindow.closed) {
-        window.nvViewportWindow.close();
-      }
-      
-      // Open new window with exact dimensions (preview only, no editor)
-      window.nvViewportWindow = window.open(
-        previewUrl.toString(),
-        'NavlensViewport',
-        `width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`
-      );
-      
-      console.log(`[navlens-editor] Opened ${size} preview at ${width}x${height}px`);
-    } else {
-      // Desktop - close viewport window if open
-      if (window.nvViewportWindow && !window.nvViewportWindow.closed) {
-        window.nvViewportWindow.close();
-      }
-    }
-  }
-  
-  document.getElementById('nv-viewport-mobile').addEventListener('click', () => setViewport('mobile'));
-  document.getElementById('nv-viewport-tablet').addEventListener('click', () => setViewport('tablet'));
-  document.getElementById('nv-viewport-desktop').addEventListener('click', () => setViewport('desktop'));
 
   // ============================================
   // UNDO/REDO
