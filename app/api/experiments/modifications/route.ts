@@ -17,17 +17,58 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Modification types
+// Modification types - expanded to support all editor features
+type ModificationType =
+    // Phase 1: Content
+    | 'css' | 'text' | 'hide' | 'image' | 'link' | 'insertHtml' | 'replaceHtml'
+    // Phase 2: Visual
+    | 'resize' | 'clone' | 'reorder' | 'move'
+    // Phase 3: Attribute
+    | 'attribute' | 'class'
+    // Phase 4: Interactive
+    | 'clickRedirect' | 'tooltip' | 'sticky'
+    // Phase 5: Form
+    | 'placeholder' | 'formAction'
+    // Phase 6: Animation
+    | 'animation';
+
 interface Modification {
     id: string;
     variant_id: string;
     selector: string;
-    type: 'css' | 'text' | 'hide' | 'html' | 'redirect';
+    type: ModificationType;
     changes: {
+        // Phase 1: Content
         css?: Record<string, string>;
         text?: string;
+        imageUrl?: string;
+        linkUrl?: string;
+        linkTarget?: '_blank' | '_self';
         html?: string;
+        insertPosition?: 'before' | 'after' | 'prepend' | 'append';
+        // Phase 2: Visual
+        width?: string;
+        height?: string;
+        cloneCount?: number;
+        newIndex?: number;
+        position?: { x: number; y: number };
+        // Phase 3: Attribute
+        attributes?: Record<string, string>;
+        addClass?: string[];
+        removeClass?: string[];
+        // Phase 4: Interactive
         redirectUrl?: string;
+        tooltipText?: string;
+        tooltipPosition?: 'top' | 'bottom' | 'left' | 'right';
+        stickyTop?: string;
+        stickyZIndex?: number;
+        // Phase 5: Form
+        placeholderText?: string;
+        formActionUrl?: string;
+        // Phase 6: Animation
+        animationName?: string;
+        animationDuration?: string;
+        animationCustom?: string;
     };
 }
 
@@ -56,43 +97,184 @@ function sanitizeCssValue(value: string): string {
         .slice(0, 500); // Max length
 }
 
+// Valid modification types
+const VALID_MODIFICATION_TYPES: ModificationType[] = [
+    'css', 'text', 'hide', 'image', 'link', 'insertHtml', 'replaceHtml',
+    'resize', 'clone', 'reorder', 'move',
+    'attribute', 'class',
+    'clickRedirect', 'tooltip', 'sticky',
+    'placeholder', 'formAction',
+    'animation'
+];
+
+// Dangerous HTML attributes to strip
+const DANGEROUS_ATTRS = /^on\w+$/i;
+
+// Sanitize HTML content (strip scripts and event handlers)
+function sanitizeHtml(html: string): string {
+    return String(html)
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/on\w+\s*=/gi, 'data-removed=')
+        .replace(/javascript\s*:/gi, '')
+        .replace(/vbscript\s*:/gi, '')
+        .slice(0, 10000);
+}
+
+// Sanitize URL (block javascript: and other dangerous protocols)
+function sanitizeUrl(url: string): string {
+    const trimmed = String(url).trim();
+    // Block dangerous protocols
+    if (/^(javascript|vbscript|data):/i.test(trimmed)) {
+        return '';
+    }
+    return trimmed.slice(0, 2000);
+}
+
 // Sanitize modifications
 function sanitizeModifications(mods: Modification[]): Modification[] {
     return mods.map(mod => {
+        // Validate type
+        const modType = VALID_MODIFICATION_TYPES.includes(mod.type as ModificationType)
+            ? mod.type as ModificationType
+            : 'css';
+
         const sanitized: Modification = {
             id: mod.id || crypto.randomUUID(),
             variant_id: String(mod.variant_id || ''),
-            selector: String(mod.selector || '').slice(0, 200),
-            type: ['css', 'text', 'hide', 'html', 'redirect'].includes(mod.type) ? mod.type : 'css',
+            selector: String(mod.selector || '').slice(0, 500),
+            type: modType,
             changes: {}
         };
 
-        if (mod.type === 'css' && mod.changes.css) {
+        const changes = mod.changes || {};
+
+        // Phase 1: Content modifications
+        if (modType === 'css' && changes.css) {
             sanitized.changes.css = {};
-            for (const [prop, value] of Object.entries(mod.changes.css)) {
+            for (const [prop, value] of Object.entries(changes.css)) {
                 if (ALLOWED_CSS_PROPERTIES.has(prop) && typeof value === 'string') {
                     sanitized.changes.css[prop] = sanitizeCssValue(value);
                 }
             }
         }
 
-        if (mod.type === 'text' && mod.changes.text) {
-            sanitized.changes.text = String(mod.changes.text).slice(0, 5000);
+        if (modType === 'text' && changes.text !== undefined) {
+            sanitized.changes.text = String(changes.text).slice(0, 5000);
         }
 
-        if (mod.type === 'html' && mod.changes.html) {
-            // Basic HTML sanitization (strip scripts)
-            sanitized.changes.html = String(mod.changes.html)
-                .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-                .replace(/on\w+\s*=/gi, '')
-                .slice(0, 10000);
+        if (modType === 'image' && changes.imageUrl) {
+            sanitized.changes.imageUrl = sanitizeUrl(changes.imageUrl);
         }
 
-        if (mod.type === 'redirect' && mod.changes.redirectUrl) {
-            const url = String(mod.changes.redirectUrl);
-            // Only allow relative URLs or same-origin
-            if (url.startsWith('/') && !url.startsWith('//')) {
-                sanitized.changes.redirectUrl = url.slice(0, 500);
+        if (modType === 'link') {
+            if (changes.linkUrl) {
+                sanitized.changes.linkUrl = sanitizeUrl(changes.linkUrl);
+            }
+            if (changes.linkTarget === '_blank' || changes.linkTarget === '_self') {
+                sanitized.changes.linkTarget = changes.linkTarget;
+            }
+        }
+
+        if ((modType === 'insertHtml' || modType === 'replaceHtml') && changes.html) {
+            sanitized.changes.html = sanitizeHtml(changes.html);
+            if (modType === 'insertHtml') {
+                const validPositions = ['before', 'after', 'prepend', 'append'];
+                sanitized.changes.insertPosition = validPositions.includes(changes.insertPosition || '')
+                    ? changes.insertPosition as 'before' | 'after' | 'prepend' | 'append'
+                    : 'after';
+            }
+        }
+
+        // Phase 2: Visual modifications
+        if (modType === 'resize') {
+            if (changes.width) sanitized.changes.width = sanitizeCssValue(changes.width);
+            if (changes.height) sanitized.changes.height = sanitizeCssValue(changes.height);
+        }
+
+        if (modType === 'clone') {
+            sanitized.changes.cloneCount = Math.min(Math.max(1, parseInt(String(changes.cloneCount)) || 1), 10);
+        }
+
+        if (modType === 'reorder') {
+            sanitized.changes.newIndex = parseInt(String(changes.newIndex)) || 0;
+        }
+
+        if (modType === 'move' && changes.position) {
+            sanitized.changes.position = {
+                x: parseInt(String(changes.position.x)) || 0,
+                y: parseInt(String(changes.position.y)) || 0
+            };
+        }
+
+        // Phase 3: Attribute modifications
+        if (modType === 'attribute' && changes.attributes) {
+            sanitized.changes.attributes = {};
+            for (const [attr, value] of Object.entries(changes.attributes)) {
+                // Block event handlers
+                if (!DANGEROUS_ATTRS.test(attr)) {
+                    sanitized.changes.attributes[attr] = String(value).slice(0, 1000);
+                }
+            }
+        }
+
+        if (modType === 'class') {
+            if (Array.isArray(changes.addClass)) {
+                sanitized.changes.addClass = changes.addClass
+                    .filter(c => typeof c === 'string')
+                    .map(c => c.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100))
+                    .slice(0, 20);
+            }
+            if (Array.isArray(changes.removeClass)) {
+                sanitized.changes.removeClass = changes.removeClass
+                    .filter(c => typeof c === 'string')
+                    .map(c => c.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100))
+                    .slice(0, 20);
+            }
+        }
+
+        // Phase 4: Interactive modifications
+        if (modType === 'clickRedirect' && changes.redirectUrl) {
+            sanitized.changes.redirectUrl = sanitizeUrl(changes.redirectUrl);
+        }
+
+        if (modType === 'tooltip') {
+            if (changes.tooltipText) {
+                sanitized.changes.tooltipText = String(changes.tooltipText).slice(0, 500);
+            }
+            const validPositions = ['top', 'bottom', 'left', 'right'];
+            if (validPositions.includes(changes.tooltipPosition || '')) {
+                sanitized.changes.tooltipPosition = changes.tooltipPosition as 'top' | 'bottom' | 'left' | 'right';
+            }
+        }
+
+        if (modType === 'sticky') {
+            if (changes.stickyTop) sanitized.changes.stickyTop = sanitizeCssValue(changes.stickyTop);
+            if (changes.stickyZIndex) {
+                sanitized.changes.stickyZIndex = Math.min(Math.max(0, parseInt(String(changes.stickyZIndex)) || 100), 9999999);
+            }
+        }
+
+        // Phase 5: Form modifications
+        if (modType === 'placeholder' && changes.placeholderText !== undefined) {
+            sanitized.changes.placeholderText = String(changes.placeholderText).slice(0, 500);
+        }
+
+        if (modType === 'formAction' && changes.formActionUrl) {
+            sanitized.changes.formActionUrl = sanitizeUrl(changes.formActionUrl);
+        }
+
+        // Phase 6: Animation
+        if (modType === 'animation') {
+            if (changes.animationName) {
+                sanitized.changes.animationName = String(changes.animationName)
+                    .replace(/[^a-zA-Z0-9_-]/g, '')
+                    .slice(0, 50);
+            }
+            if (changes.animationDuration) {
+                sanitized.changes.animationDuration = sanitizeCssValue(changes.animationDuration);
+            }
+            if (changes.animationCustom) {
+                sanitized.changes.animationCustom = sanitizeCssValue(changes.animationCustom);
             }
         }
 

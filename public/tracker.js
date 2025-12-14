@@ -115,35 +115,211 @@
 
   /**
    * Apply a single modification to an element
+   * Supports all 18 modification types
    */
   function applyModification(element, mod) {
     if (element.dataset.nvApplied === mod.id) return;
     
+    const changes = mod.changes || {};
+    
     try {
       switch (mod.type) {
+        // Phase 1: Content modifications
         case 'css':
-          if (mod.changes.css) {
-            Object.assign(element.style, mod.changes.css);
+          if (changes.css) {
+            Object.assign(element.style, changes.css);
           }
           break;
+          
         case 'text':
-          if (mod.changes.text !== undefined) {
-            element.textContent = mod.changes.text;
+          if (changes.text !== undefined) {
+            element.textContent = changes.text;
           }
           break;
+          
         case 'hide':
           element.style.display = 'none';
           break;
+          
+        case 'image':
+          if (changes.imageUrl && element.tagName === 'IMG') {
+            element.src = changes.imageUrl;
+          }
+          break;
+          
+        case 'link':
+          if (element.tagName === 'A') {
+            if (changes.linkUrl) element.href = changes.linkUrl;
+            if (changes.linkTarget) element.target = changes.linkTarget;
+          }
+          break;
+          
+        case 'insertHtml':
+          if (changes.html) {
+            const sanitizedHtml = changes.html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            const pos = changes.insertPosition || 'after';
+            element.insertAdjacentHTML(
+              pos === 'before' ? 'beforebegin' : 
+              pos === 'after' ? 'afterend' :
+              pos === 'prepend' ? 'afterbegin' : 'beforeend',
+              sanitizedHtml
+            );
+          }
+          break;
+          
+        case 'replaceHtml':
+          if (changes.html) {
+            const sanitizedHtml = changes.html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            element.outerHTML = sanitizedHtml;
+          }
+          break;
+          
+        // Phase 2: Visual modifications
+        case 'resize':
+          if (changes.width) element.style.width = changes.width;
+          if (changes.height) element.style.height = changes.height;
+          break;
+          
+        case 'clone':
+          const cloneCount = changes.cloneCount || 1;
+          for (let i = 0; i < cloneCount && i < 10; i++) {
+            const clone = element.cloneNode(true);
+            delete clone.dataset.nvApplied; // Allow re-processing
+            element.parentNode.insertBefore(clone, element.nextSibling);
+          }
+          break;
+          
+        case 'reorder':
+          if (typeof changes.newIndex === 'number') {
+            const parent = element.parentNode;
+            const siblings = Array.from(parent.children);
+            const newIdx = Math.min(changes.newIndex, siblings.length - 1);
+            const targetSibling = siblings[newIdx];
+            if (targetSibling && targetSibling !== element) {
+              parent.insertBefore(element, targetSibling);
+            }
+          }
+          break;
+          
+        case 'move':
+          if (changes.position) {
+            element.style.transform = `translate(${changes.position.x || 0}px, ${changes.position.y || 0}px)`;
+          }
+          break;
+          
+        // Phase 3: Attribute modifications
+        case 'attribute':
+          if (changes.attributes) {
+            Object.entries(changes.attributes).forEach(([attr, value]) => {
+              // Block event handlers for security
+              if (!attr.toLowerCase().startsWith('on')) {
+                element.setAttribute(attr, value);
+              }
+            });
+          }
+          break;
+          
+        case 'class':
+          if (changes.addClass && Array.isArray(changes.addClass)) {
+            changes.addClass.forEach(c => {
+              if (c && typeof c === 'string') element.classList.add(c);
+            });
+          }
+          if (changes.removeClass && Array.isArray(changes.removeClass)) {
+            changes.removeClass.forEach(c => {
+              if (c && typeof c === 'string') element.classList.remove(c);
+            });
+          }
+          break;
+          
+        // Phase 4: Interactive modifications
+        case 'clickRedirect':
+          if (changes.redirectUrl) {
+            element.style.cursor = 'pointer';
+            element.addEventListener('click', function nvClickRedirect(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              window.location.href = changes.redirectUrl;
+            }, { once: false });
+          }
+          break;
+          
+        case 'tooltip':
+          if (changes.tooltipText) {
+            element.title = changes.tooltipText;
+          }
+          break;
+          
+        case 'sticky':
+          element.style.position = 'sticky';
+          element.style.top = changes.stickyTop || '0px';
+          element.style.zIndex = changes.stickyZIndex || 1000;
+          break;
+          
+        // Phase 5: Form modifications
+        case 'placeholder':
+          if (changes.placeholderText !== undefined && 
+              (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA')) {
+            element.placeholder = changes.placeholderText;
+          }
+          break;
+          
+        case 'formAction':
+          if (changes.formActionUrl && element.tagName === 'FORM') {
+            element.action = changes.formActionUrl;
+          }
+          break;
+          
+        // Phase 6: Animation
+        case 'animation':
+          if (changes.animationName) {
+            const duration = changes.animationDuration || '0.5s';
+            
+            // Inject keyframes if not already present
+            if (!document.getElementById('nv-animation-styles')) {
+              const animStyles = document.createElement('style');
+              animStyles.id = 'nv-animation-styles';
+              animStyles.textContent = `
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+                @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                @keyframes slideInUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                @keyframes slideInDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-20px); } 60% { transform: translateY(-10px); } }
+                @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+                @keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); } 20%, 40%, 60%, 80% { transform: translateX(5px); } }
+              `;
+              document.head.appendChild(animStyles);
+            }
+            
+            if (changes.animationName === 'custom' && changes.animationCustom) {
+              element.style.transition = `all ${duration}`;
+              // Parse custom CSS
+              changes.animationCustom.split(';').forEach(part => {
+                const [prop, value] = part.split(':').map(s => s.trim());
+                if (prop && value) {
+                  const camelProp = prop.replace(/-([a-z])/g, g => g[1].toUpperCase());
+                  element.style[camelProp] = value;
+                }
+              });
+            } else {
+              element.style.animation = `${changes.animationName} ${duration}`;
+            }
+          }
+          break;
+          
+        // Legacy support
         case 'html':
-          // Sanitize HTML to prevent XSS
-          if (mod.changes.html) {
-            element.innerHTML = mod.changes.html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+          if (changes.html) {
+            element.innerHTML = changes.html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
           }
           break;
       }
+      
       element.dataset.nvApplied = mod.id;
     } catch (e) {
-      console.warn('[navlens] Failed to apply modification:', e);
+      console.warn('[navlens] Failed to apply modification:', mod.type, e);
     }
   }
 
