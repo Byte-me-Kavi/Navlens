@@ -341,7 +341,10 @@
   toolbar.innerHTML = `
     <div class="nv-toolbar-header">
       <span class="nv-toolbar-title">🧪 Navlens Editor</span>
-      <button class="nv-btn nv-btn-danger" id="nv-close">✕</button>
+      <div style="display: flex; gap: 4px;">
+        <button class="nv-btn" id="nv-minimize" title="Minimize to floating button">➖</button>
+        <button class="nv-btn nv-btn-danger" id="nv-close">✕</button>
+      </div>
     </div>
     
     <!-- Mode & Viewport Controls -->
@@ -1948,28 +1951,65 @@
   
   function undo() {
     if (undoStack.length === 0) return;
+    
+    // Store current state for redo
     redoStack.push(JSON.parse(JSON.stringify(modifications)));
-    modifications.length = 0;
-    const prev = undoStack.pop();
-    prev.forEach(m => modifications.push(m));
-    updateModList();
-    updateUndoRedoButtons();
-    // Note: DOM changes from previous modification are already applied
-    // User must save and refresh to see current state
-    console.log('[navlens-editor] Undo completed. Save and refresh to see baseline state.');
+    
+    // Restore previous state
+    const prevState = undoStack.pop();
+    
+    // Store in sessionStorage and refresh to apply clean state
+    sessionStorage.setItem('nv-pending-mods', JSON.stringify(prevState));
+    sessionStorage.setItem('nv-redo-stack', JSON.stringify(redoStack));
+    sessionStorage.setItem('nv-undo-stack', JSON.stringify(undoStack));
+    
+    // Refresh page to get clean DOM and reapply only remaining mods
+    location.reload();
   }
   
   function redo() {
     if (redoStack.length === 0) return;
+    
+    // Store current state for undo
     undoStack.push(JSON.parse(JSON.stringify(modifications)));
-    modifications.length = 0;
-    const next = redoStack.pop();
-    next.forEach(m => modifications.push(m));
-    updateModList();
-    updateUndoRedoButtons();
-    // Re-apply all current modifications
-    modifications.forEach(applyModification);
-    console.log('[navlens-editor] Redo completed.');
+    
+    // Get next state
+    const nextState = redoStack.pop();
+    
+    // Store in sessionStorage and refresh
+    sessionStorage.setItem('nv-pending-mods', JSON.stringify(nextState));
+    sessionStorage.setItem('nv-redo-stack', JSON.stringify(redoStack));
+    sessionStorage.setItem('nv-undo-stack', JSON.stringify(undoStack));
+    
+    location.reload();
+  }
+  
+  // Restore undo/redo stacks from sessionStorage (after refresh)
+  const pendingMods = sessionStorage.getItem('nv-pending-mods');
+  if (pendingMods) {
+    try {
+      const restored = JSON.parse(pendingMods);
+      modifications.length = 0;
+      restored.forEach(m => modifications.push(m));
+      updateModList();
+      modifications.forEach(applyModification);
+      
+      // Restore stacks
+      const storedUndo = sessionStorage.getItem('nv-undo-stack');
+      const storedRedo = sessionStorage.getItem('nv-redo-stack');
+      if (storedUndo) undoStack.push(...JSON.parse(storedUndo));
+      if (storedRedo) redoStack.push(...JSON.parse(storedRedo));
+      updateUndoRedoButtons();
+      
+      // Clear sessionStorage
+      sessionStorage.removeItem('nv-pending-mods');
+      sessionStorage.removeItem('nv-undo-stack');
+      sessionStorage.removeItem('nv-redo-stack');
+      
+      console.log('[navlens-editor] Restored state after undo/redo');
+    } catch (e) {
+      console.warn('[navlens-editor] Failed to restore pending mods:', e);
+    }
   }
   
   document.getElementById('nv-undo').addEventListener('click', undo);
@@ -1994,5 +2034,45 @@
     saveUndoState();
   }, true);
 
-  console.log('[navlens-editor] Visual editor loaded with 22 modification types + UX controls');
+  // ============================================
+  // MINIMIZE/MAXIMIZE TOOLBAR
+  // ============================================
+  let isMinimized = false;
+  
+  // Create floating button for minimized state
+  const floatingBtn = document.createElement('button');
+  floatingBtn.id = 'nv-floating-btn';
+  floatingBtn.innerHTML = '🧪';
+  floatingBtn.title = 'Open Navlens Editor';
+  floatingBtn.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 10002;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: none;
+  `;
+  overlay.appendChild(floatingBtn);
+  
+  document.getElementById('nv-minimize').addEventListener('click', () => {
+    toolbar.style.display = 'none';
+    floatingBtn.style.display = 'block';
+    isMinimized = true;
+  });
+  
+  floatingBtn.addEventListener('click', () => {
+    toolbar.style.display = 'block';
+    floatingBtn.style.display = 'none';
+    isMinimized = false;
+  });
+
+  console.log('[navlens-editor] Visual editor loaded with 23 modification types + UX controls');
 })();
