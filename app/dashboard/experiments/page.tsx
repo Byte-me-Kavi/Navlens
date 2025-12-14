@@ -11,6 +11,9 @@ import {
   ChartBarIcon,
   TrashIcon,
   ArrowPathIcon,
+  PencilSquareIcon,
+  ClipboardIcon,
+  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { useSite } from "@/app/context/SiteContext";
 
@@ -208,6 +211,153 @@ function CreateExperimentModal({
   );
 }
 
+// Edit Variant Modal
+function EditVariantModal({
+  isOpen,
+  onClose,
+  experiment,
+  siteId,
+  siteDomain,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  experiment: Experiment | null;
+  siteId: string;
+  siteDomain?: string;
+}) {
+  const [selectedVariant, setSelectedVariant] = useState<string>('');
+  const [editorUrl, setEditorUrl] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (experiment?.variants?.length) {
+      setSelectedVariant(experiment.variants[0].id || 'variant_0');
+    }
+  }, [experiment]);
+
+  const generateUrl = async () => {
+    if (!experiment || !selectedVariant) return;
+    
+    setIsGenerating(true);
+    try {
+      const res = await fetch('/api/experiments/editor-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          experimentId: experiment.id,
+          siteId: siteId,
+          variantId: selectedVariant,
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setEditorUrl(data.url);
+      }
+    } catch (err) {
+      console.error('Failed to generate URL:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(editorUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!isOpen || !experiment) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <PencilSquareIcon className="w-5 h-5 text-blue-600" />
+          Edit Variant Visually
+        </h2>
+        
+        <p className="text-sm text-gray-600 mb-4">
+          Select a variant to edit, then open the editor on your live site.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Select Variant
+            </label>
+            <select
+              value={selectedVariant}
+              onChange={(e) => {
+                setSelectedVariant(e.target.value);
+                setEditorUrl('');
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              {experiment.variants.map((v, i) => (
+                <option key={v.id || i} value={v.id || `variant_${i}`}>
+                  {v.name} ({v.weight}% traffic)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {!editorUrl ? (
+            <button
+              onClick={generateUrl}
+              disabled={isGenerating}
+              className="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isGenerating ? 'Generating...' : 'Generate Editor URL'}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="bg-gray-100 p-3 rounded-md">
+                <div className="text-xs text-gray-500 mb-1">Editor URL (expires in 1 hour)</div>
+                <div className="text-sm font-mono text-gray-800 break-all">
+                  {editorUrl.slice(0, 60)}...
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={copyUrl}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  <ClipboardIcon className="w-4 h-4" />
+                  {copied ? 'Copied!' : 'Copy URL'}
+                </button>
+                <a
+                  href={editorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                  Open Editor
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end mt-6">
+          <button
+            onClick={() => {
+              onClose();
+              setEditorUrl('');
+            }}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Results panel
 function ResultsPanel({ results }: { results: ExperimentResults | null }) {
   if (!results) {
@@ -305,6 +455,8 @@ export default function ExperimentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingExperiment, setEditingExperiment] = useState<Experiment | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch experiments
@@ -562,6 +714,18 @@ export default function ExperimentsPage() {
                         <PlayIcon className="w-4 h-4" />
                       </button>
                     )}
+                    {/* Edit Variant button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingExperiment(exp);
+                        setShowEditModal(true);
+                      }}
+                      className="p-1.5 text-purple-600 hover:bg-purple-50 rounded"
+                      title="Edit variants visually"
+                    >
+                      <PencilSquareIcon className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -591,6 +755,18 @@ export default function ExperimentsPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateExperiment}
+      />
+
+      {/* Edit Variant modal */}
+      <EditVariantModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingExperiment(null);
+        }}
+        experiment={editingExperiment}
+        siteId={selectedSite?.id || ''}
+        siteDomain={selectedSite?.domain}
       />
     </div>
   );

@@ -66,11 +66,11 @@
   styles.id = 'navlens-editor-styles';
   styles.textContent = `
     .nv-editor-overlay {
-      position: fixed;
+      position: absolute;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
+      width: 100%;
+      min-height: 100%;
       pointer-events: none;
       z-index: 999999;
     }
@@ -503,10 +503,13 @@
       const resp = await fetch(`${apiHost}/api/experiments/modifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        mode: 'cors',
         body: JSON.stringify({
           experimentId: experimentId,
           siteId: siteId,
+          variantId: variantId,
+          timestamp: timestamp,
+          signature: signature,
           modifications: modifications
         })
       });

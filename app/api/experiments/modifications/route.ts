@@ -100,12 +100,14 @@ function sanitizeModifications(mods: Modification[]): Modification[] {
     });
 }
 
-// CORS headers
+// CORS headers - must return specific origin for credentials: 'include'
 function corsHeaders(origin: string | null) {
+    const allowedOrigin = origin || '*';
     return {
-        'Access-Control-Allow-Origin': origin || '*',
+        'Access-Control-Allow-Origin': allowedOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true',
     };
 }
 
@@ -175,22 +177,15 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/experiments/modifications
  * Save modifications for an experiment variant
+ * 
+ * Authentication: Cookie-based OR signature-based (for cross-origin)
  */
 export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin');
 
     try {
-        // Authenticate
-        const user = await getUserFromRequest(request);
-        if (!user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401, headers: corsHeaders(origin) }
-            );
-        }
-
         const body = await request.json();
-        const { experimentId, siteId, modifications } = body;
+        const { experimentId, siteId, variantId, modifications, timestamp, signature } = body;
 
         if (!experimentId || !siteId || !Array.isArray(modifications)) {
             return NextResponse.json(
@@ -199,17 +194,57 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Verify user has access to site
-        const { data: site } = await supabaseAdmin
-            .from('sites')
-            .select('user_id')
-            .eq('id', siteId)
-            .single();
+        // Try cookie-based auth first
+        let isAuthorized = false;
+        const user = await getUserFromRequest(request);
 
-        if (!site || site.user_id !== user.id) {
+        if (user) {
+            // Cookie auth: verify user owns the site
+            const { data: site } = await supabaseAdmin
+                .from('sites')
+                .select('user_id')
+                .eq('id', siteId)
+                .single();
+
+            isAuthorized = site?.user_id === user.id;
+        }
+
+        // Fall back to signature-based auth for cross-origin
+        if (!isAuthorized && signature && timestamp && variantId) {
+            const EDITOR_SECRET = process.env.NAVLENS_EDITOR_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+            const { createHmac } = await import('crypto');
+
+            // Validate timestamp (1 hour expiry)
+            const ts = parseInt(timestamp, 10);
+            const age = Date.now() - ts;
+            const MAX_AGE = 60 * 60 * 1000; // 1 hour
+
+            if (!isNaN(ts) && age >= 0 && age <= MAX_AGE) {
+                // Verify signature
+                const payload = `${experimentId}:${variantId}:${timestamp}`;
+                const expectedSig = createHmac('sha256', EDITOR_SECRET)
+                    .update(payload)
+                    .digest('hex')
+                    .slice(0, 16);
+
+                if (signature === expectedSig) {
+                    // Signature valid, verify experiment belongs to site
+                    const { data: exp } = await supabaseAdmin
+                        .from('experiments')
+                        .select('id')
+                        .eq('id', experimentId)
+                        .eq('site_id', siteId)
+                        .single();
+
+                    isAuthorized = !!exp;
+                }
+            }
+        }
+
+        if (!isAuthorized) {
             return NextResponse.json(
-                { error: 'Access denied' },
-                { status: 403, headers: corsHeaders(origin) }
+                { error: 'Unauthorized - invalid signature or session' },
+                { status: 401, headers: corsHeaders(origin) }
             );
         }
 
