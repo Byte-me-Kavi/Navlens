@@ -1723,35 +1723,113 @@
     
     // Show drop indicator
     const target = e.target;
-    if (target !== draggedElement && !isEditorElement(target) && target.tagName !== 'HTML' && target.tagName !== 'BODY') {
-      // Remove old indicators
+    
+    // Invalid drop zones - never allow
+    const invalidTags = ['HTML', 'HEAD', 'SCRIPT', 'STYLE', 'LINK', 'META', 'NOSCRIPT', 'IFRAME'];
+    if (target === draggedElement || isEditorElement(target) || invalidTags.includes(target.tagName)) {
       document.querySelectorAll('.nv-drop-indicator').forEach(el => el.remove());
-      
-      // Check if target is a sibling (same parent)
-      const isSibling = target.parentNode === draggedElement.parentNode;
-      
-      // Add new indicator
-      const rect = target.getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      const position = e.clientY < midY ? 'before' : 'after';
-      
-      const indicator = document.createElement('div');
-      indicator.className = 'nv-drop-indicator';
-      indicator.style.cssText = `
-        position: absolute;
-        left: ${rect.left}px;
-        width: ${rect.width}px;
-        height: 3px;
-        background: ${isSibling ? '#3b82f6' : '#ef4444'};
-        z-index: 10000;
-        pointer-events: none;
-        top: ${position === 'before' ? rect.top + window.scrollY : rect.bottom + window.scrollY}px;
-      `;
-      document.body.appendChild(indicator);
-      target.dataset.nvDropPosition = position;
-      target.dataset.nvIsSibling = isSibling ? 'true' : 'false';
+      return;
     }
+    
+    // Remove old indicators
+    document.querySelectorAll('.nv-drop-indicator').forEach(el => el.remove());
+    
+    // Smart drop zone detection
+    const dropZoneType = analyzeDropZone(target, draggedElement);
+    
+    // Determine indicator color based on drop zone quality
+    // Green = great, Blue = good, Yellow = works, Red = probably bad
+    const colors = {
+      container: '#22c55e',   // Green - target is a container
+      sibling: '#3b82f6',     // Blue - same parent
+      similar: '#3b82f6',     // Blue - similar structure
+      generic: '#eab308',     // Yellow - will work but might be odd
+      risky: '#ef4444'        // Red - probably shouldn't
+    };
+    
+    // Add new indicator
+    const rect = target.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const position = e.clientY < midY ? 'before' : 'after';
+    
+    const indicator = document.createElement('div');
+    indicator.className = 'nv-drop-indicator';
+    indicator.style.cssText = `
+      position: absolute;
+      left: ${rect.left}px;
+      width: ${rect.width}px;
+      height: 4px;
+      background: ${colors[dropZoneType] || colors.generic};
+      z-index: 10000;
+      pointer-events: none;
+      top: ${position === 'before' ? rect.top + window.scrollY : rect.bottom + window.scrollY}px;
+      box-shadow: 0 0 6px ${colors[dropZoneType] || colors.generic};
+    `;
+    document.body.appendChild(indicator);
+    target.dataset.nvDropPosition = position;
+    target.dataset.nvDropType = dropZoneType;
   });
+  
+  // Analyze if target is a valid drop zone for the dragged element
+  function analyzeDropZone(target, dragged) {
+    const targetParent = target.parentNode;
+    const draggedParent = dragged.parentNode;
+    
+    // Same parent = sibling move (always good)
+    if (targetParent === draggedParent) {
+      return 'sibling';
+    }
+    
+    // Check if target is a container (could receive children)
+    const targetStyle = window.getComputedStyle(target);
+    const isContainer = (
+      targetStyle.display === 'flex' ||
+      targetStyle.display === 'grid' ||
+      targetStyle.display === 'block' ||
+      target.tagName === 'DIV' ||
+      target.tagName === 'SECTION' ||
+      target.tagName === 'MAIN' ||
+      target.tagName === 'ARTICLE' ||
+      target.tagName === 'UL' ||
+      target.tagName === 'OL'
+    );
+    
+    // Check if dragged element and target have similar structure
+    const isSimilar = (
+      target.tagName === dragged.tagName ||
+      (target.className && dragged.className && 
+       target.className.split(' ').some(c => dragged.className.includes(c)))
+    );
+    
+    // Check if target's parent is similar to dragged's parent (moving between similar containers)
+    const parentsSimilar = (
+      targetParent && draggedParent &&
+      (targetParent.tagName === draggedParent.tagName ||
+       (targetParent.className && draggedParent.className &&
+        targetParent.className.split(' ').some(c => draggedParent.className.includes(c))))
+    );
+    
+    // Inline elements shouldn't receive block elements
+    const draggedStyle = window.getComputedStyle(dragged);
+    const isInlineTarget = ['inline', 'inline-block'].includes(targetStyle.display);
+    const isBlockDragged = ['block', 'flex', 'grid'].includes(draggedStyle.display);
+    if (isInlineTarget && isBlockDragged) {
+      return 'risky';
+    }
+    
+    // Score the drop zone
+    if (isContainer && (isSimilar || parentsSimilar)) {
+      return 'container';
+    }
+    if (isSimilar) {
+      return 'similar';
+    }
+    if (isContainer) {
+      return 'generic';
+    }
+    
+    return 'generic';
+  }
   
   document.addEventListener('drop', (e) => {
     if (window.navlensInteractionMode !== 'drag' || !draggedElement) return;
@@ -1760,20 +1838,17 @@
     const target = e.target;
     if (target === draggedElement || isEditorElement(target)) return;
     
-    // Check if sibling drop
-    const isSibling = target.dataset.nvIsSibling === 'true';
+    // Get drop info from dataset
     const position = target.dataset.nvDropPosition || 'after';
+    const dropType = target.dataset.nvDropType || 'generic';
     delete target.dataset.nvDropPosition;
-    delete target.dataset.nvIsSibling;
+    delete target.dataset.nvDropType;
     
     // Clean up indicators
     document.querySelectorAll('.nv-drop-indicator').forEach(el => el.remove());
     
-    // Only allow sibling moves
-    if (!isSibling) {
-      console.log('[navlens-editor] Drop rejected: can only move within same parent');
-      return;
-    }
+    // Allow all drops - smart system already shows quality with colors
+    console.log(`[navlens-editor] Dropping with zone type: ${dropType}`);
     
     // Perform the move
     const parent = target.parentNode;
@@ -1823,59 +1898,30 @@
     currentViewport = size;
     const width = viewportSizes[size];
     
-    // Apply viewport constraints to both html and body
-    const html = document.documentElement;
-    const body = document.body;
-    
     if (width) {
-      // Create viewport wrapper effect
-      html.style.cssText += `
-        max-width: ${width}px !important;
-        margin: 0 auto !important;
-        box-shadow: 0 0 30px rgba(0,0,0,0.4) !important;
-        overflow-x: hidden !important;
-        background: #1f2937 !important;
-      `;
-      body.style.cssText += `
-        max-width: ${width}px !important;
-        margin: 0 auto !important;
-        overflow-x: hidden !important;
-      `;
-      // Add viewport badge
-      let badge = document.getElementById('nv-viewport-badge');
-      if (!badge) {
-        badge = document.createElement('div');
-        badge.id = 'nv-viewport-badge';
-        badge.style.cssText = `
-          position: fixed;
-          bottom: 10px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: #3b82f6;
-          color: white;
-          padding: 4px 12px;
-          border-radius: 12px;
-          font-size: 11px;
-          font-family: system-ui;
-          z-index: 10001;
-          pointer-events: none;
-        `;
-        document.body.appendChild(badge);
+      // Open current page in new window with exact viewport dimensions
+      const height = size === 'mobile' ? 667 : 1024; // iPhone height or iPad height
+      const url = window.location.href;
+      
+      // Close any previously opened viewport window
+      if (window.nvViewportWindow && !window.nvViewportWindow.closed) {
+        window.nvViewportWindow.close();
       }
-      badge.textContent = `${width}px viewport`;
-      badge.style.display = 'block';
+      
+      // Open new window with exact dimensions
+      window.nvViewportWindow = window.open(
+        url,
+        'NavlensViewport',
+        `width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`
+      );
+      
+      // Show info to user
+      alert(`Opened ${size} viewport (${width}x${height}px) in new window.\n\nMake changes there and save - they'll sync!`);
     } else {
-      // Reset to full width
-      html.style.maxWidth = '';
-      html.style.margin = '';
-      html.style.boxShadow = '';
-      html.style.overflowX = '';
-      html.style.background = '';
-      body.style.maxWidth = '';
-      body.style.margin = '';
-      body.style.overflowX = '';
-      const badge = document.getElementById('nv-viewport-badge');
-      if (badge) badge.style.display = 'none';
+      // Desktop - close viewport window if open
+      if (window.nvViewportWindow && !window.nvViewportWindow.closed) {
+        window.nvViewportWindow.close();
+      }
     }
   }
   
