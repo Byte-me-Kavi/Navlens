@@ -1175,7 +1175,28 @@
     e.preventDefault();
     e.stopPropagation();
     
-    selectedElement = e.target;
+    let target = e.target;
+    
+    // Auto-drill-down to specific elements for better targeting
+    // If clicked on a wrapper, try to find the actual img/link inside
+    if (target.tagName !== 'IMG' && target.tagName !== 'A' && target.tagName !== 'INPUT') {
+      // Check for a single img child that we should target instead
+      const imgs = target.querySelectorAll('img');
+      if (imgs.length === 1) {
+        // Only one image inside - target it directly
+        target = imgs[0];
+        console.log('[navlens-editor] Auto-targeting nested img element');
+      }
+      
+      // Check for single link
+      const links = target.querySelectorAll('a');
+      if (links.length === 1 && target.tagName !== 'IMG') {
+        target = links[0];
+        console.log('[navlens-editor] Auto-targeting nested link element');
+      }
+    }
+    
+    selectedElement = target;
     highlight.classList.add('nv-selected');
     positionHighlight(selectedElement);
     
