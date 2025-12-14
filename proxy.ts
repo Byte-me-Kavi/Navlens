@@ -2,6 +2,39 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
+// A/B Testing Constants
+const VISITOR_COOKIE = 'navlens_visitor';
+const EXPERIMENTS_COOKIE = 'navlens_ab_assignments';
+const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
+
+/**
+ * Generate UUID v4 for visitor ID
+ */
+function generateVisitorId(): string {
+    // Use crypto.randomUUID if available (Edge runtime supports it)
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    // Fallback
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+}
+
+/**
+ * Parse JSON safely
+ */
+function safeJsonParse<T>(str: string | undefined, fallback: T): T {
+    if (!str) return fallback;
+    try {
+        return JSON.parse(str) as T;
+    } catch {
+        return fallback;
+    }
+}
+
 export default async function middleware(request: NextRequest) {
     const response = NextResponse.next({
         request: {
@@ -9,6 +42,48 @@ export default async function middleware(request: NextRequest) {
         },
     });
 
+    const pathname = request.nextUrl.pathname;
+
+    // ============================================
+    // A/B TESTING: VISITOR ID MANAGEMENT
+    // ============================================
+    // Skip for API routes and static assets
+    if (!pathname.startsWith('/api') && !pathname.startsWith('/_next') && !pathname.includes('.')) {
+        let visitorId = request.cookies.get(VISITOR_COOKIE)?.value;
+        let isNewVisitor = false;
+
+        if (!visitorId) {
+            visitorId = generateVisitorId();
+            isNewVisitor = true;
+
+            response.cookies.set(VISITOR_COOKIE, visitorId, {
+                maxAge: COOKIE_MAX_AGE,
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+            });
+        }
+
+        // Get existing experiment assignments from cookie
+        const existingAssignments = safeJsonParse<Record<string, string>>(
+            request.cookies.get(EXPERIMENTS_COOKIE)?.value,
+            {}
+        );
+
+        // Inject context for client-side hydration via headers
+        if (Object.keys(existingAssignments).length > 0) {
+            response.headers.set('x-navlens-experiments', JSON.stringify(existingAssignments));
+        }
+
+        // Set visitor ID header for client-side access
+        response.headers.set('x-navlens-visitor', visitorId);
+        response.headers.set('x-navlens-new-visitor', isNewVisitor ? '1' : '0');
+    }
+
+    // ============================================
+    // AUTHENTICATION
+    // ============================================
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,7 +101,6 @@ export default async function middleware(request: NextRequest) {
         },
     );
 
-    const pathname = request.nextUrl.pathname;
     const searchParams = request.nextUrl.searchParams;
 
     // CRITICAL: Allow OAuth callback to be processed by Auth UI - don't redirect yet
@@ -43,7 +117,7 @@ export default async function middleware(request: NextRequest) {
     const {
         data: { session },
     } = await supabase.auth.getSession();
-    
+
     if (pathname.startsWith('/dashboard') && !session) {
         const redirectUrl = new URL('/login', request.url);
         const redirectResponse = NextResponse.redirect(redirectUrl);
@@ -53,7 +127,7 @@ export default async function middleware(request: NextRequest) {
         });
         return redirectResponse;
     }
-    
+
     // If logged in and accessing login page, let client-side handle the redirect
     // This avoids conflicts with OAuth callback flow
     if (pathname === '/login' && session && !hasAuthParams) {
@@ -98,3 +172,4 @@ export const config = {
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 };
+
