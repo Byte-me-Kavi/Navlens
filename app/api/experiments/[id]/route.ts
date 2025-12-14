@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { invalidateExperiment } from '@/lib/experiments/cache';
+import { publishSiteConfig } from '@/lib/experiments/publisher';
 import type { UpdateExperimentRequest, ExperimentStatus } from '@/lib/experiments/types';
 import { getUserFromRequest } from '@/lib/auth';
 
@@ -182,6 +183,7 @@ export async function PATCH(
         if (target_urls !== undefined) updateData.target_urls = target_urls;
 
         // Handle status transitions
+        let statusChanged = false;
         if (status !== undefined) {
             const validTransitions: Record<ExperimentStatus, ExperimentStatus[]> = {
                 'draft': ['running', 'completed'],
@@ -199,6 +201,7 @@ export async function PATCH(
             }
 
             updateData.status = status;
+            statusChanged = true;
 
             // Set timestamps based on status
             if (status === 'running' && !currentExperiment.started_at) {
@@ -227,6 +230,13 @@ export async function PATCH(
 
         // Invalidate cache
         invalidateExperiment(siteId, id);
+
+        // Publish config to CDN when status changes
+        if (statusChanged) {
+            publishSiteConfig(siteId).catch(err => {
+                console.error('[experiments/[id]] Publish error:', err);
+            });
+        }
 
         return NextResponse.json(
             { experiment },

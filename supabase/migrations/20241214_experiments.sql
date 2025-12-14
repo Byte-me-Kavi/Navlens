@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS experiments (
   description TEXT,
   status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'running', 'paused', 'completed')),
   variants JSONB NOT NULL DEFAULT '[]', -- Array of {id, name, weight, description}
+  modifications JSONB NOT NULL DEFAULT '[]', -- Array of {id, variant_id, selector, type, changes}
   traffic_percentage INTEGER NOT NULL DEFAULT 100 CHECK (traffic_percentage >= 0 AND traffic_percentage <= 100),
   goal_event VARCHAR(100),
   target_urls TEXT[], -- Array of URL patterns where experiment is active

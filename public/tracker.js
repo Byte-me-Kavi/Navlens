@@ -56,18 +56,208 @@
   const SURVEYS_ENDPOINT = `${normalizedHost}/api/surveys`;
 
   // ============================================
-  // A/B TESTING / EXPERIMENT CONTEXT
-  // Reads experiment assignments from middleware headers or window object
+  // A/B TESTING / EXPERIMENT ENGINE
+  // High-performance visual testing with MutationObserver
   // ============================================
+  
+  const NAVLENS_CONFIG_URL = `${normalizedHost}/storage/v1/object/public/experiment-configs`;
   let experimentAssignments = {};
+  let experimentConfig = null;
+  let appliedSelectors = new Set();
+  let experimentObserver = null;
+
+  /**
+   * FNV-1a hash for deterministic bucketing (edge-compatible)
+   */
+  function fnv1aHash(str) {
+    let hash = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  /**
+   * Get bucket for visitor (deterministic)
+   */
+  function getBucketForVisitor(visitorId, experimentId, totalVariants) {
+    const key = `${visitorId}-${experimentId}`;
+    const hash = fnv1aHash(key);
+    return hash % totalVariants;
+  }
+
+  /**
+   * Load experiment config from CDN (fast static JSON)
+   */
+  async function loadExperimentConfig() {
+    try {
+      const resp = await fetch(`${NAVLENS_CONFIG_URL}/${SITE_ID}/config.json`, {
+        priority: 'high',
+        cache: 'default'
+      });
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch (e) {
+      console.warn('[navlens] Config fetch failed:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Apply a single modification to an element
+   */
+  function applyModification(element, mod) {
+    if (element.dataset.nvApplied === mod.id) return;
+    
+    try {
+      switch (mod.type) {
+        case 'css':
+          if (mod.changes.css) {
+            Object.assign(element.style, mod.changes.css);
+          }
+          break;
+        case 'text':
+          if (mod.changes.text !== undefined) {
+            element.textContent = mod.changes.text;
+          }
+          break;
+        case 'hide':
+          element.style.display = 'none';
+          break;
+        case 'html':
+          // Sanitize HTML to prevent XSS
+          if (mod.changes.html) {
+            element.innerHTML = mod.changes.html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+          }
+          break;
+      }
+      element.dataset.nvApplied = mod.id;
+    } catch (e) {
+      console.warn('[navlens] Failed to apply modification:', e);
+    }
+  }
+
+  /**
+   * Start MutationObserver engine for instant DOM changes
+   */
+  function startExperimentEngine(modifications) {
+    if (!modifications?.length) return;
+    
+    // A. Apply to existing elements immediately
+    modifications.forEach(mod => {
+      try {
+        const elements = document.querySelectorAll(mod.selector);
+        elements.forEach(el => applyModification(el, mod));
+      } catch (e) {
+        console.warn('[navlens] Invalid selector:', mod.selector);
+      }
+    });
+    
+    // B. Watch for dynamically added elements (React/Vue/SPA apps)
+    if (experimentObserver) {
+      experimentObserver.disconnect();
+    }
+    
+    experimentObserver = new MutationObserver(() => {
+      modifications.forEach(mod => {
+        try {
+          const elements = document.querySelectorAll(mod.selector);
+          elements.forEach(el => {
+            if (el.dataset.nvApplied !== mod.id) {
+              applyModification(el, mod);
+            }
+          });
+        } catch (e) {
+          // Invalid selector, skip
+        }
+      });
+    });
+    
+    experimentObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  /**
+   * Bucket user and get modifications for their variants
+   */
+  function processExperiments(config, visitorId) {
+    if (!config?.experiments?.length) return [];
+    
+    const allModifications = [];
+    
+    config.experiments.forEach(exp => {
+      const variants = exp.v || [];
+      if (!variants.length) return;
+      
+      // Check traffic percentage
+      const trafficThreshold = (exp.t || 100) / 100;
+      const trafficHash = fnv1aHash(`${visitorId}-${exp.id}-traffic`) / 0xFFFFFFFF;
+      if (trafficHash > trafficThreshold) return; // User not in experiment
+      
+      // Bucket user into variant
+      const bucket = getBucketForVisitor(visitorId, exp.id, variants.length);
+      const assignedVariant = variants[bucket];
+      
+      if (assignedVariant) {
+        experimentAssignments[exp.id] = assignedVariant.id;
+        
+        // Get modifications for this variant
+        const mods = (exp.m || []).filter(m => m.variant_id === assignedVariant.id);
+        allModifications.push(...mods);
+      }
+    });
+    
+    // Update window object for other scripts
+    window.__NAVLENS_EXPERIMENTS = { ...experimentAssignments };
+    
+    return allModifications;
+  }
+
+  /**
+   * Initialize experiment engine with anti-flicker
+   */
+  async function initExperiments() {
+    const start = performance.now();
+    
+    // Get visitor ID from cookie or generate
+    let visitorId = document.cookie.match(/navlens_visitor=([^;]+)/)?.[1];
+    if (!visitorId) {
+      visitorId = 'v_' + Math.random().toString(36).substr(2, 9);
+    }
+    
+    // Load config with 500ms timeout (anti-flicker failsafe)
+    const config = await Promise.race([
+      loadExperimentConfig(),
+      new Promise(r => setTimeout(() => r(null), 500))
+    ]);
+    
+    if (config) {
+      experimentConfig = config;
+      const modifications = processExperiments(config, visitorId);
+      
+      if (modifications.length) {
+        startExperimentEngine(modifications);
+      }
+    }
+    
+    // Release anti-flicker (if applied)
+    if (document.documentElement.style.visibility === 'hidden') {
+      document.documentElement.style.visibility = '';
+    }
+    
+    const elapsed = performance.now() - start;
+    if (elapsed > 100) {
+      console.log(`[navlens] Experiments loaded in ${elapsed.toFixed(0)}ms`);
+    }
+  }
 
   /**
    * Get active experiment assignments
-   * Priority: window.__NAVLENS_EXPERIMENTS > stored assignments
-   * @returns {Object} - Map of experiment_id -> variant_id
    */
   function getActiveExperiments() {
-    // Check for injected experiments (from middleware or manual override)
     if (window.__NAVLENS_EXPERIMENTS && typeof window.__NAVLENS_EXPERIMENTS === 'object') {
       experimentAssignments = { ...experimentAssignments, ...window.__NAVLENS_EXPERIMENTS };
     }
@@ -75,13 +265,10 @@
   }
 
   /**
-   * Set experiment assignment (for API-based assignment)
-   * @param {string} experimentId - Experiment ID
-   * @param {string} variantId - Variant ID
+   * Set experiment assignment manually
    */
   function setExperimentAssignment(experimentId, variantId) {
     experimentAssignments[experimentId] = variantId;
-    // Also set on window for other scripts
     window.__NAVLENS_EXPERIMENTS = { ...getActiveExperiments() };
   }
 
@@ -89,6 +276,21 @@
   window.navlens = window.navlens || {};
   window.navlens.setExperiment = setExperimentAssignment;
   window.navlens.getExperiments = getActiveExperiments;
+  window.navlens.reloadExperiments = initExperiments;
+
+  // Initialize experiments immediately (before DOMContentLoaded)
+  initExperiments();
+
+  // ============================================
+  // VISUAL EDITOR MODE DETECTION
+  // Lazy load editor only when needed
+  // ============================================
+  if (new URLSearchParams(window.location.search).has('__navlens_editor')) {
+    const editorScript = document.createElement('script');
+    editorScript.src = `${normalizedHost}/ab-editor.js`;
+    editorScript.async = true;
+    document.head.appendChild(editorScript);
+  }
   // EVENT FORMAT WRAPPER
   // Wraps events in the format expected by v1/ingest API:
   // { events: [...], siteId: "uuid" }

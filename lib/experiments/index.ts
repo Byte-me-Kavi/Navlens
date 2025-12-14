@@ -3,11 +3,9 @@
  * 
  * Commercial-grade A/B testing with:
  * - Deterministic bucketing (SHA-256)
- * - In-memory caching (no Redis)
+ * - Edge config delivery (CDN static JSON)
+ * - MutationObserver for instant DOM changes
  * - Statistical significance analysis
- * 
- * @example
- * import { getBucket, assignVariant, calculateZScore } from '@/lib/experiments';
  */
 
 // Core bucketing
@@ -54,3 +52,11 @@ export {
     analyzeExperiment,
     getStatusMessage
 } from './stats';
+
+// Edge config publisher
+export {
+    publishSiteConfig,
+    deleteSiteConfig,
+    getConfigUrl,
+    ensureStorageBucket
+} from './publisher';
