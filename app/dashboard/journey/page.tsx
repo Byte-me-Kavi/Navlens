@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useSite } from "@/app/context/SiteContext";
+import { secureApi } from "@/lib/secureApi";
 import { useDateRange } from "@/context/DateRangeContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
@@ -153,23 +154,14 @@ export default function JourneyDashboard() {
         const { startDate, endDate } = formatForApi();
         console.log('[JourneyDashboard] Fetching with:', { siteId: selectedSiteId, startDate, endDate });
         
-        const response = await fetch("/api/user-journeys", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            siteId: selectedSiteId,
-            startDate,
-            endDate,
-          }),
+        const result = await secureApi.journeys.get({
+          siteId: selectedSiteId,
+          startDate,
+          endDate,
         });
 
-        if (response.ok) {
-          const result = await response.json();
-          console.log('[JourneyDashboard] API response:', result);
-          setData(result);
-        } else {
-          console.error('[JourneyDashboard] API error:', response.status);
-        }
+        console.log('[JourneyDashboard] API response:', result);
+        setData(result as JourneyData);
       } catch (error) {
         console.error("Failed to fetch journey data:", error);
       } finally {

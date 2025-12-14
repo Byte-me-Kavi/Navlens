@@ -128,6 +128,23 @@ export const secureApi = {
             requestQueue.add(() =>
                 apiClient.post<unknown>('/feedback-config/query', { siteId })
             ),
+
+        dashboardList: (data: {
+            siteId: string;
+            startDate: string;
+            endDate: string;
+            feedbackType: string;
+            page: number;
+            limit: number;
+        }) =>
+            requestQueue.add(() =>
+                apiClient.post<{
+                    feedback: unknown[];
+                    totalCount: number;
+                    totalPages: number;
+                    stats: unknown
+                }>('/dashboard/feedback', data)
+            ),
     },
 
     /**
@@ -180,6 +197,34 @@ export const secureApi = {
      * Sessions API
      */
     sessions: {
+        list: (siteId: string, options?: {
+            page?: number;
+            pageSize?: number;
+            filters?: Record<string, unknown>;
+        }) =>
+            requestQueue.add(() =>
+                apiClient.post<{ sessions: unknown[]; pagination: unknown }>('/sessions', {
+                    siteId,
+                    ...options,
+                })
+            ),
+
+        get: (sessionId: string, siteId: string) =>
+            requestQueue.add(() =>
+                apiClient.post<{ session: unknown }>('/sessions/get', {
+                    sessionId,
+                    siteId,
+                })
+            ),
+
+        replayEvents: (sessionId: string, siteId: string) =>
+            requestQueue.add(() =>
+                apiClient.post<{ events: unknown[] }>('/rrweb-events/query', {
+                    sessionId,
+                    siteId,
+                })
+            ),
+
         notes: {
             list: (sessionId: string, siteId: string) =>
                 requestQueue.add(() =>
@@ -249,6 +294,38 @@ export const secureApi = {
         get: (data: unknown) =>
             requestQueue.add(() =>
                 apiClient.post<unknown>('/user-journeys', data)
+            ),
+    },
+
+    /**
+     * Sites API
+     */
+    sites: {
+        paths: {
+            list: (siteId: string) =>
+                requestQueue.add(() =>
+                    apiClient.post<{ pagePaths: string[] }>('/manage-page-paths', { siteId })
+                ),
+
+            delete: (siteId: string, pagePath: string) =>
+                requestQueue.add(() =>
+                    apiClient.delete<{ success: boolean }>('/manage-page-paths', { siteId, pagePath })
+                ),
+
+            exclude: (siteId: string, pagePath: string) =>
+                requestQueue.add(() =>
+                    apiClient.post<{ success: boolean }>('/excluded-paths', { siteId, pagePath })
+                ),
+        },
+    },
+
+    /**
+     * Dashboard API
+     */
+    dashboard: {
+        stats: () =>
+            requestQueue.add(() =>
+                apiClient.get<unknown>('/dashboard-stats')
             ),
     },
 };

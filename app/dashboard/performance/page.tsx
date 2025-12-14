@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useSite } from "@/app/context/SiteContext";
+import { secureApi } from "@/lib/secureApi";
 import { useDateRange } from "@/context/DateRangeContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
@@ -149,19 +150,13 @@ export default function PerformanceDashboard() {
       setLoading(true);
       try {
         const { startDate, endDate } = formatForApi();
-        const response = await fetch("/api/performance-metrics", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            siteId: selectedSiteId,
-            startDate,
-            endDate,
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          // Convert string values to numbers (ClickHouse returns strings)
+        const result = await secureApi.performance.metrics({
+          siteId: selectedSiteId,
+          startDate,
+          endDate,
+        }) as any;
+        
+        // Convert string values to numbers (ClickHouse returns strings)
           const parsed = {
             ...result,
             overall: {
@@ -181,7 +176,6 @@ export default function PerformanceDashboard() {
           };
           console.log('[PerformanceDashboard] Parsed data:', parsed);
           setData(parsed);
-        }
       } catch (error) {
         console.error("Failed to fetch performance data:", error);
       } finally {

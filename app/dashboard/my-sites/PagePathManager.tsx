@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
+import { secureApi } from "@/lib/secureApi";
 import { TrashIcon } from "@heroicons/react/24/outline";
 
 interface PagePathManagerProps {
@@ -32,13 +33,7 @@ export default function PagePathManager({
       setLoading(true);
       try {
         // Use POST request to hide siteId from URL
-        const response = await fetch("/api/manage-page-paths", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ siteId }),
-        });
-        if (!response.ok) throw new Error("Failed to fetch page paths");
-        const data = await response.json();
+        const data = await secureApi.sites.paths.list(siteId);
         setPagePaths(data.pagePaths || []);
       } catch (err) {
         console.error("Error fetching page paths:", err);
@@ -61,27 +56,16 @@ export default function PagePathManager({
 
     try {
       // Step 1: Delete from manage-page-paths (removes existing events)
-      const deleteResponse = await fetch("/api/manage-page-paths", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ siteId, pagePath: pathValue }),
-      });
-
-      if (!deleteResponse.ok) {
-        const error = await deleteResponse.json();
-        throw new Error(error.message || "Failed to delete page path");
-      }
+      // Step 1: Delete from manage-page-paths (removes existing events)
+      await secureApi.sites.paths.delete(siteId, pathValue);
 
       // Step 2: Add to exclusion list (prevents future data collection)
-      const excludeResponse = await fetch("/api/excluded-paths", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ siteId, pagePath: pathValue }),
-      });
-
-      if (!excludeResponse.ok) {
+      try {
+        await secureApi.sites.paths.exclude(siteId, pathValue);
+      } catch (err) {
         console.warn(
-          "Warning: Path excluded from future collection but could not update exclusion list"
+          "Warning: Path excluded from future collection but could not update exclusion list",
+          err
         );
       }
 

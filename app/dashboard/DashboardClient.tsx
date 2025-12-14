@@ -11,21 +11,13 @@ import {
   FireIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
-import useSWR from "swr"; // <--- IMPORT THIS
+import useSWR from "swr";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { isEncryptedResponse, decryptResponse } from "@/lib/encryption";
+import { secureApi } from "@/lib/secureApi";
 
 // 1. Define a "Fetcher" (Standard wrapper for browser fetch with decryption)
-const fetcher = async (url: string) => {
-  const res = await fetch(url);
-  let data = await res.json();
-
-  // Decrypt if response is encrypted
-  if (isEncryptedResponse(data)) {
-    data = await decryptResponse(data);
-  }
-
-  return data;
+const fetcher = async () => {
+  return await secureApi.dashboard.stats() as unknown as DashboardStats;
 };
 
 // --- Type Definitions ---

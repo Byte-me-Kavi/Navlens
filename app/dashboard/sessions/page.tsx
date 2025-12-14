@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import { apiClient } from "@/shared/services/api/client";
+import { secureApi } from "@/lib/secureApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
 import "flag-icons/css/flag-icons.min.css";
@@ -285,15 +286,10 @@ export default function SessionsPage() {
     const fetchSessions = async () => {
       try {
         setLoading(true);
-        console.log("🔄 Calling apiClient.post with siteId:", selectedSiteId);
-        const data = await apiClient.post<{ sessions: SessionData[] }>(
-          "/sessions",
-          {
-            siteId: selectedSiteId,
-          }
-        );
+        console.log("🔄 Calling secureApi.sessions.list with siteId:", selectedSiteId);
+        const data = await secureApi.sessions.list(selectedSiteId);
         console.log("✅ Sessions data received:", data);
-        const sessionData = data.sessions || [];
+        const sessionData = (data.sessions as SessionData[]) || [];
 
         // Cache the sessions
         sessionsCache[selectedSiteId] = sessionData;

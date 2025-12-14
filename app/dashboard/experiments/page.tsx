@@ -244,19 +244,14 @@ function EditVariantModal({
     
     setIsGenerating(true);
     try {
-      const res = await fetch('/api/experiments/editor-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          experimentId: experiment.id,
-          siteId: siteId,
-          variantId: selectedVariant,
-        }),
+      const res = await secureApi.experiments.editorUrl({
+        experimentId: experiment.id,
+        siteId: siteId,
+        variantId: selectedVariant,
       });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setEditorUrl(data.url);
+
+      if (res) {
+        setEditorUrl(res.url);
       }
     } catch (err) {
       console.error('Failed to generate URL:', err);
@@ -412,20 +407,14 @@ function EditSettingsModal({
         weight: variantWeights[v.id || `variant_${i}`] || v.weight,
       }));
 
-      const res = await fetch(`/api/experiments/${experiment.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          siteId: siteId,
-          traffic_percentage: trafficPercentage,
-          variants: updatedVariants,
-        }),
+      await secureApi.experiments.update(experiment.id, {
+        siteId: siteId,
+        traffic_percentage: trafficPercentage,
+        variants: updatedVariants,
       });
-      
-      if (res.ok) {
-        onSave();
-        onClose();
-      }
+
+      onSave();
+      onClose();
     } catch (err) {
       console.error('Failed to update:', err);
     } finally {
@@ -537,9 +526,14 @@ function ResultsPanel({ results }: { results: ExperimentResults | null }) {
         </div>
         <div className="bg-gray-50 rounded-lg p-3 text-center">
           <div
-            className={`text-2xl font-bold ${results.lift_percentage && results.lift_percentage > 0 ? "text-green-600" : "text-red-600"}`}
+            className={`text-2xl font-bold ${
+              (results.lift_percentage || 0) > 0 ? "text-green-600" : 
+              (results.lift_percentage || 0) < 0 ? "text-red-600" : "text-gray-900"
+            }`}
           >
-            {results.lift_percentage ? `${results.lift_percentage > 0 ? "+" : ""}${results.lift_percentage.toFixed(1)}%` : "N/A"}
+            {typeof results.lift_percentage === 'number' 
+              ? `${results.lift_percentage > 0 ? "+" : ""}${results.lift_percentage.toFixed(1)}%` 
+              : "—"}
           </div>
           <div className="text-xs text-gray-500">Lift</div>
         </div>
@@ -675,22 +669,16 @@ export default function ExperimentsPage() {
         weight: Math.floor(100 / data.variantCount),
       }));
 
-      const res = await fetch("/api/experiments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          siteId: selectedSite.id,
-          name: data.name,
-          description: data.description,
-          goal_event: data.goalEvent,
-          variants,
-        }),
+      await secureApi.experiments.create({
+        siteId: selectedSite.id,
+        name: data.name,
+        description: data.description,
+        goal_event: data.goalEvent,
+        variants,
       });
 
-      if (res.ok) {
-        setShowCreateModal(false);
-        fetchExperiments();
-      }
+      setShowCreateModal(false);
+      fetchExperiments();
     } catch (err) {
       console.error("Failed to create experiment:", err);
     }
@@ -704,18 +692,12 @@ export default function ExperimentsPage() {
     if (!selectedSite?.id) return;
 
     try {
-      const res = await fetch(`/api/experiments/${experimentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          siteId: selectedSite.id,
-          status: newStatus,
-        }),
+      await secureApi.experiments.update(experimentId, {
+        siteId: selectedSite.id,
+        status: newStatus,
       });
 
-      if (res.ok) {
-        fetchExperiments();
-      }
+      fetchExperiments();
     } catch (err) {
       console.error("Failed to update experiment:", err);
     }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSite } from '@/app/context/SiteContext';
+import { secureApi } from '@/lib/secureApi';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import NoSiteSelected, { NoSitesAvailable } from '@/components/NoSiteSelected';
 import {
@@ -88,24 +89,17 @@ export default function FeedbackDashboardPage() {
     
     try {
       const { startDate, endDate } = getDateRange();
-      const response = await fetch('/api/dashboard/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          siteId: selectedSiteId,
-          startDate,
-          endDate,
-          feedbackType: filterType,
-          page,
-          limit: 20,
-        }),
+      const data = await secureApi.feedback.dashboardList({
+        siteId: selectedSiteId,
+        startDate,
+        endDate,
+        feedbackType: filterType,
+        page,
+        limit: 20,
       });
       
-      if (!response.ok) throw new Error('Failed to fetch feedback');
-      
-      const data = await response.json();
-      setFeedback(data.feedback || []);
-      setStats(data.stats || null);
+      setFeedback((data.feedback as Feedback[]) || []);
+      setStats(data.stats as FeedbackStats);
       setTotalPages(data.totalPages || 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

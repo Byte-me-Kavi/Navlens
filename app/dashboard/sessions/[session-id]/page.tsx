@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import SessionPlayer, { RRWebEvent } from "@/components/SessionPlayer";
-import { apiClient } from "@/shared/services/api/client";
+import { secureApi } from "@/lib/secureApi";
 import { DebugPanel } from "@/features/dev-tools";
 import "flag-icons/css/flag-icons.min.css";
 import countries from "world-countries";
@@ -101,27 +101,17 @@ export default function SessionReplayPage() {
 
   const fetchSessionReplay = useCallback(async () => {
     try {
+      if (!siteId) return;
       setLoading(true);
       setError("");
 
       // Fetch stitched events from replay API
-      const replayData = await apiClient.post<{ events: unknown[] }>(
-        "/sessions/replay",
-        {
-          siteId,
-          sessionId,
-        }
-      );
-      setEvents((replayData.events || []) as RRWebEvent[]);
+      const replayData = await secureApi.sessions.replayEvents(sessionId, siteId);
+      setEvents((replayData.events as RRWebEvent[]) || []);
 
       // Fetch session metadata
-      const metaData = await apiClient.post<{ session: SessionMetadata }>(
-        `/sessions/${sessionId}`,
-        {
-          siteId,
-        }
-      );
-      setMetadata(metaData.session);
+      const metaData = await secureApi.sessions.get(sessionId, siteId);
+      setMetadata(metaData.session as SessionMetadata);
     } catch (err: unknown) {
       console.error("Error fetching session:", err);
       setError(err instanceof Error ? err.message : "Failed to load session");

@@ -560,21 +560,21 @@ export default function CohortsDashboard() {
   }, [selectedSiteId]);
 
   const handleCreate = async (data: { name: string; description: string; rules: CohortRule[] }) => {
-    const response = await fetch("/api/cohorts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ siteId: selectedSiteId, ...data }),
-    });
-    if (response.ok) {
+    try {
+      await secureApi.cohorts.create({ siteId: selectedSiteId, ...data });
       fetchCohorts();
+    } catch (error) {
+      console.error("Failed to create cohort:", error);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this cohort?")) return;
-    const response = await fetch(`/api/cohorts?id=${id}`, { method: "DELETE" });
-    if (response.ok) {
+    try {
+      await secureApi.cohorts.delete(id);
       setCohorts(prev => prev.filter(c => c.id !== id));
+    } catch (error) {
+      console.error("Failed to delete cohort:", error);
     }
   };
 
@@ -584,15 +584,8 @@ export default function CohortsDashboard() {
     setCohortDetails(null);
     
     try {
-      const response = await fetch("/api/cohort-metrics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ siteId: selectedSiteId, cohortId }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setCohortDetails(data);
-      }
+      const data = await secureApi.cohorts.metrics({ siteId: selectedSiteId, cohortId });
+      setCohortDetails(data as CohortDetails);
     } catch (error) {
       console.error("Failed to fetch cohort metrics:", error);
     } finally {
@@ -610,15 +603,8 @@ export default function CohortsDashboard() {
     
     setCompareLoading(true);
     try {
-      const response = await fetch("/api/cohort-metrics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ siteId: selectedSiteId, cohortIds }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setComparison(data.comparison);
-      }
+      const data = await secureApi.cohorts.metrics({ siteId: selectedSiteId, cohortIds });
+      setComparison((data as any).comparison);
     } catch (error) {
       console.error("Failed to compare cohorts:", error);
     } finally {
