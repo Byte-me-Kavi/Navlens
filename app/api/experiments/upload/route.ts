@@ -37,26 +37,22 @@ export async function OPTIONS() {
  * POST /api/experiments/upload
  * Upload an image for use in A/B test modifications
  * 
- * Body: FormData with 'file', 'siteId', and optionally 'experimentId'
+ * Body: FormData with 'file', 'siteId', and optionally 'experimentId', 'timestamp', 'signature', 'variantId'
+ * 
+ * Authentication: Cookie-based OR signature-based (for cross-origin editor)
  */
 export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin');
 
     try {
-        // Authenticate user
-        const user = await getUserFromRequest(request);
-        if (!user) {
-            return NextResponse.json(
-                { error: 'Authentication required' },
-                { status: 401, headers: corsHeaders(origin) }
-            );
-        }
-
-        // Parse form data
+        // Parse form data first to get auth params
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
         const siteId = formData.get('siteId') as string | null;
         const experimentId = formData.get('experimentId') as string | null;
+        const variantId = formData.get('variantId') as string | null;
+        const timestamp = formData.get('timestamp') as string | null;
+        const signature = formData.get('signature') as string | null;
 
         if (!file) {
             return NextResponse.json(
@@ -69,6 +65,62 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 { error: 'siteId is required' },
                 { status: 400, headers: corsHeaders(origin) }
+            );
+        }
+
+        // Try cookie-based auth first
+        let isAuthorized = false;
+        const user = await getUserFromRequest(request);
+
+        if (user) {
+            // Verify user owns this site
+            const { data: site } = await supabaseAdmin
+                .from('sites')
+                .select('user_id')
+                .eq('id', siteId)
+                .single();
+
+            if (site && site.user_id === user.id) {
+                isAuthorized = true;
+            }
+        }
+
+        // Fall back to signature-based auth for cross-origin (visual editor)
+        if (!isAuthorized && signature && timestamp && experimentId && variantId) {
+            const EDITOR_SECRET = process.env.NAVLENS_EDITOR_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+            const { createHmac } = await import('crypto');
+
+            // Validate timestamp (1 hour expiry)
+            const ts = parseInt(timestamp, 10);
+            const age = Date.now() - ts;
+            const MAX_AGE = 60 * 60 * 1000; // 1 hour
+
+            if (!isNaN(ts) && age >= 0 && age <= MAX_AGE) {
+                // Verify signature (same format as modifications route)
+                const payload = `${experimentId}:${variantId}:${timestamp}`;
+                const expectedSig = createHmac('sha256', EDITOR_SECRET)
+                    .update(payload)
+                    .digest('hex')
+                    .slice(0, 16);
+
+                if (signature === expectedSig) {
+                    // Verify experiment belongs to site
+                    const { data: exp } = await supabaseAdmin
+                        .from('experiments')
+                        .select('id')
+                        .eq('id', experimentId)
+                        .eq('site_id', siteId)
+                        .single();
+
+                    isAuthorized = !!exp;
+                }
+            }
+        }
+
+        if (!isAuthorized) {
+            return NextResponse.json(
+                { error: 'Authentication required - invalid signature or session' },
+                { status: 401, headers: corsHeaders(origin) }
             );
         }
 
@@ -88,25 +140,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Verify user owns this site
-        const { data: site } = await supabaseAdmin
-            .from('sites')
-            .select('user_id')
-            .eq('id', siteId)
-            .single();
-
-        if (!site || site.user_id !== user.id) {
-            return NextResponse.json(
-                { error: 'Unauthorized - site not found or not owned by user' },
-                { status: 403, headers: corsHeaders(origin) }
-            );
-        }
-
         // Generate unique filename
         const ext = file.name.split('.').pop() || 'png';
-        const timestamp = Date.now();
+        const fileTimestamp = Date.now();
         const randomId = Math.random().toString(36).substring(2, 8);
-        const filename = `${siteId}/${experimentId || 'general'}/${timestamp}-${randomId}.${ext}`;
+        const filename = `${siteId}/${experimentId || 'general'}/${fileTimestamp}-${randomId}.${ext}`;
 
         // Convert file to buffer
         const arrayBuffer = await file.arrayBuffer();

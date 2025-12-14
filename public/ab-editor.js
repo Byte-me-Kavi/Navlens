@@ -673,10 +673,13 @@
       formData.append('file', file);
       formData.append('siteId', siteId);
       formData.append('experimentId', experimentId || '');
+      formData.append('variantId', variantId || '');
+      formData.append('timestamp', timestamp || '');
+      formData.append('signature', signature || '');
 
       const resp = await fetch(`${apiHost}/api/experiments/upload`, {
         method: 'POST',
-        credentials: 'include',
+        mode: 'cors',
         body: formData
       });
 
