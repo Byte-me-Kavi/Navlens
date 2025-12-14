@@ -352,7 +352,20 @@
         // Apply modifications visually
         modifications.forEach(mod => {
           try {
-            const elements = document.querySelectorAll(mod.selector);
+            let elements;
+            try {
+              elements = document.querySelectorAll(mod.selector);
+            } catch (err) {
+              // Try escaping colons (common with Tailwind) if selector is invalid
+              if (mod.selector.includes(':')) {
+                const escapedSelector = mod.selector.replace(/:/g, '\\:');
+                elements = document.querySelectorAll(escapedSelector);
+                console.log('[navlens-editor] Applied fix to selector:', mod.selector, '->', escapedSelector);
+              } else {
+                throw err;
+              }
+            }
+
             console.log('[navlens-editor] Applying mod', mod.type, 'to', mod.selector, '- found', elements.length, 'elements');
             elements.forEach(el => {
               if (mod.type === 'css' && mod.changes.css) {
@@ -396,7 +409,8 @@
           .filter(c => c && !c.startsWith('nv-'))
           .slice(0, 2);
         if (classes.length) {
-          selector += '.' + classes.join('.');
+          // Escape classes to handle special chars like colons (Tailwind)
+          selector += '.' + classes.map(c => CSS.escape(c)).join('.');
         }
       }
       

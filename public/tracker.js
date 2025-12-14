@@ -4333,10 +4333,12 @@
   }
   
   // Initialize Web Vitals tracking
-  if (document.readyState === 'complete') {
-    initWebVitals();
-  } else {
-    window.addEventListener('load', initWebVitals);
+  if (!IS_EDITOR_MODE) {
+    if (document.readyState === 'complete') {
+      initWebVitals();
+    } else {
+      window.addEventListener('load', initWebVitals);
+    }
   }
 
   console.log('[Navlens] Tracker initialized. Use navlens.track() for custom events.');
