@@ -70,6 +70,7 @@
   // ============================================
   
   const NAVLENS_CONFIG_URL = `${normalizedHost}/storage/v1/object/public/experiment-configs`;
+  const DEBUG = new URLSearchParams(window.location.search).has('__navlens_debug');
   let experimentAssignments = {};
   let experimentConfig = null;
   let appliedSelectors = new Set();
@@ -503,6 +504,18 @@
       if (modifications.length) {
         startExperimentEngine(modifications);
       }
+      
+      // Trigger pageview goal evaluation after experiments are loaded
+      // Small delay to ensure all assignments are set
+      setTimeout(() => {
+        evaluateExperimentGoals('pageview', { 
+          url: window.location.href, 
+          path: window.location.pathname 
+        });
+        if (DEBUG) {
+          console.log(`[navlens] Pageview goal check triggered for ${window.location.pathname}`);
+        }
+      }, 100);
     }
     
     // Release anti-flicker (if applied)
@@ -547,20 +560,34 @@
    */
   function matchUrl(url, pattern, matchType) {
     if (!pattern) return true;
-    const path = url.replace(/^https?:\/\/[^\/]+/, ''); // Extract path
     
+    // Normalize: remove query params/hash, then trailing slash
+    const cleanUrl = url.split('?')[0].split('#')[0].replace(/\/$/, '') || '/';
+    const cleanPattern = pattern.split('?')[0].split('#')[0].replace(/\/$/, '') || '/';
+    
+    // Extract path from full URL for path-only comparisons
+    let path = cleanUrl;
+    try {
+      if (cleanUrl.startsWith('http')) {
+        path = new URL(cleanUrl).pathname.replace(/\/$/, '') || '/';
+      }
+    } catch (e) {
+      // Fallback if URL parsing fails (e.g. relative path)
+      path = cleanUrl.replace(/^https?:\/\/[^\/]+/, '').replace(/\/$/, '') || '/';
+    }
+
     switch (matchType) {
       case 'exact':
-        return path === pattern || url === pattern;
+        return path === cleanPattern || cleanUrl === cleanPattern;
       case 'contains':
-        return path.includes(pattern) || url.includes(pattern);
+        return path.includes(pattern) || cleanUrl.includes(pattern);
       case 'regex':
         try {
           return new RegExp(pattern).test(path) || new RegExp(pattern).test(url);
         } catch {
           return false;
         }
-      default:
+      default: // default to contains
         return path.includes(pattern);
     }
   }
@@ -775,6 +802,66 @@
       }
     }
   }, 5000); // Check every 5 seconds
+  
+  // Track clicks for click goals
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!target || isEditorElement(target)) return;
+    
+    evaluateExperimentGoals('click', { 
+      element: target, 
+      selector: target.tagName?.toLowerCase() 
+    });
+  }, true);
+  
+  // Track form submissions for form_submit goals
+  document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (!form) return;
+    
+    evaluateExperimentGoals('form_submit', { 
+      element: form, 
+      formId: form.id,
+      formAction: form.action 
+    });
+  }, true);
+
+  // SPA Navigation Handling
+  // Patch pushState and replaceState to detect route changes
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+
+  history.pushState = function() {
+    originalPushState.apply(this, arguments);
+    handleUrlChange();
+  };
+
+  history.replaceState = function() {
+    originalReplaceState.apply(this, arguments);
+    handleUrlChange();
+  };
+
+  window.addEventListener('popstate', handleUrlChange);
+
+  // Handle URL change for SPA
+  function handleUrlChange() {
+    setTimeout(() => {
+      evaluateExperimentGoals('pageview', { 
+        url: window.location.href, 
+        path: window.location.pathname 
+      });
+      // Also re-apply experiment modifications if needed
+      if (window.navlens && window.navlens.getExperiments) {
+        const activeExperiments = window.navlens.getExperiments(); 
+        // Re-run experiment logic if needed (handled by tracker mostly, but goals need specific trigger)
+      }
+    }, 100);
+  }
+  
+  // Helper to check if element is editor element
+  function isEditorElement(el) {
+    return el.closest?.('[data-navlens-ignore]') || false;
+  }
 
   // Expose experiment functions globally
   window.navlens = window.navlens || {};

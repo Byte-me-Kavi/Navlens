@@ -34,9 +34,10 @@ interface Experiment {
   description?: string;
   status: "draft" | "running" | "paused" | "completed";
   variants: Variant[];
-  modifications?: Array<{ id: string; selector: string; type: string }>;
+  modifications?: Array<{ id: string; selector: string; type: string; changes?: Record<string, unknown> }>;
   traffic_percentage: number;
   goal_event?: string;
+  goals?: ExperimentGoal[];  // Enterprise goal configurations
   created_at: string;
   started_at?: string;
   ended_at?: string;
@@ -114,22 +115,32 @@ function CreateExperimentModal({
     description: string;
     goals: ExperimentGoal[];
     variantCount: number;
+    variantNames: string[];
   }) => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [goals, setGoals] = useState<ExperimentGoal[]>([]);
   const [variantCount, setVariantCount] = useState(2);
+  const [variantNames, setVariantNames] = useState<string[]>(["Control", "Variant A"]);
+
+  // Update variant names array when count changes
+  const handleVariantCountChange = (count: number) => {
+    setVariantCount(count);
+    const defaultNames = ["Control", "Variant A", "Variant B", "Variant C"];
+    setVariantNames(defaultNames.slice(0, count));
+  };
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, description, goals, variantCount });
+    onSubmit({ name, description, goals, variantCount, variantNames });
     setName("");
     setDescription("");
     setGoals([]);
     setVariantCount(2);
+    setVariantNames(["Control", "Variant A"]);
   };
 
   return (
@@ -176,13 +187,40 @@ function CreateExperimentModal({
             </label>
             <select
               value={variantCount}
-              onChange={(e) => setVariantCount(parseInt(e.target.value))}
+              onChange={(e) => handleVariantCountChange(parseInt(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value={2}>2 (Control + 1 Variant)</option>
               <option value={3}>3 (Control + 2 Variants)</option>
               <option value={4}>4 (Control + 3 Variants)</option>
             </select>
+          </div>
+
+          {/* Variant Names */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Variant Names
+            </label>
+            <div className="space-y-2">
+              {variantNames.map((vName, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className={`text-xs font-medium px-2 py-1 rounded ${idx === 0 ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-600'}`}>
+                    {idx === 0 ? '🔵 Control' : `🟢 Variant ${idx}`}
+                  </span>
+                  <input
+                    type="text"
+                    value={vName}
+                    onChange={(e) => {
+                      const newNames = [...variantNames];
+                      newNames[idx] = e.target.value;
+                      setVariantNames(newNames);
+                    }}
+                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder={idx === 0 ? "e.g., Original" : `e.g., ${idx === 1 ? 'Blue Button' : 'Green Button'}`}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
@@ -490,8 +528,330 @@ function EditSettingsModal({
   );
 }
 
+// Edit Experiment Modal - Full editing capabilities
+function EditExperimentModal({
+  isOpen,
+  onClose,
+  experiment,
+  siteId,
+  onSave,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  experiment: Experiment | null;
+  siteId: string;
+  onSave: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [goals, setGoals] = useState<ExperimentGoal[]>([]);
+  const [variantNames, setVariantNames] = useState<string[]>([]);
+  const [variantWeights, setVariantWeights] = useState<number[]>([]);
+  const [trafficPercentage, setTrafficPercentage] = useState(100);
+  const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'basic' | 'goals' | 'variants'>('basic');
+
+  // Load experiment data when opened
+  useEffect(() => {
+    if (experiment && isOpen) {
+      setName(experiment.name);
+      setDescription(experiment.description || "");
+      setGoals(experiment.goals || []);
+      setVariantNames(experiment.variants.map(v => v.name));
+      setVariantWeights(experiment.variants.map(v => v.weight));
+      setTrafficPercentage(experiment.traffic_percentage);
+    }
+  }, [experiment, isOpen]);
+
+  if (!isOpen || !experiment) return null;
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // Build updated variants with new names and weights
+      const updatedVariants = experiment.variants.map((v, i) => ({
+        ...v,
+        name: variantNames[i] || v.name,
+        weight: variantWeights[i] || v.weight,
+      }));
+
+      await secureApi.experiments.update(experiment.id, {
+        siteId: siteId,
+        name,
+        description,
+        goals,
+        variants: updatedVariants,
+        traffic_percentage: trafficPercentage,
+      });
+
+      onSave();
+      onClose();
+    } catch (err) {
+      console.error('Failed to update experiment:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const tabClasses = (tab: string) => 
+    `px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+      activeTab === tab 
+        ? 'bg-blue-600 text-white' 
+        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+    }`;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">Edit Experiment</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        {/* Tabs */}
+        <div className="px-6 pt-4 flex gap-2">
+          <button className={tabClasses('basic')} onClick={() => setActiveTab('basic')}>
+            📝 Basic Info
+          </button>
+          <button className={tabClasses('goals')} onClick={() => setActiveTab('goals')}>
+            🎯 Goals
+          </button>
+          <button className={tabClasses('variants')} onClick={() => setActiveTab('variants')}>
+            🧪 Variants & Traffic
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-4 flex-1 overflow-y-auto">
+          {activeTab === 'basic' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Experiment Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'goals' && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Configure what you want to track as conversions. You can remove existing goals or add new ones.
+              </p>
+              <GoalConfig goals={goals} onChange={setGoals} />
+            </div>
+          )}
+
+          {activeTab === 'variants' && (
+            <div className="space-y-6">
+              {/* Variant Names & Weights */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Variant Names & Traffic Split
+                  <span className="text-xs text-gray-400 ml-2">
+                    (Total: {variantWeights.reduce((a, b) => a + b, 0)}%)
+                  </span>
+                </label>
+                <div className="space-y-3">
+                  {variantNames.map((vName, idx) => (
+                    <div key={idx} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                      <span className={`text-xs font-medium px-2 py-1 rounded whitespace-nowrap ${idx === 0 ? 'bg-gray-200 text-gray-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {idx === 0 ? '🔵 Control' : `🟢 V${idx}`}
+                      </span>
+                      <input
+                        type="text"
+                        value={vName}
+                        onChange={(e) => {
+                          const newNames = [...variantNames];
+                          newNames[idx] = e.target.value;
+                          setVariantNames(newNames);
+                        }}
+                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        placeholder="Variant name"
+                      />
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={variantWeights[idx] || 0}
+                        onChange={(e) => {
+                          const newWeights = [...variantWeights];
+                          newWeights[idx] = parseInt(e.target.value);
+                          setVariantWeights(newWeights);
+                        }}
+                        className="w-20 h-1.5 bg-gray-200 rounded-lg cursor-pointer"
+                      />
+                      <span className="w-10 text-right text-sm font-medium text-gray-700">
+                        {variantWeights[idx] || 0}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {variantWeights.reduce((a, b) => a + b, 0) !== 100 && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    ⚠️ Weights should sum to 100% (currently {variantWeights.reduce((a, b) => a + b, 0)}%)
+                  </p>
+                )}
+              </div>
+
+              {/* Traffic Percentage */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Traffic Percentage: {trafficPercentage}%
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="100"
+                  value={trafficPercentage}
+                  onChange={(e) => setTrafficPercentage(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Percentage of eligible visitors that enter the experiment
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving || !name.trim()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Delete Confirmation Modal - Pretty warning popup
+function DeleteConfirmModal({
+  isOpen,
+  onClose,
+  experiment,
+  siteId,
+  onDeleted,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  experiment: Experiment | null;
+  siteId: string;
+  onDeleted: () => void;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+
+  if (!isOpen || !experiment) return null;
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await secureApi.experiments.delete(experiment.id, siteId);
+      onDeleted();
+      onClose();
+    } catch (err) {
+      console.error('Failed to delete experiment:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const canDelete = confirmText.toLowerCase() === 'delete';
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+        {/* Warning Header */}
+        <div className="bg-red-50 px-6 py-4 border-b border-red-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <TrashIcon className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-red-900">Delete Experiment?</h2>
+              <p className="text-sm text-red-600">This action cannot be undone</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-4 space-y-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h3 className="font-medium text-yellow-800 mb-2">⚠️ Warning: All data will be lost!</h3>
+            <ul className="text-sm text-yellow-700 space-y-1">
+              <li>• All visitor assignments will be removed</li>
+              <li>• All conversion data will be deleted</li>
+              <li>• Visual modifications will be deactivated</li>
+              <li>• Statistical results will be permanently lost</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-sm text-gray-600 mb-2">
+              You are about to delete: <strong className="text-gray-900">{experiment.name}</strong>
+            </p>
+            <p className="text-sm text-gray-600 mb-2">
+              Type <strong className="text-red-600">delete</strong> to confirm:
+            </p>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="Type 'delete' to confirm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={!canDelete || isDeleting}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isDeleting ? 'Deleting...' : '🗑️ Delete Forever'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Results panel
-function ResultsPanel({ results }: { results: ExperimentResults | null }) {
+function ResultsPanel({ results, experiment }: { results: ExperimentResults | null; experiment: Experiment | null }) {
   if (!results) {
     return (
       <div className="text-center text-gray-500 py-8">
@@ -511,112 +871,183 @@ function ResultsPanel({ results }: { results: ExperimentResults | null }) {
     'revenue': '💰 Revenue',
   };
 
+  // Helper to get friendly goal description
+  const getGoalDescription = (goal: ExperimentGoal) => {
+    switch (goal.type) {
+      case 'click':
+        return goal.selector ? `Element: ${goal.selector}` : 'Any click';
+      case 'pageview':
+        return `URL: ${goal.url_pattern || '/'}` + (goal.url_match ? ` (${goal.url_match})` : '');
+      case 'form_submit':
+        return goal.selector ? `Form: ${goal.selector}` : 'Any form submission';
+      case 'custom_event':
+        return `Event: ${goal.event_name || 'conversion'}`;
+      case 'scroll_depth':
+        return `Scroll to ${goal.depth_percentage || 50}%`;
+      case 'time_on_page':
+        return `Stay ${goal.seconds || 30} seconds`;
+      case 'revenue':
+        return `Track ${goal.event_name || 'purchase'} revenue`;
+      default:
+        return goal.name;
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-gray-50 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-gray-900">
+      {/* Configured Goals Section */}
+      {experiment?.goals && experiment.goals.length > 0 && (
+        <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
+          <h4 className="text-sm font-medium text-purple-900 mb-2">🎯 Tracking Goals</h4>
+          <div className="space-y-1.5">
+            {experiment.goals.map((goal) => (
+              <div key={goal.id} className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <span>{goalTypeLabels[goal.type] || goal.type}</span>
+                  <span className="text-purple-700 font-medium">{goal.name}</span>
+                  {goal.is_primary && (
+                    <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Primary</span>
+                  )}
+                </div>
+                <span className="text-purple-600 text-xs">{getGoalDescription(goal)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Legacy goal_event display */}
+      {!experiment?.goals?.length && experiment?.goal_event && (
+        <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
+          <h4 className="text-sm font-medium text-purple-900 mb-1">🎯 Tracking Goal</h4>
+          <span className="text-sm text-purple-700">Event: {experiment.goal_event}</span>
+        </div>
+      )}
+
+      {/* Key Metrics Summary - More User Friendly */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-100">
+          <div className="text-2xl font-bold text-blue-700">
             {results.total_users.toLocaleString()}
           </div>
-          <div className="text-xs text-gray-500">Total Users</div>
+          <div className="text-xs text-blue-600">Visitors in Test</div>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-gray-900">
+        <div className="bg-green-50 rounded-lg p-3 text-center border border-green-100">
+          <div className="text-2xl font-bold text-green-700">
+            {results.variants.reduce((sum, v) => sum + v.conversions, 0).toLocaleString()}
+          </div>
+          <div className="text-xs text-green-600">Goal Conversions</div>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
+          <div className="text-2xl font-bold text-gray-700">
             {results.confidence_level || 0}%
           </div>
           <div className="text-xs text-gray-500">Confidence</div>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3 text-center">
+        <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
           <div
             className={`text-2xl font-bold ${
               (results.lift_percentage || 0) > 0 ? "text-green-600" : 
-              (results.lift_percentage || 0) < 0 ? "text-red-600" : "text-gray-900"
+              (results.lift_percentage || 0) < 0 ? "text-red-600" : "text-gray-700"
             }`}
           >
             {typeof results.lift_percentage === 'number' 
               ? `${results.lift_percentage > 0 ? "+" : ""}${results.lift_percentage.toFixed(1)}%` 
               : "—"}
           </div>
-          <div className="text-xs text-gray-500">Lift</div>
+          <div className="text-xs text-gray-500">Improvement</div>
         </div>
       </div>
 
-      {/* Confidence bar */}
-      <div>
-        <div className="flex justify-between text-xs text-gray-500 mb-1">
-          <span>Statistical Confidence</span>
-          <span>{results.confidence_level || 0}%</span>
-        </div>
-        <ConfidenceBar level={results.confidence_level || 0} />
-        <div className="text-xs text-gray-400 mt-1">
-          {results.is_significant
-            ? "✅ Statistically significant"
-            : "⏳ More data needed"}
-        </div>
+      {/* Results Explanation */}
+      <div className={`p-3 rounded-lg text-sm ${
+        results.is_significant 
+          ? 'bg-green-50 border border-green-200 text-green-800'
+          : 'bg-amber-50 border border-amber-200 text-amber-800'
+      }`}>
+        {results.is_significant ? (
+          <div className="flex items-center gap-2">
+            <CheckCircleIcon className="w-5 h-5 text-green-600" />
+            <span><strong>Statistically significant!</strong> {results.winner ? `"${results.variants.find(v => v.variant_id === results.winner)?.variant_name}" is the winner.` : 'You can make decisions based on these results.'}</span>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <ArrowPathIcon className="w-5 h-5 text-amber-600" />
+              <strong>Collecting more data...</strong>
+            </div>
+            <p className="text-xs text-amber-700">
+              {results.total_users < 100 
+                ? `Need ${100 - results.total_users} more visitors for reliable results.`
+                : (results.confidence_level || 0) < 95 
+                  ? `Confidence is ${results.confidence_level || 0}%. Need 95%+ for statistical significance.`
+                  : 'Almost there! Keep the test running for more accurate results.'
+              }
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Variant breakdown */}
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium text-gray-700">Variant Performance</h4>
-        {results.variants.map((v) => (
-          <div
-            key={v.variant_id}
-            className={`p-3 rounded-lg border ${v.variant_id === results.winner ? "border-green-500 bg-green-50" : "border-gray-200"}`}
-          >
-            {/* Variant header */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                {v.variant_id === results.winner && (
-                  <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                )}
-                <span className="font-medium">{v.variant_name}</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold">{v.conversion_rate.toFixed(2)}%</div>
-                <div className="text-xs text-gray-500">
-                  {v.conversions}/{v.users} users
+      {/* Variant Performance - User Friendly */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-semibold text-gray-800">📊 Performance by Variant</h4>
+        {results.variants.map((v, idx) => {
+          const isWinner = v.variant_id === results.winner;
+          const isControl = idx === 0;
+          const conversionRate = v.users > 0 ? (v.conversions / v.users) * 100 : 0;
+          const maxRate = Math.max(...results.variants.map(x => x.users > 0 ? (x.conversions / x.users) * 100 : 0), 1);
+          
+          return (
+            <div
+              key={v.variant_id}
+              className={`p-4 rounded-lg border-2 ${
+                isWinner ? "border-green-500 bg-green-50" : 
+                isControl ? "border-gray-300 bg-gray-50" : 
+                "border-blue-200 bg-blue-50"
+              }`}
+            >
+              {/* Variant Header */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  {isWinner && <CheckCircleIcon className="w-5 h-5 text-green-500" />}
+                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                    isControl ? 'bg-gray-200 text-gray-700' : 'bg-blue-200 text-blue-700'
+                  }`}>
+                    {isControl ? '🔵 Control' : `🟢 Variant`}
+                  </span>
+                  <span className="font-semibold text-gray-900">{v.variant_name}</span>
+                  {isWinner && <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">Winner!</span>}
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-gray-900">{conversionRate.toFixed(1)}%</div>
+                  <div className="text-xs text-gray-500">conversion rate</div>
                 </div>
               </div>
-            </div>
-            
-            {/* Per-goal breakdown (if available) */}
-            {v.goals && v.goals.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
-                {v.goals.map((goal) => (
-                  <div key={goal.goal_id} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs">
-                        {goalTypeLabels[goal.goal_type] || goal.goal_type}
-                      </span>
-                      <span className="text-gray-600">{goal.goal_name}</span>
-                      {goal.is_primary && (
-                        <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
-                          Primary
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <span className="font-medium">{goal.conversion_rate.toFixed(2)}%</span>
-                      <span className="text-gray-400 ml-1">({goal.conversions})</span>
-                      {goal.total_revenue !== undefined && goal.total_revenue > 0 && (
-                        <div className="text-xs text-green-600">
-                          ${goal.total_revenue.toLocaleString()} | AOV: ${goal.avg_order_value?.toFixed(2)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+
+              {/* Progress Bar */}
+              <div className="h-2 bg-gray-200 rounded-full mb-2 overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all ${
+                    isWinner ? 'bg-green-500' : isControl ? 'bg-gray-400' : 'bg-blue-500'
+                  }`}
+                  style={{ width: `${Math.min(100, (conversionRate / maxRate) * 100)}%` }}
+                />
               </div>
-            )}
-          </div>
-        ))}
+
+              {/* Stats Row */}
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>👥 <strong>{v.users.toLocaleString()}</strong> visitors</span>
+                <span>🎯 <strong>{v.conversions.toLocaleString()}</strong> goals reached</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Status message */}
+      {/* Info Box */}
       {results.status_message && (
-        <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-          {results.status_message}
+        <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
+          💡 {results.status_message}
         </div>
       )}
     </div>
@@ -638,6 +1069,8 @@ export default function ExperimentsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showEditExperimentModal, setShowEditExperimentModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingExperiment, setEditingExperiment] = useState<Experiment | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -696,12 +1129,14 @@ export default function ExperimentsPage() {
     description: string;
     goals: ExperimentGoal[];
     variantCount: number;
+    variantNames: string[];
   }) => {
     if (!selectedSite?.id) return;
 
     try {
-      const variants = Array.from({ length: data.variantCount }, (_, i) => ({
-        name: i === 0 ? "control" : `variant_${String.fromCharCode(97 + i - 1)}`,
+      // Use custom variant names from form
+      const variants = data.variantNames.map((variantName, i) => ({
+        name: variantName || (i === 0 ? "Control" : `Variant ${String.fromCharCode(64 + i)}`),
         weight: Math.floor(100 / data.variantCount),
       }));
 
@@ -899,17 +1334,29 @@ export default function ExperimentsPage() {
                     >
                       <PencilSquareIcon className="w-4 h-4" />
                     </button>
-                    {/* Settings button */}
+                    {/* Edit Experiment button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingExperiment(exp);
-                        setShowSettingsModal(true);
+                        setShowEditExperimentModal(true);
                       }}
-                      className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
-                      title="Experiment settings"
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                      title="Edit experiment settings"
                     >
                       <Cog6ToothIcon className="w-4 h-4" />
+                    </button>
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingExperiment(exp);
+                        setShowDeleteModal(true);
+                      }}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                      title="Delete experiment"
+                    >
+                      <TrashIcon className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -930,7 +1377,7 @@ export default function ExperimentsPage() {
               <ArrowPathIcon className="w-6 h-6 animate-spin text-gray-400" />
             </div>
           ) : (
-            <ResultsPanel results={results} />
+            <ResultsPanel results={results} experiment={selectedExperiment} />
           )}
         </div>
       </div>
@@ -964,6 +1411,39 @@ export default function ExperimentsPage() {
         experiment={editingExperiment}
         siteId={selectedSite?.id || ''}
         onSave={fetchExperiments}
+      />
+
+      {/* Edit Experiment Modal */}
+      <EditExperimentModal
+        isOpen={showEditExperimentModal}
+        onClose={() => {
+          setShowEditExperimentModal(false);
+          setEditingExperiment(null);
+        }}
+        experiment={editingExperiment}
+        siteId={selectedSite?.id || ''}
+        onSave={() => {
+          fetchExperiments();
+          // Also refresh results if editing the selected experiment
+          if (editingExperiment && editingExperiment.id === selectedExperiment?.id) {
+            fetchResults(editingExperiment.id);
+          }
+        }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setEditingExperiment(null);
+        }}
+        experiment={editingExperiment}
+        siteId={selectedSite?.id || ''}
+        onDeleted={() => {
+          fetchExperiments();
+          setSelectedExperiment(null);
+        }}
       />
     </div>
   );

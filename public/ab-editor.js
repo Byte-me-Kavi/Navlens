@@ -1187,11 +1187,18 @@
       }
     }
     
-    // For links, use href
+    // For links, try href but VERIFY it's unique first
     if (element.tagName === 'A') {
       const href = element.getAttribute('href');
       if (href && href !== '#' && href !== '/') {
-        return `a[href="${CSS.escape(href)}"]`;
+        const hrefSelector = `a[href="${CSS.escape(href)}"]`;
+        // Only use href if it matches EXACTLY one element (unique)
+        const matches = document.querySelectorAll(hrefSelector);
+        if (matches.length === 1) {
+          return hrefSelector;
+        }
+        // If multiple matches, fall through to path-based selector
+        console.log(`[navlens-editor] Multiple links with href="${href}" (${matches.length}), using path-based selector`);
       }
     }
     
@@ -1202,7 +1209,15 @@
     while (current && current.nodeType === Node.ELEMENT_NODE && current !== document.body) {
       let selector = current.tagName.toLowerCase();
       
-      // Add nth-child for specificity (especially useful for repeated elements)
+      // For links, include href in the path-based selector too
+      if (current.tagName === 'A' && current.getAttribute('href')) {
+        const href = current.getAttribute('href');
+        if (href && href !== '#' && href !== '/') {
+          selector += `[href="${CSS.escape(href)}"]`;
+        }
+      }
+      
+      // Add nth-of-type for specificity (especially useful for repeated elements)
       const parent = current.parentElement;
       if (parent) {
         const siblings = Array.from(parent.children).filter(
@@ -1217,16 +1232,25 @@
       // Add a class if available (limit to 1 to keep selector short)
       if (current.className && typeof current.className === 'string') {
         const classes = current.className.trim().split(/\s+/)
-          .filter(c => c && !c.startsWith('nv-'))
+          .filter(c => c && !c.startsWith('nv-') && !c.startsWith('__'))
           .slice(0, 1);
         if (classes.length) {
           selector += '.' + classes.map(c => CSS.escape(c)).join('.');
         }
       }
       
+      // Add data-testid or role attribute if available (common for identifying elements)
+      const testId = current.getAttribute('data-testid');
+      const role = current.getAttribute('role');
+      if (testId) {
+        selector += `[data-testid="${CSS.escape(testId)}"]`;
+      } else if (role && ['button', 'link', 'navigation', 'main', 'header', 'footer'].includes(role)) {
+        selector += `[role="${role}"]`;
+      }
+      
       path.unshift(selector);
       
-      // Stop if we have enough specificity
+      // Stop if we have enough specificity  
       if (current.id || path.length >= 4) break;
       current = current.parentElement;
     }

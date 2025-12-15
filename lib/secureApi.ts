@@ -54,7 +54,7 @@ export const secureApi = {
 
         delete: (experimentId: string, siteId: string) =>
             requestQueue.add(() =>
-                apiClient.delete<{ success: boolean }>(`/experiments/${experimentId}`, { siteId })
+                apiClient.post<{ success: boolean }>(`/experiments/${experimentId}/delete`, { siteId })
             ),
 
         results: (siteId: string, experimentId: string, options?: { startDate?: string; endDate?: string }) =>
