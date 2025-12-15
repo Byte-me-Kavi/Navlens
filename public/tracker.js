@@ -91,12 +91,33 @@
   }
 
   /**
-   * Get bucket for visitor (deterministic)
+   * Get bucket for visitor based on variant weights
    */
-  function getBucketForVisitor(visitorId, experimentId, totalVariants) {
+  function getBucketForVisitor(visitorId, experimentId, variants) {
     const key = `${visitorId}-${experimentId}`;
     const hash = fnv1aHash(key);
-    return hash % totalVariants;
+    const normalized = hash / 4294967296; // 0.0 to 1.0
+    
+    // Calculate total weight
+    let totalWeight = 0;
+    for (let i = 0; i < variants.length; i++) {
+      totalWeight += (variants[i].weight !== undefined ? variants[i].weight : 50);
+    }
+    
+    // Fallback if weights invalid logic
+    if (totalWeight <= 0) return hash % variants.length;
+
+    let random = normalized * totalWeight;
+    let accumulated = 0;
+    
+    for (let i = 0; i < variants.length; i++) {
+      accumulated += (variants[i].weight !== undefined ? variants[i].weight : 50);
+      if (random < accumulated) {
+        return i;
+      }
+    }
+    
+    return variants.length - 1;
   }
 
   /**
@@ -448,7 +469,7 @@
       if (trafficHash > trafficThreshold) return; // User not in experiment
       
       // Bucket user into variant
-      const bucket = getBucketForVisitor(visitorId, exp.id, variants.length);
+      const bucket = getBucketForVisitor(visitorId, exp.id, variants);
       const assignedVariant = variants[bucket];
       
       if (assignedVariant) {
