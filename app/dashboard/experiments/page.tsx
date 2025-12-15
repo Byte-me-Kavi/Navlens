@@ -19,7 +19,7 @@ import {
 import { useSite } from "@/app/context/SiteContext";
 import { secureApi } from "@/lib/secureApi";
 import { GoalConfig } from "@/features/experiments/components/GoalConfig";
-import type { ExperimentGoal } from "@/lib/experiments/types";
+import type { ExperimentGoal, GoalResults } from "@/lib/experiments/types";
 
 // Types
 interface Variant {
@@ -48,6 +48,7 @@ interface VariantStats {
   users: number;
   conversions: number;
   conversion_rate: number;
+  goals?: GoalResults[];
 }
 
 interface ExperimentResults {
