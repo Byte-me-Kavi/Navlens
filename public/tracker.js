@@ -23,6 +23,7 @@
   // ============================================
   // CONFIGURATION
   // ============================================
+  const DEBUG = false; // Set to true for verbose logging
   const script = document.currentScript;
   const API_KEY = script?.dataset?.apiKey || "";
   const SITE_ID = script?.dataset?.siteId || "";
@@ -70,7 +71,7 @@
   // ============================================
   
   const NAVLENS_CONFIG_URL = `${normalizedHost}/storage/v1/object/public/experiment-configs`;
-  const DEBUG = new URLSearchParams(window.location.search).has('__navlens_debug');
+  // DEBUG defined at top of file
   let experimentAssignments = {};
   let experimentConfig = null;
   let appliedSelectors = new Set();
