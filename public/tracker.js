@@ -569,6 +569,10 @@
    * Evaluate if a goal is achieved based on event data
    */
   function evaluateGoal(goal, eventType, eventData) {
+    if (DEBUG) {
+      console.log(`[navlens] Evaluating goal: ${goal.name} (${goal.type}) against event: ${eventType}`);
+    }
+    
     switch (goal.type) {
       case 'click':
         if (eventType !== 'click') return false;
@@ -586,7 +590,11 @@
         
       case 'pageview':
         if (eventType !== 'pageview') return false;
-        return matchUrl(window.location.href, goal.url_pattern, goal.url_match || 'contains');
+        const pageviewMatch = matchUrl(window.location.href, goal.url_pattern, goal.url_match || 'contains');
+        if (DEBUG) {
+          console.log(`[navlens] Pageview goal: pattern="${goal.url_pattern}" match="${goal.url_match}" url="${window.location.pathname}" result=${pageviewMatch}`);
+        }
+        return pageviewMatch;
         
       case 'form_submit':
         if (eventType !== 'form_submit' && eventType !== 'submit') return false;
@@ -666,17 +674,18 @@
     if (!experimentConfig?.experiments) return;
     
     for (const exp of experimentConfig.experiments) {
-      if (exp.status !== 'running') continue;
+      // Note: Config API only returns running experiments, no need to check status
       
       const variantId = experimentAssignments[exp.id];
       if (!variantId) continue;
       
-      // Support both new goals array and legacy goal_event
-      const goals = exp.goals || (exp.goal_event ? [{
+      // Support both new goals array and legacy goal_event (minified as 'g')
+      const legacyGoal = exp.g || exp.goal_event;
+      const goals = exp.goals || (legacyGoal ? [{
         id: 'legacy_goal',
-        name: exp.goal_event,
+        name: legacyGoal,
         type: 'custom_event',
-        event_name: exp.goal_event,
+        event_name: legacyGoal,
         is_primary: true
       }] : []);
       
