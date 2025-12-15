@@ -132,8 +132,10 @@ async function computeResults(
     startDate: string | null,
     endDate: string | null
 ): Promise<ExperimentResults> {
-    // Get goal event from experiment config
+    // Get goal event from experiment config (legacy)
     const goalEvent = (experiment.goal_event as string) || 'conversion';
+    // Get goals array (enterprise)
+    const goals = (experiment.goals as Array<{ id: string; name: string; type: string; is_primary: boolean }>) || [];
 
     // Build date filter with parameterized values
     const queryParams: Record<string, string> = {
@@ -153,6 +155,7 @@ async function computeResults(
     }
 
     // SECURITY: Parameterized query to prevent SQL injection
+    // Query 1: Overall variant stats (legacy goal_event + experiment_goal)
     const query = `
     SELECT 
       arrayJoin(variant_ids) as variant_id,
@@ -160,6 +163,7 @@ async function computeResults(
       countIf(
         JSONExtractString(assumeNotNull(data), 'event_name') = {goalEvent:String}
         OR event_type = {goalEvent:String}
+        OR event_type = 'experiment_goal'
       ) as conversions
     FROM events
     WHERE site_id = {siteId:String}
@@ -169,31 +173,96 @@ async function computeResults(
     ORDER BY variant_id
   `;
 
+    // Query 2: Per-goal breakdown (new enterprise tracking)
+    const goalQuery = `
+    SELECT 
+      JSONExtractString(assumeNotNull(data), 'variant_id') as variant_id,
+      JSONExtractString(assumeNotNull(data), 'goal_id') as goal_id,
+      JSONExtractString(assumeNotNull(data), 'goal_name') as goal_name,
+      JSONExtractString(assumeNotNull(data), 'goal_type') as goal_type,
+      JSONExtractBool(assumeNotNull(data), 'is_primary') as is_primary,
+      count() as conversions,
+      sum(JSONExtractFloat(assumeNotNull(data), 'revenue_value')) as total_revenue
+    FROM events
+    WHERE site_id = {siteId:String}
+      AND event_type = 'experiment_goal'
+      AND JSONExtractString(assumeNotNull(data), 'experiment_id') = {experimentId:String}
+      ${dateFilter}
+    GROUP BY variant_id, goal_id, goal_name, goal_type, is_primary
+    ORDER BY variant_id, goal_id
+  `;
+
     try {
-        const result = await clickhouse.query({
-            query,
-            format: 'JSONEachRow',
-            query_params: queryParams,
-        });
+        // Execute both queries
+        const [result, goalResult] = await Promise.all([
+            clickhouse.query({
+                query,
+                format: 'JSONEachRow',
+                query_params: queryParams,
+            }),
+            clickhouse.query({
+                query: goalQuery,
+                format: 'JSONEachRow',
+                query_params: queryParams,
+            })
+        ]);
 
         const rawRows = await result.json();
         const rows = rawRows as { variant_id: string; users: string; conversions: string }[];
+
+        const rawGoalRows = await goalResult.json();
+        const goalRows = rawGoalRows as {
+            variant_id: string;
+            goal_id: string;
+            goal_name: string;
+            goal_type: string;
+            is_primary: boolean;
+            conversions: string;
+            total_revenue: string;
+        }[];
 
         // Map variant IDs to names from experiment config
         const variantMap = new Map<string, string>();
         const variants = experiment.variants as Array<{ id: string; name: string }> || [];
         variants.forEach(v => variantMap.set(v.id, v.name));
 
-        // Build variant stats
+        // Group goals by variant
+        const goalsByVariant = new Map<string, typeof goalRows>();
+        goalRows.forEach(row => {
+            if (!goalsByVariant.has(row.variant_id)) {
+                goalsByVariant.set(row.variant_id, []);
+            }
+            goalsByVariant.get(row.variant_id)!.push(row);
+        });
+
+        // Build variant stats with per-goal breakdown
         const variantStats: VariantStats[] = rows.map(row => {
             const users = parseInt(row.users) || 0;
             const conversions = parseInt(row.conversions) || 0;
+            const variantGoals = goalsByVariant.get(row.variant_id) || [];
+
             return {
                 variant_id: row.variant_id,
                 variant_name: variantMap.get(row.variant_id) || row.variant_id,
                 users,
                 conversions,
-                conversion_rate: users > 0 ? (conversions / users) * 100 : 0
+                conversion_rate: users > 0 ? (conversions / users) * 100 : 0,
+                // NEW: Per-goal breakdown
+                goals: variantGoals.map(g => ({
+                    goal_id: g.goal_id,
+                    goal_name: g.goal_name || goals.find(og => og.id === g.goal_id)?.name || g.goal_id,
+                    goal_type: g.goal_type as 'click' | 'pageview' | 'custom_event' | 'revenue',
+                    is_primary: g.is_primary,
+                    conversions: parseInt(g.conversions) || 0,
+                    conversion_rate: users > 0 ? (parseInt(g.conversions) || 0) / users * 100 : 0,
+                    total_revenue: parseFloat(g.total_revenue) || undefined,
+                    avg_order_value: parseFloat(g.total_revenue) && parseInt(g.conversions)
+                        ? parseFloat(g.total_revenue) / parseInt(g.conversions)
+                        : undefined,
+                    revenue_per_visitor: parseFloat(g.total_revenue) && users
+                        ? parseFloat(g.total_revenue) / users
+                        : undefined,
+                }))
             };
         });
 

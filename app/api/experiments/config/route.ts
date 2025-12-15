@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         // Fetch active experiments from database
         const { data: experiments, error } = await supabaseAdmin
             .from('experiments')
-            .select('id, variants, modifications, traffic_percentage, goal_event')
+            .select('id, variants, modifications, traffic_percentage, goal_event, goals')
             .eq('site_id', siteId)
             .eq('status', 'running');
 
@@ -101,7 +101,8 @@ export async function GET(request: NextRequest) {
                 v: e.variants || [],
                 m: e.modifications || [],
                 t: e.traffic_percentage || 100,
-                g: e.goal_event || undefined
+                g: e.goal_event || undefined,
+                goals: e.goals || []  // NEW: Include goals for enterprise tracking
             }))
         };
 

@@ -460,6 +460,10 @@
     // Update window object for other scripts
     window.__NAVLENS_EXPERIMENTS = { ...experimentAssignments };
     
+    // Persist assignments to cookie for page reloads
+    const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString(); // 30 days
+    document.cookie = `navlens_exp=${encodeURIComponent(JSON.stringify(experimentAssignments))}; expires=${expires}; path=/; SameSite=Lax`;
+    
     return allModifications;
   }
 
@@ -469,10 +473,21 @@
   async function initExperiments() {
     const start = performance.now();
     
-    // Get visitor ID from cookie or generate
+    // Get visitor ID from cookie or generate new one
     let visitorId = document.cookie.match(/navlens_visitor=([^;]+)/)?.[1];
     if (!visitorId) {
       visitorId = 'v_' + Math.random().toString(36).substr(2, 9);
+      // CRITICAL: Save visitor ID to cookie for persistent assignment
+      const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+      document.cookie = `navlens_visitor=${visitorId}; expires=${expires}; path=/; SameSite=Lax`;
+    }
+    
+    // Also restore previous experiment assignments from cookie (for consistency)
+    const savedAssignments = document.cookie.match(/navlens_exp=([^;]+)/)?.[1];
+    if (savedAssignments) {
+      try {
+        Object.assign(experimentAssignments, JSON.parse(decodeURIComponent(savedAssignments)));
+      } catch (e) { /* ignore parse errors */ }
     }
     
     // Load config with 500ms timeout (anti-flicker failsafe)
@@ -519,11 +534,246 @@
     window.__NAVLENS_EXPERIMENTS = { ...getActiveExperiments() };
   }
 
+  // ============================================
+  // GOAL TRACKING ENGINE
+  // Evaluates and tracks experiment goals
+  // ============================================
+  
+  // Cache for tracked goals (prevent duplicates)
+  const trackedGoals = new Set();
+  
+  /**
+   * Match URL against pattern with specified match type
+   */
+  function matchUrl(url, pattern, matchType) {
+    if (!pattern) return true;
+    const path = url.replace(/^https?:\/\/[^\/]+/, ''); // Extract path
+    
+    switch (matchType) {
+      case 'exact':
+        return path === pattern || url === pattern;
+      case 'contains':
+        return path.includes(pattern) || url.includes(pattern);
+      case 'regex':
+        try {
+          return new RegExp(pattern).test(path) || new RegExp(pattern).test(url);
+        } catch {
+          return false;
+        }
+      default:
+        return path.includes(pattern);
+    }
+  }
+  
+  /**
+   * Evaluate if a goal is achieved based on event data
+   */
+  function evaluateGoal(goal, eventType, eventData) {
+    switch (goal.type) {
+      case 'click':
+        if (eventType !== 'click') return false;
+        if (goal.selector && eventData.element) {
+          try {
+            // Check if clicked element matches selector
+            return eventData.element.matches(goal.selector) || 
+                   eventData.element.closest(goal.selector) !== null;
+          } catch { return false; }
+        }
+        if (goal.url_pattern) {
+          return matchUrl(window.location.href, goal.url_pattern, goal.url_match || 'contains');
+        }
+        return !goal.selector; // No selector = any click on matching URL
+        
+      case 'pageview':
+        if (eventType !== 'pageview') return false;
+        return matchUrl(window.location.href, goal.url_pattern, goal.url_match || 'contains');
+        
+      case 'form_submit':
+        if (eventType !== 'form_submit' && eventType !== 'submit') return false;
+        if (goal.selector && eventData.element) {
+          try {
+            return eventData.element.matches(goal.selector) ||
+                   eventData.element.closest(goal.selector) !== null;
+          } catch { return false; }
+        }
+        return true;
+        
+      case 'custom_event':
+        return eventType === goal.event_name;
+        
+      case 'scroll_depth':
+        if (eventType !== 'scroll_depth') return false;
+        const threshold = goal.depth_percentage || 50;
+        return (eventData.depth || 0) >= threshold;
+        
+      case 'time_on_page':
+        if (eventType !== 'time_threshold') return false;
+        const minSeconds = goal.seconds || 30;
+        return (eventData.seconds || 0) >= minSeconds;
+        
+      case 'revenue':
+        if (eventType !== goal.event_name) return false;
+        return true; // Revenue is tracked, value extracted separately
+        
+      default:
+        return false;
+    }
+  }
+  
+  /**
+   * Track a goal conversion for an experiment
+   */
+  function trackGoalConversion(experimentId, variantId, goal, eventData) {
+    // Create unique key to prevent duplicate tracking
+    const goalKey = `${experimentId}:${goal.id}`;
+    if (trackedGoals.has(goalKey)) return;
+    trackedGoals.add(goalKey);
+    
+    // Build conversion event
+    const conversionEvent = {
+      event_type: 'experiment_goal',
+      experiment_id: experimentId,
+      variant_id: variantId,
+      goal_id: goal.id,
+      goal_type: goal.type,
+      goal_name: goal.name,
+      is_primary: goal.is_primary,
+      timestamp: Date.now(),
+      page_path: window.location.pathname,
+    };
+    
+    // Add revenue data if applicable
+    if (goal.type === 'revenue' && goal.track_value && goal.value_field) {
+      const value = eventData.properties?.[goal.value_field] || eventData[goal.value_field];
+      if (typeof value === 'number') {
+        conversionEvent.revenue_value = value;
+        conversionEvent.currency = goal.currency || 'USD';
+      }
+    }
+    
+    // Send via existing beacon system
+    sendWrappedBeacon(EVENTS_ENDPOINT, conversionEvent);
+    
+    if (DEBUG) {
+      console.log(`[navlens] Goal tracked: ${goal.name} (${goal.type}) for experiment ${experimentId}`);
+    }
+  }
+  
+  /**
+   * Evaluate all goals for active experiments
+   */
+  function evaluateExperimentGoals(eventType, eventData) {
+    if (!experimentConfig?.experiments) return;
+    
+    for (const exp of experimentConfig.experiments) {
+      if (exp.status !== 'running') continue;
+      
+      const variantId = experimentAssignments[exp.id];
+      if (!variantId) continue;
+      
+      // Support both new goals array and legacy goal_event
+      const goals = exp.goals || (exp.goal_event ? [{
+        id: 'legacy_goal',
+        name: exp.goal_event,
+        type: 'custom_event',
+        event_name: exp.goal_event,
+        is_primary: true
+      }] : []);
+      
+      for (const goal of goals) {
+        if (evaluateGoal(goal, eventType, eventData)) {
+          trackGoalConversion(exp.id, variantId, goal, eventData);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Public API: Track custom event with goal evaluation
+   */
+  function trackEvent(eventName, properties = {}) {
+    evaluateExperimentGoals(eventName, { properties });
+    
+    // Also send as regular event
+    sendWrappedBeacon(EVENTS_ENDPOINT, {
+      event_type: eventName,
+      properties,
+      timestamp: Date.now(),
+      page_path: window.location.pathname,
+    });
+  }
+  
+  /**
+   * Track revenue/purchase event
+   */
+  function trackRevenue(eventName, amount, properties = {}) {
+    const revenueData = {
+      properties: { ...properties, amount, value: amount },
+      amount,
+    };
+    evaluateExperimentGoals(eventName, revenueData);
+    
+    sendWrappedBeacon(EVENTS_ENDPOINT, {
+      event_type: eventName,
+      revenue: amount,
+      properties,
+      timestamp: Date.now(),
+      page_path: window.location.pathname,
+    });
+  }
+  
+  // Track pageview goals on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      evaluateExperimentGoals('pageview', {});
+    }, 100); // Small delay to ensure experiments loaded
+  });
+  
+  // Track scroll depth for scroll goals (uses existing maxScrollDepth variable)
+  const scrollDepthThresholds = [25, 50, 75, 90, 100];
+  let scrollDepthTracked = new Set();
+  
+  window.addEventListener('scroll', () => {
+    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+    if (scrollHeight <= 0) return;
+    
+    const currentDepth = Math.round((window.scrollY / scrollHeight) * 100);
+    if (currentDepth > maxScrollDepth) {
+      maxScrollDepth = currentDepth;
+      
+      // Check thresholds
+      for (const threshold of scrollDepthThresholds) {
+        if (currentDepth >= threshold && !scrollDepthTracked.has(threshold)) {
+          scrollDepthTracked.add(threshold);
+          evaluateExperimentGoals('scroll_depth', { depth: threshold });
+        }
+      }
+    }
+  }, { passive: true });
+  
+  // Track time on page for time goals
+  let pageStartTime = Date.now();
+  const timeThresholds = [15, 30, 60, 120, 300]; // seconds
+  let timeTracked = new Set();
+  
+  setInterval(() => {
+    const secondsOnPage = Math.floor((Date.now() - pageStartTime) / 1000);
+    
+    for (const threshold of timeThresholds) {
+      if (secondsOnPage >= threshold && !timeTracked.has(threshold)) {
+        timeTracked.add(threshold);
+        evaluateExperimentGoals('time_threshold', { seconds: threshold });
+      }
+    }
+  }, 5000); // Check every 5 seconds
+
   // Expose experiment functions globally
   window.navlens = window.navlens || {};
   window.navlens.setExperiment = setExperimentAssignment;
   window.navlens.getExperiments = getActiveExperiments;
   window.navlens.reloadExperiments = initExperiments;
+  window.navlens.track = trackEvent;
+  window.navlens.trackRevenue = trackRevenue;
 
   // Initialize experiments immediately (before DOMContentLoaded)
   initExperiments();
@@ -3197,6 +3447,9 @@
     // Send click data IMMEDIATELY using sendBeacon for reliability
     // This ensures the click is recorded even if user navigates away
     sendWrappedBeacon(V1_INGEST_ENDPOINT, clickData);
+
+    // Evaluate click goals for A/B experiments
+    evaluateExperimentGoals('click', { element, selector });
 
     // Detect dead click asynchronously and send as separate event if needed
     detectDeadClick(element).then((isDeadClick) => {

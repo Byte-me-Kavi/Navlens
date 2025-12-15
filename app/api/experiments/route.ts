@@ -17,10 +17,12 @@ import {
 import type {
     Experiment,
     CreateExperimentRequest,
-    Variant
+    Variant,
+    ExperimentGoal
 } from '@/lib/experiments/types';
 import { getUserFromRequest } from '@/lib/auth';
 import { secureCorsHeaders } from '@/lib/security';
+import { validateAndSanitizeGoals } from '@/lib/experiments/goalValidation';
 
 // Supabase admin client
 const supabaseAdmin = createClient(
@@ -155,8 +157,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const body = await request.json() as CreateExperimentRequest & { siteId: string };
-        const { siteId, name, description, variants, traffic_percentage, goal_event, target_urls } = body;
+        const body = await request.json() as CreateExperimentRequest & { siteId: string; goals?: Partial<ExperimentGoal>[] };
+        const { siteId, name, description, variants, traffic_percentage, goal_event, target_urls, goals } = body;
 
         // Validate required fields
         if (!siteId || !name || !variants || variants.length < 2) {
@@ -188,6 +190,19 @@ export async function POST(request: NextRequest) {
             description: undefined
         }));
 
+        // Validate and sanitize goals if provided
+        let processedGoals: ExperimentGoal[] = [];
+        if (goals && Array.isArray(goals) && goals.length > 0) {
+            const goalValidation = validateAndSanitizeGoals(goals);
+            if (goalValidation.errors.length > 0) {
+                return NextResponse.json(
+                    { error: 'Invalid goals: ' + goalValidation.errors.join('; ') },
+                    { status: 400, headers: corsHeaders(origin) }
+                );
+            }
+            processedGoals = goalValidation.goals;
+        }
+
         // Create experiment
         const experimentData = {
             site_id: siteId,
@@ -196,7 +211,8 @@ export async function POST(request: NextRequest) {
             status: 'draft',
             variants: processedVariants,
             traffic_percentage: traffic_percentage ?? 100,
-            goal_event: goal_event || null,
+            goals: processedGoals,  // NEW: Store goals array
+            goal_event: goal_event || (processedGoals.find(g => g.is_primary)?.event_name) || null,  // Backward compat
             target_urls: target_urls || [],
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()

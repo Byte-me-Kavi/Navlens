@@ -60,7 +60,7 @@ export async function publishSiteConfig(siteId: string): Promise<{ success: bool
         // 1. Get all active experiments for this site
         const { data: experiments, error: queryError } = await supabaseAdmin
             .from('experiments')
-            .select('id, variants, modifications, traffic_percentage, goal_event')
+            .select('id, variants, modifications, traffic_percentage, goal_event, goals')
             .eq('site_id', siteId)
             .eq('status', 'running');
 
@@ -78,7 +78,8 @@ export async function publishSiteConfig(siteId: string): Promise<{ success: bool
                 v: e.variants || [],
                 m: e.modifications || [],
                 t: e.traffic_percentage || 100,
-                g: e.goal_event || undefined
+                g: e.goal_event || undefined,
+                goals: e.goals || []  // NEW: Include goals array for enterprise tracking
             }))
         };
 
