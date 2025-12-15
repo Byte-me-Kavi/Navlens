@@ -65,6 +65,13 @@
   const FEEDBACK_ENDPOINT = `${normalizedHost}/api/feedback`;
   const FEEDBACK_CONFIG_ENDPOINT = `${normalizedHost}/api/feedback-config`;
   const SURVEYS_ENDPOINT = `${normalizedHost}/api/surveys`;
+  
+  // New: Unified batch endpoint (reduces network requests)
+  const BATCH_ENDPOINT = `${normalizedHost}/api/v1/batch`;
+  const TRACKER_CONFIG_ENDPOINT = `${normalizedHost}/api/tracker-config`;
+  
+  // Batch mode flag - will be set to false if batch endpoint fails
+  let useBatchMode = true;
 
   // ============================================
   // A/B TESTING / EXPERIMENT ENGINE
@@ -122,8 +129,30 @@
 
   /**
    * Load experiment config from API (works with private storage)
+   * Tries merged tracker-config endpoint first, falls back to individual
    */
+  let cachedFeedbackConfig = null; // Shared with feedback widget
+  
   async function loadExperimentConfig() {
+    try {
+      // Try merged endpoint first (gets experiments + feedback in one request)
+      const resp = await fetch(`${TRACKER_CONFIG_ENDPOINT}?siteId=${SITE_ID}`, {
+        priority: 'high',
+        cache: 'default'
+      });
+      if (resp.ok) {
+        const config = await resp.json();
+        // Cache feedback config for later use
+        if (config.feedback) {
+          cachedFeedbackConfig = config.feedback;
+        }
+        return config;
+      }
+    } catch (e) {
+      console.warn('[navlens] Merged config failed, trying individual:', e.message);
+    }
+    
+    // Fallback to individual experiment config endpoint
     try {
       const resp = await fetch(`${normalizedHost}/api/experiments/config?siteId=${SITE_ID}`, {
         priority: 'high',
@@ -1474,6 +1503,51 @@
       console.warn('[Navlens] Debug event send failed:', error.message);
     }
   }
+
+  /**
+   * Unified batch flush - sends debug + form events in single request
+   * Falls back to individual endpoints if batch fails
+   */
+  async function flushAllEventsBatch() {
+    // Collect all pending events
+    const debugEvents = debugEventBuffer.splice(0, debugEventBuffer.length);
+    const formEvents = typeof formEventBuffer !== 'undefined' ? formEventBuffer.splice(0, formEventBuffer.length) : [];
+    
+    // Nothing to send
+    if (debugEvents.length === 0 && formEvents.length === 0) return;
+    
+    // Clear timers
+    if (debugBatchTimer) { clearTimeout(debugBatchTimer); debugBatchTimer = null; }
+    if (typeof formBatchTimer !== 'undefined' && formBatchTimer) { clearTimeout(formBatchTimer); formBatchTimer = null; }
+    
+    if (useBatchMode) {
+      try {
+        await sendCompressedFetch(BATCH_ENDPOINT, {
+          siteId: SITE_ID,
+          sessionId: SESSION_ID,
+          batch: {
+            debug: debugEvents.length > 0 ? debugEvents : undefined,
+            forms: formEvents.length > 0 ? formEvents : undefined,
+          }
+        }, false);
+        return; // Success
+      } catch (error) {
+        console.warn('[Navlens] Batch send failed, falling back to individual:', error.message);
+        useBatchMode = false; // Disable batch mode for this session
+      }
+    }
+    
+    // Fallback: send individually
+    if (debugEvents.length > 0) {
+      sendCompressedFetch(DEBUG_EVENTS_ENDPOINT, { events: debugEvents, siteId: SITE_ID, sessionId: SESSION_ID }, false).catch(() => {});
+    }
+    if (formEvents.length > 0) {
+      sendCompressedFetch(FORM_EVENTS_ENDPOINT, { events: formEvents, siteId: SITE_ID, sessionId: SESSION_ID }, false).catch(() => {});
+    }
+  }
+  
+  // Schedule periodic batch flush (every 3 seconds)
+  setInterval(flushAllEventsBatch, 3000);
 
   // ============================================
   // CONSOLE INTERCEPTOR
@@ -3301,226 +3375,7 @@
     initHoverTracking();
   }
 
-  // ============================================
-  // VOICE OF CUSTOMER (VoC) - DEPRECATED
-  // Replaced by new Feedback Widget at the end of file
-  // ============================================
-
-  // Old implementation removed to prevent conflicts
-  // MICRO-SURVEYS
-  // Behavior-triggered popup surveys
-  // ============================================
-  const SURVEY_STORAGE_KEY = 'navlens_surveys_shown';
-  let exitIntentDetected = false;
-
-  async function loadSurveys() {
-    if (!SITE_ID) return;
-
-    try {
-      const url = `${SURVEYS_ENDPOINT}?site_id=${SITE_ID}&page_path=${encodeURIComponent(window.location.pathname)}&device_type=${getDeviceType()}`;
-      const response = await fetch(url);
-      
-      if (!response.ok) return;
-      
-      const data = await response.json();
-      activeSurveys = data.surveys || [];
-      
-      if (activeSurveys.length > 0) {
-        initSurveyTriggers();
-        console.log(`[Navlens] Loaded ${activeSurveys.length} surveys`);
-      }
-    } catch (error) {
-      console.warn('[Navlens] Failed to load surveys:', error);
-    }
-  }
-
-  function initSurveyTriggers() {
-    // Load shown surveys from storage
-    try {
-      const shown = JSON.parse(localStorage.getItem(SURVEY_STORAGE_KEY) || '{}');
-      Object.keys(shown).forEach(id => surveyShownThisSession.add(id));
-    } catch (e) {}
-
-    activeSurveys.forEach(survey => {
-      if (!shouldShowSurvey(survey)) return;
-
-      switch (survey.trigger_type) {
-        case 'exit_intent':
-          initExitIntentTrigger(survey);
-          break;
-        case 'scroll_depth':
-          initScrollDepthTrigger(survey);
-          break;
-        case 'time_on_page':
-          initTimeOnPageTrigger(survey);
-          break;
-        case 'frustration':
-          initFrustrationTrigger(survey);
-          break;
-      }
-    });
-  }
-
-  function shouldShowSurvey(survey) {
-    // Check if already shown this session
-    if (surveyShownThisSession.has(survey.id)) return false;
-
-    // Check frequency settings
-    const frequency = survey.display_frequency || 'once_per_session';
-    const storageKey = `navlens_survey_${survey.id}`;
-    
-    try {
-      const lastShown = localStorage.getItem(storageKey);
-      if (lastShown) {
-        const lastDate = new Date(lastShown);
-        const now = new Date();
-        
-        if (frequency === 'once_per_session') return false;
-        if (frequency === 'once_per_day' && (now - lastDate) < 86400000) return false;
-        if (frequency === 'once_per_week' && (now - lastDate) < 604800000) return false;
-      }
-    } catch (e) {}
-
-    return true;
-  }
-
-  function markSurveyShown(surveyId) {
-    surveyShownThisSession.add(surveyId);
-    try {
-      localStorage.setItem(`navlens_survey_${surveyId}`, new Date().toISOString());
-    } catch (e) {}
-  }
-
-  function initExitIntentTrigger(survey) {
-    const handler = (e) => {
-      if (exitIntentDetected) return;
-      if (e.clientY <= 0 && e.relatedTarget === null) {
-        exitIntentDetected = true;
-        showSurveyModal(survey);
-        document.removeEventListener('mouseout', handler);
-      }
-    };
-    document.addEventListener('mouseout', handler);
-  }
-
-  function initScrollDepthTrigger(survey) {
-    const threshold = survey.trigger_config?.threshold || 50;
-    let triggered = false;
-    
-    const handler = () => {
-      if (triggered) return;
-      const scrollPercent = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
-      if (scrollPercent >= threshold) {
-        triggered = true;
-        showSurveyModal(survey);
-        window.removeEventListener('scroll', handler);
-      }
-    };
-    window.addEventListener('scroll', handler, { passive: true });
-  }
-
-  function initTimeOnPageTrigger(survey) {
-    const seconds = survey.trigger_config?.seconds || 30;
-    setTimeout(() => showSurveyModal(survey), seconds * 1000);
-  }
-
-  function initFrustrationTrigger(survey) {
-    // Hook into existing frustration detection
-    const originalSend = sendConfusionScrollEvent;
-    window._navlensSendConfusion = (score, changes) => {
-      originalSend(score, changes);
-      if (score > 0.5) {
-        showSurveyModal(survey);
-      }
-    };
-  }
-
-  function showSurveyModal(survey) {
-    if (!shouldShowSurvey(survey)) return;
-    markSurveyShown(survey.id);
-
-    const overlay = document.createElement('div');
-    overlay.className = 'navlens-survey-modal';
-    overlay.id = 'navlens-survey-modal';
-
-    const isNPS = survey.type === 'nps';
-    const question = survey.questions?.[0] || { text: 'How likely are you to recommend us?', type: 'nps' };
-
-    overlay.innerHTML = `
-      <div class="navlens-survey-content">
-        <div class="navlens-feedback-header">
-          <h3>${isNPS ? 'Quick Question' : survey.name || 'Survey'}</h3>
-          <button class="navlens-feedback-close" onclick="document.getElementById('navlens-survey-modal').remove();">×</button>
-        </div>
-        <div class="navlens-feedback-body">
-          <p style="margin: 0 0 8px; font-weight: 500; color: #111827;">${question.text}</p>
-          ${isNPS ? `
-            <div class="navlens-nps-scale">
-              ${[0,1,2,3,4,5,6,7,8,9,10].map(n => 
-                `<button class="navlens-nps-btn" data-score="${n}">${n}</button>`
-              ).join('')}
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280;">
-              <span>Not likely</span>
-              <span>Very likely</span>
-            </div>
-          ` : `
-            <textarea class="navlens-feedback-textarea" placeholder="Your answer..."></textarea>
-          `}
-          <button class="navlens-feedback-submit" style="margin-top: 16px;">Submit</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    // NPS button handlers
-    let selectedScore = null;
-    overlay.querySelectorAll('.navlens-nps-btn').forEach(btn => {
-      btn.onclick = () => {
-        overlay.querySelectorAll('.navlens-nps-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        selectedScore = parseInt(btn.dataset.score);
-      };
-    });
-
-    // Submit handler
-    overlay.querySelector('.navlens-feedback-submit').onclick = async () => {
-      if (isNPS && selectedScore === null) return;
-      
-      const submitBtn = overlay.querySelector('.navlens-feedback-submit');
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Sending...';
-
-      try {
-        await submitFeedback({
-          feedback_type: 'survey_response',
-          rating: selectedScore,
-          message: isNPS ? `NPS Score: ${selectedScore}` : overlay.querySelector('.navlens-feedback-textarea')?.value || '',
-        });
-
-        overlay.querySelector('.navlens-feedback-body').innerHTML = `
-          <div class="navlens-feedback-success">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-            <h3 style="margin: 16px 0 8px; color: #111827;">Thank you!</h3>
-          </div>
-        `;
-        
-        setTimeout(() => overlay.remove(), 1500);
-      } catch (e) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Try Again';
-      }
-    };
-
-    // Close on overlay click
-    overlay.onclick = (e) => {
-      if (e.target === overlay) overlay.remove();
-    };
-  }
+  // NOTE: Old VoC/Survey system removed - use Feedback Widget (initFeedback) instead
 
   // ============================================
   // CLICK TRACKING
@@ -4021,10 +3876,25 @@
     // Get current DOM hash
     getDomHash: () => generateDomHash(),
 
+    // Get session ID
+    getSessionId: () => SESSION_ID,
+    
+    // Get visitor ID
+    getVisitorId: () => VISITOR_ID,
+    
+    // Set context for all future events
+    setContext: (context = {}) => {
+      if (typeof context !== 'object') return;
+      window.__navlens_context = { ...(window.__navlens_context || {}), ...context };
+    },
+
     // PII scrubbing utilities
     scrubPII,
     scrubObjectPII,
   };
+  
+  // Backwards compatibility alias
+  window.navlens = window.Navlens;
 
   // ============================================
   // FEEDBACK WIDGET
@@ -4050,10 +3920,31 @@
   
   /**
    * Fetch feedback config from dashboard API
+   * Uses cached config from merged endpoint if available
    */
   async function fetchFeedbackConfig() {
     if (!SITE_ID) return;
     
+    // Use cached config from merged endpoint if available (saves a request)
+    if (cachedFeedbackConfig) {
+      FEEDBACK_CONFIG = {
+        ...FEEDBACK_CONFIG,
+        enabled: cachedFeedbackConfig.enabled ?? true,
+        position: cachedFeedbackConfig.position || 'bottom-right',
+        primaryColor: cachedFeedbackConfig.primaryColor || '#3B82F6',
+        allowDismiss: cachedFeedbackConfig.allowDismiss ?? true,
+        showExitIntent: cachedFeedbackConfig.showExitIntent ?? true,
+        showFrustrationSurvey: cachedFeedbackConfig.showFrustrationSurvey ?? true,
+        showAfterTime: (cachedFeedbackConfig.minTimeBeforeSurvey || 30) * 1000,
+        showOnScroll: cachedFeedbackConfig.showOnScroll || 50,
+        collectIntent: cachedFeedbackConfig.collectIntent ?? true,
+        collectIssues: cachedFeedbackConfig.collectIssues ?? true,
+      };
+      console.log('[Navlens] Feedback config loaded from merged endpoint');
+      return;
+    }
+    
+    // Fallback to individual endpoint
     try {
       const response = await fetch(`${FEEDBACK_CONFIG_ENDPOINT}?siteId=${SITE_ID}`, {
         method: 'GET',
@@ -4117,253 +4008,17 @@
   let feedbackSubmitted = false;
   
   /**
-   * Create and inject feedback widget styles
+   * Load feedback widget styles from external CSS file
    */
   function injectFeedbackStyles() {
     if (document.getElementById('navlens-feedback-styles')) return;
     
-    const styles = document.createElement('style');
-    styles.id = 'navlens-feedback-styles';
-    styles.textContent = `
-      .navlens-feedback-btn {
-        position: fixed;
-        z-index: 99999;
-        padding: 12px 16px;
-        border-radius: 50px;
-        border: none;
-        cursor: pointer;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 14px;
-        font-weight: 500;
-        color: white;
-        transition: all 0.3s ease;
-        animation: navlens-pulse 2s infinite;
-      }
-      .navlens-feedback-btn:hover {
-        transform: scale(1.05);
-        box-shadow: 0 6px 25px rgba(0,0,0,0.25);
-      }
-      .navlens-feedback-btn.bottom-right { bottom: 20px; right: 20px; }
-      .navlens-feedback-btn.bottom-left { bottom: 20px; left: 20px; }
-      .navlens-feedback-btn.top-right { top: 20px; right: 20px; }
-      .navlens-feedback-btn.top-left { top: 20px; left: 20px; }
-      
-      @keyframes navlens-pulse {
-        0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-        50% { box-shadow: 0 4px 25px rgba(59,130,246,0.4); }
-      }
-      
-      .navlens-feedback-modal {
-        position: fixed;
-        inset: 0;
-        z-index: 100000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-      }
-      .navlens-feedback-backdrop {
-        position: absolute;
-        inset: 0;
-        background: rgba(0,0,0,0.4);
-        backdrop-filter: blur(4px);
-      }
-      .navlens-feedback-content {
-        position: relative;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-        max-width: 400px;
-        width: 100%;
-        animation: navlens-slide-up 0.3s ease;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      }
-      @keyframes navlens-slide-up {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .navlens-feedback-header {
-        padding: 20px 24px;
-        border-bottom: 1px solid #e5e7eb;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .navlens-feedback-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #111827;
-        margin: 0;
-      }
-      .navlens-feedback-close {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 8px;
-        border-radius: 8px;
-        color: #6b7280;
-        transition: all 0.2s;
-      }
-      .navlens-feedback-close:hover {
-        background: #f3f4f6;
-        color: #111827;
-      }
-      .navlens-feedback-body {
-        padding: 24px;
-      }
-      .navlens-feedback-step-title {
-        font-size: 16px;
-        font-weight: 500;
-        color: #374151;
-        margin-bottom: 16px;
-        text-align: center;
-      }
-      .navlens-rating-group {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-        margin-bottom: 20px;
-      }
-      .navlens-rating-btn {
-        width: 56px;
-        height: 56px;
-        border-radius: 12px;
-        border: 2px solid #e5e7eb;
-        background: white;
-        cursor: pointer;
-        font-size: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-      }
-      .navlens-rating-btn:hover {
-        border-color: #3B82F6;
-        transform: scale(1.1);
-      }
-      .navlens-rating-btn.selected {
-        border-color: #3B82F6;
-        background: #EFF6FF;
-        transform: scale(1.15);
-      }
-      .navlens-options-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-bottom: 20px;
-      }
-      .navlens-option-btn {
-        padding: 12px;
-        border-radius: 10px;
-        border: 2px solid #e5e7eb;
-        background: white;
-        cursor: pointer;
-        font-size: 13px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        transition: all 0.2s;
-        color: #374151;
-      }
-      .navlens-option-btn:hover {
-        border-color: #3B82F6;
-        background: #EFF6FF;
-      }
-      .navlens-option-btn.selected {
-        border-color: #3B82F6;
-        background: #DBEAFE;
-      }
-      .navlens-option-icon {
-        font-size: 18px;
-      }
-      .navlens-textarea {
-        width: 100%;
-        padding: 12px;
-        border: 2px solid #e5e7eb;
-        border-radius: 10px;
-        resize: none;
-        font-family: inherit;
-        font-size: 14px;
-        margin-bottom: 16px;
-        transition: border-color 0.2s;
-      }
-      .navlens-textarea:focus {
-        outline: none;
-        border-color: #3B82F6;
-      }
-      .navlens-submit-btn {
-        width: 100%;
-        padding: 14px;
-        border-radius: 10px;
-        border: none;
-        background: #3B82F6;
-        color: white;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .navlens-submit-btn:hover {
-        background: #2563EB;
-      }
-      .navlens-submit-btn:disabled {
-        background: #93C5FD;
-        cursor: not-allowed;
-      }
-      .navlens-skip-btn {
-        background: none;
-        border: none;
-        color: #6b7280;
-        cursor: pointer;
-        padding: 8px 16px;
-        font-size: 13px;
-        margin-top: 8px;
-      }
-      .navlens-skip-btn:hover {
-        color: #374151;
-      }
-      .navlens-success {
-        text-align: center;
-        padding: 40px 24px;
-      }
-      .navlens-success-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
-      }
-      .navlens-success-title {
-        font-size: 20px;
-        font-weight: 600;
-        color: #111827;
-        margin-bottom: 8px;
-      }
-      .navlens-success-text {
-        color: #6b7280;
-        font-size: 14px;
-      }
-      .navlens-footer {
-        padding: 12px 24px;
-        border-top: 1px solid #e5e7eb;
-        text-align: center;
-      }
-      .navlens-dismiss-btn {
-        background: none;
-        border: none;
-        color: #9ca3af;
-        font-size: 12px;
-        cursor: pointer;
-      }
-      .navlens-dismiss-btn:hover {
-        color: #6b7280;
-      }
-      .navlens-hidden {
-        display: none !important;
-      }
-    `;
-    document.head.appendChild(styles);
+    // Load external CSS file
+    const link = document.createElement('link');
+    link.id = 'navlens-feedback-styles';
+    link.rel = 'stylesheet';
+    link.href = `${normalizedHost}/navlens-feedback.css`;
+    document.head.appendChild(link);
   }
   
   /**
@@ -4719,107 +4374,7 @@
     }
   }
 
-  // ============================================
-  // PUBLIC API - navlens.track()
-  // Allows users to track custom events
-  // ============================================
-  
-  /**
-   * Track a custom event
-   * @param {string} eventName - Name of the custom event
-   * @param {Object} properties - Optional properties for the event
-   * @returns {Promise<boolean>} - Whether the event was sent successfully
-   * 
-   * @example
-   * navlens.track('button_click', { button_id: 'signup', value: 100 });
-   * navlens.track('purchase', { product_id: 'abc123', amount: 49.99 });
-   */
-  async function trackCustomEvent(eventName, properties = {}) {
-    if (!eventName || typeof eventName !== 'string') {
-      console.warn('[Navlens] track() requires a valid event name string');
-      return false;
-    }
-
-    if (eventName.length > 100) {
-      console.warn('[Navlens] Event name too long (max 100 characters)');
-      return false;
-    }
-
-    // Sanitize properties - remove functions and limit depth
-    const sanitizedProps = {};
-    try {
-      for (const [key, value] of Object.entries(properties)) {
-        if (typeof key === 'string' && key.length <= 50) {
-          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-            sanitizedProps[key] = value;
-          } else if (value === null || value === undefined) {
-            sanitizedProps[key] = null;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[Navlens] Error sanitizing properties:', e);
-    }
-
-    const eventData = {
-      type: 'custom',
-      event_name: eventName,
-      properties: sanitizedProps,
-      timestamp: new Date().toISOString(),
-      session_id: SESSION_ID,
-      page_url: window.location.href,
-      page_path: window.location.pathname,
-    };
-
-    try {
-      const wrapped = wrapEventForApi(eventData);
-      const response = await sendWithCompression(V1_INGEST_ENDPOINT, wrapped);
-      return response.ok;
-    } catch (error) {
-      console.warn('[Navlens] Failed to send custom event:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Identify a user for tracking
-   * @param {string} userId - Unique user identifier
-   * @param {Object} traits - Optional user traits
-   */
-  function identifyUser(userId, traits = {}) {
-    if (!userId || typeof userId !== 'string') {
-      console.warn('[Navlens] identify() requires a valid user ID string');
-      return;
-    }
-
-    // Store user ID for future events
-    window.__navlens_user_id = userId.slice(0, 100);
-    
-    // Track identify event
-    trackCustomEvent('identify', {
-      user_id: userId.slice(0, 100),
-      ...traits,
-    });
-  }
-
-  /**
-   * Set a page context property
-   * @param {Object} context - Context properties to add to all events
-   */
-  function setContext(context = {}) {
-    if (typeof context !== 'object') return;
-    window.__navlens_context = { ...(window.__navlens_context || {}), ...context };
-  }
-
-  // Expose public API
-  window.navlens = {
-    track: trackCustomEvent,
-    identify: identifyUser,
-    setContext: setContext,
-    getSessionId: () => SESSION_ID,
-    getVisitorId: () => VISITOR_ID,
-    version: '5.3.0',
-  };
+  // NOTE: Duplicate navlens API removed - using unified window.Navlens with window.navlens alias
 
   // ============================================
   // WEB VITALS TRACKING
