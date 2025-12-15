@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "minify:tracker": "terser public/dev-tracker.js -o public/tracker.js --compress --mangle --toplevel"
   },
   "dependencies": {
     "@clickhouse/client": "^1.13.0",
@@ -56,6 +57,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "tailwindcss": "^4",
+    "terser": "^5.44.1",
     "typescript": "^5"
   }
 }
