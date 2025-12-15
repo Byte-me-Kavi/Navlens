@@ -145,6 +145,7 @@
         // Cache feedback config for later use
         if (config.feedback) {
           cachedFeedbackConfig = config.feedback;
+          console.log('[Navlens] Merged config loaded (experiments + feedback)');
         }
         return config;
       }
