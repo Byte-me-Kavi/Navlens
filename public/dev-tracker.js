@@ -962,7 +962,8 @@
   window.navlens.trackRevenue = trackRevenue;
 
   // Initialize experiments immediately (before DOMContentLoaded)
-  initExperiments();
+  // Store promise so initFeedback can wait for merged config to load
+  const experimentsReady = initExperiments();
 
   // ============================================
   // VISUAL EDITOR MODE DETECTION
@@ -4367,10 +4368,17 @@
   // Skip tracking entirely when in editor mode
   if (!IS_EDITOR_MODE) {
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => { init(); initFeedback(); });
+      document.addEventListener("DOMContentLoaded", async () => { 
+        await experimentsReady; // Wait for merged config to load
+        init(); 
+        initFeedback(); 
+      });
     } else {
-      init();
-      initFeedback();
+      // Wait for experiments (and merged config) before feedback
+      experimentsReady.then(() => {
+        init();
+        initFeedback();
+      });
     }
   }
 
