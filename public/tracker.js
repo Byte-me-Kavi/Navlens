@@ -493,11 +493,49 @@
       } catch (e) { /* ignore parse errors */ }
     }
     
-    // Load config with 500ms timeout (anti-flicker failsafe)
-    const config = await Promise.race([
-      loadExperimentConfig(),
-      new Promise(r => setTimeout(() => r(null), 500))
-    ]);
+    // Load config: Try localStorage first, then network with timeout
+    let config = null;
+    try {
+      const cached = localStorage.getItem('navlens_config');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // Use cache if less than 1 hour old
+        if (Date.now() - parsed.timestamp < 3600000) {
+          config = parsed.data;
+          if (DEBUG) console.log('[navlens] Using cached config');
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // If no valid cache, fetch from network with timeout
+    if (!config) {
+      config = await Promise.race([
+        loadExperimentConfig().then(c => {
+          if (c) {
+            try {
+              localStorage.setItem('navlens_config', JSON.stringify({
+                data: c,
+                timestamp: Date.now()
+              }));
+            } catch (e) {}
+          }
+          return c;
+        }),
+        new Promise(r => setTimeout(() => r(null), 1000)) // Increased to 1s
+      ]);
+    } else {
+      // Refresh cache in background
+      loadExperimentConfig().then(c => {
+        if (c) {
+          try {
+            localStorage.setItem('navlens_config', JSON.stringify({
+              data: c,
+              timestamp: Date.now()
+            }));
+          } catch (e) {}
+        }
+      });
+    }
     
     if (config) {
       experimentConfig = config;
