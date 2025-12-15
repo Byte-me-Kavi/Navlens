@@ -550,10 +550,16 @@
       const cached = localStorage.getItem('navlens_config');
       if (cached) {
         const parsed = JSON.parse(cached);
-        // Use cache if less than 1 hour old
-        if (Date.now() - parsed.timestamp < 3600000) {
+        // Use cache if less than 1 hour old AND has feedback (new merged format)
+        if (Date.now() - parsed.timestamp < 3600000 && parsed.data?.feedback) {
           config = parsed.data;
-          if (DEBUG) console.log('[navlens] Using cached config');
+          // Restore cached feedback config
+          cachedFeedbackConfig = config.feedback;
+          console.log('[Navlens] Using cached merged config');
+        } else if (parsed.data && !parsed.data.feedback) {
+          // Old format cache - clear it to fetch new merged config
+          localStorage.removeItem('navlens_config');
+          console.log('[Navlens] Cleared old config cache (upgrading to merged format)');
         }
       }
     } catch (e) { /* ignore */ }
