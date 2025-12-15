@@ -57,6 +57,7 @@
 
   // Endpoints - All events go through v1/ingest
   const V1_INGEST_ENDPOINT = `${normalizedHost}/api/v1/ingest`;
+  const EVENTS_ENDPOINT = V1_INGEST_ENDPOINT; // Alias for goal tracking
   const RRWEB_EVENTS_ENDPOINT = `${normalizedHost}/api/rrweb-events`;
   const DOM_SNAPSHOT_ENDPOINT = `${normalizedHost}/api/dom-snapshot`;
   const DEBUG_EVENTS_ENDPOINT = `${normalizedHost}/api/v1/debug-events`;
