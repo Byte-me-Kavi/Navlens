@@ -211,15 +211,14 @@ export const secureApi = {
 
         get: (sessionId: string, siteId: string) =>
             requestQueue.add(() =>
-                apiClient.post<{ session: unknown }>('/sessions/get', {
-                    sessionId,
+                apiClient.post<{ session: unknown }>(`/sessions/${sessionId}`, {
                     siteId,
                 })
             ),
 
         replayEvents: (sessionId: string, siteId: string) =>
             requestQueue.add(() =>
-                apiClient.post<{ events: unknown[] }>('/rrweb-events/query', {
+                apiClient.post<{ events: unknown[]; meta?: { totalEvents: number; startTime: number; duration: number } }>('/sessions/replay', {
                     sessionId,
                     siteId,
                 })

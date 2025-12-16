@@ -29,7 +29,7 @@ export default function LoadingSpinner({
                   cx={x}
                   cy={y}
                   r="3"
-                  fill="rgba(200, 210, 220, 0.3)"
+                  fill="rgba(255, 255, 255, 0.3)"
                 />
               );
             })}
