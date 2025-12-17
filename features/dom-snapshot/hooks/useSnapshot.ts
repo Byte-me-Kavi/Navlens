@@ -11,14 +11,29 @@ import { SnapshotData, SnapshotParams } from '../types/snapshot.types';
 // Global cache to prevent duplicate requests across component instances
 const requestCache = new Map<string, Promise<SnapshotData>>();
 const resultCache = new Map<string, SnapshotData>();
+// Cache for "not found" errors to prevent repeated failed requests
+const notFoundCache = new Map<string, { timestamp: number; error: Error }>();
+
+// How long to cache "not found" errors (5 minutes)
+const NOT_FOUND_CACHE_TTL = 5 * 60 * 1000;
 
 // Clean up old cache entries periodically to prevent memory leaks
 setInterval(() => {
-  if (resultCache.size > 50) { // Keep only last 50 results
+  const now = Date.now();
+
+  // Clean result cache
+  if (resultCache.size > 50) {
     const keys = Array.from(resultCache.keys());
     const keysToDelete = keys.slice(0, keys.length - 50);
     keysToDelete.forEach(key => resultCache.delete(key));
   }
+
+  // Clean expired "not found" cache entries
+  notFoundCache.forEach((value, key) => {
+    if (now - value.timestamp > NOT_FOUND_CACHE_TTL) {
+      notFoundCache.delete(key);
+    }
+  });
 }, 30000); // Clean every 30 seconds
 
 interface UseSnapshotResult {
@@ -33,23 +48,39 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Memoize params to prevent unnecessary re-renders
-  const memoizedParams = useMemo(() => params, [params]);
+  // Create stable cache key from params
+  const paramsHash = useMemo(() =>
+    `${params.siteId}:${params.pagePath}:${params.deviceType}`,
+    [params.siteId, params.pagePath, params.deviceType]
+  );
 
-  // Create a stable hash of the request parameters
-  const paramsHash = useMemo(() => JSON.stringify(memoizedParams), [memoizedParams]);
-
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
       setError(null);
 
       // Check if we already have this data cached
-      if (resultCache.has(paramsHash)) {
+      if (!forceRefresh && resultCache.has(paramsHash)) {
         console.log('💾 [useSnapshot] Using cached snapshot data');
         setData(resultCache.get(paramsHash)!);
         setLoading(false);
         return;
+      }
+
+      // Check if this request previously returned "not found" (within TTL)
+      const notFoundEntry = notFoundCache.get(paramsHash);
+      if (!forceRefresh && notFoundEntry) {
+        const age = Date.now() - notFoundEntry.timestamp;
+        if (age < NOT_FOUND_CACHE_TTL) {
+          console.log(`💨 [useSnapshot] Using cached "not found" result (age: ${Math.round(age / 1000)}s)`);
+          setError(notFoundEntry.error);
+          setData(null);
+          setLoading(false);
+          return;
+        } else {
+          // TTL expired, remove from cache and try again
+          notFoundCache.delete(paramsHash);
+        }
       }
 
       // Check if there's already a request in progress for this hash
@@ -68,7 +99,7 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
       });
 
       // Create and cache the request promise
-      const requestPromise = snapshotApi.getSnapshot(memoizedParams);
+      const requestPromise = snapshotApi.getSnapshot(params);
       requestCache.set(paramsHash, requestPromise);
 
       const result = await requestPromise;
@@ -85,13 +116,34 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
       }, 1000);
 
     } catch (err) {
-      console.error('❌ [useSnapshot] Error fetching snapshot:', err);
-      console.error('❌ [useSnapshot] Failed params:', {
-        siteId: memoizedParams.siteId,
-        pagePath: memoizedParams.pagePath,
-        deviceType: memoizedParams.deviceType,
-      });
-      setError(err as Error);
+      const error = err as Error;
+      console.error('❌ [useSnapshot] Error fetching snapshot:', error.message);
+
+      // Check if this is a "not found" error - cache it to prevent retries
+      const errorMessage = error.message || '';
+      const isNotFound =
+        errorMessage.includes('Snapshot not found') ||
+        errorMessage.includes('NOT_FOUND') ||
+        errorMessage.includes('404') ||
+        errorMessage.includes('No snapshot');
+
+      if (isNotFound) {
+        // Create a more user-friendly error
+        const friendlyError = new Error('No snapshot available - visitors need to stay on the page for at least 5 seconds');
+        (friendlyError as Error & { code: string }).code = 'SNAPSHOT_NOT_FOUND';
+
+        // Cache the "not found" result to prevent repeated requests
+        notFoundCache.set(paramsHash, {
+          timestamp: Date.now(),
+          error: friendlyError,
+        });
+
+        console.log('📝 [useSnapshot] Caching "not found" result for', paramsHash);
+        setError(friendlyError);
+      } else {
+        setError(error);
+      }
+
       setData(null);
 
       // Clean up failed request from cache
@@ -99,7 +151,7 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
     } finally {
       setLoading(false);
     }
-  }, [memoizedParams, params, paramsHash]);
+  }, [params.siteId, params.pagePath, params.deviceType, paramsHash]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,12 +167,13 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
     return () => {
       cancelled = true;
     };
-  }, [paramsHash, fetchData]); // Only run when params change or fetchData changes
+  }, [paramsHash]); // Only dependency is paramsHash, not fetchData (prevents re-running)
 
   return {
     data,
     loading,
     error,
-    refetch: fetchData,
+    refetch: () => fetchData(true), // Force refresh bypasses cache
   };
 }
+

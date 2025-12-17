@@ -269,16 +269,14 @@ export function HeatmapViewer({
   if (snapshotError || !snapshotData || !snapshotData.snapshot) {
     // Check if this is a "snapshot not found" error
     const errorMessage = snapshotError?.message || "";
+    const errorCode = (snapshotError as Error & { code?: string })?.code;
     const isSnapshotNotFound =
+      errorCode === 'SNAPSHOT_NOT_FOUND' ||
       errorMessage.includes("Snapshot not found") ||
       errorMessage.includes("NOT_FOUND") ||
-      errorMessage.includes("404");
-
-    // Try to extract more details from the error
-    let errorDetails = "";
-    if (snapshotError && "details" in snapshotError) {
-      errorDetails = (snapshotError as Error & { details: string }).details;
-    }
+      errorMessage.includes("404") ||
+      errorMessage.includes("No snapshot") ||
+      errorMessage.includes("visitors need to stay");
 
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50">
@@ -286,32 +284,25 @@ export function HeatmapViewer({
           <div className="text-blue-500 text-5xl mb-4">📄</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             {isSnapshotNotFound
-              ? "No Snapshot Available"
+              ? "No Snapshot Captured Yet"
               : "Failed to Load Snapshot"}
           </h3>
           <p className="text-gray-600 mb-4">
             {isSnapshotNotFound
-              ? `No users have visited this page yet on ${deviceType}. Install the heatmap tracker to start collecting data.`
+              ? `No visitors have stayed on this page (${deviceType}) long enough for a snapshot to be captured. Visitors need to stay for at least 5 seconds.`
               : errorMessage || "Snapshot data not available for this page"}
           </p>
-          {errorDetails && (
-            <div className="text-xs text-gray-500 mb-4 p-2 bg-gray-100 rounded">
-              <strong>Details:</strong>{" "}
-              {typeof errorDetails === "string"
-                ? errorDetails
-                : JSON.stringify(errorDetails)}
-            </div>
-          )}
           {isSnapshotNotFound ? (
-            <div className="text-sm text-gray-500 mb-4">
-              <p>
-                📊 <strong>How to get data:</strong>
+            <div className="text-sm text-gray-500 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="font-medium text-blue-800 mb-2">
+                💡 How snapshots work:
               </p>
-              <ol className="text-left list-decimal list-inside mt-2 space-y-1">
-                <li>Install the heatmap tracking script on your website</li>
-                <li>Wait for users to visit this page</li>
-                <li>The snapshot will be automatically captured</li>
-              </ol>
+              <ul className="text-left list-disc list-inside space-y-1 text-blue-700">
+                <li>Snapshots are captured after 5 seconds of page load</li>
+                <li>This ensures the page has fully rendered</li>
+                <li>Quick visitors who leave immediately won&apos;t trigger captures</li>
+                <li>Once captured, the snapshot is cached for this device type</li>
+              </ul>
             </div>
           ) : (
             <button
