@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS public.editor_tokens (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     token VARCHAR(48) NOT NULL UNIQUE,
     experiment_id UUID NOT NULL,
-    variant_id UUID NOT NULL,
+    variant_id VARCHAR(64) NOT NULL,
     user_id UUID NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     used BOOLEAN DEFAULT FALSE,
