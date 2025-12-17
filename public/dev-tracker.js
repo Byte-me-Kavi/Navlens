@@ -559,22 +559,23 @@
       } catch (e) { /* ignore parse errors */ }
     }
     
-    // Load config: Try localStorage first, then network with timeout
+    // Load config: STALE-WHILE-REVALIDATE - Use cache immediately, refresh in background
     let config = null;
+    let needsRefresh = false;
     try {
       const cached = localStorage.getItem('navlens_config');
       if (cached) {
         const parsed = JSON.parse(cached);
-        // Use cache if less than 1 hour old AND has feedback (new merged format)
-        if (Date.now() - parsed.timestamp < 3600000 && parsed.data?.feedback) {
+        // Use cache immediately if it has feedback (new merged format) - regardless of age
+        if (parsed.data?.feedback) {
           config = parsed.data;
-          // Restore cached feedback config
           cachedFeedbackConfig = config.feedback;
-          console.log('[Navlens] Using cached merged config');
+          // Mark for background refresh if stale (> 5 min old)
+          needsRefresh = Date.now() - parsed.timestamp > 300000;
+          console.log('[Navlens] Using cached config (stale-while-revalidate)');
         } else if (parsed.data && !parsed.data.feedback) {
-          // Old format cache - clear it to fetch new merged config
+          // Old format cache - clear it
           localStorage.removeItem('navlens_config');
-          console.log('[Navlens] Cleared old config cache (upgrading to merged format)');
         }
       }
     } catch (e) { /* ignore */ }
@@ -600,8 +601,8 @@
         }),
         new Promise(r => setTimeout(() => r(null), 500)) // STRICT 500ms limit
       ]);
-    } else {
-      // Refresh cache in background
+    } else if (needsRefresh) {
+      // Stale cache - refresh in background (don't block)
       loadExperimentConfig().then(c => {
         if (c) {
           try {
