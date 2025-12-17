@@ -4,6 +4,29 @@
   "use strict";
 
 
+
+  // ANTI-FLICKER: Hide content immediately
+  const ANTI_FLICKER_ID = 'navlens-anti-flicker';
+  const HIDE_TIMEOUT = 4000;
+  
+  try {
+    if (!document.getElementById(ANTI_FLICKER_ID)) {
+      const style = document.createElement('style');
+      style.id = ANTI_FLICKER_ID;
+      style.textContent = 'html { visibility: hidden !important; opacity: 0 !important; }';
+      document.head.appendChild(style);
+      
+      // Safety timeout to ensure site is never hidden forever
+      setTimeout(() => {
+        const style = document.getElementById(ANTI_FLICKER_ID);
+        if (style) {
+          style.remove();
+          console.warn('[Navlens] Anti-flicker timed out - showing content');
+        }
+      }, HIDE_TIMEOUT);
+    }
+  } catch (e) {}
+
   const DEBUG = false; // Set to true for verbose logging
   const script = document.currentScript;
   const API_KEY = script?.dataset?.apiKey || "";
@@ -591,7 +614,12 @@
       }, 100);
     }
     
-    // Release anti-flicker (if applied)
+    // Release anti-flicker (regardless of success/fail to ensure site shows)
+    const antiFlicker = document.getElementById(ANTI_FLICKER_ID);
+    if (antiFlicker) {
+      antiFlicker.remove();
+    }
+    // Legacy fallback
     if (document.documentElement.style.visibility === 'hidden') {
       document.documentElement.style.visibility = '';
     }
@@ -4347,16 +4375,22 @@
   // Start when DOM is ready
   // Skip tracking entirely when in editor mode
   if (!IS_EDITOR_MODE) {
+    // START IMMEDIATELY - Don't wait for DOMContentLoaded for config fetch
+    const experimentsReady = initExperiments().catch(e => {
+        console.warn('[Navlens] Experiment init failed:', e);
+        // Ensure content is shown even on error
+        const s = document.getElementById(ANTI_FLICKER_ID);
+        if (s) s.remove();
+    });
+
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", async () => { 
         await experimentsReady; // Wait for merged config to load
-        init(); 
         initFeedback(); 
       });
     } else {
       // Wait for experiments (and merged config) before feedback
       experimentsReady.then(() => {
-        init();
         initFeedback();
       });
     }
