@@ -7,7 +7,7 @@
 
   // ANTI-FLICKER: Hide content immediately
   const ANTI_FLICKER_ID = 'navlens-anti-flicker';
-  const HIDE_TIMEOUT = 4000;
+  const HIDE_TIMEOUT = 500; // Strict 500ms limit
   
   try {
     if (!document.getElementById(ANTI_FLICKER_ID)) {
@@ -16,7 +16,7 @@
       style.textContent = 'html { visibility: hidden !important; opacity: 0 !important; }';
       document.head.appendChild(style);
       
-      // Safety timeout to ensure site is never hidden forever
+      // Safety timeout - hard limit to prevent indefinite hiding
       setTimeout(() => {
         const style = document.getElementById(ANTI_FLICKER_ID);
         if (style) {
@@ -74,6 +74,22 @@
   
   // Batch mode flag - will be set to false if batch endpoint fails
   let useBatchMode = true;
+  
+  // PARALLEL FETCH: Start config fetch immediately to maximize network time
+  // This runs before other script logic to give network request a head start
+  let _earlyConfigPromise = null;
+  try {
+    const _script = document.currentScript;
+    const _siteId = _script?.dataset?.siteId || '';
+    const _apiHost = _script?.dataset?.apiHost || 'https://navlens-rho.vercel.app';
+    const _normalizedHost = _apiHost.includes('://') ? _apiHost : `https://${_apiHost}`;
+    if (_siteId) {
+      _earlyConfigPromise = fetch(`${_normalizedHost}/api/tracker-config?siteId=${_siteId}`, {
+        priority: 'high',
+        cache: 'default'
+      }).then(r => r.ok ? r.json() : null).catch(() => null);
+    }
+  } catch (e) {}
 
 
   
@@ -563,21 +579,26 @@
       }
     } catch (e) { /* ignore */ }
 
-    // If no valid cache, fetch from network with timeout
+    // If no valid cache, fetch from network with STRICT 500ms timeout
     if (!config) {
+      // Reuse early fetch if available, otherwise start new one
+      const configPromise = _earlyConfigPromise || loadExperimentConfig();
+      
       config = await Promise.race([
-        loadExperimentConfig().then(c => {
+        configPromise.then(c => {
           if (c) {
             try {
               localStorage.setItem('navlens_config', JSON.stringify({
                 data: c,
                 timestamp: Date.now()
               }));
+              // Cache feedback config
+              if (c.feedback) cachedFeedbackConfig = c.feedback;
             } catch (e) {}
           }
           return c;
         }),
-        new Promise(r => setTimeout(() => r(null), 1000)) // Increased to 1s
+        new Promise(r => setTimeout(() => r(null), 500)) // STRICT 500ms limit
       ]);
     } else {
       // Refresh cache in background

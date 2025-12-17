@@ -216,7 +216,9 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
   };
 
   const renderNavItem = (item: NavItem, isNested = false) => {
-    const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+    const isActive = item.href === '/dashboard'
+      ? pathname === item.href
+      : pathname === item.href || pathname.startsWith(item.href + '/');
     const Icon = item.icon;
 
     return (
