@@ -605,9 +605,36 @@ const NetworkTrendChart = ({ data }: { data: NetworkHealthData['trends'] }) => {
     );
   }
 
-  // Find max values for scaling
-  const maxRequests = Math.max(...data.map(d => d.total_requests), 1);
-  const maxErrorRate = Math.max(...data.map(d => d.error_rate), 1);
+  // Get last 24 data points and ensure we have data
+  const chartData = data.slice(-24);
+  
+  // Find max values for scaling (ensure minimum values for visibility)
+  const maxRequests = Math.max(...chartData.map(d => d.total_requests), 10);
+  const maxErrorRate = Math.max(...chartData.map(d => d.error_rate), 5);
+  
+  // Chart dimensions - using fixed viewBox coordinates
+  const svgWidth = 100; // viewBox width
+  const svgHeight = 160; // viewBox height
+  const padding = { top: 10, bottom: 20, left: 0, right: 0 };
+  const graphHeight = svgHeight - padding.top - padding.bottom;
+  
+  // Create SVG path for requests line (use absolute coordinates, not percentages)
+  const requestsPath = chartData.map((point, idx) => {
+    const x = (idx / Math.max(chartData.length - 1, 1)) * svgWidth;
+    const y = padding.top + graphHeight - (point.total_requests / maxRequests) * graphHeight;
+    return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+  }).join(' ');
+  
+  // Create area path (fill under the line)
+  const requestsAreaPath = requestsPath + 
+    ` L ${svgWidth} ${svgHeight - padding.bottom} L 0 ${svgHeight - padding.bottom} Z`;
+  
+  // Create error rate path
+  const errorRatePath = chartData.map((point, idx) => {
+    const x = (idx / Math.max(chartData.length - 1, 1)) * svgWidth;
+    const y = padding.top + graphHeight - (point.error_rate / maxErrorRate) * graphHeight;
+    return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+  }).join(' ');
 
   return (
     <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm col-span-full">
@@ -616,46 +643,167 @@ const NetworkTrendChart = ({ data }: { data: NetworkHealthData['trends'] }) => {
         Network Request Trends
         <div className="ml-auto flex items-center gap-4 text-xs">
           <span className="flex items-center gap-1">
-            <span className="w-3 h-1 bg-blue-500 rounded"></span>
+            <span className="w-3 h-3 bg-blue-500 rounded-sm"></span>
             Requests
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-3 h-1 bg-red-500 rounded"></span>
+            <span className="w-3 h-3 bg-red-500 rounded-sm"></span>
             Error Rate
           </span>
         </div>
       </h3>
       
-      {/* Simple visualization bars */}
-      <div className="h-40 flex items-end gap-1 border-b border-gray-200 pb-2">
-        {data.slice(-24).map((point, idx) => (
-          <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative">
-            {/* Request bar */}
-            <div
-              className="w-full bg-blue-400 rounded-t hover:bg-blue-500 transition-colors"
-              style={{ height: `${(point.total_requests / maxRequests) * 100}%`, minHeight: '2px' }}
+      {/* SVG Chart */}
+      <div className="relative" style={{ height: svgHeight }}>
+        <svg 
+          className="w-full h-full" 
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
+          preserveAspectRatio="none"
+        >
+          {/* Grid lines */}
+          {[0, 25, 50, 75, 100].map(pct => (
+            <line
+              key={pct}
+              x1={0}
+              y1={padding.top + (graphHeight * (1 - pct / 100))}
+              x2={svgWidth}
+              y2={padding.top + (graphHeight * (1 - pct / 100))}
+              stroke="#e5e7eb"
+              strokeWidth="0.5"
+              strokeDasharray="2,2"
             />
-            {/* Error indicator dot */}
-            {point.error_rate > 0 && (
-              <div
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-red-500 rounded-full border border-white"
-                style={{ bottom: `${Math.min((point.error_rate / maxErrorRate) * 50, 100)}%` }}
+          ))}
+          
+          {/* Request area fill */}
+          <path
+            d={requestsAreaPath}
+            fill="url(#requestGradient)"
+            opacity="0.3"
+          />
+          
+          {/* Request line */}
+          <path
+            d={requestsPath}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+          
+          {/* Error rate line */}
+          <path
+            d={errorRatePath}
+            fill="none"
+            stroke="#ef4444"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="4,2"
+            vectorEffect="non-scaling-stroke"
+          />
+          
+          {/* Data points for requests */}
+          {chartData.map((point, idx) => {
+            const x = (idx / Math.max(chartData.length - 1, 1)) * svgWidth;
+            const y = padding.top + graphHeight - (point.total_requests / maxRequests) * graphHeight;
+            return (
+              <circle
+                key={`req-${idx}`}
+                cx={x}
+                cy={y}
+                r="3"
+                fill="#3b82f6"
+                className="opacity-0 hover:opacity-100 transition-opacity"
               />
-            )}
-            {/* Tooltip */}
-            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10">
-              <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
-                {point.total_requests} requests<br />
-                {point.error_rate.toFixed(1)}% errors
+            );
+          })}
+          
+          {/* Data points for errors */}
+          {chartData.map((point, idx) => {
+            if (point.error_rate === 0) return null;
+            const x = (idx / Math.max(chartData.length - 1, 1)) * svgWidth;
+            const y = padding.top + graphHeight - (point.error_rate / maxErrorRate) * graphHeight;
+            return (
+              <circle
+                key={`err-${idx}`}
+                cx={x}
+                cy={y}
+                r="3"
+                fill="#ef4444"
+                className="opacity-70"
+              />
+            );
+          })}
+          
+          {/* Gradient definition */}
+          <defs>
+            <linearGradient id="requestGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+        </svg>
+        
+        {/* Y-axis labels */}
+        <div className="absolute left-0 top-0 bottom-5 flex flex-col justify-between text-xs text-gray-400 pointer-events-none">
+          <span>{maxRequests}</span>
+          <span>{Math.round(maxRequests / 2)}</span>
+          <span>0</span>
+        </div>
+        
+        {/* Hover overlay with tooltips */}
+        <div className="absolute inset-0 flex" style={{ paddingTop: padding.top, paddingBottom: padding.bottom }}>
+          {chartData.map((point, idx) => (
+            <div 
+              key={idx} 
+              className="flex-1 group cursor-crosshair relative"
+            >
+              {/* Vertical hover line */}
+              <div className="absolute inset-y-0 left-1/2 w-px bg-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+              
+              {/* Tooltip */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
+                <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+                  <div className="font-semibold text-blue-300">{point.total_requests.toLocaleString()} requests</div>
+                  <div className="text-red-300">{point.error_rate.toFixed(2)}% error rate</div>
+                  <div className="text-gray-400 mt-1">{formatLatency(point.avg_latency)} avg</div>
+                  <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-      <div className="flex justify-between text-xs text-gray-400 mt-2">
-        <span>{data[0]?.time_bucket?.split(' ')[0]}</span>
-        <span>Last 24 periods</span>
-        <span>{data[data.length - 1]?.time_bucket?.split(' ')[0]}</span>
+      
+      {/* X-axis labels */}
+      <div className="flex justify-between text-xs text-gray-400 mt-2 pt-2 border-t border-gray-100">
+        <span>{chartData[0]?.time_bucket?.split(' ')[0] || ''}</span>
+        <span className="text-gray-500">Last {chartData.length} periods</span>
+        <span>{chartData[chartData.length - 1]?.time_bucket?.split(' ')[0] || ''}</span>
+      </div>
+      
+      {/* Summary stats */}
+      <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 gap-4 text-center">
+        <div>
+          <div className="text-lg font-bold text-blue-600">
+            {chartData.reduce((sum, d) => sum + d.total_requests, 0).toLocaleString()}
+          </div>
+          <div className="text-xs text-gray-500">Total Requests</div>
+        </div>
+        <div>
+          <div className="text-lg font-bold text-red-600">
+            {(chartData.reduce((sum, d) => sum + d.error_rate, 0) / chartData.length).toFixed(2)}%
+          </div>
+          <div className="text-xs text-gray-500">Avg Error Rate</div>
+        </div>
+        <div>
+          <div className="text-lg font-bold text-purple-600">
+            {formatLatency(chartData.reduce((sum, d) => sum + d.avg_latency, 0) / chartData.length)}
+          </div>
+          <div className="text-xs text-gray-500">Avg Latency</div>
+        </div>
       </div>
     </div>
   );

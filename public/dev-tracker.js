@@ -1702,64 +1702,82 @@
     }
   }
 
-  // Intercept fetch
+  // Intercept fetch - must be careful not to break original calls
   const originalFetch = window.fetch;
-  window.fetch = async function (input, init) {
-    let url;
-    if (typeof input === 'string') {
-      url = input;
-    } else if (input instanceof URL) {
-      url = input.toString();
-    } else if (typeof input === 'object' && input !== null && 'url' in input) {
-      url = input.url;
-    } else {
-      url = String(input);
+  window.fetch = function (...args) {
+    // Safely extract URL without modifying arguments
+    let url = '';
+    let method = 'GET';
+    
+    try {
+      const input = args[0];
+      const init = args[1];
+      
+      if (typeof input === 'string') {
+        url = input;
+      } else if (input instanceof URL) {
+        url = input.toString();
+      } else if (input instanceof Request) {
+        url = input.url;
+        method = input.method || 'GET';
+      } else if (typeof input === 'object' && input !== null && 'url' in input) {
+        url = input.url;
+      }
+      
+      // Get method from init if provided
+      if (init && typeof init === 'object' && init.method) {
+        method = init.method;
+      }
+    } catch (e) {
+      // If we can't parse, just pass through
+      return originalFetch.apply(this, args);
     }
     
-    // Skip our own endpoints
+    // Skip our own endpoints - pass through unchanged
     if (url && shouldIgnoreUrl(url)) {
-      return originalFetch.apply(this, arguments);
+      return originalFetch.apply(this, args);
     }
 
     const startTime = performance.now();
-    const method = init?.method || 'GET';
 
-    try {
-      const response = await originalFetch.apply(this, arguments);
-      const duration = Math.round(performance.now() - startTime);
+    // Call original fetch with original arguments (unchanged)
+    return originalFetch.apply(this, args)
+      .then(response => {
+        const duration = Math.round(performance.now() - startTime);
 
-      if (networkEventCount < MAX_NETWORK_EVENTS) {
-        networkEventCount++;
-        bufferDebugEvent({
-          type: 'network',
-          method: method.toUpperCase(),
-          url: sanitizeUrl(url),
-          status: response.status,
-          duration_ms: duration,
-          network_type: 'fetch',
-          initiator: 'script',
-        });
-      }
+        if (networkEventCount < MAX_NETWORK_EVENTS) {
+          networkEventCount++;
+          bufferDebugEvent({
+            type: 'network',
+            method: method.toUpperCase(),
+            url: sanitizeUrl(url),
+            status: response.status,
+            duration_ms: duration,
+            network_type: 'fetch',
+            initiator: 'script',
+          });
+        }
 
-      return response;
-    } catch (error) {
-      const duration = Math.round(performance.now() - startTime);
+        return response;
+      })
+      .catch(error => {
+        const duration = Math.round(performance.now() - startTime);
 
-      if (networkEventCount < MAX_NETWORK_EVENTS) {
-        networkEventCount++;
-        bufferDebugEvent({
-          type: 'network',
-          method: method.toUpperCase(),
-          url: sanitizeUrl(url),
-          status: 0, // Failed
-          duration_ms: duration,
-          network_type: 'fetch',
-          initiator: 'script',
-        });
-      }
+        if (networkEventCount < MAX_NETWORK_EVENTS) {
+          networkEventCount++;
+          bufferDebugEvent({
+            type: 'network',
+            method: method.toUpperCase(),
+            url: sanitizeUrl(url),
+            status: 0, // Failed
+            duration_ms: duration,
+            network_type: 'fetch',
+            initiator: 'script',
+          });
+        }
 
-      throw error;
-    }
+        throw error;
+      });
   };
 
   // Intercept XMLHttpRequest
