@@ -32,28 +32,66 @@
   const timestamp = urlParams.get('__ts');
   const signature = urlParams.get('__sig');
 
-  // Check if URL has signature (new secure format)
-  if (signature && timestamp) {
-    const ts = parseInt(timestamp, 10);
-    const age = Date.now() - ts;
-    const MAX_AGE = 60 * 60 * 1000; // 1 hour
-    
-    if (age > MAX_AGE || age < 0) {
-      console.error('[navlens-editor] Editor URL expired');
-      alert('Editor link has expired. Please generate a new link from the dashboard.');
-      return;
-    }
-  }
-
   // Get navlens config
   const navlensScript = document.querySelector('script[data-site-id]');
   const siteId = navlensScript?.dataset.siteId;
-  const apiHost = navlensScript?.dataset.api || navlensScript?.src.replace(/\/tracker\.js.*/, '');
+  const apiHost = navlensScript?.dataset.apiHost || navlensScript?.src.replace(/\/tracker\.js.*/, '');
   
   if (!siteId || !apiHost) {
     console.error('[navlens-editor] Missing site ID or API host');
     return;
   }
+
+  const normalizedHost = apiHost.includes('://') ? apiHost : `https://${apiHost}`;
+
+  // SECURITY: Verify signature server-side before loading editor
+  async function verifyAndLoadEditor() {
+    // Check if URL has signature (required for security)
+    if (!signature || !timestamp) {
+      alert('Invalid editor link. Please generate a new link from the dashboard.');
+      console.error('[navlens-editor] Missing signature or timestamp');
+      return false;
+    }
+
+    // Quick client-side expiry check (1 hour)
+    const ts = parseInt(timestamp, 10);
+    const age = Date.now() - ts;
+    const MAX_AGE = 60 * 60 * 1000; // 1 hour
+    
+    if (age > MAX_AGE || age < 0) {
+      alert('Editor link has expired. Please generate a new link from the dashboard.');
+      console.error('[navlens-editor] Editor URL expired');
+      return false;
+    }
+
+    // Server-side signature verification
+    try {
+      const resp = await fetch(`${normalizedHost}/api/experiments/verify-editor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ experimentId, variantId, timestamp, signature })
+      });
+
+      const result = await resp.json();
+
+      if (!result.valid) {
+        alert(`Editor access denied: ${result.error || 'Invalid signature'}. Please generate a new link.`);
+        console.error('[navlens-editor] Signature verification failed:', result.error);
+        return false;
+      }
+
+      console.log('[navlens-editor] Signature verified successfully');
+      return true;
+    } catch (e) {
+      console.error('[navlens-editor] Verification request failed:', e);
+      alert('Could not verify editor access. Please check your connection and try again.');
+      return false;
+    }
+  }
+
+  // Verify before proceeding
+  verifyAndLoadEditor().then(verified => {
+    if (!verified) return;
 
   // Editor state
   let selectedElement = null;
@@ -2038,4 +2076,5 @@
   });
 
   console.log('[navlens-editor] Visual editor loaded with 23 modification types + UX controls');
+  }); // End of verifyAndLoadEditor().then()
 })();
