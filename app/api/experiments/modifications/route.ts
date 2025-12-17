@@ -340,9 +340,10 @@ export async function GET(request: NextRequest) {
         if (!isAuthorized && signature && timestamp) {
             try {
                 const { validateEditorSignature } = await import('@/lib/experiments/editor-security');
-                // Need to get variantId from params for validation
+                // Need to get variantId and token from params for validation
                 const variantId = searchParams.get('variantId') || '';
-                const result = validateEditorSignature(experimentId, variantId, timestamp, signature);
+                const token = searchParams.get('token') || '';
+                const result = validateEditorSignature(experimentId, variantId, timestamp, token, signature);
                 if (result.valid) {
                     isAuthorized = true;
                 }

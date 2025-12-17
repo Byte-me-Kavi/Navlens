@@ -30,6 +30,7 @@
   const experimentId = urlParams.get('__navlens_editor');
   const variantId = urlParams.get('__variant');
   const timestamp = urlParams.get('__ts');
+  const token = urlParams.get('__token');
   const signature = urlParams.get('__sig');
 
   // Get navlens config
@@ -46,10 +47,10 @@
 
   // SECURITY: Verify signature server-side before loading editor
   async function verifyAndLoadEditor() {
-    // Check if URL has signature (required for security)
-    if (!signature || !timestamp) {
+    // Check if URL has signature and token (required for security)
+    if (!signature || !timestamp || !token) {
       alert('Invalid editor link. Please generate a new link from the dashboard.');
-      console.error('[navlens-editor] Missing signature or timestamp');
+      console.error('[navlens-editor] Missing signature, timestamp, or token');
       return false;
     }
 
@@ -64,12 +65,13 @@
       return false;
     }
 
-    // Server-side signature verification
+    // Server-side signature and session verification
     try {
       const resp = await fetch(`${normalizedHost}/api/experiments/verify-editor`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ experimentId, variantId, timestamp, signature })
+        credentials: 'include', // CRITICAL: Send cookies for session verification
+        body: JSON.stringify({ experimentId, variantId, timestamp, token, signature })
       });
 
       const result = await resp.json();
