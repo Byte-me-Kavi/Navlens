@@ -283,12 +283,21 @@ function sanitizeModifications(mods: Modification[]): Modification[] {
 }
 
 // CORS headers - must return specific origin for credentials: 'include'
-function corsHeaders(origin: string | null) {
-    const allowedOrigin = origin || '*';
+function corsHeaders(origin: string | null): Record<string, string> {
+    // If no origin, we can default to * but MUST NOT send credentials
+    if (!origin) {
+        return {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
+        };
+    }
+
+    // If origin is present, echo it and allow credentials
     return {
-        'Access-Control-Allow-Origin': allowedOrigin,
+        'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',
         'Access-Control-Allow-Credentials': 'true',
     };
 }
