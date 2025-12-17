@@ -111,17 +111,27 @@ interface DateRangeProviderProps {
 
 export function DateRangeProvider({ children, defaultPreset = "last7days" }: DateRangeProviderProps) {
   const [dateRange, setDateRangeState] = useState<DateRange>(() => {
-    // Try to restore from localStorage on initial load
+    // Try to restore preset from localStorage
     if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          return {
-            startDate: new Date(parsed.startDate),
-            endDate: new Date(parsed.endDate),
-            preset: parsed.preset as DateRangePreset,
-          };
+          const preset = parsed.preset as DateRangePreset;
+          
+          // For custom ranges, restore exact dates
+          // For relative presets (last7days, etc.), recalculate fresh dates
+          if (preset === "custom") {
+            return {
+              startDate: new Date(parsed.startDate),
+              endDate: new Date(parsed.endDate),
+              preset: "custom",
+            };
+          }
+          
+          // Recalculate dates for relative presets to ensure they're current
+          const { startDate, endDate } = getDateRangeFromPreset(preset);
+          return { startDate, endDate, preset };
         }
       } catch {
         // Ignore parse errors

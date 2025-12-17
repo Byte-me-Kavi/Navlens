@@ -145,7 +145,10 @@ export async function POST(request: NextRequest) {
                     const [trendsResult, deviceResult, vitalsResult, browserResult] = await Promise.all([
                         clickhouse.query({ query: trendsQuery, query_params: { siteId, pagePath: pagePath || '' }, format: 'JSONEachRow' }),
                         clickhouse.query({ query: deviceQuery, query_params: { siteId, pagePath: pagePath || '' }, format: 'JSONEachRow' }),
-                        clickhouse.query({ query: vitalsQuery, query_params: { siteId, pagePath: pagePath || '' }, format: 'JSONEachRow' }).catch(() => null),
+                        clickhouse.query({ query: vitalsQuery, query_params: { siteId, pagePath: pagePath || '' }, format: 'JSONEachRow' }).catch(e => {
+                            console.error('[performance-metrics] Vitals query error:', e);
+                            return null;
+                        }),
                         clickhouse.query({ query: browserQuery, query_params: { siteId, pagePath: pagePath || '' }, format: 'JSONEachRow' }),
                     ]);
 
@@ -161,9 +164,13 @@ export async function POST(request: NextRequest) {
                     if (vitalsResult) {
                         try {
                             vitals = await vitalsResult.json() as VitalRow[];
-                        } catch {
+                            console.log('[performance-metrics] Vitals raw result:', JSON.stringify(vitals));
+                        } catch (e) {
+                            console.error('[performance-metrics] Vitals parse error:', e);
                             vitals = [];
                         }
+                    } else {
+                        console.log('[performance-metrics] Vitals query returned null (no table or error)');
                     }
 
                     // Build vitals map
@@ -171,6 +178,7 @@ export async function POST(request: NextRequest) {
                     for (const v of vitals) {
                         vitalsMap[v.vital_name] = Number(v.avg_value) || 0;
                     }
+                    console.log('[performance-metrics] Vitals map:', vitalsMap);
 
                     return {
                         trends,
