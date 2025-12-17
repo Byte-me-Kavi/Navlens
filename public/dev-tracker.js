@@ -4408,11 +4408,14 @@
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", async () => { 
         await experimentsReady; // Wait for merged config to load
+        init(); // Initialize core tracking (clicks, page views, etc.)
         initFeedback(); 
       });
     } else {
+      // DOM already loaded - initialize immediately
       // Wait for experiments (and merged config) before feedback
       experimentsReady.then(() => {
+        init(); // Initialize core tracking (clicks, page views, etc.)
         initFeedback();
       });
     }

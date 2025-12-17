@@ -284,6 +284,11 @@ export const secureApi = {
             requestQueue.add(() =>
                 apiClient.post<unknown>('/performance-metrics', data)
             ),
+
+        networkHealth: (data: { siteId: string; startDate?: string; endDate?: string; pagePath?: string }) =>
+            requestQueue.add(() =>
+                apiClient.post<unknown>('/network-health', data)
+            ),
     },
 
     /**
