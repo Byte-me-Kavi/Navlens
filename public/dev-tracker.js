@@ -1,37 +1,16 @@
-/**
- * Navlens Analytics Tracker v5.2 - Enterprise Edition
- *
- * Features:
- * - Time-Slicing Scheduler (non-blocking DOM operations)
- * - Client-Side Compression (gzip payloads)
- * - Automatic PII Scrubbing (email, phone, CC, SSN, IP)
- * - Smart Dead Click Detection (MutationObserver-based)
- * - rrweb Session Recording
- * - DOM Snapshot Capture
- * - Session Timeout/Renewal (30min)
- * - Visibility Change Tracking
- * - Retry Queue for Failed Requests
- * - DOM Hash Change Detection
- * - Proper API Event Wrapping (v5.2)
- *
- * @author Navlens Team
- */
+
 
 (function () {
   "use strict";
 
-  // ============================================
-  // CONFIGURATION
-  // ============================================
+
   const DEBUG = false; // Set to true for verbose logging
   const script = document.currentScript;
   const API_KEY = script?.dataset?.apiKey || "";
   const SITE_ID = script?.dataset?.siteId || "";
   const API_HOST = script?.dataset?.apiHost || "https://navlens-rho.vercel.app";
 
-  // ============================================
-  // EDITOR MODE - Disable tracking when in editor
-  // ============================================
+
   const IS_EDITOR_MODE = new URLSearchParams(window.location.search).has('__navlens_editor');
   
   if (IS_EDITOR_MODE) {
@@ -73,10 +52,7 @@
   // Batch mode flag - will be set to false if batch endpoint fails
   let useBatchMode = true;
 
-  // ============================================
-  // A/B TESTING / EXPERIMENT ENGINE
-  // High-performance visual testing with MutationObserver
-  // ============================================
+
   
   const NAVLENS_CONFIG_URL = `${normalizedHost}/storage/v1/object/public/experiment-configs`;
   // DEBUG defined at top of file
@@ -178,7 +154,7 @@
     
     try {
       switch (mod.type) {
-        // Phase 1: Content modifications
+
         case 'css':
           if (changes.css) {
             Object.assign(element.style, changes.css);
@@ -270,7 +246,7 @@
           }
           break;
           
-        // Phase 2: Visual modifications
+
         case 'resize':
           if (changes.width) element.style.width = changes.width;
           if (changes.height) element.style.height = changes.height;
@@ -312,7 +288,7 @@
           }
           break;
           
-        // Phase 3: Attribute modifications
+
         case 'attribute':
           if (changes.attributes) {
             Object.entries(changes.attributes).forEach(([attr, value]) => {
@@ -337,7 +313,7 @@
           }
           break;
           
-        // Phase 4: Interactive modifications
+
         case 'clickRedirect':
           if (changes.redirectUrl) {
             element.style.cursor = 'pointer';
@@ -361,7 +337,7 @@
           element.style.zIndex = changes.stickyZIndex || 1000;
           break;
           
-        // Phase 5: Form modifications
+
         case 'placeholder':
           if (changes.placeholderText !== undefined && 
               (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA')) {
@@ -375,7 +351,7 @@
           }
           break;
           
-        // Phase 6: Animation
+
         case 'animation':
           if (changes.animationName) {
             const duration = changes.animationDuration || '0.5s';
@@ -644,10 +620,7 @@
     window.__NAVLENS_EXPERIMENTS = { ...getActiveExperiments() };
   }
 
-  // ============================================
-  // GOAL TRACKING ENGINE
-  // Evaluates and tracks experiment goals
-  // ============================================
+
   
   // Cache for tracked goals (prevent duplicates)
   const trackedGoals = new Set();

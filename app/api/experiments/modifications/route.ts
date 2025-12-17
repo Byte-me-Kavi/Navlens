@@ -464,14 +464,38 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Sanitize modifications
-        const sanitizedMods = sanitizeModifications(modifications);
+        // Sanitize new modifications
+        const sanitizedNewMods = sanitizeModifications(modifications);
 
-        // Update experiment
+        // Fetch existing modifications to merge
+        const { data: currentExperiment, error: fetchError } = await supabaseAdmin
+            .from('experiments')
+            .select('modifications')
+            .eq('id', experimentId)
+            .eq('site_id', siteId)
+            .single();
+
+        if (fetchError) {
+            console.error('[modifications] Fetch error:', fetchError);
+            return NextResponse.json(
+                { error: 'Failed to fetch existing experiment data' },
+                { status: 500, headers: corsHeaders(origin) }
+            );
+        }
+
+        const existingMods = (currentExperiment?.modifications || []) as Modification[];
+
+        // Filter out old modifications for THIS variant (preserve others)
+        const otherVariantMods = existingMods.filter(m => String(m.variant_id) !== String(variantId));
+
+        // Merge: modifiers for other variants + new modifiers for this variant
+        const mergedMods = [...otherVariantMods, ...sanitizedNewMods];
+
+        // Update experiment with merged modifications
         const { error } = await supabaseAdmin
             .from('experiments')
             .update({
-                modifications: sanitizedMods,
+                modifications: mergedMods,
                 updated_at: new Date().toISOString()
             })
             .eq('id', experimentId)
@@ -497,7 +521,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-            { success: true, modifications: sanitizedMods },
+            { success: true, modifications: sanitizedNewMods },
             { status: 200, headers: corsHeaders(origin) }
         );
 
