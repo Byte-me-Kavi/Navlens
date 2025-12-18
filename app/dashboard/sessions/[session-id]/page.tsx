@@ -24,6 +24,9 @@ import {
   FiTerminal,
 } from "react-icons/fi";
 import { HiOutlineDesktopComputer } from "react-icons/hi";
+import { SparklesIcon } from "@heroicons/react/24/outline";
+import { useAI } from "@/context/AIProvider";
+import { summarizeRRWebEvents } from "@/lib/ai/sanitizer";
 
 interface SessionMetadata {
   visitor_id: string;
@@ -75,6 +78,7 @@ export default function SessionReplayPage() {
   const router = useRouter();
   const params = useParams();
   const { selectedSiteId: siteId } = useSite();
+  const { openChat } = useAI();
   const sessionId = params["session-id"] as string;
 
   const [events, setEvents] = useState<RRWebEvent[]>([]);
@@ -87,6 +91,17 @@ export default function SessionReplayPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [debugPanelOpen, setDebugPanelOpen] = useState(false);
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+
+  // Handle AI analysis
+  const handleAIAnalysis = () => {
+    const eventSummary = summarizeRRWebEvents(events as Parameters<typeof summarizeRRWebEvents>[0]);
+    openChat('session', {
+      sessionId,
+      metadata,
+      eventSummary,
+      totalEvents: events.length,
+    });
+  };
 
   // Detect user's device type
   useEffect(() => {
@@ -335,6 +350,18 @@ export default function SessionReplayPage() {
 
       {/* Toggle Button - Top Right */}
       <div className="absolute right-4 top-4 flex gap-2 z-10">
+        {/* AI Analysis Button */}
+        <button
+          onClick={handleAIAnalysis}
+          className="group bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 border-0 rounded-lg px-3 py-2.5 shadow-lg transition-all hover:shadow-lg flex items-center gap-2"
+          title="Analyze with AI"
+        >
+          <SparklesIcon className="w-5 h-5 text-white group-hover:rotate-12 transition-transform" />
+          <span className="text-sm font-medium text-white">
+            AI Analysis
+          </span>
+        </button>
+
         {/* Dev Tools Button */}
         <button
           onClick={() => setDebugPanelOpen(!debugPanelOpen)}

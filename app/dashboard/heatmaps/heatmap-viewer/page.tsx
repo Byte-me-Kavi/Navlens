@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { HeatmapViewer, HeatmapSettings } from "@/features/heatmap";
-import { ArrowLeftIcon, GlobeAltIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, GlobeAltIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { useAI } from "@/context/AIProvider";
 
 export default function HeatmapViewerPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function HeatmapViewerPage() {
     getPagesFromCache,
     pagesLoading,
   } = useSite();
+  const { openChat } = useAI();
   const [selectedPage, setSelectedPage] = useState("/");
 
   // Detect user's actual device on mount
@@ -43,6 +45,17 @@ export default function HeatmapViewerPage() {
   const [showElements, setShowElements] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showAllViewports, setShowAllViewports] = useState(false);
+
+  // Handle AI analysis for heatmap
+  const handleAIAnalysis = () => {
+    openChat('heatmap', {
+      pagePath: selectedPage,
+      deviceType: selectedDevice,
+      dataType: selectedDataType,
+      showElements,
+      showHeatmap,
+    });
+  };
 
   // Handler to open settings sidebar and close stats
   const handleOpenSettings = () => {
@@ -244,6 +257,16 @@ export default function HeatmapViewerPage() {
       >
          <ArrowLeftIcon className="w-6 h-6" />
       </Link>
+
+      {/* AI Analysis Button */}
+      <button
+        onClick={handleAIAnalysis}
+        className="fixed top-4 sm:top-6 left-36 sm:left-40 z-[1000] p-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 shadow-lg rounded-xl text-white transition-all hover:scale-105 hover:shadow-lg flex items-center justify-center gap-2"
+        title="Analyze with AI"
+      >
+        <SparklesIcon className="w-5 h-5" />
+        <span className="hidden sm:inline text-sm font-medium">AI Analysis</span>
+      </button>
 
       {/* Full Screen Heatmap Viewer */}
       {/* Key prop forces remount when page/device changes to load new snapshot */}

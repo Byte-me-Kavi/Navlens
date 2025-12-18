@@ -4,11 +4,13 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigation } from "@/context/NavigationContext";
 import { usePathname } from "next/navigation";
+import { useAI } from "@/context/AIProvider";
 import {
   ArrowRightOnRectangleIcon,
   BellIcon,
   QuestionMarkCircleIcon,
   Bars3Icon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
 
 interface HeaderProps {
@@ -22,6 +24,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   );
   const { navigateTo, isNavigating } = useNavigation();
   const pathname = usePathname();
+  const { openChat } = useAI();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -246,7 +249,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
 
         {/* Right Section - User Info & Actions */}
         <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
-          {/* Notification & Help Buttons - Mobile: left of avatar, Desktop: normal position */}
+          {/* Notification, Help & AI Buttons */}
           <div className="flex items-center gap-1 md:gap-2">
             <button
               className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors"
@@ -259,6 +262,14 @@ export default function Header({ onMenuToggle }: HeaderProps) {
               title="Help (Coming Soon)"
             >
               <QuestionMarkCircleIcon className="w-5 h-5" />
+            </button>
+            {/* AI Assistant Button */}
+            <button
+              onClick={() => openChat('dashboard')}
+              className="p-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 transition-all duration-300 shadow-md hover:shadow-lg"
+              title="Ask Navlens AI"
+            >
+              <SparklesIcon className="w-5 h-5 text-white" />
             </button>
           </div>
 

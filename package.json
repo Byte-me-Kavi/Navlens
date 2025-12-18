@@ -24,6 +24,7 @@
     "d3-sankey": "^0.12.3",
     "flag-icons": "^7.5.0",
     "framer-motion": "^12.23.24",
+    "groq-sdk": "^0.37.0",
     "heatmap.js": "^2.0.5",
     "lucide-react": "^0.561.0",
     "next": "^16.0.10",

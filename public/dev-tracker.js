@@ -1,10 +1,5 @@
-
-
 (function () {
   "use strict";
-
-
-
   // ANTI-FLICKER: Hide content immediately
   const ANTI_FLICKER_ID = 'navlens-anti-flicker';
   const HIDE_TIMEOUT = 500; // Strict 500ms limit
@@ -446,7 +441,35 @@
   }
 
   /**
+   * Wait for React/framework hydration to complete
+   * Uses multiple signals: DOMContentLoaded + requestAnimationFrame + microtask
+   * This ensures React has finished hydrating before we modify the DOM
+   */
+  function waitForHydration() {
+    return new Promise(resolve => {
+      // If document is already loaded, use RAF + microtask to wait for React
+      const afterDomReady = () => {
+        // requestAnimationFrame ensures the next paint cycle
+        requestAnimationFrame(() => {
+          // queueMicrotask ensures React's commit phase is complete
+          queueMicrotask(() => {
+            // Small additional delay for React concurrent mode
+            setTimeout(resolve, 50);
+          });
+        });
+      };
+      
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        afterDomReady();
+      } else {
+        document.addEventListener('DOMContentLoaded', afterDomReady, { once: true });
+      }
+    });
+  }
+
+  /**
    * Start MutationObserver engine for instant DOM changes
+   * Waits for framework hydration before applying modifications to avoid hydration mismatch
    */
   function startExperimentEngine(modifications) {
     if (!modifications?.length) return;
@@ -458,41 +481,51 @@
       return selector.replace(/\.([a-z0-9-]+):([a-z0-9-]+)/gi, '.$1\\:$2');
     }
     
-    // A. Apply to existing elements immediately
-    modifications.forEach(mod => {
-      try {
-        const escapedSelector = escapeSelector(mod.selector);
-        const elements = document.querySelectorAll(escapedSelector);
-        elements.forEach(el => applyModification(el, mod));
-      } catch (e) {
-        console.warn('[navlens] Invalid selector:', mod.selector, e);
-      }
-    });
-    
-    // B. Watch for dynamically added elements (React/Vue/SPA apps)
-    if (experimentObserver) {
-      experimentObserver.disconnect();
-    }
-    
-    experimentObserver = new MutationObserver(() => {
+    // Function to apply modifications to DOM
+    function applyAllModifications() {
       modifications.forEach(mod => {
         try {
           const escapedSelector = escapeSelector(mod.selector);
           const elements = document.querySelectorAll(escapedSelector);
-          elements.forEach(el => {
-            if (el.dataset.nvApplied !== mod.id) {
-              applyModification(el, mod);
-            }
-          });
+          elements.forEach(el => applyModification(el, mod));
         } catch (e) {
-          // Invalid selector, skip
+          console.warn('[navlens] Invalid selector:', mod.selector, e);
         }
       });
-    });
+    }
     
-    experimentObserver.observe(document.documentElement, {
-      childList: true,
-      subtree: true
+    // Function to start mutation observer for SPA/dynamic content
+    function startObserver() {
+      if (experimentObserver) {
+        experimentObserver.disconnect();
+      }
+      
+      experimentObserver = new MutationObserver(() => {
+        modifications.forEach(mod => {
+          try {
+            const escapedSelector = escapeSelector(mod.selector);
+            const elements = document.querySelectorAll(escapedSelector);
+            elements.forEach(el => {
+              if (el.dataset.nvApplied !== mod.id) {
+                applyModification(el, mod);
+              }
+            });
+          } catch (e) {
+            // Invalid selector, skip
+          }
+        });
+      });
+      
+      experimentObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+      });
+    }
+    
+    // Wait for hydration before applying modifications to avoid React hydration mismatch
+    waitForHydration().then(() => {
+      applyAllModifications();
+      startObserver();
     });
   }
 

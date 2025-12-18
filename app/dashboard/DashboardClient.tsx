@@ -14,6 +14,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { secureApi } from "@/lib/secureApi";
+import { useAI } from "@/context/AIProvider";
 
 // 1. Define a "Fetcher" (Standard wrapper for browser fetch with decryption)
 const fetcher = async () => {
@@ -90,6 +91,8 @@ function mapStatsToCards(data: DashboardStats | undefined): Stat[] {
 }
 
 const DashboardClient: React.FC = () => {
+  const { openChat } = useAI();
+
   // 2. USE SWR INSTEAD OF USEEFFECT
   // - Key: "/api/dashboard-stats" (The URL is the unique ID for the cache)
   // - Fetcher: The function to call if data is missing
@@ -113,6 +116,14 @@ const DashboardClient: React.FC = () => {
     mutate();
   };
 
+  // Handle AI insights for dashboard
+  const handleAIInsights = () => {
+    openChat('dashboard', {
+      stats: data,
+      timestamp: new Date().toISOString(),
+    });
+  };
+
   if (error)
     return <div className="text-red-500">Failed to load dashboard</div>;
 
@@ -134,7 +145,14 @@ const DashboardClient: React.FC = () => {
                   tracking
                 </p>
               </div>
-              <div className="shrink-0">
+              <div className="shrink-0 flex gap-2">
+                <button
+                  onClick={handleAIInsights}
+                  className="px-5 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all font-medium shadow-sm hover:shadow-lg flex items-center gap-2"
+                >
+                  <SparklesIcon className="w-4 h-4" />
+                  AI Insights
+                </button>
                 <button
                   onClick={handleRefresh}
                   className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"

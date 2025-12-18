@@ -15,11 +15,13 @@ import {
   ClipboardIcon,
   ArrowTopRightOnSquareIcon,
   Cog6ToothIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { useSite } from "@/app/context/SiteContext";
 import { secureApi } from "@/lib/secureApi";
 import { GoalConfig } from "@/features/experiments/components/GoalConfig";
 import type { ExperimentGoal, GoalResults } from "@/lib/experiments/types";
+import { useAI } from "@/context/AIProvider";
 
 // Types
 interface Variant {

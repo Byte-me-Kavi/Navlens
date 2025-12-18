@@ -227,6 +227,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
 import { DateRangeProvider } from "@/context/DateRangeContext";
 import { PageFilterProvider } from "@/context/PageFilterContext";
+import { AIProvider } from "@/context/AIProvider";
+import { AIChat } from "@/components/ai/AIChat";
 
 export default function DashboardLayout({
   children,
@@ -238,7 +240,10 @@ export default function DashboardLayout({
       <SiteProvider>
         <DateRangeProvider>
           <PageFilterProvider>
-            <DashboardLayoutContent>{children}</DashboardLayoutContent>
+            <AIProvider>
+              <DashboardLayoutContent>{children}</DashboardLayoutContent>
+              <AIChat />
+            </AIProvider>
           </PageFilterProvider>
         </DateRangeProvider>
       </SiteProvider>

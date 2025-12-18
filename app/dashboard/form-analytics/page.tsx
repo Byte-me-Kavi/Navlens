@@ -18,6 +18,8 @@ import {
   FiRefreshCw,
   FiChevronDown,
 } from 'react-icons/fi';
+import { SparklesIcon } from '@heroicons/react/24/outline';
+import { useAI } from '@/context/AIProvider';
 
 // Date range options
 const DATE_RANGES = [
@@ -29,8 +31,18 @@ const DATE_RANGES = [
 
 export default function FormAnalyticsPage() {
   const { selectedSiteId: siteId, sites, sitesLoading } = useSite();
+  const { openChat } = useAI();
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [days, setDays] = useState(7);
+
+  // Handle AI analysis for forms
+  const handleAIAnalysis = () => {
+    openChat('form', {
+      formId: selectedFormId,
+      days,
+      overallDropoff: 0, // Will be updated after data is loaded
+    });
+  };
 
   // Fetch forms list
   const { forms, isLoading: formsLoading, refresh: refreshForms } = useFormList({
@@ -110,13 +122,25 @@ export default function FormAnalyticsPage() {
             Analyze field-level form performance and drop-off
           </p>
         </div>
-        <button
-          onClick={refreshForms}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          <FiRefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          {/* AI Analysis Button */}
+          <button
+            onClick={handleAIAnalysis}
+            disabled={forms.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all disabled:opacity-50 hover:shadow-lg"
+          >
+            <SparklesIcon className="w-4 h-4" />
+            AI Insights
+          </button>
+
+          <button
+            onClick={refreshForms}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <FiRefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {forms.length === 0 ? (

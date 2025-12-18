@@ -5,6 +5,8 @@ import { useSite } from "@/app/context/SiteContext";
 import { secureApi } from "@/lib/secureApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
+import { SparklesIcon } from "@heroicons/react/24/outline";
+import { useAI } from "@/context/AIProvider";
 import {
   FiUsers,
   FiPlus,
@@ -530,6 +532,7 @@ const CreateCohortModal = ({
 
 export default function CohortsDashboard() {
   const { selectedSiteId, sites, sitesLoading } = useSite();
+  const { openChat, setOnCohortCreate } = useAI();
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -539,6 +542,29 @@ export default function CohortsDashboard() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [comparison, setComparison] = useState<ComparisonData[] | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
+
+  // Handle AI cohort creation - register callback
+  const handleAICreate = () => {
+    openChat('cohort', {
+      existingCohorts: cohorts.map(c => c.name),
+      availableFields: ['device_type', 'country', 'page_views', 'session_duration', 'has_rage_clicks', 'first_seen'],
+    });
+  };
+
+  // Register cohort creation callback
+  useEffect(() => {
+    const createCohortFromAI = async (data: { name: string; description: string; rules: CohortRule[] }) => {
+      if (!selectedSiteId) throw new Error('No site selected');
+      await secureApi.cohorts.create({ siteId: selectedSiteId, ...data });
+      fetchCohorts();
+    };
+    
+    setOnCohortCreate(createCohortFromAI);
+    
+    return () => {
+      setOnCohortCreate(null);
+    };
+  }, [selectedSiteId, setOnCohortCreate]);
 
   // Fetch cohorts using secure API
   const fetchCohorts = async () => {
@@ -637,6 +663,14 @@ export default function CohortsDashboard() {
             </p>
           </div>
           <div className="flex gap-2">
+            {/* AI Create Button */}
+            <button
+              onClick={handleAICreate}
+              className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-600 hover:to-blue-600 flex items-center gap-2 font-medium transition-all hover:shadow-lg"
+            >
+              <SparklesIcon className="w-5 h-5" />
+              AI Create
+            </button>
             {cohorts.length >= 2 && (
               <button
                 onClick={() => setShowCompareModal(true)}

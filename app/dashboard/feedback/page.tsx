@@ -19,6 +19,8 @@ import {
   FiSmartphone,
 } from 'react-icons/fi';
 import { HiBugAnt, HiLightBulb, HiChatBubbleLeftRight } from 'react-icons/hi2';
+import { SparklesIcon } from '@heroicons/react/24/outline';
+import { useAI } from '@/context/AIProvider';
 import Link from 'next/link';
 
 interface Feedback {
@@ -51,6 +53,7 @@ interface FeedbackStats {
 
 export default function FeedbackDashboardPage() {
   const { selectedSiteId, sites, sitesLoading, fetchSites } = useSite();
+  const { openChat } = useAI();
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,6 +62,22 @@ export default function FeedbackDashboardPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [filterType, setFilterType] = useState<string>('all');
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d'>('30d');
+
+  // Handle AI analysis for feedback
+  const handleAIAnalysis = () => {
+    openChat('feedback', {
+      feedbackCount: feedback.length,
+      stats,
+      filterType,
+      dateRange,
+      sampleFeedback: feedback.slice(0, 10).map(f => ({
+        type: f.feedback_type,
+        rating: f.rating,
+        message: f.message?.slice(0, 200),
+        page: f.page_path,
+      })),
+    });
+  };
 
   useEffect(() => {
     fetchSites();
@@ -207,14 +226,26 @@ export default function FeedbackDashboardPage() {
               </div>
             </div>
 
-            <button
-              onClick={fetchFeedback}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
-            >
-              <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
+            <div className="flex gap-2">
+              {/* AI Analysis Button */}
+              <button
+                onClick={handleAIAnalysis}
+                disabled={feedback.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all disabled:opacity-50 hover:shadow-lg"
+              >
+                <SparklesIcon className="w-4 h-4" />
+                AI Insights
+              </button>
+
+              <button
+                onClick={fetchFeedback}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+              >
+                <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
 
