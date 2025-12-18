@@ -523,17 +523,6 @@ export function HeatmapSettings({
           </div>
         </div>
       </div>
-
-      {/* Floating Toggle Button - Always visible when closed */}
-      {!sidebarOpen && (
-        <button
-          onClick={handleOpen}
-          className="fixed left-4 sm:left-6 top-4 sm:top-6 z-9999 p-3 bg-linear-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl shadow-lg transition-all hover:shadow-2xl hover:scale-105"
-          title="Open Settings"
-        >
-          <SettingsIcon />
-        </button>
-      )}
     </>
   );
 }

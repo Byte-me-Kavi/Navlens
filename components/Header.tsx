@@ -229,7 +229,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   };
 
   return (
-    <header className="bg-white border-b border-blue-200 shadow-md">
+    <header className="bg-white border-b border-gray-200">
       <div className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-6">
         {/* Mobile Menu Button */}
         <button
@@ -266,10 +266,11 @@ export default function Header({ onMenuToggle }: HeaderProps) {
             {/* AI Assistant Button */}
             <button
               onClick={() => openChat('dashboard')}
-              className="p-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 transition-all duration-300 shadow-md hover:shadow-lg"
+              className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg text-white transition-all shadow-sm"
               title="Ask Navlens AI"
             >
               <SparklesIcon className="w-5 h-5 text-white" />
+              <span className="text-xs font-medium text-white">Navlens AI</span>  
             </button>
           </div>
 
@@ -293,7 +294,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                 }}
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm border border-gray-200">
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm">
                 {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
               </div>
             )}
@@ -329,7 +330,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                   }}
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm border border-gray-200">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm">
                   {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
                 </div>
               )}

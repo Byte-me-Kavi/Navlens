@@ -13,18 +13,19 @@ import {
   FiMonitor,
   FiSmartphone,
   FiTablet,
-  FiArrowLeft,
-  FiX,
-  FiMenu,
   FiGlobe,
   FiUser,
   FiCalendar,
   FiMaximize,
   FiAlertTriangle,
-  FiTerminal,
 } from "react-icons/fi";
 import { HiOutlineDesktopComputer } from "react-icons/hi";
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowLeftIcon,
+  SparklesIcon,
+  CommandLineIcon,
+  InformationCircleIcon,
+} from "@heroicons/react/24/outline";
 import { useAI } from "@/context/AIProvider";
 import { summarizeRRWebEvents } from "@/lib/ai/sanitizer";
 
@@ -64,20 +65,20 @@ const getCountryName = (countryCode: string) => {
 const getDeviceIcon = (deviceType: string) => {
   switch (deviceType?.toLowerCase()) {
     case "mobile":
-      return <FiSmartphone className="w-5 h-5 text-blue-600" />;
+      return <FiSmartphone className="w-4 h-4" />;
     case "tablet":
-      return <FiTablet className="w-5 h-5 text-blue-600" />;
+      return <FiTablet className="w-4 h-4" />;
     case "desktop":
-      return <FiMonitor className="w-5 h-5 text-blue-600" />;
+      return <FiMonitor className="w-4 h-4" />;
     default:
-      return <HiOutlineDesktopComputer className="w-5 h-5 text-blue-600" />;
+      return <HiOutlineDesktopComputer className="w-4 h-4" />;
   }
 };
 
 export default function SessionReplayPage() {
   const router = useRouter();
   const params = useParams();
-  const { selectedSiteId: siteId } = useSite();
+  const { selectedSiteId: siteId, getSiteById } = useSite();
   const { openChat } = useAI();
   const sessionId = params["session-id"] as string;
 
@@ -88,9 +89,13 @@ export default function SessionReplayPage() {
   const [userDevice, setUserDevice] = useState<"desktop" | "mobile" | "tablet">(
     "desktop"
   );
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   const [debugPanelOpen, setDebugPanelOpen] = useState(false);
+  const [infoBarOpen, setInfoBarOpen] = useState(false);
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+
+  // Get current site details
+  const currentSite = siteId ? getSiteById(siteId) : null;
 
   // Handle AI analysis
   const handleAIAnalysis = () => {
@@ -100,6 +105,7 @@ export default function SessionReplayPage() {
       metadata,
       eventSummary,
       totalEvents: events.length,
+      autoMessage: 'Give me a brief summary of this session - what did the user do, any frustrations, and key insights.',
     });
   };
 
@@ -168,7 +174,7 @@ export default function SessionReplayPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-8">
+      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-red-100">
             <div className="inline-flex p-4 bg-red-50 rounded-full mb-4">
@@ -182,7 +188,7 @@ export default function SessionReplayPage() {
               onClick={() => router.back()}
               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
             >
-              <FiArrowLeft className="w-4 h-4" />
+              <ArrowLeftIcon className="w-4 h-4" />
               Back to Sessions
             </button>
           </div>
@@ -193,7 +199,7 @@ export default function SessionReplayPage() {
 
   if (isDeviceMismatch) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-8">
+      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-orange-100">
             <div className="inline-flex p-4 bg-orange-50 rounded-full mb-4">
@@ -215,7 +221,7 @@ export default function SessionReplayPage() {
               onClick={() => router.push("/dashboard/sessions")}
               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
             >
-              <FiArrowLeft className="w-4 h-4" />
+              <ArrowLeftIcon className="w-4 h-4" />
               Back to Sessions
             </button>
           </div>
@@ -229,196 +235,195 @@ export default function SessionReplayPage() {
     : { date: "", time: "" };
 
   return (
-    <div className="fixed inset-0 w-screen h-screen flex bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-hidden">
-      {/* Collapsible Sidebar */}
-      <div
-        className={`bg-white border-r border-gray-200 shadow-lg transition-all duration-300 ease-in-out overflow-y-auto ${
-          sidebarOpen ? "w-90" : "w-0"
-        }`}
-      >
-        {sidebarOpen && (
-          <div className="p-5">
-            {/* Session Metadata */}
-            {metadata && (
-              <div className="space-y-3">
-                <div className="border-t border-gray-200 pt-1">
-                  <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-lg border border-blue-100">
-                    {getCountryFlag(metadata.country) && (
-                      <span
-                        className={`fi fi-${getCountryFlag(
-                          metadata.country
-                        )?.toLowerCase()} fis`}
-                        style={{ fontSize: "1.9rem" }}
-                      />
-                    )}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1.5 text-xs mb-1">
-                        <FiGlobe className="w-3 h-3" />
-                        Location
-                      </div>
-                      <div className="text-sm font-semibold text-gray-900">
-                        {getCountryName(metadata.country)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* Enhanced Navbar */}
+      <nav className="bg-white border-b border-gray-200 shadow-sm relative">
+        {/* Main Controls Row */}
+        <div className="px-4 py-2">
+          <div className="flex items-center justify-between gap-4">
+            {/* Left: Back & Site Info */}
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                onClick={() => router.back()}
+                className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 hover:text-gray-900 transition-colors flex-shrink-0"
+                title="Back to Sessions"
+              >
+                <ArrowLeftIcon className="w-5 h-5" />
+              </button>
+              
+              <div className="min-w-0 hidden md:block">
+                <h1 className="text-base font-bold text-gray-900">
+                  Session Replay
+                </h1>
+                <p className="text-xs text-gray-500 truncate">
+                  {currentSite?.site_name || "Session Player"}
+                </p>
+              </div>
+            </div>
 
-                <div className="border-t border-gray-200 pt-1">
-                  <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-lg">
-                    <div className="p-2 bg-white rounded-lg">
-                      {getDeviceIcon(metadata.device_type)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-xs mb-1 font-medium">
-                        Device Type
-                      </div>
-                      <div className="text-sm font-semibold text-gray-900 capitalize">
-                        {metadata.device_type}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 pt-1">
-                  <div className=" bg-gray-100 rounded-lg p-3">
-                    <div className="flex items-center gap-1.5 text-xs mb-1">
-                      <FiMaximize className="w-3 h-3" />
-                      Screen Resolution
-                    </div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {metadata.screen_width} × {metadata.screen_height}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 pt-1">
-                  <div className=" bg-gray-100 rounded-lg p-3">
-                    <div className="flex items-center gap-1.5 text-xs mb-1">
-                      <FiCalendar className="w-3 h-3" />
-                      Date & Time
-                    </div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {date}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">{time}</div>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 pt-1">
-                  <div className=" bg-gray-100 rounded-lg p-3">
-                    <div className="flex items-center gap-1.5 text-xs mb-1">
-                      <FiUser className="w-3 h-3" />
-                      Visitor ID
-                    </div>
-                    <code className="text-xs bg-white border border-gray-200 px-2 py-1 rounded block break-all">
-                      {metadata.visitor_id}
+            {/* Center: Session Info */}
+            <div className="flex items-center gap-3 flex-1 justify-center">
+              {metadata && (
+                <>
+                  {/* Session ID */}
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+                    <span className="text-xs font-medium text-gray-500">Session:</span>
+                    <code className="text-xs font-mono text-gray-900">
+                      {sessionId.slice(0, 8)}...
                     </code>
                   </div>
-                </div>
 
-                <div className="border-t border-gray-200 pt-1">
-                  <div className=" bg-gray-100 rounded-lg p-3">
-                    <div className="text-xs mb-1 font-medium">IP Address</div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {metadata.ip_address || "N/A"}
-                    </div>
+                  {/* Device Type */}
+                  <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                    {getDeviceIcon(metadata.device_type)}
+                    <span className="text-xs font-semibold text-blue-900 capitalize hidden sm:inline">
+                      {metadata.device_type}
+                    </span>
                   </div>
-                </div>
 
-                <div className="border-t border-gray-200 pt-1">
-                  <div className=" bg-gray-100 rounded-lg p-3">
-                    <div className="text-xs mb-1 font-medium">Platform</div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {metadata.platform || "N/A"}
+                  {/* Country Flag */}
+                  {getCountryFlag(metadata.country) && (
+                    <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+                      <span
+                        className={`fi fi-${getCountryFlag(metadata.country)?.toLowerCase()}`}
+                        style={{ fontSize: "1rem" }}
+                      />
+                      <span className="text-xs font-medium text-gray-700 hidden lg:inline">
+                        {getCountryName(metadata.country)}
+                      </span>
                     </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+
+              {/* AI Analysis Button */}
+              <button
+                onClick={handleAIAnalysis}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg text-white transition-all shadow-sm"
+                title="AI Analysis"
+              >
+                <SparklesIcon className="w-4 h-4" />
+                <span className="hidden md:inline text-xs font-semibold">Navlens AI</span>
+              </button>
+              {/* Info Toggle Button */}
+              <button
+                onClick={() => setInfoBarOpen(!infoBarOpen)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
+                  infoBarOpen
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                }`}
+                title="Session Details"
+              >
+                <InformationCircleIcon className="w-4 h-4" />
+                <span className="hidden md:inline text-xs font-semibold">Info</span>
+              </button>
+
+              {/* Dev Tools Toggle */}
+              <button
+                onClick={() => setDebugPanelOpen(!debugPanelOpen)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
+                  debugPanelOpen
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                }`}
+                title="Dev Tools"
+              >
+                <CommandLineIcon className="w-4 h-4" />
+                <span className="hidden lg:inline text-xs font-semibold">Dev Tools</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Expanded Info Bar - Toggled with Button */}
+        {metadata && infoBarOpen && (
+          <div className="absolute top-full left-0 right-0 z-50 px-4 py-3 bg-white border-t border-b border-gray-200 shadow-lg animate-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
+              {/* Location */}
+              <div className="flex items-center gap-1.5">
+                <FiGlobe className="w-3 h-3 text-blue-600" />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-gray-500 uppercase font-medium">Location</div>
+                  <div className="font-semibold text-gray-900 truncate" title={getCountryName(metadata.country)}>
+                    {getCountryName(metadata.country)}
                   </div>
                 </div>
               </div>
-            )}
 
-            {/* Back Button */}
-            <button
-              onClick={() => router.back()}
-              className="w-full mt-6 px-4 py-3 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-            >
-              <FiArrowLeft className="w-4 h-4" />
-              Back to Sessions
-            </button>
+              {/* Date & Time */}
+              <div className="flex items-center gap-1.5">
+                <FiCalendar className="w-3 h-3 text-blue-600" />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-gray-500 uppercase font-medium">Date</div>
+                  <div className="font-semibold text-gray-900">{date}</div>
+                </div>
+              </div>
+
+              {/* Platform */}
+              <div className="flex items-center gap-1.5">
+                <FiMonitor className="w-3 h-3 text-blue-600" />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-gray-500 uppercase font-medium">Platform</div>
+                  <div className="font-semibold text-gray-900 truncate" title={metadata.platform || "N/A"}>
+                    {metadata.platform || "N/A"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Resolution */}
+              <div className="flex items-center gap-1.5">
+                <FiMaximize className="w-3 h-3 text-blue-600" />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-gray-500 uppercase font-medium">Screen</div>
+                  <div className="font-semibold text-gray-900">
+                    {metadata.screen_width} × {metadata.screen_height}
+                  </div>
+                </div>
+              </div>
+
+              {/* IP Address */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-blue-600 text-xs">🌐</span>
+                <div className="min-w-0">
+                  <div className="text-[10px] text-gray-500 uppercase font-medium">IP</div>
+                  <div className="font-semibold text-gray-900 truncate" title={metadata.ip_address || "N/A"}>
+                    {metadata.ip_address || "N/A"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Visitor ID */}
+              <div className="flex items-center gap-1.5">
+                <FiUser className="w-3 h-3 text-blue-600" />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-gray-500 uppercase font-medium">Visitor</div>
+                  <code className="font-mono font-semibold text-gray-900 text-[10px]" title={metadata.visitor_id}>
+                    {metadata.visitor_id.slice(0, 8)}...
+                  </code>
+                </div>
+              </div>
+            </div>
           </div>
         )}
-      </div>
+      </nav>
 
-      {/* Toggle Button - Top Right */}
-      <div className="absolute right-4 top-4 flex gap-2 z-10">
-        {/* AI Analysis Button */}
-        <button
-          onClick={handleAIAnalysis}
-          className="group bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 border-0 rounded-lg px-3 py-2.5 shadow-lg transition-all hover:shadow-lg flex items-center gap-2"
-          title="Analyze with AI"
-        >
-          <SparklesIcon className="w-5 h-5 text-white group-hover:rotate-12 transition-transform" />
-          <span className="text-sm font-medium text-white">
-            AI Analysis
-          </span>
-        </button>
-
-        {/* Dev Tools Button */}
-        <button
-          onClick={() => setDebugPanelOpen(!debugPanelOpen)}
-          className={`bg-white hover:bg-gray-50 border rounded-lg px-3 py-2.5 shadow-lg transition-all hover:shadow-xl flex items-center gap-2 ${
-            debugPanelOpen
-              ? "border-blue-500 bg-blue-50"
-              : "border-gray-300"
-          }`}
-          title={debugPanelOpen ? "Hide Dev Tools" : "Show Dev Tools"}
-        >
-          <FiTerminal
-            className={`w-5 h-5 ${
-              debugPanelOpen ? "text-blue-600" : "text-gray-700"
-            }`}
-          />
-          <span
-            className={`text-sm font-medium ${
-              debugPanelOpen ? "text-blue-600" : "text-gray-700"
-            }`}
-          >
-            Dev Tools
-          </span>
-        </button>
-
-        {/* Sidebar Toggle */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="bg-white hover:bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5 shadow-lg transition-all hover:shadow-xl"
-          title={sidebarOpen ? "Hide session info" : "Show session info"}
-        >
-          {sidebarOpen ? (
-            <div className="flex items-center gap-2">
-              <FiX className="w-5 h-5 text-gray-700" />
-              <span className="text-sm font-medium text-gray-700">Close</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <FiMenu className="w-5 h-5 text-gray-700" />
-              <span className="text-sm font-medium text-gray-700">
-                Session Info
-              </span>
-            </div>
-          )}
-        </button>
-      </div>
-
-      {/* Player Container - Centered with increased height */}
-      <div className="flex-1 p-0 bg-transparent flex flex-col items-center overflow-hidden h-screen">
-        <div className="flex-1 w-full h-5/6 px-2 flex flex-col justify-center items-center max-w-5xl bg-transparent">
-          {events.length > 0 ? (
-            <div className="w-full h-full rounded-lg shadow-2xl overflow-hidden">
-              <SessionPlayer events={events} />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Player Container - Full Width */}
+        <div className="flex-1 p-2 flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+          <div className="w-full h-full max-w-6xl flex items-center justify-center">
+            {events.length > 0 ? (
+              <div className="w-full h-full rounded-lg shadow-2xl overflow-hidden">
+                <SessionPlayer events={events} />
+              </div>
+            ) : (
               <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-100">
-                <div className="inline-flex p-4 bg-linear-to-br from-gray-50 to-gray-100 rounded-full mb-4">
+                <div className="inline-flex p-4 bg-gray-50 rounded-full mb-4">
                   <FiAlertTriangle className="w-12 h-12 text-gray-600" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -428,24 +433,30 @@ export default function SessionReplayPage() {
                   This session has no recorded events to replay.
                 </p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Debug Panel */}
-      {siteId && (
-        <DebugPanel
-          sessionId={sessionId}
-          siteId={siteId}
-          currentTime={currentPlaybackTime}
-          sessionStartTime={
-            events.length > 0 ? events[0].timestamp : Date.now()
-          }
-          isOpen={debugPanelOpen}
-          onClose={() => setDebugPanelOpen(false)}
-        />
-      )}
+        {/* Dev Tools Panel - Right */}
+        {siteId && (
+          <div
+            className={`transition-all duration-300 ease-in-out ${
+              debugPanelOpen ? "w-96" : "w-0"
+            }`}
+          >
+            <DebugPanel
+              sessionId={sessionId}
+              siteId={siteId}
+              currentTime={currentPlaybackTime}
+              sessionStartTime={
+                events.length > 0 ? events[0].timestamp : Date.now()
+              }
+              isOpen={debugPanelOpen}
+              onClose={() => setDebugPanelOpen(false)}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

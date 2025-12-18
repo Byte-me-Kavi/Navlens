@@ -17,17 +17,28 @@ const playerStyles = `
   .rrweb-player {
     width: 100% !important;
     height: 100% !important;
-    flex: 1;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .rrweb-player .replayer-wrapper {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
   }
 
   .rrweb-player .replayer {
-    width: 100% !important;
-    height: 100% !important;
+    /* Don't override width/height - let rrweb scale naturally */
+    max-width: 100% !important;
+    max-height: 100% !important;
   }
 
   .rrweb-player iframe {
-    width: 100% !important;
-    height: 100% !important;
+    /* Let the iframe scale with the replayer */
+    border: none !important;
   }
 `;
 
@@ -285,7 +296,7 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
   }, [speed, togglePlay, skipForward, skipBackward, handleSpeedChange]);
 
   return (
-    <div className="session-player-container h-96 flex flex-col bg-gray-900">
+    <div className="session-player-container h-full flex flex-col bg-gray-900">
       <style>{playerStyles}</style>
 
       {/* Player Window */}

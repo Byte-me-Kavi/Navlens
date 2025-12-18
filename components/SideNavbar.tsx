@@ -281,7 +281,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
   };
 
   return (
-    <aside className="w-56 bg-white/90 backdrop-blur-sm border-r border-gray-200 flex flex-col h-screen shadow-sm">
+    <aside className="w-56 bg-white border-r border-gray-200 flex flex-col h-screen">
       {/* Logo Section */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex justify-between items-center">
@@ -314,7 +314,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
           <button
             onClick={() => setSiteDropdownOpen(!siteDropdownOpen)}
             disabled={sitesLoading}
-            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 rounded-lg transition-all text-left"
+            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-white hover:bg-blue-50 border border-gray-200 rounded-lg transition-all text-left"
           >
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <GlobeAltIcon className="w-4 h-4 text-blue-600 shrink-0" />
@@ -404,7 +404,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
               }}
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-lg border border-gray-200">
+            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-lg">
               {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
             </div>
           )}

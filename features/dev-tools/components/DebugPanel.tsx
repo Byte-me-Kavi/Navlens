@@ -400,43 +400,44 @@ export default function DebugPanel({
   return (
     <div className="w-96 h-full bg-white border-l border-gray-200 flex flex-col shadow-lg">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200">
         <div className="flex items-center gap-2">
-          <FiTerminal className="w-5 h-5 text-blue-600" />
-          <h3 className="font-semibold text-gray-900">Developer Tools</h3>
+          <FiTerminal className="w-4 h-4 text-blue-600" />
+          <h3 className="text-sm font-bold text-gray-900">Dev Tools</h3>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={refresh}
-            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
             title="Refresh"
           >
-            <FiRefreshCw className={`w-4 h-4 text-gray-500 ${isLoading ? 'animate-spin' : ''}`} />
+            <FiRefreshCw className={`w-3.5 h-3.5 text-gray-500 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            aria-label="Close"
           >
-            <FiX className="w-5 h-5 text-gray-500" />
+            <FiX className="w-4 h-4 text-gray-600" />
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-gray-200 bg-gray-50">
         <button
           onClick={() => setActiveTab('console')}
-          className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors relative ${
+          className={`flex-1 px-2 py-2 text-xs font-semibold transition-all relative ${
             activeTab === 'console'
-              ? 'text-blue-600 bg-blue-50'
-              : 'text-gray-600 hover:bg-gray-50'
+              ? 'text-blue-700 bg-white'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          <div className="flex items-center justify-center gap-1.5">
-            <FiTerminal className="w-4 h-4" />
+          <div className="flex items-center justify-center gap-1">
+            <FiTerminal className="w-3.5 h-3.5" />
             Console
             {hasErrors && (
-              <span className="w-2 h-2 bg-red-500 rounded-full" />
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
             )}
           </div>
           {activeTab === 'console' && (
@@ -445,17 +446,17 @@ export default function DebugPanel({
         </button>
         <button
           onClick={() => setActiveTab('network')}
-          className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors relative ${
+          className={`flex-1 px-2 py-2 text-xs font-semibold transition-all relative ${
             activeTab === 'network'
-              ? 'text-blue-600 bg-blue-50'
-              : 'text-gray-600 hover:bg-gray-50'
+              ? 'text-blue-700 bg-white'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          <div className="flex items-center justify-center gap-1.5">
-            <FiGlobe className="w-4 h-4" />
+          <div className="flex items-center justify-center gap-1">
+            <FiGlobe className="w-3.5 h-3.5" />
             Network
             {hasNetworkIssues && (
-              <span className="w-2 h-2 bg-red-500 rounded-full" />
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
             )}
           </div>
           {activeTab === 'network' && (
@@ -464,17 +465,17 @@ export default function DebugPanel({
         </button>
         <button
           onClick={() => setActiveTab('performance')}
-          className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors relative ${
+          className={`flex-1 px-2 py-2 text-xs font-semibold transition-all relative ${
             activeTab === 'performance'
-              ? 'text-blue-600 bg-blue-50'
-              : 'text-gray-600 hover:bg-gray-50'
+              ? 'text-blue-700 bg-white'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          <div className="flex items-center justify-center gap-1.5">
-            <FiActivity className="w-4 h-4" />
+          <div className="flex items-center justify-center gap-1">
+            <FiActivity className="w-3.5 h-3.5" />
             Vitals
             {hasPoorVitals && (
-              <span className="w-2 h-2 bg-orange-500 rounded-full" />
+              <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
             )}
           </div>
           {activeTab === 'performance' && (
@@ -487,15 +488,15 @@ export default function DebugPanel({
       <div className="flex-1 overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-4">
-            <FiAlertCircle className="w-8 h-8 text-red-500 mb-2" />
-            <p className="text-sm text-gray-600">Failed to load debug data</p>
+            <FiAlertCircle className="w-6 h-6 text-red-500 mb-2" />
+            <p className="text-xs text-gray-600">Failed to load debug data</p>
             <button
               onClick={refresh}
-              className="mt-2 text-sm text-blue-600 hover:underline"
+              className="mt-2 text-xs text-blue-600 hover:underline font-medium"
             >
               Try again
             </button>
@@ -525,10 +526,10 @@ export default function DebugPanel({
 
       {/* Footer with counts */}
       {data && (
-        <div className="px-4 py-2 border-t border-gray-200 bg-gray-50 text-xs text-gray-500 flex gap-4">
-          <span>{data.console.length} console logs</span>
-          <span>{data.network.length} requests</span>
-          <span>{data.webVitals.length} vitals</span>
+        <div className="px-3 py-1.5 border-t border-gray-200 bg-gray-50 text-[10px] text-gray-500 flex gap-3">
+          <span className="font-medium">{data.console.length} logs</span>
+          <span className="font-medium">{data.network.length} requests</span>
+          <span className="font-medium">{data.webVitals.length} vitals</span>
         </div>
       )}
     </div>

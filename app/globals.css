@@ -25,6 +25,45 @@
     color: var(--foreground);
     font-family: Arial, Helvetica, sans-serif;
   }
+
+  /* Global Custom Scrollbar - Minimal Clean Style (matches iframe) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #4bb1d3 transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #4290ef;
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+  }
+
+  /* Dark mode scrollbar */
+  @media (prefers-color-scheme: dark) {
+    * {
+      scrollbar-color: #3398f1 transparent;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      background: #4a5568;
+    }
+
+    *::-webkit-scrollbar-thumb:hover {
+      background: #718096;
+    }
+  }
 }
 
 /* RRWeb Player Theme Customization - Minimal overrides only */

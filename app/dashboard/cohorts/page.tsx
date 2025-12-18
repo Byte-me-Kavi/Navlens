@@ -78,6 +78,90 @@ const OPERATORS = [
   { value: "less_than", label: "less than" },
 ];
 
+// Validation Error Modal
+interface ValidationErrorInfo {
+  errors: string[];
+  cohortName: string;
+  rules: CohortRule[];
+  validFields?: string[];
+}
+
+const ValidationErrorModal = ({
+  errorInfo,
+  onClose,
+  onFixWithAI,
+}: {
+  errorInfo: ValidationErrorInfo;
+  onClose: () => void;
+  onFixWithAI: () => void;
+}) => (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      {/* Header */}
+      <div className="bg-red-500 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-lg">
+            <FiX className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">Invalid Cohort Rules</h3>
+            <p className="text-white/80 text-sm">We found issues with your cohort configuration</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Content */}
+      <div className="p-6">
+        <div className="mb-4">
+          <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">
+            The cohort <span className="font-semibold text-gray-900 dark:text-white">&quot;{errorInfo.cohortName}&quot;</span> cannot be created due to the following errors:
+          </p>
+          
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <ul className="space-y-2">
+              {errorInfo.errors.map((error, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+                  <span className="text-red-500 mt-0.5">•</span>
+                  <span>{error}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <SparklesIcon className="w-5 h-5 text-blue-500 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">AI Can Help!</p>
+              <p className="text-sm text-blue-600 dark:text-blue-300">
+                Our AI assistant can automatically fix these rules and suggest valid configurations.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 px-4 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onFixWithAI}
+            className="flex-1 py-2.5 px-4 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <SparklesIcon className="w-4 h-4" />
+            Fix with AI
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 // View Cohort Modal
 const ViewCohortModal = ({
   cohortDetails,
@@ -542,6 +626,7 @@ export default function CohortsDashboard() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [comparison, setComparison] = useState<ComparisonData[] | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [validationError, setValidationError] = useState<ValidationErrorInfo | null>(null);
 
   // Handle AI cohort creation - register callback
   const handleAICreate = () => {
@@ -589,9 +674,59 @@ export default function CohortsDashboard() {
     try {
       await secureApi.cohorts.create({ siteId: selectedSiteId, ...data });
       fetchCohorts();
-    } catch (error) {
+      setShowModal(false);
+    } catch (error: unknown) {
       console.error("Failed to create cohort:", error);
+      setShowModal(false);
+      
+      // ApiError has details property with the full response data
+      const apiError = error as { 
+        details?: { error?: string; details?: string[]; hint?: string; validFields?: string[] }; 
+        message?: string;
+        status?: number;
+      };
+      
+      // Check if it's a validation error (400)
+      const errorDetails = apiError.details?.details;
+      const errorMessage = apiError.details?.error || apiError.message || 'Unknown error';
+      
+      if (errorDetails && errorDetails.length > 0) {
+        // Show styled validation error modal
+        setValidationError({
+          errors: errorDetails,
+          cohortName: data.name,
+          rules: data.rules,
+          validFields: apiError.details?.validFields,
+        });
+      } else if (errorMessage.includes('Invalid')) {
+        // Fallback for validation errors without details array
+        setValidationError({
+          errors: [errorMessage],
+          cohortName: data.name,
+          rules: data.rules,
+        });
+      } else {
+        alert(errorMessage);
+      }
     }
+  };
+
+  // Handle fix with AI from validation error modal
+  const handleFixWithAI = () => {
+    if (!validationError) return;
+    
+    const errorText = validationError.errors.join('\n');
+    const rulesJson = JSON.stringify(validationError.rules, null, 2);
+    
+    setValidationError(null);
+    openChat('cohort', {
+      validationError: true,
+      errorDetails: errorText,
+      invalidRules: validationError.rules,
+      cohortName: validationError.cohortName,
+      validFields: validationError.validFields,
+      autoMessage: `My cohort "${validationError.cohortName}" has invalid rules:\n\nErrors:\n${errorText}\n\nMy rules were:\n${rulesJson}\n\nPlease fix these rules and give me valid ones.`
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -752,6 +887,14 @@ export default function CohortsDashboard() {
           }}
           onCompare={handleCompare}
           loading={compareLoading}
+        />
+      )}
+
+      {validationError && (
+        <ValidationErrorModal
+          errorInfo={validationError}
+          onClose={() => setValidationError(null)}
+          onFixWithAI={handleFixWithAI}
         />
       )}
     </div>

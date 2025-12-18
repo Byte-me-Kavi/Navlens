@@ -21,8 +21,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const { fetchSites } = useSite(); // Get fetchSites from context
   const pathname = usePathname();
 
-  // Check if we're on heatmap viewer page
+  // Check if we're on heatmap viewer or session replay page
   const isHeatmapViewer = pathname === "/dashboard/heatmaps/heatmap-viewer";
+  const isSessionReplay = pathname.startsWith("/dashboard/sessions/sess_");
+  const isFullPageView = isHeatmapViewer || isSessionReplay;
 
   // Use a ref to track if we've processed the login toast in this mount instance
   const processedLoginToast = useRef(false);
@@ -168,23 +170,23 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <>
       <div className="flex h-screen bg-gray-50/30">
-        {/* Desktop Sidebar - hide on heatmap viewer */}
-        {!isHeatmapViewer && (
+        {/* Desktop Sidebar - hide on full-page views */}
+        {!isFullPageView && (
           <div className="hidden md:block">
             <SideNavbar />
           </div>
         )}
 
-        {/* Mobile Sidebar Overlay - hide on heatmap viewer */}
-        {!isHeatmapViewer && sidebarOpen && (
+        {/* Mobile Sidebar Overlay - hide on full-page views */}
+        {!isFullPageView && sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-40 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Mobile Sidebar Drawer - hide on heatmap viewer */}
-        {!isHeatmapViewer && (
+        {/* Mobile Sidebar Drawer - hide on full-page views */}
+        {!isFullPageView && (
           <div
             className={`fixed top-0 left-0 h-screen w-64 z-50 md:hidden transform transition-transform duration-300 ${
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -195,13 +197,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         )}
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header - hide on heatmap viewer */}
-          {!isHeatmapViewer && (
+          {/* Header - hide on full-page views */}
+          {!isFullPageView && (
             <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
           )}
           <main
             className={`flex-1 overflow-x-hidden ${
-              isHeatmapViewer ? "p-0" : "p-4"
+              isFullPageView ? "p-0" : "p-4"
             }`}
           >
             <ErrorBoundary

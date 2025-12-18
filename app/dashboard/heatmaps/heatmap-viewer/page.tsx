@@ -4,9 +4,31 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { HeatmapViewer, HeatmapSettings } from "@/features/heatmap";
-import { ArrowLeftIcon, GlobeAltIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { HeatmapViewer } from "@/features/heatmap";
+import {
+  ArrowLeftIcon,
+  GlobeAltIcon,
+  SparklesIcon,
+  CursorArrowRippleIcon,
+  ArrowsPointingOutIcon,
+  ViewfinderCircleIcon,
+  ArrowTrendingDownIcon,
+  EyeIcon,
+  ChartBarIcon,
+  ComputerDesktopIcon,
+  DeviceTabletIcon,
+  DevicePhoneMobileIcon,
+} from "@heroicons/react/24/outline";
 import { useAI } from "@/context/AIProvider";
+
+// Data type configuration for the dropdown
+const DATA_TYPES = [
+  { value: "clicks", label: "Click Heatmap", color: "blue", icon: CursorArrowRippleIcon },
+  { value: "scrolls", label: "Scroll Heatmap", color: "purple", icon: ArrowTrendingDownIcon },
+  { value: "hover", label: "Hover Heatmap", color: "cyan", icon: EyeIcon },
+  { value: "cursor-paths", label: "Cursor Paths", color: "amber", icon: ArrowsPointingOutIcon },
+  { value: "elements", label: "Smart Elements", color: "rose", icon: ViewfinderCircleIcon },
+] as const;
 
 export default function HeatmapViewerPage() {
   const router = useRouter();
@@ -15,7 +37,7 @@ export default function HeatmapViewerPage() {
     selectedSiteId: siteId,
     getPagesList,
     getPagesFromCache,
-    pagesLoading,
+    getSiteById,
   } = useSite();
   const { openChat } = useAI();
   const [selectedPage, setSelectedPage] = useState("/");
@@ -30,7 +52,6 @@ export default function HeatmapViewerPage() {
   const [selectedDataType, setSelectedDataType] = useState<
     "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements"
   >(() => {
-    // Read from URL query param if available
     const typeFromUrl = searchParams.get("type");
     if (typeFromUrl === "clicks" || typeFromUrl === "scrolls" || typeFromUrl === "hover" || typeFromUrl === "cursor-paths" || typeFromUrl === "elements") {
       return typeFromUrl;
@@ -40,11 +61,13 @@ export default function HeatmapViewerPage() {
   const [availablePages, setAvailablePages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [noDataFound, setNoDataFound] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statsBarOpen, setStatsBarOpen] = useState(false);
   const [showElements, setShowElements] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showAllViewports, setShowAllViewports] = useState(false);
+
+  // Get current site details
+  const currentSite = siteId ? getSiteById(siteId) : null;
 
   // Handle AI analysis for heatmap
   const handleAIAnalysis = () => {
@@ -57,21 +80,9 @@ export default function HeatmapViewerPage() {
     });
   };
 
-  // Handler to open settings sidebar and close stats
-  const handleOpenSettings = () => {
-    setSidebarOpen(true);
-    setStatsBarOpen(false);
-  };
-
-  // Handler to open stats sidebar and close settings
-  const handleOpenStats = () => {
-    setStatsBarOpen(true);
-    setSidebarOpen(false);
-  };
-
-  // Handler to close settings sidebar
-  const handleCloseSettings = () => {
-    setSidebarOpen(false);
+  // Handler to toggle stats sidebar
+  const handleToggleStats = () => {
+    setStatsBarOpen(!statsBarOpen);
   };
 
   // Handler to close stats sidebar
@@ -95,54 +106,38 @@ export default function HeatmapViewerPage() {
     const detected = detectDevice();
     setUserDevice(detected);
     setSelectedDevice(detected);
-  }, []); // Handler for device change with logging
+  }, []);
+
+  // Handler for device change
   const handleDeviceChange = (device: "desktop" | "mobile" | "tablet") => {
-    console.log(
-      "[HeatmapViewerPage] Device changed from",
-      selectedDevice,
-      "to",
-      device
-    );
     setSelectedDevice(device);
   };
 
-  // Handler for page change with logging
+  // Handler for page change
   const handlePageChange = (page: string) => {
-    console.log(
-      "[HeatmapViewerPage] Page changed from",
-      selectedPage,
-      "to",
-      page
-    );
     setSelectedPage(page);
   };
 
-  // Redirect to dashboard if site context is lost (page refresh scenario)
+  // Handler for data type change
+  const handleDataTypeChange = (dataType: "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements") => {
+    setSelectedDataType(dataType);
+  };
+
+  // Redirect to dashboard if site context is lost
   useEffect(() => {
     if (!siteId) {
-      // Check if this is a page refresh by looking at sessionStorage
       const hasVisitedBefore = sessionStorage.getItem("heatmap-viewer-visited");
-
       if (hasVisitedBefore) {
-        // This is likely a refresh - redirect to dashboard
-        console.log("Site context lost, redirecting to dashboard");
         router.push("/dashboard/heatmaps");
         return;
       }
-
-      // First visit - wait a bit to see if context loads
       const timeout = setTimeout(() => {
         if (!siteId) {
-          console.log(
-            "Site context not available after timeout, redirecting to dashboard"
-          );
           router.push("/dashboard/heatmaps");
         }
-      }, 3000); // 3 second timeout
-
+      }, 3000);
       return () => clearTimeout(timeout);
     } else {
-      // Mark that we've visited this page
       sessionStorage.setItem("heatmap-viewer-visited", "true");
     }
   }, [siteId, router]);
@@ -151,26 +146,21 @@ export default function HeatmapViewerPage() {
   useEffect(() => {
     if (selectedDataType === "clicks") {
       setShowHeatmap(true);
-      setShowElements(false); // Don't auto-show elements with clicks
+      setShowElements(false);
     } else if (selectedDataType === "elements") {
       setShowHeatmap(false);
       setShowElements(true);
     }
   }, [selectedDataType]);
 
-  // Fetch available pages (using centralized cache)
+  // Fetch available pages
   useEffect(() => {
     if (!siteId) return;
 
     const fetchPages = async () => {
       try {
-        // First check if we have cached pages (instant)
         const cachedPages = getPagesFromCache(siteId);
         if (cachedPages && cachedPages.length > 0) {
-          console.log(
-            "[HeatmapViewerPage] Using cached pages:",
-            cachedPages.length
-          );
           setAvailablePages(cachedPages);
           if (!selectedPage || selectedPage === "/") {
             setSelectedPage(cachedPages[0]);
@@ -179,17 +169,10 @@ export default function HeatmapViewerPage() {
           return;
         }
 
-        // Fetch from API (with context caching)
         const pages = await getPagesList(siteId);
-        console.log("[HeatmapViewerPage] Pages fetched:", pages.length);
         setAvailablePages(pages);
-
-        // Set first page as default if available
         if (pages.length > 0) {
-          console.log("[HeatmapViewerPage] Setting initial page to:", pages[0]);
           setSelectedPage(pages[0]);
-        } else {
-          console.warn("[HeatmapViewerPage] No pages found for site:", siteId);
         }
         setNoDataFound(pages.length === 0);
       } catch (error) {
@@ -202,7 +185,7 @@ export default function HeatmapViewerPage() {
 
     fetchPages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteId]); // Only re-run when siteId changes, functions are stable from context
+  }, [siteId]);
 
   // Show loading state
   if (loading) {
@@ -213,10 +196,10 @@ export default function HeatmapViewerPage() {
     );
   }
 
-  // Show no-data state with friendly message
+  // Show no-data state
   if (!siteId || noDataFound || availablePages.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-md text-center">
           <div className="inline-flex p-4 bg-blue-50 rounded-full mb-6">
             <GlobeAltIcon className="w-12 h-12 text-blue-500" />
@@ -230,7 +213,7 @@ export default function HeatmapViewerPage() {
           </p>
           <button
             onClick={() => router.push("/dashboard/heatmaps")}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors"
           >
             <ArrowLeftIcon className="w-5 h-5" />
             Back to Heatmaps
@@ -240,73 +223,199 @@ export default function HeatmapViewerPage() {
     );
   }
 
-  // Log when page or device changes
-  console.log("[HeatmapViewerPage] Rendering with:", {
-    selectedPage,
-    selectedDevice,
-    key: `${selectedPage}-${selectedDevice}`,
-  });
+  const currentDataType = DATA_TYPES.find(dt => dt.value === selectedDataType);
+  const DataTypeIcon = currentDataType?.icon || ChartBarIcon;
 
   return (
-    <div className="h-screen relative bg-slate-50 dark:bg-slate-900">
-      {/* Floating Back Button - Positioned next to Settings Toggle */}
-      <Link 
-         href="/dashboard/heatmaps"
-         className="fixed top-4 sm:top-6 left-20 sm:left-24 z-[1000] p-3 bg-white/90 backdrop-blur-sm shadow-lg rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 border border-gray-200 transition-all hover:scale-105 flex items-center justify-center"
-         title="Back to Heatmaps"
-      >
-         <ArrowLeftIcon className="w-6 h-6" />
-      </Link>
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* Enhanced Navbar */}
+      <nav className="bg-white border-b border-gray-200 shadow-sm">
+        {/* Main Controls Row */}
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            {/* Left: Back & Site Info */}
+            <div className="flex items-center gap-3 min-w-0">
+              <Link 
+                href="/dashboard/heatmaps"
+                className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 hover:text-gray-900 transition-colors flex-shrink-0"
+                title="Back to Heatmaps"
+              >
+                <ArrowLeftIcon className="w-5 h-5" />
+              </Link>
+              
+              <div className="min-w-0 hidden md:block">
+                <h1 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                  <GlobeAltIcon className="w-5 h-5 text-blue-600" />
+                  {currentSite?.site_name || "Heatmap Viewer"}
+                </h1>
+                <p className="text-xs text-gray-500 truncate">
+                  {currentSite?.domain || "No site selected"}
+                </p>
+              </div>
+            </div>
 
-      {/* AI Analysis Button */}
-      <button
-        onClick={handleAIAnalysis}
-        className="fixed top-4 sm:top-6 left-36 sm:left-40 z-[1000] p-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 shadow-lg rounded-xl text-white transition-all hover:scale-105 hover:shadow-lg flex items-center justify-center gap-2"
-        title="Analyze with AI"
-      >
-        <SparklesIcon className="w-5 h-5" />
-        <span className="hidden sm:inline text-sm font-medium">AI Analysis</span>
-      </button>
+            {/* Center: Main Controls */}
+            <div className="flex items-center gap-3 flex-1 justify-center flex-wrap">
+              {/* Data Type Selector */}
+              <div className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg px-3 py-2">
+                <DataTypeIcon className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                <select
+                  value={selectedDataType}
+                  onChange={(e) => handleDataTypeChange(e.target.value as typeof selectedDataType)}
+                  className="bg-transparent focus:outline-none text-sm font-semibold text-blue-900 cursor-pointer"
+                >
+                  {DATA_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-      {/* Full Screen Heatmap Viewer */}
-      {/* Key prop forces remount when page/device changes to load new snapshot */}
-      <HeatmapViewer
-        key={`${selectedPage}-${selectedDevice}`}
-        siteId={siteId}
-        pagePath={selectedPage}
-        deviceType={selectedDevice}
-        dataType={selectedDataType}
-        showElements={showElements}
-        showHeatmap={showHeatmap}
-        showAllViewports={showAllViewports}
-        onViewportModeChange={(showAll) => setShowAllViewports(showAll)}
-        userDevice={userDevice}
-        statsBarOpen={statsBarOpen}
-        onStatsBarOpenChange={handleOpenStats}
-        onStatsBarClose={handleCloseStats}
-      />
+              {/* Page Selector */}
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 max-w-xs">
+                <span className="text-xs font-medium text-gray-500 hidden lg:inline">Page:</span>
+                <select
+                  value={selectedPage}
+                  onChange={(e) => handlePageChange(e.target.value)}
+                  className="bg-transparent focus:outline-none text-sm font-medium text-gray-900 truncate cursor-pointer max-w-[140px] sm:max-w-[200px]"
+                  title={selectedPage}
+                >
+                  {availablePages.map((page) => (
+                    <option key={page} value={page}>
+                      {page}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-      {/* Heatmap Settings Sidebar Component - Overlay */}
-      <HeatmapSettings
-        availablePages={availablePages}
-        selectedPage={selectedPage}
-        onPageChange={handlePageChange}
-        selectedDevice={selectedDevice}
-        onDeviceChange={handleDeviceChange}
-        userDevice={userDevice}
-        selectedDataType={selectedDataType}
-        onDataTypeChange={setSelectedDataType}
-        showElements={showElements}
-        onShowElementsChange={setShowElements}
-        showHeatmap={showHeatmap}
-        onShowHeatmapChange={setShowHeatmap}
-        showAllViewports={showAllViewports}
-        onShowAllViewportsChange={setShowAllViewports}
-        siteId={siteId}
-        isOpen={sidebarOpen}
-        onOpenChange={handleOpenSettings}
-        onClose={handleCloseSettings}
-      />
+              {/* Device Selector */}
+              <div className="flex items-center gap-1 bg-gray-100 border border-gray-200 rounded-lg p-1">
+                <button
+                  onClick={() => handleDeviceChange("desktop")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    selectedDevice === "desktop"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  title="Desktop View"
+                >
+                  <ComputerDesktopIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Desktop</span>
+                </button>
+                <button
+                  onClick={() => handleDeviceChange("tablet")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    selectedDevice === "tablet"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  title="Tablet View"
+                >
+                  <DeviceTabletIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Tablet</span>
+                </button>
+                <button
+                  onClick={() => handleDeviceChange("mobile")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    selectedDevice === "mobile"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  title="Mobile View"
+                >
+                  <DevicePhoneMobileIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Mobile</span>
+                </button>
+              </div>
+
+              {/* Viewport Toggle */}
+              <button
+                onClick={() => setShowAllViewports(!showAllViewports)}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${
+                  showAllViewports
+                    ? "bg-purple-50 text-purple-700 border-purple-300"
+                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                }`}
+                title={showAllViewports ? "All Viewports Mode" : "Current Viewport Only"}
+              >
+                <ArrowsPointingOutIcon className="w-4 h-4" />
+                <span className="hidden lg:inline">
+                  {showAllViewports ? "All Sizes" : "Single Size"}
+                </span>
+              </button>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* AI Button */}
+              <button
+                onClick={handleAIAnalysis}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg text-white transition-all shadow-sm"
+                title="AI Analysis"
+              >
+                <SparklesIcon className="w-4 h-4" />
+                <span className="hidden md:inline text-xs font-semibold">Navlens AI</span>
+              </button>
+
+              {/* Stats Toggle */}
+              <button
+                onClick={handleToggleStats}
+                className={`p-2 rounded-lg transition-all ${
+                  statsBarOpen 
+                    ? "bg-blue-600 flex gap-1.5 text-white shadow-sm" 
+                    : "bg-gray-100 flex gap-1.5 hover:bg-gray-200 text-gray-700"
+                }`}
+                title="Toggle Device Stats"
+              >
+                <ChartBarIcon className="w-5 h-5" />
+                <span>Device Stats</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Bar */}
+        <div className="px-4 py-2 bg-gradient-to-r from-gray-50 to-blue-50/30 border-t border-gray-100">
+          <div className="flex items-center gap-3 text-xs text-gray-600 overflow-x-auto">
+            <span className="flex items-center gap-1.5 font-medium">
+              <DataTypeIcon className="w-3.5 h-3.5 text-blue-600" />
+              {currentDataType?.label}
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="truncate max-w-[200px] sm:max-w-[300px]" title={selectedPage}>
+              {selectedPage}
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="capitalize font-medium">{selectedDevice}</span>
+            {showAllViewports && (
+              <>
+                <span className="text-gray-300">•</span>
+                <span className="text-purple-600 font-semibold">All Viewports</span>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <div className="flex-1 relative overflow-hidden">
+        <HeatmapViewer
+          key={`${selectedPage}-${selectedDevice}`}
+          siteId={siteId}
+          pagePath={selectedPage}
+          deviceType={selectedDevice}
+          dataType={selectedDataType}
+          showElements={showElements}
+          showHeatmap={showHeatmap}
+          showAllViewports={showAllViewports}
+          onViewportModeChange={(showAll) => setShowAllViewports(showAll)}
+          userDevice={userDevice}
+          statsBarOpen={statsBarOpen}
+          onStatsBarOpenChange={handleToggleStats}
+          onStatsBarClose={handleCloseStats}
+        />
+      </div>
     </div>
   );
 }

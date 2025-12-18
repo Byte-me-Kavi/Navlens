@@ -38,13 +38,69 @@ export default function VideoControls({
   };
 
   return (
-    <div className="bg-linear-to-r from-slate-100 to-gray-50 border-t w-full border-gray-200 px-6 py-4">
-      <div className="max-w-5xl mx-auto space-y-3">
-        {/* Progress Bar */}
+    <div className="bg-linear-to-r from-slate-100 to-gray-50 border-t w-full border-gray-200 px-6 py-2">
+      <div className="max-w-5xl mx-auto">
+        {/* Single Row with All Controls */}
         <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-gray-600 w-12">
+          {/* Left: Play/Pause + Skip Buttons */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Play/Pause */}
+            <button
+              onClick={onPlayPause}
+              disabled={!playerReady}
+              className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white transition-all hover:scale-105 active:scale-95 shadow-sm"
+              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+            >
+              {isPlaying ? (
+                <svg
+                  className="w-5 h-5"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                </svg>
+              ) : (
+                <svg
+                  className="w-5 h-5"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Skip Backward */}
+            <button
+              onClick={onSkipBackward}
+              disabled={!playerReady}
+              className="p-1.5 rounded-lg hover:bg-gray-200 disabled:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all disabled:opacity-50"
+              title="Skip back 10s (J)"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Skip Forward */}
+            <button
+              onClick={onSkipForward}
+              disabled={!playerReady}
+              className="p-1.5 rounded-lg hover:bg-gray-200 disabled:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all disabled:opacity-50"
+              title="Skip forward 10s (L)"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Center: Current Time */}
+          <span className="text-xs font-medium text-gray-600 w-10 flex-shrink-0">
             {formatTime(currentTime)}
           </span>
+
+          {/* Progress Bar */}
           <input
             type="range"
             min="0"
@@ -85,71 +141,18 @@ export default function VideoControls({
               }%, #d1d5db 100%)`,
             }}
           />
-          <span className="text-xs font-medium text-gray-600 w-12 text-right">
+
+          {/* Duration */}
+          <span className="text-xs font-medium text-gray-600 w-10 text-right flex-shrink-0">
             {formatTime(duration)}
           </span>
-        </div>
 
-        {/* Control Buttons */}
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-2">
-            {/* Play/Pause */}
-            <button
-              onClick={onPlayPause}
-              disabled={!playerReady}
-              className="p-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white transition-all hover:scale-105 active:scale-95 shadow-sm"
-              title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-            >
-              {isPlaying ? (
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                </svg>
-              ) : (
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </button>
-
-            {/* Skip Backward */}
-            <button
-              onClick={onSkipBackward}
-              disabled={!playerReady}
-              className="p-2 rounded-lg hover:bg-gray-200 disabled:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all disabled:opacity-50"
-              title="Skip back 10s (J)"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M11 5V1l-5 5 5 5v-4c5.523 0 10 4.477 10 10s-4.477 10-10 10S1 15.523 1 10h-2c0 6.627 5.373 12 12 12s12-5.373 12-12S17.627 5 11 5z" />
-              </svg>
-            </button>
-
-            {/* Skip Forward */}
-            <button
-              onClick={onSkipForward}
-              disabled={!playerReady}
-              className="p-2 rounded-lg hover:bg-gray-200 disabled:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all disabled:opacity-50"
-              title="Skip forward 10s (L)"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M13 5V1l5 5-5 5v-4c-5.523 0-10 4.477-10 10s4.477 10 10 10 10-4.477 10-10h2c0 6.627-5.373 12-12 12S1 15.627 1 12 6.373 0 13 0v5z" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Speed Control */}
-          <div className="relative">
+          {/* Right: Speed Control */}
+          <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowSpeedMenu(!showSpeedMenu)}
               disabled={!playerReady}
-              className="px-3 py-2 rounded-lg hover:bg-gray-200 disabled:bg-gray-100 text-gray-700 hover:text-gray-900 text-sm font-medium transition-all flex items-center gap-1.5 disabled:opacity-50"
+              className="px-2.5 py-1.5 rounded-lg hover:bg-gray-200 disabled:bg-gray-100 text-gray-700 hover:text-gray-900 text-sm font-medium transition-all flex items-center gap-1.5 disabled:opacity-50"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M13 10V3L4 14h7v7l9-11h-7z" />

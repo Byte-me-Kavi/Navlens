@@ -7,7 +7,7 @@
  * Supports callbacks for auto-creation features (e.g., cohorts)
  */
 
-import React, { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import type { AIContext as AIContextType } from '@/app/api/ai/prompts';
 
 interface ChatMessage {
@@ -29,6 +29,8 @@ export interface CohortData {
   description: string;
   rules: CohortRule[];
 }
+
+type CohortCreateCallback = ((data: CohortData) => Promise<void>) | null;
 
 interface AIContextValue {
   // Chat state
@@ -53,8 +55,8 @@ interface AIContextValue {
   setIsLoading: (loading: boolean) => void;
 
   // Cohort creation callback
-  onCohortCreate: ((data: CohortData) => Promise<void>) | null;
-  setOnCohortCreate: (callback: ((data: CohortData) => Promise<void>) | null) => void;
+  onCohortCreate: CohortCreateCallback;
+  setOnCohortCreate: (callback: CohortCreateCallback) => void;
 }
 
 const AIContext = createContext<AIContextValue | undefined>(undefined);
@@ -70,8 +72,8 @@ export function AIProvider({ children }: AIProviderProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Callback ref for cohort creation
-  const cohortCallbackRef = useRef<((data: CohortData) => Promise<void>) | null>(null);
+  // Use state instead of ref so changes trigger re-renders
+  const [cohortCallback, setCohortCallback] = useState<CohortCreateCallback>(null);
 
   const openChat = useCallback((context?: AIContextType, data?: Record<string, unknown>) => {
     if (context) setCurrentContext(context);
@@ -100,8 +102,8 @@ export function AIProvider({ children }: AIProviderProps) {
     setMessages([]);
   }, []);
 
-  const setOnCohortCreate = useCallback((callback: ((data: CohortData) => Promise<void>) | null) => {
-    cohortCallbackRef.current = callback;
+  const setOnCohortCreate = useCallback((callback: CohortCreateCallback) => {
+    setCohortCallback(() => callback);
   }, []);
 
   const value: AIContextValue = {
@@ -118,7 +120,7 @@ export function AIProvider({ children }: AIProviderProps) {
     clearMessages,
     isLoading,
     setIsLoading,
-    onCohortCreate: cohortCallbackRef.current,
+    onCohortCreate: cohortCallback,
     setOnCohortCreate,
   };
 

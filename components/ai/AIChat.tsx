@@ -155,19 +155,47 @@ export function AIChat({ onClose }: AIChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Try to parse cohort JSON from AI response
+  // Extract cohort data from AI response using regex - more robust than JSON parsing
   const parseCohortJSON = (content: string): { name: string; description: string; rules: { field: string; operator: string; value: string | number }[] } | null => {
     try {
-      // Try to find JSON in the content
-      const jsonMatch = content.match(/\{[\s\S]*"name"[\s\S]*"rules"[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.name && parsed.rules && Array.isArray(parsed.rules)) {
-          return parsed;
+      // Extract name
+      const nameMatch = content.match(/"name"\s*:\s*"([^"]+)"/);
+      if (!nameMatch) return null;
+      
+      // Extract description
+      const descMatch = content.match(/"description"\s*:\s*"([^"]+)"/);
+      
+      // Extract rules - find all field/operator/value patterns
+      const rules: { field: string; operator: string; value: string | number }[] = [];
+      
+      // Match rule patterns - handles both quoted and unquoted values
+      const rulePattern = /"field"\s*:\s*"([^"]+)"[^}]*?"operator"\s*:\s*"([^"]+)"[^}]*?["']?value["']?\s*:\s*["']?([^"',}\]]+)["']?/g;
+      let match;
+      while ((match = rulePattern.exec(content)) !== null) {
+        const field = match[1];
+        const operator = match[2];
+        let value: string | number = match[3].trim().replace(/["']/g, '');
+        
+        // Convert to number if it looks like one
+        if (/^\d+$/.test(value)) {
+          value = parseInt(value, 10);
         }
+        
+        rules.push({ field, operator, value });
       }
-    } catch {
-      // Not valid JSON
+      
+      if (rules.length === 0) return null;
+      
+      const result = {
+        name: nameMatch[1],
+        description: descMatch ? descMatch[1] : 'AI-generated cohort',
+        rules
+      };
+      
+      console.log('✅ Extracted cohort data:', result);
+      return result;
+    } catch (e) {
+      console.log('❌ Extraction failed:', e);
     }
     return null;
   };
@@ -200,6 +228,7 @@ export function AIChat({ onClose }: AIChatProps) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
+
 
   const handleClose = useCallback(() => {
     closeChat();
@@ -268,6 +297,19 @@ export function AIChat({ onClose }: AIChatProps) {
       setIsLoading(false);
     }
   }, [isLoading, messages, currentContext, contextData, addMessage, setIsLoading]);
+
+  // Auto-send message when contextData has autoMessage (for validation errors)
+  const autoMessageSentRef = useRef<string | null>(null);
+  useEffect(() => {
+    const autoMessage = contextData?.autoMessage as string | undefined;
+    if (isOpen && autoMessage && autoMessageSentRef.current !== autoMessage) {
+      autoMessageSentRef.current = autoMessage;
+      // Small delay to ensure chat is ready
+      setTimeout(() => {
+        sendMessage(autoMessage);
+      }, 300);
+    }
+  }, [isOpen, contextData, sendMessage]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -420,22 +462,31 @@ export function AIChat({ onClose }: AIChatProps) {
                 )}
 
                 {/* Create Cohort button for cohort context with valid JSON */}
-                {message.role === 'assistant' && currentContext === 'cohort' && parseCohortJSON(message.content) && onCohortCreate && (
-                  <button
-                    onClick={() => handleCreateCohort(message.content)}
-                    disabled={creatingCohort}
-                    className="mt-3 w-full py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-medium rounded-lg hover:from-cyan-600 hover:to-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {creatingCohort ? (
-                      <>Creating...</>
-                    ) : (
-                      <>
-                        <SparklesIcon className="w-4 h-4" />
-                        Create This Cohort
-                      </>
-                    )}
-                  </button>
-                )}
+                {(() => {
+                  if (message.role === 'assistant') {
+                    const jsonData = parseCohortJSON(message.content);
+                    console.log('🔍 Button check:', { context: currentContext, hasJson: !!jsonData, hasCallback: !!onCohortCreate });
+                    if (currentContext === 'cohort' && jsonData && onCohortCreate) {
+                      return (
+                        <button
+                          onClick={() => handleCreateCohort(message.content)}
+                          disabled={creatingCohort}
+                          className="mt-3 w-full py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-medium rounded-lg hover:from-cyan-600 hover:to-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {creatingCohort ? (
+                            <>Creating...</>
+                          ) : (
+                            <>
+                              <SparklesIcon className="w-4 h-4" />
+                              Create This Cohort
+                            </>
+                          )}
+                        </button>
+                      );
+                    }
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           ))}
