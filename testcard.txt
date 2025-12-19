@@ -1,0 +1,6 @@
+Visa Test Card:
+
+Card Number: 4916217501611292
+Expiry: Any future date (e.g., 12/25)
+CVV: Any 3 digits (e.g., 123)
+Name: Any name

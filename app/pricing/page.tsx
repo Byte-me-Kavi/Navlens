@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
 import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import {
@@ -18,83 +19,399 @@ import {
 
 const PricingPage: React.FC = () => {
   const router = useRouter();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
     "monthly"
   );
   const [expandedFaq, setExpandedFaq] = useState<number | null>(0);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
+  const [currentPlanName, setCurrentPlanName] = useState<string | null>(null);
 
-  const plans = [
-    {
-      name: "Starter",
-      description: "Perfect for small websites and blogs",
-      price: {
-        monthly: 29,
-        yearly: 290,
+  // Fallback plans data (used if database query fails or migration not run yet)
+  const getFallbackPlans = () => {
+    return [
+      {
+        id: 'free-fallback',
+        name: 'Free',
+        description: 'Get started with basic analytics',
+        price: { monthly: 0, yearly: 0 },
+        originalPrice: { monthly: 0, yearly: 0 },
+        popular: false,
+        icon: RocketLaunchIcon,
+        features: [
+          '1,000 sessions/month',
+          'Limited heatmaps (10/day)',
+          'Session recordings',
+          '14-day data retention',
+          'Community support',
+        ],
+        cta: 'Get Started',
+        isFree: true,
       },
-      originalPrice: {
-        monthly: 39,
-        yearly: 390,
+      {
+        id: 'starter-fallback',
+        name: 'Starter',
+        description: 'Perfect for small websites and blogs',
+        price: { monthly: 29,  yearly: 261 },
+        originalPrice: { monthly: 39, yearly: 348 },
+        popular: false,
+        icon: RocketLaunchIcon,
+        features: [
+          '5,000 sessions/month',
+          'Unlimited heatmaps',
+          'Full session recording',
+          '1-month data retention',
+          'Email support',
+          'A/B testing (2 tests)',
+        ],
+        cta: 'Subscribe Now',
+        isFree: false,
       },
-      popular: false,
-      icon: RocketLaunchIcon,
-      features: [
-        "Up to 3 websites",
-        "10,000 monthly pageviews",
-        "Basic heatmaps",
-        "30-day data retention",
-        "Email support",
-        "Basic reports",
+      {
+        id: 'pro-fallback',
+        name: 'Pro',
+        description: 'Ideal for growing businesses and agencies',
+        price: { monthly: 79, yearly: 711 },
+        originalPrice: { monthly: 99, yearly: 948 },
+        popular: true,
+        icon: SparklesIcon,
+        features: [
+          '25,000 sessions/month',
+          'Revenue attribution',
+          'AI insights (weekly)',
+          'Funnel & form analytics',
+          'Error tracking',
+          '3-month data retention',
+          'Priority support',
+        ],
+        cta: 'Subscribe Now',
+        isFree: false,
+      },
+      {
+        id: 'enterprise-fallback',
+        name: 'Enterprise',
+        description: 'For large organizations with advanced needs',
+        price: { monthly: 299, yearly: 2691 },
+        originalPrice: { monthly: 399, yearly: 3588 },
+        popular: false,
+        icon: CodeBracketIcon,
+        features: [
+          'Unlimited sessions',
+          'Revenue heatmaps',
+          'API monitoring',
+          'SSO/SAML',
+          '1-year data retention',
+          'Dedicated support',
+          'Custom integrations',
+        ],
+        cta: 'Contact Sales',
+        isFree: false,
+      },
+    ];
+  };
+
+  // Fetch plans from database
+  useEffect(() => {
+    async function fetchPlans() {
+      try {
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .select('*')
+          .order('price_usd', { ascending: true });
+
+        if (error) {
+          console.warn('Database query failed, using fallback data:', error);
+          // Use fallback data if database query fails
+          setPlans(getFallbackPlans());
+          setLoading(false);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          // Map database plans to UI format
+          const mappedPlans = data.map((plan: any) => ({
+            id: plan.id,
+            name: plan.name,
+            description: getPlanDescription(plan.name),
+            price: {
+              monthly: plan.price_usd,
+              yearly: plan.price_usd * 12 * 0.75, // 25% discount for yearly
+            },
+            originalPrice: {
+              monthly: plan.price_usd * 1.25,
+              yearly: plan.price_usd * 12,
+            },
+            popular: plan.name === 'Pro',
+            icon: getPlanIcon(plan.name),
+            features: getPlanFeatures(plan.name, plan.session_limit),
+            cta: plan.name === 'Free' ? 'Get Started' : plan.name === 'Enterprise' ? 'Contact Sales' : 'Subscribe Now',
+            isFree: plan.name === 'Free',
+          }));
+          
+          setPlans(mappedPlans);
+        } else {
+          // No data in database, use fallback
+          setPlans(getFallbackPlans());
+        }
+      } catch (error) {
+        console.error('Failed to fetch plans:', error);
+        // Use fallback data on any error
+        setPlans(getFallbackPlans());
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Also check user's current subscription
+    async function checkCurrentSubscription() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // First try via profile link
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select(`
+            subscription_id,
+            subscriptions (
+              id,
+              status,
+              plan_id,
+              subscription_plans (
+                id,
+                name
+              )
+            )
+          `)
+          .eq('user_id', user.id)
+          .single();
+
+        let activeSubscription = profile?.subscriptions;
+
+        // If no subscription linked to profile, check subscriptions table directly
+        if (!activeSubscription || (Array.isArray(activeSubscription) && activeSubscription.length === 0)) {
+          console.log('🔍 No linked subscription in profile, checking subscriptions table directly...');
+          const { data: directSub } = await supabase
+            .from('subscriptions')
+            .select(`
+              id,
+              status,
+              plan_id,
+              subscription_plans (
+                id,
+                name
+              )
+            `)
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (directSub) {
+            console.log('✅ Found active subscription directly:', directSub);
+            activeSubscription = directSub as any;
+          }
+        }
+
+        if (activeSubscription) {
+          const sub = Array.isArray(activeSubscription) 
+            ? activeSubscription[0] 
+            : activeSubscription;
+          
+          if (sub?.status === 'active') {
+            setCurrentPlanId(sub.plan_id);
+            const plans = sub?.subscription_plans;
+            const plan = Array.isArray(plans) ? plans[0] : plans;
+            setCurrentPlanName(plan?.name || null);
+            console.log('✅ User has active subscription:', plan?.name, 'Plan ID:', sub.plan_id);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking subscription:', error);
+      }
+    }
+
+    fetchPlans();
+    checkCurrentSubscription();
+  }, [supabase]);
+
+  // Auto-trigger payment if returning from login with plan parameter
+  useEffect(() => {
+    const checkAutoPayment = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const planParam = urlParams.get('plan');
+      
+      if (!planParam) return;
+
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      console.log('🔄 Auto-triggering checkout for plan:', planParam);
+
+      // Find the plan
+      const selectedPlan = plans.find(p => p.id === planParam);
+      if (selectedPlan) {
+        // Clear URL parameter
+        window.history.replaceState({}, '', '/pricing');
+        
+        // Trigger checkout redirect
+        handleSelectPlan(selectedPlan.id, selectedPlan.name, selectedPlan.isFree);
+      }
+    };
+
+    if (plans.length > 0 && !loading) {
+      checkAutoPayment();
+    }
+  }, [plans, loading]);
+
+  // Handle plan selection with PayHere integration
+  const handleSelectPlan = async (planId: string, planName: string, isFree: boolean) => {
+    console.log('🔍 Plan selection started:', { planId, planName, isFree });
+    
+    // Free plan - just redirect to dashboard
+    if (isFree) {
+      console.log('✅ Free plan detected - redirecting to dashboard');
+      router.push('/dashboard');
+      return;
+    }
+
+    // Enterprise - redirect to contact
+    if (planName === 'Enterprise') {
+      console.log('✅ Enterprise plan detected - redirecting to contact');
+      router.push('/contact');
+      return;
+    }
+
+    console.log('💳 Paid plan detected - initiating payment');
+
+    // Check authentication first
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.log('❌ No user found - redirecting to login');
+      // Redirect to login with return to pricing with plan parameter
+      router.push(`/login?redirect=/pricing&plan=${planId}`);
+      return;
+    }
+
+    console.log('✅ User authenticated:', session.user.email);
+    console.log('🚀 Calling PayHere API...');
+
+    try {
+      // Call API to initiate PayHere payment
+      const response = await fetch('/api/payhere/initiate-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          planId,
+          currency: 'USD',
+        }),
+      });
+
+      // Handle conflict (existing subscription) responses
+      if (response.status === 409) {
+        const errorData = await response.json();
+        alert(errorData.message || 'You already have an active subscription.');
+        // Redirect to subscription management page
+        router.push('/dashboard/subscription');
+        return;
+      }
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to initiate payment');
+      }
+
+      const { formHtml } = await response.json();
+      console.log('✅ Payment form received, submitting to PayHere...');
+
+      // Render and submit PayHere form directly
+      const container = document.createElement('div');
+      container.innerHTML = formHtml;
+      document.body.appendChild(container);
+      
+      const form = container.querySelector('form') as HTMLFormElement;
+      if (form) {
+        console.log('🚀 Redirecting to PayHere...');
+        form.submit();
+      } else {
+        throw new Error('Payment form not found');
+      }
+    } catch (error) {
+      console.error('Payment initiation error:', error);
+      alert(error instanceof Error ? error.message : 'Failed to initiate payment. Please try again.');
+    }
+  };
+
+  // Helper functions
+  function getPlanIcon(name: string) {
+    const icons: any = {
+      Free: RocketLaunchIcon,
+      Starter: RocketLaunchIcon,
+      Pro: SparklesIcon,
+      Enterprise: CodeBracketIcon,
+    };
+    return icons[name] || RocketLaunchIcon;
+  }
+
+  function getPlanDescription(name: string) {
+    const descriptions: any = {
+      Free: 'Get started with basic analytics',
+      Starter: 'Perfect for small websites and blogs',
+      Pro: 'Ideal for growing businesses and agencies',
+      Enterprise: 'For large organizations with advanced needs',
+    };
+    return descriptions[name] || '';
+  }
+
+  function getPlanFeatures(name: string, sessionLimit: number | null) {
+    const features: any = {
+      Free: [
+        `${sessionLimit?.toLocaleString() || '1,000'} sessions/month`,
+        'Limited heatmaps (10/day)',
+        'Session recordings',
+        '14-day data retention',
+        'Community support',
       ],
-      cta: "Start Free Trial",
-    },
-    {
-      name: "Professional",
-      description: "Ideal for growing businesses and agencies",
-      price: {
-        monthly: 79,
-        yearly: 790,
-      },
-      originalPrice: {
-        monthly: 99,
-        yearly: 990,
-      },
-      popular: true,
-      icon: SparklesIcon,
-      features: [
-        "Up to 10 websites",
-        "100,000 monthly pageviews",
-        "Advanced heatmaps & session recording",
-        "90-day data retention",
-        "Priority email & chat support",
-        "Advanced reports & analytics",
-        "API access",
-        "Custom integrations",
-        "A/B testing support",
+      Starter: [
+        `${sessionLimit?.toLocaleString() || '5,000'} sessions/month`,
+        'Unlimited heatmaps',
+        'Full session recording',
+        '1-month data retention',
+        'Email support',
+        'A/B testing (2 tests)',
       ],
-      cta: "Start Free Trial",
-    },
-    {
-      name: "Enterprise",
-      description: "For large organizations with advanced needs",
-      price: "Custom",
-      popular: false,
-      icon: CodeBracketIcon,
-      features: [
-        "Unlimited websites",
-        "Unlimited pageviews",
-        "All heatmap features",
-        "1-year data retention",
-        "Phone & priority support",
-        "White-label reports & dashboard",
-        "Advanced API access",
-        "Custom integrations",
-        "Dedicated account manager",
-        "SLA guarantee & uptime monitoring",
-        "Custom training & onboarding",
+      Pro: [
+        `${sessionLimit?.toLocaleString() || '25,000'} sessions/month`,
+        'Revenue attribution',
+        'AI insights (weekly)',
+        'Funnel & form analytics',
+        'Error tracking',
+        '3-month data retention',
+        'Priority support',
       ],
-      cta: "Contact Sales",
-    },
-  ];
+      Enterprise: [
+        'Unlimited sessions',
+        'Revenue heatmaps',
+        'API monitoring',
+        'SSO/SAML',
+        '1-year data retention',
+        'Dedicated support',
+        'Custom integrations',
+      ],
+    };
+    return features[name] || [];
+  }
 
   const faqs = [
     {
@@ -196,7 +513,12 @@ const PricingPage: React.FC = () => {
       {/* Pricing Cards Section */}
       <section className="py-2 px-4 md:px-6">
         <div className="container mx-auto max-w-6xl">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+            </div>
+          ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan, index) => {
               const Icon = plan.icon;
               return (
@@ -276,7 +598,7 @@ const PricingPage: React.FC = () => {
 
                     {/* Features */}
                     <div className="space-y-3 mb-6 flex-1">
-                      {plan.features.map((feature, idx) => (
+                      {plan.features.map((feature: string, idx: number) => (
                         <div key={idx} className="flex items-start gap-2">
                           <CheckIcon className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                           <span className="text-xs text-gray-700">
@@ -287,22 +609,65 @@ const PricingPage: React.FC = () => {
                     </div>
 
                     {/* CTA Button */}
-                    <button
-                      onClick={() => router.push("/dashboard")}
-                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm ${
-                        plan.popular
-                          ? "bg-linear-to-r from-purple-600 to-purple-700 text-white hover:shadow-lg hover:shadow-purple-500/50 hover:scale-105"
-                          : "bg-linear-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105"
-                      }`}
-                    >
-                      {plan.cta}
-                      <ArrowRightIcon className="w-5 h-5" />
-                    </button>
+                    {(() => {
+                      // Define plan tier hierarchy for upgrade/downgrade logic
+                      const planTier: Record<string, number> = {
+                        'Free': 0,
+                        'Starter': 1,
+                        'Pro': 2,
+                        'Enterprise': 3,
+                      };
+                      const currentTier = currentPlanName ? planTier[currentPlanName] ?? 0 : -1;
+                      const targetTier = planTier[plan.name] ?? 0;
+                      const isUpgrade = currentPlanName && targetTier > currentTier;
+                      const isDowngrade = currentPlanName && targetTier < currentTier;
+                      const isSamePlan = currentPlanId === plan.id;
+
+                      if (isSamePlan) {
+                        return (
+                          <div className="w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-green-500 to-green-600 text-white cursor-default">
+                            <CheckIcon className="w-5 h-5" />
+                            Already Activated
+                          </div>
+                        );
+                      } else if (isDowngrade) {
+                        return (
+                          <div className="w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm bg-gray-200 text-gray-500 cursor-not-allowed">
+                            Downgrade Not Available
+                          </div>
+                        );
+                      } else if (isUpgrade) {
+                        return (
+                          <button
+                            onClick={() => handleSelectPlan(plan.id, plan.name, plan.isFree)}
+                            className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg hover:shadow-green-500/50 hover:scale-105"
+                          >
+                            Upgrade to {plan.name}
+                            <ArrowRightIcon className="w-5 h-5" />
+                          </button>
+                        );
+                      } else {
+                        return (
+                          <button
+                            onClick={() => handleSelectPlan(plan.id, plan.name, plan.isFree)}
+                            className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm ${
+                              plan.popular
+                                ? "bg-linear-to-r from-purple-600 to-purple-700 text-white hover:shadow-lg hover:shadow-purple-500/50 hover:scale-105"
+                                : "bg-linear-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105"
+                            }`}
+                          >
+                            {plan.cta}
+                            <ArrowRightIcon className="w-5 h-5" />
+                          </button>
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
               );
             })}
           </div>
+          )}
         </div>
       </section>
 

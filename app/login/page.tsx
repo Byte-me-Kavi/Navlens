@@ -36,6 +36,11 @@ export default function Login() {
 
   // Show error toast from proxy redirect cookie and listen for auth changes
   useEffect(() => {
+    // Get redirect parameters from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectPath = urlParams.get('redirect');
+    const planId = urlParams.get('plan');
+    
     // Check if user is already logged in and redirect
     const checkSession = async () => {
       const {
@@ -47,7 +52,15 @@ export default function Login() {
         document.cookie = `x-user-email=${
           session.user.email || "user"
         }; path=/; max-age=5`;
-        router.push("/dashboard");
+        
+        // Redirect to original destination if specified
+        if (redirectPath) {
+          const fullPath = planId ? `${redirectPath}?plan=${planId}` : redirectPath;
+          console.log('[Login] Redirecting to:', fullPath);
+          router.push(fullPath);
+        } else {
+          router.push("/dashboard");
+        }
       }
     };
     checkSession();
@@ -80,9 +93,16 @@ export default function Login() {
         document.cookie = `x-user-email=${
           session.user.email || "user"
         }; path=/; max-age=5`;
-        // Redirect to dashboard
-        console.log("[Login] Redirecting to the dashboard...");
-        router.push("/dashboard");
+        
+        // Redirect to original destination or dashboard
+        if (redirectPath) {
+          const fullPath = planId ? `${redirectPath}?plan=${planId}` : redirectPath;
+          console.log("[Login] Redirecting to:", fullPath);
+          router.push(fullPath);
+        } else {
+          console.log("[Login] Redirecting to the dashboard...");
+          router.push("/dashboard");
+        }
       }
     });
 

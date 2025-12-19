@@ -15,6 +15,7 @@ export function Navbar() {
     { label: "Pricing", href: "/pricing" },
     { label: "Docs", href: "/docs" },
     { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
   ];
 
   return (
@@ -54,12 +55,14 @@ export function Navbar() {
             <button
               onClick={() => router.push("/login")}
               className="px-6 py-2 text-gray-700 border border-gray-900 rounded-md hover:text-blue-600 hover:border-blue-600 transition-colors duration-200 font-medium text-sm"
+              suppressHydrationWarning
             >
               Sign In
             </button>
             <button
               onClick={() => router.push("/login")}
               className="px-6 py-2 bg-blue-600 border border-blue-600 text-white rounded-md hover:bg-blue-700 shadow-md shadow-blue-600/30 transition-all duration-200 font-medium text-sm"
+              suppressHydrationWarning
             >
               Get Started
             </button>
@@ -113,6 +116,7 @@ export function Navbar() {
                   setIsOpen(false);
                 }}
                 className="w-full px-6 py-2 text-gray-600 border-2 border-gray-200 rounded-lg hover:border-slate-400 hover:text-slate-900 transition-all duration-200 font-medium"
+                suppressHydrationWarning
               >
                 Sign In
               </button>
@@ -122,6 +126,7 @@ export function Navbar() {
                   setIsOpen(false);
                 }}
                 className="w-full px-6 py-3 bg-slate-800 text-white rounded-lg font-semibold shadow-md hover:bg-slate-900"
+                suppressHydrationWarning
               >
                 Get Started
               </button>

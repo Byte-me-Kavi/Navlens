@@ -11,6 +11,8 @@ import {
   QuestionMarkCircleIcon,
   Bars3Icon,
   SparklesIcon,
+  CreditCardIcon,
+  Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 
 interface HeaderProps {
@@ -28,6 +30,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showDesktopMenu, setShowDesktopMenu] = useState(false);
 
   // Helper function to get page title based on current pathname
   const getPageTitle = () => {
@@ -274,43 +277,88 @@ export default function Header({ onMenuToggle }: HeaderProps) {
             </button>
           </div>
 
-          {/* Desktop: User Info with Logout */}
-          <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-200">
-            <div className="text-right">
-              <p className="text-xs font-medium text-gray-900">
-                {userEmail || "User"}
-              </p>
-              <p className="text-[10px] text-gray-500">Account</p>
-            </div>
-            {userImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={userImage}
-                alt="Profile"
-                className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                  setUserImage(null);
-                }}
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm">
-                {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
+          {/* Desktop: User Info with Dropdown */}
+          <div className="hidden md:flex items-center gap-2 pl-3 border-l border-gray-200 relative">
+            <button
+              onClick={() => setShowDesktopMenu(!showDesktopMenu)}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+              <div className="text-right">
+                <p className="text-xs font-medium text-gray-900">
+                  {userEmail || "User"}
+                </p>
+                <p className="text-[10px] text-gray-500">Account</p>
               </div>
+              {userImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={userImage}
+                  alt="Profile"
+                  className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    setUserImage(null);
+                  }}
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm">
+                  {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
+                </div>
+              )}
+            </button>
+
+            {/* Desktop Dropdown Menu */}
+            {showDesktopMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowDesktopMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {userEmail || "User"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigateTo("/dashboard/subscription");
+                      setShowDesktopMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <CreditCardIcon className="w-5 h-5 text-gray-500" />
+                    <span className="text-sm">Manage Subscription</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigateTo("/dashboard/settings");
+                      setShowDesktopMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Cog6ToothIcon className="w-5 h-5 text-gray-500" />
+                    <span className="text-sm">Settings</span>
+                  </button>
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setShowDesktopMenu(false);
+                      }}
+                      disabled={isNavigating}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                      <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                      <span className="text-sm font-medium">
+                        {isNavigating ? "Logging out..." : "Logout"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
-
-          {/* Desktop: Logout Button */}
-          <button
-            onClick={handleLogout}
-            disabled={isNavigating}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ArrowRightOnRectangleIcon className="w-5 h-5" />
-            <span className="font-medium">
-              {isNavigating ? "Logging out..." : "Logout"}
-            </span>
-          </button>
 
           {/* Mobile: Avatar with Dropdown */}
           <div className="md:hidden relative">
@@ -343,20 +391,47 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                   className="fixed inset-0 z-10"
                   onClick={() => setShowMobileMenu(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {userEmail || "User"}
+                    </p>
+                  </div>
                   <button
                     onClick={() => {
-                      handleLogout();
+                      navigateTo("/dashboard/subscription");
                       setShowMobileMenu(false);
                     }}
-                    disabled={isNavigating}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition-colors"
                   >
-                    <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                    <span className="font-medium">
-                      {isNavigating ? "Logging out..." : "Logout"}
-                    </span>
+                    <CreditCardIcon className="w-5 h-5 text-gray-500" />
+                    <span className="text-sm">Manage Subscription</span>
                   </button>
+                  <button
+                    onClick={() => {
+                      navigateTo("/dashboard/settings");
+                      setShowMobileMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Cog6ToothIcon className="w-5 h-5 text-gray-500" />
+                    <span className="text-sm">Settings</span>
+                  </button>
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setShowMobileMenu(false);
+                      }}
+                      disabled={isNavigating}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                      <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                      <span className="text-sm font-medium">
+                        {isNavigating ? "Logging out..." : "Logout"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </>
             )}

@@ -151,6 +151,7 @@ export default function Home() {
                   <button
                     onClick={() => router.push("/dashboard")}
                     className="group px-8 py-4 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105 transition-all duration-300 flex items-center gap-2"
+                    suppressHydrationWarning
                   >
                     Get Started Free
                     <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -158,6 +159,7 @@ export default function Home() {
                   <button
                     onClick={() => router.push("/dashboard")}
                     className="px-8 py-4 bg-white/80 backdrop-blur-sm text-gray-900 rounded-xl font-semibold border-2 border-gray-300 hover:border-blue-500 hover:text-blue-600 transition-all duration-300"
+                    suppressHydrationWarning
                   >
                     View Demo
                   </button>
@@ -423,6 +425,7 @@ export default function Home() {
                   <button
                     onClick={() => router.push("/dashboard")}
                     className="px-8 py-4 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105 transition-all duration-300 flex items-center gap-2"
+                    suppressHydrationWarning
                   >
                     <CheckCircleIcon className="w-5 h-5" />
                     Start Free Trial
@@ -430,6 +433,7 @@ export default function Home() {
                   <button
                     onClick={() => router.push("/pricing")}
                     className="px-8 py-4 bg-transparent text-gray-900 rounded-xl font-semibold border-2 border-gray-300 hover:border-blue-500 hover:text-blue-600 transition-all duration-300"
+                    suppressHydrationWarning
                   >
                     View Pricing
                   </button>
