@@ -20,6 +20,8 @@ interface Stats {
     total_users: number;
     over_limit: number;
     recent_churn_count: number;
+    mrr: number;
+    plan_counts: Record<string, number>;
 }
 
 export default function AdminBillingPage() {
@@ -47,6 +49,7 @@ export default function AdminBillingPage() {
 
     const overLimitUsers = users.filter(u => u.usage > u.limit && u.limit > 0);
     const churnedUsers = users.filter(u => u.is_churned);
+    const planCounts = stats?.plan_counts || {};
 
     return (
         <div className="space-y-8">
@@ -58,38 +61,22 @@ export default function AdminBillingPage() {
                         Cash Register
                     </span>
                 </h1>
-                <p className="text-slate-500 mt-2">Monitor subscription usage, quotas, and churn.</p>
+                <p className="text-slate-500 mt-2">Monitor subscription usage, revenue, and churn.</p>
             </header>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                 <div className="bg-white/70 backdrop-blur border border-white/60 p-6 rounded-3xl shadow-lg shadow-blue-500/5">
                     <div className="flex items-start justify-between">
                         <div>
-                            <p className="text-sm font-medium text-slate-500 mb-1">Users Over Limit</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{stats?.over_limit || 0}</h3>
+                            <p className="text-sm font-medium text-slate-500 mb-1">Estimated MRR</p>
+                            <h3 className="text-3xl font-bold text-slate-800">
+                                ${(stats?.mrr || 0).toLocaleString()}
+                            </h3>
                         </div>
-                        <div className="p-3 bg-red-50 rounded-2xl text-red-500">
-                            <AlertTriangle className="w-6 h-6" />
+                        <div className="p-3 bg-blue-50 rounded-2xl text-blue-500">
+                            <CreditCard className="w-6 h-6" />
                         </div>
-                    </div>
-                    <div className="mt-4 text-xs text-red-600 font-medium">
-                        Requires immediate upsell or throttle
-                    </div>
-                </div>
-
-                <div className="bg-white/70 backdrop-blur border border-white/60 p-6 rounded-3xl shadow-lg shadow-blue-500/5">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-slate-500 mb-1">Recent Churns</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{stats?.recent_churn_count || 0}</h3>
-                        </div>
-                        <div className="p-3 bg-orange-50 rounded-2xl text-orange-500">
-                            <Users className="w-6 h-6" />
-                        </div>
-                    </div>
-                    <div className="mt-4 text-xs text-slate-400">
-                        Cancelled in last 30 days
                     </div>
                 </div>
 
@@ -105,8 +92,48 @@ export default function AdminBillingPage() {
                             <TrendingUp className="w-6 h-6" />
                         </div>
                     </div>
-                    <div className="mt-4 text-xs text-emerald-600 font-medium">
-                        Recurring Revenue Stream
+                </div>
+
+                {/* Plan Distribution */}
+                <div className="bg-white/70 backdrop-blur border border-white/60 p-6 rounded-3xl shadow-lg shadow-blue-500/5">
+                    <div className="flex items-start justify-between mb-2">
+                         <p className="text-sm font-medium text-slate-500">Plan Distribution</p>
+                    </div>
+                    <div className="space-y-2">
+                        {Object.entries(planCounts).length === 0 ? (
+                            <div className="text-sm text-slate-400">No data</div>
+                        ) : (
+                            Object.entries(planCounts).map(([plan, count]) => (
+                                <div key={plan} className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-600 font-medium">{plan}</span>
+                                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-xs font-bold">{count}</span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-white/70 backdrop-blur border border-white/60 p-6 rounded-3xl shadow-lg shadow-blue-500/5">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-slate-500 mb-1">Users Over Limit</p>
+                            <h3 className="text-3xl font-bold text-slate-800">{stats?.over_limit || 0}</h3>
+                        </div>
+                        <div className="p-3 bg-red-50 rounded-2xl text-red-500">
+                            <AlertTriangle className="w-6 h-6" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white/70 backdrop-blur border border-white/60 p-6 rounded-3xl shadow-lg shadow-blue-500/5">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-slate-500 mb-1">Recent Cancellations</p>
+                            <h3 className="text-3xl font-bold text-slate-800">{stats?.recent_churn_count || 0}</h3>
+                        </div>
+                        <div className="p-3 bg-orange-50 rounded-2xl text-orange-500">
+                            <Users className="w-6 h-6" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -211,7 +238,7 @@ export default function AdminBillingPage() {
 
                     {/* Churn Watch */}
                     <div className="bg-white/70 backdrop-blur border border-white/60 p-5 rounded-3xl shadow-lg shadow-blue-500/5">
-                        <h3 className="font-bold text-slate-800 mb-4">Churn Watch (30d)</h3>
+                        <h3 className="font-bold text-slate-800 mb-4">Recent Cancellations (30d)</h3>
                         {churnedUsers.length === 0 ? (
                             <p className="text-sm text-slate-400 text-center py-4">No recent churns! 🎉</p>
                         ) : (

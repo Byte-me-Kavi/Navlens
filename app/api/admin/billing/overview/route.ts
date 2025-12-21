@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
                 user_id: user.id,
                 email: user.email,
                 plan_name: plan?.name || 'Unknown',
+                price: plan?.price_usd || 0,
                 status: sub?.status || 'free',
                 usage: totalEvents,
                 limit: limit,
@@ -123,8 +124,19 @@ export async function GET(request: NextRequest) {
 
         // 5. Calculate Stats
         const totalUsers = billingData.length;
-        // Count ACTIVE subscriptions (status === 'active' or 'trialing' etc, but here 'active')
+        // Count ACTIVE subscriptions
         const activeSubsCount = billingData.filter(u => u.status === 'active').length;
+
+        // Calculate MRR (Sum of prices for active users)
+        // @ts-ignore
+        const mrr = billingData.filter(u => u.status === 'active' && !u.is_churned).reduce((sum, u) => sum + (u.price || 0), 0);
+
+        // Calculate Plan Breakdown
+        const planCounts: Record<string, number> = {};
+        billingData.filter(u => u.status === 'active' && !u.is_churned).forEach(u => {
+            const name = u.plan_name || 'Unknown';
+            planCounts[name] = (planCounts[name] || 0) + 1;
+        });
 
         const overLimitUsers = billingData.filter(u => u.usage > u.limit && u.limit > 0).length;
         // Churned in last 30 days
@@ -139,6 +151,9 @@ export async function GET(request: NextRequest) {
             stats: {
                 total_users: totalUsers,
                 active_subs: activeSubsCount,
+                mrr: mrr,
+                plan_mean: planCounts, // Return breakdown
+                plan_counts: planCounts,
                 over_limit: overLimitUsers,
                 recent_churn_count: recentChurns.length
             }

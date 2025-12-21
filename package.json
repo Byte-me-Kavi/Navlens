@@ -39,6 +39,7 @@
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.6.0",
     "react-icons": "^5.5.0",
+    "recharts": "^3.6.0",
     "rrweb": "^2.0.0-alpha.4",
     "rrweb-player": "^1.0.0-alpha.4",
     "rrweb-snapshot": "^2.0.0-alpha.4",

@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Users, Shield, Server, Globe, MousePointer, Calendar, Search, ShieldCheck } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 interface DashboardStats {
     totalUsers: number;
@@ -11,8 +12,11 @@ interface DashboardStats {
     totalEvents: number;
     recentSignups: any[];
     eventsChart: { date: string, count: number }[];
+    planDistribution: { name: string, value: number }[];
     systemHealth: string;
 }
+
+const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444']; // Blue, Purple, Emerald, Amber, Red
 
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardStats | null>(null);
@@ -195,8 +199,53 @@ export default function AdminDashboard() {
             </div>
         </div>
 
-         {/* Recent Signups Section */}
-         <div className="p-8 rounded-3xl border border-white/60 bg-white/70 backdrop-blur-2xl shadow-xl shadow-blue-500/5 h-96 transition-all hover:shadow-blue-500/10 overflow-hidden flex flex-col">
+        {/* Plan Distribution Chart */}
+        <div className="p-8 rounded-3xl border border-white/60 bg-white/70 backdrop-blur-2xl shadow-xl shadow-blue-500/5 h-96 transition-all hover:shadow-blue-500/10 flex flex-col">
+            <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-500"/>
+                User Plan Distribution
+            </h3>
+            <div className="flex-1 w-full min-h-0">
+                {loading ? (
+                     <div className="w-full h-full flex items-center justify-center text-slate-400">Loading distribution...</div>
+                ) : data?.planDistribution && data.planDistribution.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={data.planDistribution}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                fill="#8884d8"
+                                paddingAngle={5}
+                                dataKey="value"
+                            >
+                                {data.planDistribution.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip 
+                                contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: 'white' }}
+                                itemStyle={{ color: 'white' }}
+                                formatter={(value: any) => [value, 'Users']}
+                            />
+                            <Legend 
+                                verticalAlign="bottom" 
+                                height={36}
+                                iconType="circle"
+                                formatter={(value, entry: any) => <span className="text-slate-600 font-medium ml-1">{value}</span>}
+                            />
+                        </PieChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400">No plan data</div>
+                )}
+            </div>
+        </div>
+
+         {/* Recent Signups Section - Spanning Full Width */}
+         <div className="p-8 rounded-3xl border border-white/60 bg-white/70 backdrop-blur-2xl shadow-xl shadow-blue-500/5 h-96 transition-all hover:shadow-blue-500/10 overflow-hidden flex flex-col lg:col-span-2">
             <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
                 <Users className="w-5 h-5 text-purple-500"/>
                 Recent Signups

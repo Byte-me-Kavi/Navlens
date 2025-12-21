@@ -55,7 +55,13 @@ export async function GET() {
             supabase.auth.admin.listUsers({
                 page: 1,
                 perPage: 5,
-            }).then(res => { if (res.error) throw res.error; return res; })
+            }).then(res => { if (res.error) throw res.error; return res; }),
+
+            // 5: Plan Distribution
+            supabase.from('subscriptions')
+                .select('status, plan:subscription_plans(name)')
+                .in('status', ['active', 'trialing'])
+                .then(res => { if (res.error) throw res.error; return res; })
         ]);
 
         // Debug Logging
@@ -71,6 +77,7 @@ export async function GET() {
         const eventsTotalRes = results[2].status === 'fulfilled' ? results[2].value : [{ count: 0 }];
         const eventsChartRes = results[3].status === 'fulfilled' ? results[3].value : [];
         const recentUsersRes = results[4].status === 'fulfilled' ? results[4].value : { data: { users: [] } };
+        const subsRes = results[5].status === 'fulfilled' ? results[5].value : { data: [] };
 
         // Process Counts
         // Use Auth Total if available (more accurate for "Signups"), otherwise profiles count
@@ -86,6 +93,20 @@ export async function GET() {
             date: item.date,
             count: Number(item.count)
         }));
+
+        // Process Plan Distribution
+        const planCounts: Record<string, number> = {};
+        const subs = (subsRes as any).data || [];
+        subs.forEach((s: any) => {
+            const name = s.plan?.name || 'Unknown';
+            planCounts[name] = (planCounts[name] || 0) + 1;
+        });
+
+        const planDistribution = Object.entries(planCounts).map(([name, value]) => ({ name, value }));
+        // If empty, add a dummy free
+        if (planDistribution.length === 0 && totalUsers > 0) {
+            planDistribution.push({ name: 'Free', value: totalUsers });
+        }
 
         // Process Signups
         // Cast to any to handle Supabase type mismatches gracefully during debug
@@ -116,6 +137,7 @@ export async function GET() {
             totalEvents,
             recentSignups,
             eventsChart,
+            planDistribution,
             systemHealth
         });
 
