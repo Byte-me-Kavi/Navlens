@@ -157,7 +157,7 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
     let cancelled = false;
 
     const loadData = async () => {
-      if (!cancelled) {
+      if (!cancelled && params.siteId) {
         await fetchData();
       }
     };

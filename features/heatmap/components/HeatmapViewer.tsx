@@ -20,6 +20,8 @@ import { apiClient } from "@/shared/services/api/client";
 import type { HeatmapPoint } from "@/features/heatmap/types/heatmap.types";
 import type { ElementClick } from "@/features/element-tracking/types/element.types";
 
+import type { SnapshotData } from "@/features/dom-snapshot/types/snapshot.types";
+
 export interface HeatmapViewerProps {
   siteId: string;
   pagePath: string;
@@ -33,6 +35,10 @@ export interface HeatmapViewerProps {
   statsBarOpen?: boolean;
   onStatsBarOpenChange?: () => void;
   onStatsBarClose?: () => void;
+  // Snapshot data passed from parent - REMOVED for cleanup
+  // snapshotData?: SnapshotData | null;
+  // snapshotLoading?: boolean;
+  // snapshotError?: Error | null;
 }
 
 export function HeatmapViewer({
@@ -57,12 +63,19 @@ export function HeatmapViewer({
     elements: ElementClick[];
   } | null>(null);
 
+  // Fetch snapshot data internally
+  const {
+    data: snapshotData,
+    loading: snapshotLoading,
+    error: snapshotError,
+  } = useSnapshot({ siteId, pagePath, deviceType });
+
   // Handler to fetch all viewports data
   const handleShowAllViewports = useCallback(async () => {
+    // ... (keep existing handleShowAllViewports logic)
     const newShowAllViewports = !showAllViewports;
 
     if (!newShowAllViewports) {
-      // Switch back to filtered view
       setShowAllViewports(false);
       setAllViewportsData(null);
       onViewportModeChange?.(false);
@@ -70,22 +83,13 @@ export function HeatmapViewer({
     }
 
     try {
-      // setLoadingAllViewports(true);
-
-      // Fetch data from both "all viewports" endpoints
       const [heatmapResponse, elementsResponse] = await Promise.all([
         apiClient.post<{ clicks: HeatmapPoint[] }>(
           "/heatmap-clicks-all-viewports",
-          {
-            siteId,
-            pagePath,
-            deviceType,
-          }
+          { siteId, pagePath, deviceType }
         ),
         apiClient.post<ElementClick[]>("/element-clicks-all-viewports", {
-          siteId,
-          pagePath,
-          deviceType,
+          siteId, pagePath, deviceType
         }),
       ]);
 
@@ -98,8 +102,6 @@ export function HeatmapViewer({
     } catch (error) {
       console.error("Error fetching all viewports data:", error);
       alert("Failed to load data for all viewports. Please try again.");
-    } finally {
-      // setLoadingAllViewports(false);
     }
   }, [
     showAllViewports,
@@ -117,13 +119,6 @@ export function HeatmapViewer({
       handleShowAllViewports();
     }
   }, [externalShowAllViewports, handleShowAllViewports, showAllViewports]);
-
-  // Fetch snapshot data first to get viewport dimensions
-  const {
-    data: snapshotData,
-    loading: snapshotLoading,
-    error: snapshotError,
-  } = useSnapshot({ siteId, pagePath, deviceType });
 
   // Extract viewport dimensions from snapshot
   // The snapshot HTML contains viewport dimensions from when it was captured

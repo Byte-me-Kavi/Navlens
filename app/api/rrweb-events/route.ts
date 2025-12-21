@@ -87,6 +87,83 @@ export async function POST(req: NextRequest) {
             return response;
         }
 
+        // --- SESSION LIMIT ENFORCEMENT ---
+        // Get the site owner's user_id to check their subscription limits
+        const { data: siteData } = await supabase
+            .from('sites')
+            .select('user_id')
+            .eq('id', site_id)
+            .single();
+
+        if (siteData?.user_id) {
+            // Get user's subscription and plan limits
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select(`
+                    subscription_id,
+                    subscriptions (
+                        status,
+                        subscription_plans (
+                            session_limit
+                        )
+                    )
+                `)
+                .eq('user_id', siteData.user_id)
+                .single();
+
+            // Determine session limit
+            let sessionLimit = 1000; // Default Free plan limit
+            if (profile?.subscriptions) {
+                const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
+                if (sub?.status === 'active' && sub?.subscription_plans) {
+                    const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
+                    if (plan?.session_limit === null) {
+                        sessionLimit = Infinity; // Unlimited for Enterprise
+                    } else {
+                        sessionLimit = plan?.session_limit || 1000;
+                    }
+                }
+            }
+
+            // Check if this is a NEW session (not an update to existing session)
+            const { count: existingSession } = await supabase
+                .from('rrweb_events')
+                .select('session_id', { count: 'exact', head: true })
+                .eq('session_id', session_id);
+
+            const isNewSession = existingSession === 0;
+
+            if (isNewSession && sessionLimit !== Infinity) {
+                // Count sessions for this user this month
+                const startOfMonth = new Date();
+                startOfMonth.setDate(1);
+                startOfMonth.setHours(0, 0, 0, 0);
+
+                const { count: currentSessionCount } = await supabase
+                    .from('rrweb_events')
+                    .select('session_id', { count: 'exact', head: true })
+                    .eq('site_id', site_id)
+                    .gte('timestamp', startOfMonth.toISOString());
+
+                // Use distinct session counting (approximate with count for performance)
+                const currentSessions = currentSessionCount || 0;
+
+                if (currentSessions >= sessionLimit) {
+                    console.warn(`[rrweb-events] Session limit exceeded for user ${siteData.user_id}: ${currentSessions}/${sessionLimit}`);
+                    const response = NextResponse.json(
+                        {
+                            error: 'Session limit exceeded',
+                            message: 'Your subscription session limit has been reached. Please upgrade your plan.',
+                            current: currentSessions,
+                            limit: sessionLimit
+                        },
+                        { status: 429 }
+                    );
+                    return addTrackerCorsHeaders(response, origin, true);
+                }
+            }
+        }
+
         console.log(`[rrweb-events] Authenticated request for site ${site_id}, events: ${events.length}`);
 
         // --- 2. GET GEO LOCATION (IP & Country) ---

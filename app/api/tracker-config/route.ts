@@ -98,13 +98,26 @@ export async function GET(request: NextRequest) {
                 .select('id, variants, modifications, traffic_percentage, goal_event, goals')
                 .eq('site_id', siteId)
                 .eq('status', 'running'),
-            // Fetch site config (includes feedback_config)
+            // Fetch site config (includes feedback_config and status)
             supabaseAdmin
                 .from('sites')
-                .select('feedback_config')
+                .select('feedback_config, status')
                 .eq('id', siteId)
                 .single()
         ]);
+
+        // Check if site is BANNED
+        if (siteResult.data?.status === 'banned') {
+            console.log(`[Tracker] Site ${siteId} is banned. Returning empty config.`);
+            return NextResponse.json({
+                v: 1,
+                ts: Date.now(),
+                experiments: [],
+                feedback: { enabled: false },
+                features: { formTracking: false, mouseHeatmap: false, sessionRecording: false },
+                error: 'Site is unavailable'
+            }, { status: 200, headers: corsHeaders(origin) });
+        }
 
         // Build experiments array
         const experiments = (experimentsResult.data || []).map(e => ({

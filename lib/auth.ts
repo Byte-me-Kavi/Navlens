@@ -79,11 +79,23 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
       };
     }
 
+    // Check for User Ban
+    // Cast to any because banned_until might be missing in some SDK types but exists in DB/Auth
+    if ((user as any).banned_until && new Date((user as any).banned_until) > new Date()) {
+      console.warn(`User ${user.email} is banned until ${(user as any).banned_until}`);
+      return {
+        user,
+        userSites: [], // No access
+        isAuthorized: false
+      };
+    }
+
     // Get sites owned by user with retry
+    // Also fetch status to filter out banned sites
     const siteResult = await withRetry(
       async () => supabase
         .from('sites')
-        .select('id')
+        .select('id, status')
         .eq('user_id', user.id),
       3,
       100
@@ -100,7 +112,10 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
       };
     }
 
-    const siteIds = userSites?.map((site: any) => site.id) || []; // eslint-disable-line @typescript-eslint/no-explicit-any
+    // Filter out banned sites - this effectively revokes access to them for all APIs
+    const siteIds = userSites
+      ?.filter((site: any) => site.status !== 'banned')
+      .map((site: any) => site.id) || [];
 
     return {
       user,

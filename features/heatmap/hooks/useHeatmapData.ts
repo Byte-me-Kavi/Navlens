@@ -16,27 +16,32 @@ interface UseHeatmapDataResult {
   refetch: () => Promise<void>;
 }
 
+// Extended params with dateRangeDays
+interface HeatmapDataParams extends HeatmapParams {
+  dateRangeDays?: number;
+}
+
 // SWR fetcher for heatmap clicks
-const heatmapFetcher = async ([url, params]: [string, HeatmapParams]): Promise<HeatmapPoint[]> => {
+const heatmapFetcher = async ([url, params]: [string, HeatmapDataParams]): Promise<HeatmapPoint[]> => {
   console.log('🔥 Fetching heatmap data:', params);
-  
+
   const result = await heatmapApi.getHeatmapClicks(params);
-  
+
   console.log('✓ Heatmap data fetched:', {
     pointCount: result.length,
     samplePoint: result[0],
     hasRelativeCoords: result[0]?.x_relative !== undefined,
   });
-  
+
   if (result.length === 0) {
     console.warn('⚠️ No heatmap data returned from API');
   }
-  
+
   return result;
 };
 
-export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
-  // Create stable cache key
+export function useHeatmapData(params: HeatmapDataParams): UseHeatmapDataResult {
+  // Create stable cache key - now includes dateRangeDays
   const cacheKey = useMemo(() => {
     if (!params.siteId || !params.pagePath) return null;
     return [
@@ -47,9 +52,10 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
         deviceType: params.deviceType,
         documentWidth: params.documentWidth,
         documentHeight: params.documentHeight,
+        dateRangeDays: params.dateRangeDays || 30,
       }
-    ] as [string, HeatmapParams];
-  }, [params.siteId, params.pagePath, params.deviceType, params.documentWidth, params.documentHeight]);
+    ] as [string, HeatmapDataParams];
+  }, [params.siteId, params.pagePath, params.deviceType, params.documentWidth, params.documentHeight, params.dateRangeDays]);
 
   const { data, error, isLoading, mutate } = useSWR(
     cacheKey,
@@ -74,3 +80,4 @@ export function useHeatmapData(params: HeatmapParams): UseHeatmapDataResult {
     refetch: async () => { await mutate(); },
   };
 }
+

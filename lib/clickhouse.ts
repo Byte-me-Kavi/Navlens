@@ -20,12 +20,12 @@ export interface ClickHouseConfig {
 // Parse ClickHouse URL or use individual env vars
 export function createClickHouseConfig(): ClickHouseConfig {
   const url = process.env.CLICKHOUSE_URL;
-  
+
   if (url) {
     // Parse ClickHouse URL: https://username:password@host:port/database
     const urlPattern = /^https?:\/\/([^:]+):([^@]+)@([^:/]+):?(\d+)?\/(.+)$/;
     const match = url.match(urlPattern);
-    
+
     if (match) {
       const [, username, password, host, port, database] = match;
       const portStr = port || '8443';
@@ -36,7 +36,7 @@ export function createClickHouseConfig(): ClickHouseConfig {
         database,
       };
     }
-    
+
     // If URL doesn't match pattern, try using it directly
     console.warn('ClickHouse URL format not recognized, using URL directly');
   }
@@ -60,7 +60,7 @@ let clickhouseClient: ClickHouseClient | null = null;
 export function getClickHouseClient(): ClickHouseClient {
   if (!clickhouseClient) {
     const url = process.env.CLICKHOUSE_URL;
-    
+
     if (url) {
       // Production: Use full URL for ClickHouse Cloud
       clickhouseClient = createClient({
@@ -93,10 +93,10 @@ export function getClickHouseClient(): ClickHouseClient {
         },
       });
     }
-    
+
     console.log('✅ ClickHouse singleton client initialized');
   }
-  
+
   return clickhouseClient;
 }
 
@@ -111,5 +111,113 @@ export async function closeClickHouseConnection(): Promise<void> {
   }
 }
 
+// ============================================
+// QUERY PERFORMANCE MONITORING
+// ============================================
+
+interface QueryMetrics {
+  label: string;
+  durationMs: number;
+  timestamp: Date;
+  isSlow: boolean;
+}
+
+// Store recent query metrics for monitoring
+const queryMetricsBuffer: QueryMetrics[] = [];
+const MAX_METRICS_BUFFER = 100;
+const SLOW_QUERY_THRESHOLD_MS = 500;
+
+/**
+ * Execute a query with performance monitoring
+ * Logs slow queries and collects metrics
+ */
+export async function queryWithMetrics<T = unknown>(
+  query: string,
+  params: Record<string, unknown>,
+  label: string
+): Promise<{ data: T; durationMs: number }> {
+  const start = performance.now();
+  const client = getClickHouseClient();
+
+  const result = await client.query({
+    query,
+    query_params: params,
+    format: 'JSONEachRow',
+  });
+
+  const data = await result.json() as T;
+  const durationMs = performance.now() - start;
+  const isSlow = durationMs > SLOW_QUERY_THRESHOLD_MS;
+
+  // Log slow queries
+  if (isSlow) {
+    console.warn(`⚠️ [ClickHouse] Slow query (${durationMs.toFixed(0)}ms): ${label}`);
+  }
+
+  // Store metrics
+  queryMetricsBuffer.push({
+    label,
+    durationMs,
+    timestamp: new Date(),
+    isSlow,
+  });
+
+  // Keep buffer size limited
+  if (queryMetricsBuffer.length > MAX_METRICS_BUFFER) {
+    queryMetricsBuffer.shift();
+  }
+
+  return { data, durationMs };
+}
+
+/**
+ * Get recent query metrics for monitoring dashboard
+ */
+export function getQueryMetrics(): {
+  totalQueries: number;
+  slowQueries: number;
+  averageDurationMs: number;
+  recentQueries: QueryMetrics[];
+} {
+  const totalQueries = queryMetricsBuffer.length;
+  const slowQueries = queryMetricsBuffer.filter(m => m.isSlow).length;
+  const averageDurationMs = totalQueries > 0
+    ? queryMetricsBuffer.reduce((sum, m) => sum + m.durationMs, 0) / totalQueries
+    : 0;
+
+  return {
+    totalQueries,
+    slowQueries,
+    averageDurationMs: Math.round(averageDurationMs),
+    recentQueries: queryMetricsBuffer.slice(-10),
+  };
+}
+
+/**
+ * Health check - verify ClickHouse connection is working
+ */
+export async function checkClickHouseHealth(): Promise<{
+  healthy: boolean;
+  latencyMs: number;
+  error?: string;
+}> {
+  const start = performance.now();
+  try {
+    const client = getClickHouseClient();
+    await client.query({ query: 'SELECT 1', format: 'JSON' });
+    return {
+      healthy: true,
+      latencyMs: Math.round(performance.now() - start),
+    };
+  } catch (error) {
+    return {
+      healthy: false,
+      latencyMs: Math.round(performance.now() - start),
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
 // Default export for convenience
 export default getClickHouseClient;
+

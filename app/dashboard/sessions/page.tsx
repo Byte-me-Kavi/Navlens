@@ -367,7 +367,7 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 md:py-4 md:px-2">
+    <div className="min-h-screen px-3 md:py-4 md:px-1">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-2">

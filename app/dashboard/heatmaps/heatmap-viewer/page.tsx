@@ -1,5 +1,6 @@
+
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
@@ -20,6 +21,7 @@ import {
   DevicePhoneMobileIcon,
 } from "@heroicons/react/24/outline";
 import { useAI } from "@/context/AIProvider";
+import { CalendarDaysIcon } from "@heroicons/react/24/outline";
 
 // Data type configuration for the dropdown
 const DATA_TYPES = [
@@ -28,6 +30,13 @@ const DATA_TYPES = [
   { value: "hover", label: "Hover Heatmap", color: "cyan", icon: EyeIcon },
   { value: "cursor-paths", label: "Cursor Paths", color: "amber", icon: ArrowsPointingOutIcon },
   { value: "elements", label: "Smart Elements", color: "rose", icon: ViewfinderCircleIcon },
+] as const;
+
+// Date range options
+const DATE_RANGES = [
+  { value: 7, label: "7 days" },
+  { value: 30, label: "30 days" },
+  { value: 90, label: "90 days" },
 ] as const;
 
 export default function HeatmapViewerPage() {
@@ -65,6 +74,7 @@ export default function HeatmapViewerPage() {
   const [showElements, setShowElements] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showAllViewports, setShowAllViewports] = useState(false);
+  const [dateRangeDays, setDateRangeDays] = useState<7 | 30 | 90>(30);
 
   // Get current site details
   const currentSite = siteId ? getSiteById(siteId) : null;
@@ -348,6 +358,22 @@ export default function HeatmapViewerPage() {
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Date Range Picker */}
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <CalendarDaysIcon className="w-4 h-4 text-gray-500" />
+                <select
+                  value={dateRangeDays}
+                  onChange={(e) => setDateRangeDays(Number(e.target.value) as 7 | 30 | 90)}
+                  className="bg-transparent focus:outline-none text-sm font-medium text-gray-700 cursor-pointer"
+                >
+                  {DATE_RANGES.map((range) => (
+                    <option key={range.value} value={range.value}>
+                      Last {range.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* AI Button */}
               <button
                 onClick={handleAIAnalysis}
@@ -419,3 +445,4 @@ export default function HeatmapViewerPage() {
     </div>
   );
 }
+

@@ -31,6 +31,9 @@ const PricingPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
   const [currentPlanName, setCurrentPlanName] = useState<string | null>(null);
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
+  const [downgradeLoading, setDowngradeLoading] = useState(false);
+  const [selectedDowngradePlan, setSelectedDowngradePlan] = useState<{id: string, name: string} | null>(null);
 
   // Fallback plans data (used if database query fails or migration not run yet)
   const getFallbackPlans = () => {
@@ -115,10 +118,30 @@ const PricingPage: React.FC = () => {
     ];
   };
 
-  // Fetch plans from database
+  // Fetch plans from database with localStorage caching
   useEffect(() => {
+    const CACHE_KEY = 'navlens_subscription_plans';
+    const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
+
     async function fetchPlans() {
       try {
+        // Check localStorage cache first
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          try {
+            const { data: cachedPlans, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < CACHE_TTL && cachedPlans?.length > 0) {
+              console.log('📦 Using cached subscription plans');
+              const mappedPlans = mapPlansToUI(cachedPlans);
+              setPlans(mappedPlans);
+              setLoading(false);
+              return;
+            }
+          } catch {
+            // Invalid cache, continue to fetch
+          }
+        }
+
         const { data, error } = await supabase
           .from('subscription_plans')
           .select('*')
@@ -126,45 +149,52 @@ const PricingPage: React.FC = () => {
 
         if (error) {
           console.warn('Database query failed, using fallback data:', error);
-          // Use fallback data if database query fails
           setPlans(getFallbackPlans());
           setLoading(false);
           return;
         }
 
         if (data && data.length > 0) {
-          // Map database plans to UI format
-          const mappedPlans = data.map((plan: any) => ({
-            id: plan.id,
-            name: plan.name,
-            description: getPlanDescription(plan.name),
-            price: {
-              monthly: plan.price_usd,
-              yearly: plan.price_usd * 12 * 0.75, // 25% discount for yearly
-            },
-            originalPrice: {
-              monthly: plan.price_usd * 1.25,
-              yearly: plan.price_usd * 12,
-            },
-            popular: plan.name === 'Pro',
-            icon: getPlanIcon(plan.name),
-            features: getPlanFeatures(plan.name, plan.session_limit),
-            cta: plan.name === 'Free' ? 'Get Started' : plan.name === 'Enterprise' ? 'Contact Sales' : 'Subscribe Now',
-            isFree: plan.name === 'Free',
+          // Cache the raw data in localStorage
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            data,
+            timestamp: Date.now(),
           }));
+          console.log('💾 Cached subscription plans');
           
+          const mappedPlans = mapPlansToUI(data);
           setPlans(mappedPlans);
         } else {
-          // No data in database, use fallback
           setPlans(getFallbackPlans());
         }
       } catch (error) {
         console.error('Failed to fetch plans:', error);
-        // Use fallback data on any error
         setPlans(getFallbackPlans());
       } finally {
         setLoading(false);
       }
+    }
+
+    // Map database plans to UI format
+    function mapPlansToUI(data: any[]) {
+      return data.map((plan: any) => ({
+        id: plan.id,
+        name: plan.name,
+        description: getPlanDescription(plan.name),
+        price: {
+          monthly: plan.price_usd,
+          yearly: plan.price_usd * 12 * 0.75,
+        },
+        originalPrice: {
+          monthly: plan.price_usd * 1.25,
+          yearly: plan.price_usd * 12,
+        },
+        popular: plan.name === 'Pro',
+        icon: getPlanIcon(plan.name),
+        features: getPlanFeatures(plan.name, plan.session_limit),
+        cta: plan.name === 'Free' ? 'Get Started' : plan.name === 'Enterprise' ? 'Contact Sales' : 'Subscribe Now',
+        isFree: plan.name === 'Free',
+      }));
     }
 
     // Also check user's current subscription
@@ -350,6 +380,50 @@ const PricingPage: React.FC = () => {
     } catch (error) {
       console.error('Payment initiation error:', error);
       alert(error instanceof Error ? error.message : 'Failed to initiate payment. Please try again.');
+    }
+  };
+
+  // Handle downgrade scheduling
+  const handleScheduleDowngrade = async (planId: string, planName: string) => {
+    setSelectedDowngradePlan({ id: planId, name: planName });
+    setShowDowngradeModal(true);
+  };
+
+  const confirmDowngrade = async () => {
+    if (!selectedDowngradePlan) return;
+    
+    setDowngradeLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch('/api/payhere/schedule-downgrade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ targetPlanId: selectedDowngradePlan.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to schedule downgrade');
+      }
+
+      alert(data.message);
+      setShowDowngradeModal(false);
+      // Redirect to subscription page to see the change
+      router.push('/dashboard/subscription');
+    } catch (error) {
+      console.error('Downgrade error:', error);
+      alert(error instanceof Error ? error.message : 'Failed to schedule downgrade');
+    } finally {
+      setDowngradeLoading(false);
     }
   };
 
@@ -632,9 +706,13 @@ const PricingPage: React.FC = () => {
                         );
                       } else if (isDowngrade) {
                         return (
-                          <div className="w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm bg-gray-200 text-gray-500 cursor-not-allowed">
-                            Downgrade Not Available
-                          </div>
+                          <button
+                            onClick={() => handleScheduleDowngrade(plan.id, plan.name)}
+                            className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg hover:shadow-amber-500/50 hover:scale-105"
+                          >
+                            Downgrade to {plan.name}
+                            <ArrowRightIcon className="w-5 h-5" />
+                          </button>
                         );
                       } else if (isUpgrade) {
                         return (
@@ -642,7 +720,7 @@ const PricingPage: React.FC = () => {
                             onClick={() => handleSelectPlan(plan.id, plan.name, plan.isFree)}
                             className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg hover:shadow-green-500/50 hover:scale-105"
                           >
-                            Upgrade to {plan.name}
+                            {plan.name === 'Enterprise' ? 'Contact Us' : `Upgrade to ${plan.name}`}
                             <ArrowRightIcon className="w-5 h-5" />
                           </button>
                         );
@@ -860,6 +938,44 @@ const PricingPage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Downgrade Confirmation Modal */}
+      {showDowngradeModal && selectedDowngradePlan && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                <ArrowRightIcon className="w-6 h-6 text-amber-600 rotate-90" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Schedule Downgrade?</h3>
+            </div>
+            <p className="text-gray-600 mb-4">
+              You&apos;re about to schedule a downgrade from <strong>{currentPlanName}</strong> to <strong>{selectedDowngradePlan.name}</strong>.
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+              <p className="text-amber-800 text-sm">
+                <strong>Important:</strong> Your current plan features will remain active until the end of your billing cycle. The downgrade will take effect on your next billing date.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDowngradeModal(false)}
+                disabled={downgradeLoading}
+                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDowngrade}
+                disabled={downgradeLoading}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50"
+              >
+                {downgradeLoading ? 'Processing...' : 'Confirm Downgrade'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <Footer />

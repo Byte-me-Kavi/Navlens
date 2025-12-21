@@ -221,20 +221,29 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
       : pathname === item.href || pathname.startsWith(item.href + '/');
     const Icon = item.icon;
 
+    const isBanned = currentSite?.status === 'banned';
+    
+    // Allow access only to 'My Sites' if banned
+    const isAllowed = !isBanned || item.href === '/dashboard/my-sites';
+
     return (
       <button
         key={item.name}
-        onClick={handleNavClick(item.href)}
+        onClick={isAllowed ? handleNavClick(item.href) : undefined}
+        disabled={!isAllowed}
+        title={!isAllowed ? "Site is banned. Switch sites to access features." : ""}
         className={`
           w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
           ${isNested ? 'pl-9' : ''}
           ${isActive
             ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600 shadow-sm font-medium"
-            : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+            : isAllowed 
+                ? "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+                : "text-gray-400 cursor-not-allowed opacity-60"
           }
         `}
       >
-        <Icon className={`w-4 h-4 ${isActive ? "text-blue-600" : ""}`} />
+        <Icon className={`w-4 h-4 ${isActive ? "text-blue-600" : isAllowed ? "" : "text-gray-300"}`} />
         <span className={isActive ? "font-semibold" : "font-medium"}>
           {item.name}
         </span>
@@ -242,6 +251,11 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
           <span className="ml-auto text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
             {item.badge}
           </span>
+        )}
+        {!isAllowed && (
+            <span className="ml-auto">
+                <ExclamationTriangleIcon className="w-4 h-4 text-red-400" />
+            </span>
         )}
       </button>
     );
@@ -317,9 +331,14 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
             className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-white hover:bg-blue-50 border border-gray-200 rounded-lg transition-all text-left"
           >
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <GlobeAltIcon className="w-4 h-4 text-blue-600 shrink-0" />
-              <span className="text-sm font-medium text-gray-900 truncate">
-                {sitesLoading ? "Loading..." : currentSite ? currentSite.site_name : sites.length === 0 ? "No sites" : "Select site..."}
+              <GlobeAltIcon className={`w-4 h-4 shrink-0 ${currentSite?.status === 'banned' ? 'text-red-500' : 'text-blue-600'}`} />
+              <span className={`text-sm font-medium truncate ${currentSite?.status === 'banned' ? 'text-red-600' : 'text-gray-900'}`}>
+                {sitesLoading ? "Loading..." : currentSite ? (
+                    <>
+                        {currentSite.site_name}
+                        {currentSite.status === 'banned' && " (Banned)"}
+                    </>
+                ) : sites.length === 0 ? "No sites" : "Select site..."}
               </span>
             </div>
             <ChevronUpDownIcon className="w-4 h-4 text-gray-500 shrink-0" />
@@ -339,10 +358,15 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
                     selectedSiteId === site.id ? 'bg-blue-50' : ''
                   }`}
                 >
-                  <GlobeAltIcon className={`w-4 h-4 shrink-0 ${selectedSiteId === site.id ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <GlobeAltIcon className={`w-4 h-4 shrink-0 ${site.status === 'banned' ? 'text-red-500' : selectedSiteId === site.id ? 'text-blue-600' : 'text-gray-400'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm truncate ${selectedSiteId === site.id ? 'font-semibold text-blue-900' : 'font-medium text-gray-900'}`}>
+                    <p className={`text-sm truncate flex items-center gap-2 ${selectedSiteId === site.id ? 'font-semibold text-blue-900' : 'font-medium text-gray-900'}`}>
                       {site.site_name}
+                      {site.status === 'banned' && (
+                        <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                            Banned
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-gray-500 truncate">{site.domain}</p>
                   </div>

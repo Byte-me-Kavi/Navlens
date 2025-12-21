@@ -185,6 +185,23 @@ export const performanceCache = new LRUCache<string, unknown>(100, 300000);
 // Journey/path analysis cache - 5 minute TTL, 30 entries
 export const journeyCache = new LRUCache<string, unknown>(30, 300000);
 
+// ============================================
+// TIERED CACHING FOR DIFFERENT DATA TYPES
+// (Commercial-grade optimization)
+// ============================================
+
+// Dashboard stats cache - 5 minute TTL (aggregated data changes slowly)
+export const dashboardCache = new LRUCache<string, unknown>(50, 300000);
+
+// Heatmap data cache - 10 minute TTL (coordinate data changes slowly)
+export const heatmapCache = new LRUCache<string, unknown>(30, 600000);
+
+// Real-time data cache - 15 second TTL (for live session counts)
+export const realtimeCache = new LRUCache<string, unknown>(100, 15000);
+
+// Subscription usage cache - 1 hour TTL (billing data doesn't need to be real-time)
+export const subscriptionCache = new LRUCache<string, unknown>(20, 3600000);
+
 /**
  * Generate a cache key from parameters
  * @param siteId - Site ID
@@ -242,5 +259,10 @@ if (typeof global !== 'undefined') {
         queryCache.cleanup();
         performanceCache.cleanup();
         journeyCache.cleanup();
+        // Tiered caches
+        dashboardCache.cleanup();
+        heatmapCache.cleanup();
+        realtimeCache.cleanup();
+        subscriptionCache.cleanup();
     }, 5 * 60 * 1000);
 }

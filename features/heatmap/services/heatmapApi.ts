@@ -12,13 +12,14 @@ export const heatmapApi = {
    * Fetch heatmap click data from the API using POST request
    * POST is used instead of GET to avoid exposing sensitive data in URL
    */
-  async getHeatmapClicks(params: HeatmapParams): Promise<HeatmapPoint[]> {
+  async getHeatmapClicks(params: HeatmapParams & { dateRangeDays?: number }): Promise<HeatmapPoint[]> {
     const response = await apiClient.post<{ clicks: HeatmapPoint[] }>('/heatmap-clicks', {
       siteId: params.siteId,
       pagePath: params.pagePath,
       deviceType: params.deviceType,
       documentWidth: params.documentWidth,
       documentHeight: params.documentHeight,
+      dateRangeDays: params.dateRangeDays || 30,
       ...(params.startDate && { startDate: params.startDate }),
       ...(params.endDate && { endDate: params.endDate }),
     });
@@ -54,20 +55,20 @@ export const heatmapApi = {
       if (point.x_relative !== undefined && point.y_relative !== undefined) {
         const x = Math.round(point.x_relative * documentWidth);
         const y = Math.round(point.y_relative * documentHeight);
-        
+
         const transformed = {
           x: Math.max(0, Math.min(x, documentWidth)),
           y: Math.max(0, Math.min(y, documentHeight)),
           value: point.value,
         };
-        
+
         if (index === 0) {
           console.log('🎯 Sample transformation:', {
             input: { x_rel: point.x_relative, y_rel: point.y_relative, value: point.value },
             output: transformed,
           });
         }
-        
+
         return transformed;
       }
 
@@ -77,11 +78,11 @@ export const heatmapApi = {
         y: Math.round(point.y || 0),
         value: point.value,
       };
-      
+
       if (index === 0) {
         console.log('⚠️ Using absolute coords (no relative):', fallback);
       }
-      
+
       return fallback;
     });
 

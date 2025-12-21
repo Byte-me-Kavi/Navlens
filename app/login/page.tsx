@@ -40,6 +40,24 @@ export default function Login() {
     const urlParams = new URLSearchParams(window.location.search);
     const redirectPath = urlParams.get('redirect');
     const planId = urlParams.get('plan');
+    const errorCode = urlParams.get('error_code');
+    const errorDescription = urlParams.get('error_description');
+
+    // Handle Banned User Error
+    if (errorCode === 'user_banned' && !hasShownToastRef.current) {
+        hasShownToastRef.current = true; // Prevent double toast
+        // Small timeout to Ensure toast library is ready
+        setTimeout(() => {
+             toast.error(
+                "Access Denied: Your account has been suspended. Please contact support.",
+                { duration: 6000, icon: '🚫' }
+            );
+        }, 100);
+        
+        // Clean URL without reload
+        window.history.replaceState({}, '', '/login');
+        return; // Stop further processing
+    }
     
     // Check if user is already logged in and redirect
     const checkSession = async () => {

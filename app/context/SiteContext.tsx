@@ -21,6 +21,7 @@ export interface Site {
   domain: string;
   api_key: string;
   user_id: string;
+  status: 'active' | 'banned' | 'archived';
 }
 
 // Pages cache per site

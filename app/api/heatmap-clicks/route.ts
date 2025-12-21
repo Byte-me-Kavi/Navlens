@@ -11,24 +11,29 @@ import { getClickHouseClient } from '@/lib/clickhouse';
 const clickhouse = getClickHouseClient();
 
 // Cached query executor - caches results for 60 seconds
+// Cached query executor - caches results for 60 seconds
 const getCachedHeatmapClicks = unstable_cache(
-  async (siteId: string, pagePath: string, deviceType: string, documentWidth: number, documentHeight: number) => {
+  async (siteId: string, pagePath: string, deviceType: string, documentWidth: number, documentHeight: number, dateRangeDays: number) => {
+
+    // Construct dynamic condition based on provided dimensions
+    // If dimensions are 0 (not provided), we fetch ALL clicks for the page/device (aggregated)
+    const hasDimensions = documentWidth > 0 && documentHeight > 0;
+
+    // Optimized query using precalculated heatmap_clicks_daily table
     const allClicksQuery = `
       SELECT
         x_relative,
         y_relative,
-        {documentWidth:UInt32} as document_width,
-        {documentHeight:UInt32} as document_height,
-        count(*) as value
-      FROM events
+        ${hasDimensions ? '{documentWidth:UInt32}' : '0'} as document_width,
+        ${hasDimensions ? '{documentHeight:UInt32}' : '0'} as document_height,
+        sum(click_count) as value
+      FROM heatmap_clicks_daily
       WHERE site_id = {siteId:String}
         AND page_path = {pagePath:String}
         AND device_type = {deviceType:String}
-        AND event_type = 'click'
-        AND timestamp >= subtractDays(now(), 30)
-        AND x_relative > 0 AND y_relative > 0
-        AND document_width = {documentWidth:UInt32}
-        AND document_height = {documentHeight:UInt32}
+        ${hasDimensions ? 'AND document_width = {documentWidth:UInt32}' : ''}
+        ${hasDimensions ? 'AND document_height = {documentHeight:UInt32}' : ''}
+        AND day >= today() - {dateRangeDays:UInt32}
       GROUP BY x_relative, y_relative
       ORDER BY value DESC
       LIMIT 5000
@@ -36,7 +41,7 @@ const getCachedHeatmapClicks = unstable_cache(
 
     const allClicksResult = await clickhouse.query({
       query: allClicksQuery,
-      query_params: { siteId, pagePath, deviceType, documentWidth, documentHeight },
+      query_params: { siteId, pagePath, deviceType, documentWidth, documentHeight, dateRangeDays },
       format: 'JSONEachRow',
     });
 
@@ -69,6 +74,7 @@ async function processHeatmapClicks(
   deviceType: string,
   documentWidth: number,
   documentHeight: number,
+  dateRangeDays: number,
   authResult: Awaited<ReturnType<typeof authenticateAndAuthorize>>
 ) {
   // Validate required parameters
@@ -120,13 +126,19 @@ async function processHeatmapClicks(
   console.log('- siteId:', siteId);
   console.log('- pagePath:', pagePath);
   console.log('- deviceType:', deviceType);
+  console.log('- dims:', documentWidth, 'x', documentHeight || '(aggregating)');
 
   // Use cached query for better performance
-  console.log('🚀 Fetching heatmap clicks (with caching)...');
-  const clickPoints = await getCachedHeatmapClicks(siteId, pagePath, deviceType, documentWidth, documentHeight);
+  console.log('🚀 Fetching heatmap clicks (with caching), dateRange:', dateRangeDays, 'days');
+
+  // Ensure we pass 0 if undefined/null to match cache key signature safely
+  const safeWidth = documentWidth || 0;
+  const safeHeight = documentHeight || 0;
+
+  const clickPoints = await getCachedHeatmapClicks(siteId, pagePath, deviceType, safeWidth, safeHeight, dateRangeDays);
 
   console.log('🔍 [HEATMAP-CLICKS] Returning', clickPoints.length, 'heatmap points');
-  
+
   // Return encrypted response
   return encryptedJsonResponse({
     clicks: clickPoints
@@ -149,17 +161,12 @@ export async function POST(req: NextRequest) {
     const siteId = body.siteId;
     const pagePath = body.pagePath;
     const deviceType = body.deviceType || 'desktop';
-    const documentWidth = body.documentWidth;
-    const documentHeight = body.documentHeight;
+    // Allow optional dimensions (default to 0 to signal aggregation)
+    const documentWidth = body.documentWidth || 0;
+    const documentHeight = body.documentHeight || 0;
+    const dateRangeDays = body.dateRangeDays || 30; // Default to 30 days
 
-    if (!documentWidth || !documentHeight) {
-      return NextResponse.json(
-        { message: 'Missing required parameters: documentWidth, documentHeight' },
-        { status: 400 }
-      );
-    }
-
-    return await processHeatmapClicks(siteId, pagePath, deviceType, documentWidth, documentHeight, authResult);
+    return await processHeatmapClicks(siteId, pagePath, deviceType, documentWidth, documentHeight, dateRangeDays, authResult);
 
   } catch (error: Error | unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -178,7 +185,7 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   console.warn('⚠️ GET request to /api/heatmap-clicks is deprecated. Use POST for security.');
-  
+
   try {
     // Authenticate user and get their authorized sites
     const authResult = await authenticateAndAuthorize(req);
@@ -193,15 +200,9 @@ export async function GET(req: NextRequest) {
     const deviceType = searchParams.get('deviceType') || 'desktop';
     const documentWidth = parseInt(searchParams.get('documentWidth') || '0');
     const documentHeight = parseInt(searchParams.get('documentHeight') || '0');
+    const dateRangeDays = parseInt(searchParams.get('dateRangeDays') || '30');
 
-    if (!documentWidth || !documentHeight) {
-      return NextResponse.json(
-        { message: 'Missing required parameters: documentWidth, documentHeight' },
-        { status: 400 }
-      );
-    }
-
-    return await processHeatmapClicks(siteId, pagePath, deviceType, documentWidth, documentHeight, authResult);
+    return await processHeatmapClicks(siteId, pagePath, deviceType, documentWidth, documentHeight, dateRangeDays, authResult);
 
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));

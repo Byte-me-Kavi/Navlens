@@ -1,0 +1,99 @@
+/**
+ * Subscription Usage API
+ * Fetches real usage data (sessions, heatmaps) for the current month
+ * - Sessions: From Supabase rrweb_events (matching the sessions page)
+ * - Heatmaps: From ClickHouse events (unique pages with click data)
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { getClickHouseClient } from '@/lib/clickhouse';
+import { authenticateAndAuthorize, createUnauthenticatedResponse } from '@/lib/auth';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+export async function GET(request: NextRequest) {
+    try {
+        // Authenticate user
+        const authResult = await authenticateAndAuthorize(request);
+        if (!authResult.isAuthorized || !authResult.user) {
+            return createUnauthenticatedResponse();
+        }
+
+        const userSites = authResult.userSites;
+
+        if (!userSites || userSites.length === 0) {
+            return NextResponse.json({
+                sessions: 0,
+                heatmaps: 0,
+                month: new Date().toISOString().slice(0, 7),
+                sitesCount: 0,
+            });
+        }
+
+        // Get current month boundaries
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startDate = startOfMonth.toISOString();
+        const endDate = now.toISOString();
+
+        // ========================================
+        // SESSIONS: Query from Supabase rrweb_events
+        // (current month only - for billing purposes)
+        // ========================================
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Count unique session_ids across ALL user's sites for current month
+        const { data: sessionData, error: sessionError } = await supabase
+            .from('rrweb_events')
+            .select('session_id')
+            .in('site_id', userSites)
+            .gte('timestamp', startDate)
+            .lte('timestamp', endDate);
+
+        // Get unique session count
+        const uniqueSessions = new Set(sessionData?.map(e => e.session_id) || []);
+        const totalSessions = uniqueSessions.size;
+
+        if (sessionError) {
+            console.error('[subscription-usage] Supabase error:', sessionError);
+        }
+
+        // ========================================
+        // HEATMAPS: Query from precalculated subscription_usage_monthly
+        // (much faster than scanning raw events)
+        // ========================================
+        const clickhouse = getClickHouseClient();
+        const currentMonth = now.toISOString().slice(0, 7) + '-01'; // YYYY-MM-01
+
+        const heatmapsQuery = `
+            SELECT 
+                sum(unique_pages) as total_pages,
+                sum(total_clicks) as total_clicks
+            FROM subscription_usage_monthly
+            WHERE site_id IN ({siteIds:Array(String)})
+              AND month = toDate({currentMonth:String})
+        `;
+
+        const heatmapsResult = await clickhouse.query({
+            query: heatmapsQuery,
+            query_params: { siteIds: userSites, currentMonth },
+            format: 'JSONEachRow',
+        });
+
+        const heatmapsData = await heatmapsResult.json() as Array<{ total_pages: number }>;
+        const totalHeatmaps = Number(heatmapsData[0]?.total_pages) || 0;
+
+        return NextResponse.json({
+            sessions: totalSessions,
+            heatmaps: totalHeatmaps,
+            month: now.toISOString().slice(0, 7),
+            sitesCount: userSites.length,
+        });
+
+    } catch (error) {
+        console.error('[subscription-usage] Error:', error);
+        return NextResponse.json({ error: 'Failed to fetch usage data' }, { status: 500 });
+    }
+}
