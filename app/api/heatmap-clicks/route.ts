@@ -145,10 +145,12 @@ async function processHeatmapClicks(
   });
 }
 
+import { withMonitoring } from "@/lib/api-middleware";
+
 /**
  * POST handler - Preferred method for security (data in body, not URL)
  */
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   try {
     // Authenticate user and get their authorized sites
     const authResult = await authenticateAndAuthorize(req);
@@ -178,6 +180,8 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withMonitoring(POST_handler);
 
 /**
  * GET handler - Deprecated, use POST for security

@@ -7,10 +7,13 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Default pagination settings
+import { withMonitoring } from "@/lib/api-middleware";
+
+// Default pagination settings
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   try {
     // Authenticate user first
     const authResult = await authenticateAndAuthorize(req);
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest) {
       timestamp: string;
       data: Record<string, unknown>;
     }
-    
+
     const sessionMap = new Map<string, {
       session_id: string;
       visitor_id: string;
@@ -145,7 +148,7 @@ export async function POST(req: NextRequest) {
       const lastTime = new Date(session.last_timestamp).getTime();
       const durationMs = lastTime - firstTime;
       const durationSeconds = Math.floor(durationMs / 1000);
-      
+
       // Aggregate signal counts by type
       const signalCounts: Record<string, number> = {};
       session.signals.forEach(signal => {
@@ -177,7 +180,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Sort by timestamp (newest first)
-    allSessions.sort((a, b) => 
+    allSessions.sort((a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
@@ -186,7 +189,7 @@ export async function POST(req: NextRequest) {
     const totalPages = Math.ceil(totalSessions / validatedPageSize);
     const paginatedSessions = allSessions.slice(offset, offset + validatedPageSize);
 
-    return encryptedJsonResponse({ 
+    return encryptedJsonResponse({
       sessions: paginatedSessions,
       pagination: {
         page: validatedPage,
@@ -205,3 +208,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withMonitoring(POST_handler);

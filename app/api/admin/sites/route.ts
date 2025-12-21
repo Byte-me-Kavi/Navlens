@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server-admin';
+import { withMonitoring } from "@/lib/api-middleware";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+async function GET_handler(request: NextRequest) {
     try {
         const cookieStore = await cookies();
         const adminSession = cookieStore.get('admin_session');
@@ -82,3 +83,5 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+export const GET = withMonitoring(GET_handler);

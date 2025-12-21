@@ -1,8 +1,9 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, Users, Shield, Server, Globe, MousePointer, Calendar } from 'lucide-react';
+import { Activity, Users, Shield, Server, Globe, MousePointer, Calendar, Search, ShieldCheck } from 'lucide-react';
 
 interface DashboardStats {
     totalUsers: number;
@@ -90,6 +91,51 @@ export default function AdminDashboard() {
             <div className="text-sm text-slate-500 font-medium">{stat.label}</div>
           </motion.div>
         ))}
+      </div>
+
+      {/* Admin Tools Quick Access */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <a href="/admin/tools/inspector" className="block group">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all hover:border-blue-300">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
+                        <Search className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">Script Inspector</h3>
+                        <p className="text-sm text-gray-500 mt-1">Debug installation issues.</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <a href="/admin/audit" className="block group">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all hover:border-indigo-300">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-100 transition-colors">
+                        <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">Audit Logs</h3>
+                        <p className="text-sm text-gray-500 mt-1">View tracking history.</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <a href="/admin/users" className="block group">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all hover:border-purple-300">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-purple-50 text-purple-600 rounded-lg group-hover:bg-purple-100 transition-colors">
+                        <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">Manage Users</h3>
+                        <p className="text-sm text-gray-500 mt-1">Bans & Plan Overrides.</p>
+                    </div>
+                </div>
+            </div>
+        </a>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

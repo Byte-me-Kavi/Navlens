@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { withMonitoring } from "@/lib/api-middleware";
 import { createClient } from '@supabase/supabase-js';
 import {
     invalidateExperimentCaches,
@@ -45,7 +46,7 @@ export async function OPTIONS(request: NextRequest) {
  * GET /api/experiments?siteId=xxx
  * List all experiments for a site (with caching)
  */
-export async function GET(request: NextRequest) {
+async function GET_handler(request: NextRequest) {
     const origin = request.headers.get('origin');
 
     try {
@@ -126,6 +127,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
+
         return NextResponse.json(
             { experiments: experiments || [] },
             { status: 200, headers: corsHeaders(origin) }
@@ -140,11 +142,13 @@ export async function GET(request: NextRequest) {
     }
 }
 
+export const GET = withMonitoring(GET_handler);
+
 /**
  * POST /api/experiments
  * Create a new experiment
  */
-export async function POST(request: NextRequest) {
+async function POST_handler(request: NextRequest) {
     const origin = request.headers.get('origin');
 
     try {

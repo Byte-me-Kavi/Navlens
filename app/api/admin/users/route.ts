@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server-admin';
+import { withMonitoring } from "@/lib/api-middleware";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+async function GET_handler(request: NextRequest) {
     try {
         // 1. Security Check
         const cookieStore = await cookies();
@@ -26,8 +27,6 @@ export async function GET(request: Request) {
         const { data, error } = await supabase.auth.admin.listUsers({
             page: page,
             perPage: perPage,
-            // Sort is not directly supported in listUsers in strict sense for all fields, 
-            // but commonly returns recent first. We can sort client side if needed.
         });
 
         if (error) {
@@ -38,6 +37,15 @@ export async function GET(request: Request) {
         // 4. Transform Data & Fetch Details
         const users = data.users;
         const userIds = users.map(u => u.id);
+
+        if (userIds.length === 0) {
+            return NextResponse.json({
+                users: [],
+                total: data.total,
+                page,
+                perPage
+            });
+        }
 
         // Batch fetch additional details
         const [subscriptionsResult, sitesResult] = await Promise.all([
@@ -89,3 +97,5 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+export const GET = withMonitoring(GET_handler);

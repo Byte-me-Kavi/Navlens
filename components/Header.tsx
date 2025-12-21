@@ -19,6 +19,15 @@ interface HeaderProps {
   onMenuToggle?: () => void;
 }
 
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+}
+
 export default function Header({ onMenuToggle }: HeaderProps) {
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,6 +40,53 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   const [userImage, setUserImage] = useState<string | null>(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showDesktopMenu, setShowDesktopMenu] = useState(false);
+  
+  // Notification State
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+            
+        if (data) {
+            setNotifications(data as Notification[]);
+        }
+    } catch (e) {
+        // Silent error (table might not exist yet)
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchNotifications();
+    // Poll every 30s
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const markAsRead = async (id: string) => {
+    // Optimistic update
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    
+    await supabase.from('notifications').update({ read: true }).eq('id', id);
+  };
+
+  const markAllAsRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+        await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id);
+    }
+  };
 
   // Helper function to get page title based on current pathname
   const getPageTitle = () => {
@@ -254,12 +310,68 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
           {/* Notification, Help & AI Buttons */}
           <div className="flex items-center gap-1 md:gap-2">
-            <button
-              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors"
-              title="Notifications (Coming Soon)"
-            >
-              <BellIcon className="w-5 h-5" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors relative"
+                title="Notifications"
+              >
+                <BellIcon className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+                )}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {showNotifications && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowNotifications(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-20 max-h-96 overflow-y-auto">
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+                      <h3 className="font-semibold text-gray-900 text-sm">Notifications</h3>
+                      {notifications.length > 0 && (
+                        <button 
+                          onClick={markAllAsRead}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-gray-500 text-sm">
+                        No notifications yet
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-50">
+                        {notifications.map((notif) => (
+                          <div 
+                            key={notif.id} 
+                            className={`px-4 py-3 hover:bg-gray-50 transition-colors ${!notif.read ? 'bg-blue-50/50' : ''}`}
+                            onClick={() => !notif.read && markAsRead(notif.id)}
+                          >
+                            <div className="flex gap-3">
+                              <div className={`shrink-0 w-2 h-2 mt-2 rounded-full ${!notif.read ? 'bg-blue-600' : 'bg-transparent'}`} />
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{notif.title}</p>
+                                <p className="text-xs text-gray-500 mt-1">{notif.message}</p>
+                                <p className="text-[10px] text-gray-400 mt-2">
+                                  {new Date(notif.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
             <button
               className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors"
               title="Help (Coming Soon)"

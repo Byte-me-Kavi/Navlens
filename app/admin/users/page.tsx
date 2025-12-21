@@ -25,32 +25,134 @@ export default function AdminUsersPage() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [showBanModal, setShowBanModal] = useState(false);
     const [processing, setProcessing] = useState(false);
+    const [plans, setPlans] = useState<any[]>([]);
 
     const fetchUsers = async () => {
         setLoading(true);
         try {
+            console.log('[UsersPage] Fetching users...');
             const res = await fetch('/api/admin/users?perPage=100');
+            console.log('[UsersPage] Status:', res.status);
             const data = await res.json();
+            console.log('[UsersPage] Data:', data);
+            
             if (data.users) {
                 setUsers(data.users);
+            } else if (data.error) {
+                toast.error('Error: ' + data.error);
             }
         } catch (error) {
+            console.error('[UsersPage] Error:', error);
             toast.error('Failed to load users');
         } finally {
+            console.log('[UsersPage] Loading done.');
             setLoading(false);
+        }
+    };
+
+    // Load subscription plans for dropdown
+    const fetchPlans = async () => {
+        try {
+            const res = await fetch('/api/admin/users/plans');
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                // Sort plans: Free, Starter, Pro, Enterprise
+                const order = ['Free', 'Starter', 'Pro', 'Enterprise'];
+                const sorted = data.sort((a, b) => {
+                    const indexA = order.indexOf(a.name);
+                    const indexB = order.indexOf(b.name);
+                    // If not found in order list, put at end
+                    return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+                });
+                setPlans(sorted);
+            }
+        } catch (e) {
+            console.error('Failed to fetch plans');
         }
     };
 
     useEffect(() => {
         fetchUsers();
+        fetchPlans();
+        // Failsafe
+        const timer = setTimeout(() => setLoading(false), 5000);
+        return () => clearTimeout(timer);
     }, []);
 
-    const handleBanAction = async (action: '24h' | '7d' | 'forever' | 'unban') => {
-        if (!selectedUser) return;
+    // Confirmation Modal State
+    const [confirmAction, setConfirmAction] = useState<{ 
+        type: 'plan' | 'ban', 
+        targetId?: string, // planId or banType
+        msg: string 
+    } | null>(null);
+
+    const handlePlanChangeClick = (planId: string) => {
+        const planName = plans.find(p => p.id === planId)?.name;
+        setConfirmAction({
+            type: 'plan',
+            targetId: planId,
+            msg: `Are you sure you want to change the user's plan to ${planName}? This will override their current subscription.`
+        });
+    };
+
+    const handleBanActionClick = (action: '24h' | '7d' | 'forever' | 'unban') => {
+        let msg = '';
+        if (action === 'unban') msg = 'Are you sure you want to restore access for this user?';
+        else if (action === 'forever') msg = 'Are you sure you want to PERMANENTLY ban this user?';
+        else msg = `Are you sure you want to ban this user for ${action === '24h' ? '24 hours' : '7 days'}?`;
+
+        setConfirmAction({
+            type: 'ban',
+            targetId: action,
+            msg
+        });
+    };
+
+    const executeAction = async () => {
+        if (!confirmAction || !selectedUser) return;
         setProcessing(true);
 
+        if (confirmAction.type === 'plan') {
+            await updatePlan(confirmAction.targetId!);
+        } else if (confirmAction.type === 'ban') {
+            await updateBan(confirmAction.targetId as any);
+        }
+        
+        setConfirmAction(null);
+        setProcessing(false);
+    };
+
+    const updatePlan = async (planId: string) => {
+        console.log('Changing plan to:', planId);
         try {
-            const res = await fetch(`/api/admin/users/${selectedUser.id}/ban`, {
+            const res = await fetch('/api/admin/users/update-plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: selectedUser!.id, planId })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                toast.success('Plan Updated Successfully');
+                // Update local state
+                const newPlanName = plans.find(p => p.id === planId)?.name || 'Unknown';
+                setUsers(prev => prev.map(u => 
+                    u.id === selectedUser!.id ? { ...u, plan_name: newPlanName } : u
+                ));
+                setSelectedUser(prev => prev ? { ...prev, plan_name: newPlanName } : null);
+            } else {
+                console.error('Update plan failed:', data);
+                toast.error(data.error || 'Failed to update plan. Check console.');
+            }
+        } catch (e: any) {
+            console.error('Network error:', e);
+            toast.error('Network error: ' + e.message);
+        }
+    };
+
+    const updateBan = async (action: '24h' | '7d' | 'forever' | 'unban') => {
+        try {
+            const res = await fetch(`/api/admin/users/${selectedUser!.id}/ban`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action })
@@ -61,7 +163,7 @@ export default function AdminUsersPage() {
                 toast.success(action === 'unban' ? 'User Access Restored' : 'User Banned Successfully');
                 // Refresh list locally to update UI instantly
                 setUsers(prev => prev.map(u => 
-                    u.id === selectedUser.id ? { 
+                    u.id === selectedUser!.id ? { 
                         ...u, 
                         banned_until: data.user.banned_until,
                         is_banned: action !== 'unban' 
@@ -74,8 +176,6 @@ export default function AdminUsersPage() {
             }
         } catch (e) {
             toast.error('Network error');
-        } finally {
-            setProcessing(false);
         }
     };
 
@@ -203,7 +303,7 @@ export default function AdminUsersPage() {
                             animate={{ opacity: 1 }} 
                             exit={{ opacity: 0 }}
                             className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm"
-                            onClick={() => setShowBanModal(false)}
+                            onClick={() => !confirmAction && setShowBanModal(false)}
                         />
                         <motion.div 
                             initial={{ scale: 0.95, opacity: 0 }} 
@@ -211,81 +311,140 @@ export default function AdminUsersPage() {
                             exit={{ scale: 0.95, opacity: 0 }}
                             className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md relative z-10 border border-white/50"
                         >
-                            <button 
-                                onClick={() => setShowBanModal(false)}
-                                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                            {!confirmAction && (
+                                <button 
+                                    onClick={() => setShowBanModal(false)}
+                                    className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            )}
 
-                            <div className="mb-6">
-                                <h2 className="text-xl font-bold text-slate-800 mb-1">Manage Access</h2>
-                                <p className="text-sm text-slate-500">Control access for <span className="font-semibold text-slate-700">{selectedUser.email}</span></p>
-                            </div>
+                            {confirmAction ? (
+                                <div className="text-center py-4">
+                                    <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+                                        <AlertOctagon className="w-6 h-6" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-800 mb-2">Confirm Action</h3>
+                                    <p className="text-slate-600 mb-6">{confirmAction.msg}</p>
+                                    
+                                    <div className="flex gap-3 justify-center">
+                                        <button 
+                                            onClick={() => setConfirmAction(null)}
+                                            className="px-4 py-2 rounded-lg text-slate-600 font-medium hover:bg-slate-100 transition-colors"
+                                            disabled={processing}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            onClick={executeAction}
+                                            disabled={processing}
+                                            className="px-4 py-2 rounded-lg bg-slate-900 text-white font-medium hover:bg-slate-800 transition-colors"
+                                        >
+                                            {processing ? 'Processing...' : 'Confirm'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="mb-6">
+                                        <h2 className="text-xl font-bold text-slate-800 mb-1">Manage Access</h2>
+                                        <p className="text-sm text-slate-500">Control access for <span className="font-semibold text-slate-700">{selectedUser.email}</span></p>
+                                    </div>
 
-                            <div className="space-y-3">
-                                {selectedUser.is_banned ? (
-                                    <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-4">
-                                        <div className="flex items-start gap-3">
-                                            <AlertOctagon className="w-5 h-5 text-red-500 mt-0.5" />
-                                            <div>
-                                                <h3 className="text-sm font-semibold text-red-700">User is Banned</h3>
-                                                <p className="text-xs text-red-600 mt-1">
-                                                    Access is restricted until {selectedUser.banned_until ? new Date(selectedUser.banned_until).toLocaleDateString() : 'Forever'}.
-                                                </p>
+                                    <div className="space-y-6">
+                                        {/* Plan Management Section */}
+                                        <div className="space-y-3">
+                                            <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2">Subscription Plan</h3>
+                                            <div className="flex gap-2">
+                                                {plans.map(plan => (
+                                                    <button
+                                                        key={plan.id}
+                                                        disabled={processing || selectedUser.plan_name === plan.name}
+                                                        onClick={() => handlePlanChangeClick(plan.id)}
+                                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold border transition-all ${
+                                                            selectedUser.plan_name === plan.name
+                                                                ? 'bg-blue-50 border-blue-200 text-blue-700 ring-1 ring-blue-500/20'
+                                                                : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'
+                                                        }`}
+                                                    >
+                                                        {plan.name}
+                                                    </button>
+                                                ))}
                                             </div>
+                                            <p className="text-xs text-slate-400">
+                                                Manually assigning a plan will override billing status.
+                                            </p>
+                                        </div>
+
+                                        {/* Ban Section */}
+                                        <div className="space-y-3">
+                                            <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2">Access Control</h3>
+                                            {selectedUser.is_banned ? (
+                                                <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-4">
+                                                    <div className="flex items-start gap-3">
+                                                        <AlertOctagon className="w-5 h-5 text-red-500 mt-0.5" />
+                                                        <div>
+                                                            <h3 className="text-sm font-semibold text-red-700">User is Banned</h3>
+                                                            <p className="text-xs text-red-600 mt-1">
+                                                                Access is restricted until {selectedUser.banned_until ? new Date(selectedUser.banned_until).toLocaleDateString() : 'Forever'}.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : null}
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <button
+                                                    disabled={processing}
+                                                    onClick={() => handleBanActionClick('24h')}
+                                                    className="p-3 rounded-xl border border-slate-200 hover:border-orange-300 hover:bg-orange-50 transition-all text-left group"
+                                                >
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <Clock className="w-4 h-4 text-orange-500" />
+                                                        <span className="font-semibold text-slate-700 text-sm">24 Hours</span>
+                                                    </div>
+                                                    <span className="text-xs text-slate-500 group-hover:text-orange-600">Temporary timeout</span>
+                                                </button>
+
+                                                <button
+                                                    disabled={processing}
+                                                    onClick={() => handleBanActionClick('7d')}
+                                                    className="p-3 rounded-xl border border-slate-200 hover:border-orange-300 hover:bg-orange-50 transition-all text-left group"
+                                                >
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <Clock className="w-4 h-4 text-orange-500" />
+                                                        <span className="font-semibold text-slate-700 text-sm">7 Days</span>
+                                                    </div>
+                                                    <span className="text-xs text-slate-500 group-hover:text-orange-600">One week suspension</span>
+                                                </button>
+
+                                                <button
+                                                    disabled={processing}
+                                                    onClick={() => handleBanActionClick('forever')}
+                                                    className="p-3 rounded-xl border border-slate-200 hover:border-red-300 hover:bg-red-50 transition-all text-left group col-span-2"
+                                                >
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <UserX className="w-4 h-4 text-red-500" />
+                                                        <span className="font-semibold text-slate-700 text-sm">Permanent Ban</span>
+                                                    </div>
+                                                    <span className="text-xs text-slate-500 group-hover:text-red-600">Revoke access indefinitely</span>
+                                                </button>
+                                            </div>
+
+                                            {selectedUser.is_banned && (
+                                                <button
+                                                    disabled={processing}
+                                                    onClick={() => handleBanActionClick('unban')}
+                                                    className="w-full mt-4 bg-slate-900 text-white rounded-xl py-3 font-semibold text-sm hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
+                                                >
+                                                    Restore Access
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                ) : null}
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        disabled={processing}
-                                        onClick={() => handleBanAction('24h')}
-                                        className="p-3 rounded-xl border border-slate-200 hover:border-orange-300 hover:bg-orange-50 transition-all text-left group"
-                                    >
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <Clock className="w-4 h-4 text-orange-500" />
-                                            <span className="font-semibold text-slate-700 text-sm">24 Hours</span>
-                                        </div>
-                                        <span className="text-xs text-slate-500 group-hover:text-orange-600">Temporary timeout</span>
-                                    </button>
-
-                                    <button
-                                        disabled={processing}
-                                        onClick={() => handleBanAction('7d')}
-                                        className="p-3 rounded-xl border border-slate-200 hover:border-orange-300 hover:bg-orange-50 transition-all text-left group"
-                                    >
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <Clock className="w-4 h-4 text-orange-500" />
-                                            <span className="font-semibold text-slate-700 text-sm">7 Days</span>
-                                        </div>
-                                        <span className="text-xs text-slate-500 group-hover:text-orange-600">One week suspension</span>
-                                    </button>
-
-                                    <button
-                                        disabled={processing}
-                                        onClick={() => handleBanAction('forever')}
-                                        className="p-3 rounded-xl border border-slate-200 hover:border-red-300 hover:bg-red-50 transition-all text-left group col-span-2"
-                                    >
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <UserX className="w-4 h-4 text-red-500" />
-                                            <span className="font-semibold text-slate-700 text-sm">Permanent Ban</span>
-                                        </div>
-                                        <span className="text-xs text-slate-500 group-hover:text-red-600">Revoke access indefinitely</span>
-                                    </button>
-                                </div>
-
-                                {selectedUser.is_banned && (
-                                     <button
-                                        disabled={processing}
-                                        onClick={() => handleBanAction('unban')}
-                                        className="w-full mt-4 bg-slate-900 text-white rounded-xl py-3 font-semibold text-sm hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
-                                     >
-                                        Restore Access
-                                     </button>
-                                )}
-                            </div>
+                                </>
+                            )}
                         </motion.div>
                     </div>
                 )}

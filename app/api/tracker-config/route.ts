@@ -67,7 +67,11 @@ export async function OPTIONS() {
     return new NextResponse(null, { status: 204, headers: corsHeaders('*') });
 }
 
-export async function GET(request: NextRequest) {
+import { withMonitoring } from "@/lib/api-middleware";
+
+export const dynamic = 'force-dynamic';
+
+async function GET_handler(request: NextRequest) {
     const origin = request.headers.get('origin');
 
     try {
@@ -168,3 +172,5 @@ export async function GET(request: NextRequest) {
         }, { status: 200, headers: corsHeaders(origin) });
     }
 }
+
+export const GET = withMonitoring(GET_handler);

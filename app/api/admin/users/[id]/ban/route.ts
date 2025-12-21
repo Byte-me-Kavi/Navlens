@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server-admin';
+import { logAdminAction } from '@/lib/admin-logger';
 
 export async function POST(
-    request: Request,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
@@ -56,6 +57,13 @@ export async function POST(
             console.error('[AdminBan] Failed:', error);
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
+
+        // 5. Audit Log
+        await logAdminAction(request, {
+            action: action === 'unban' ? 'UNBAN_USER' : 'BAN_USER',
+            targetResource: userId,
+            details: { ban_duration: banDuration, request_action: action }
+        });
 
         const userWithType = data.user as any;
         return NextResponse.json({
