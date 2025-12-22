@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import {
@@ -11,6 +11,11 @@ import {
   DocumentDuplicateIcon,
   ChevronDownIcon,
   PresentationChartBarIcon,
+  CalendarIcon,
+  LinkIcon,
+  EyeIcon,
+  PlayIcon,
+  ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import { createSite, deleteSite } from "./action";
 import toast from "react-hot-toast";
@@ -58,7 +63,7 @@ function AddSiteForm({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-6">
-      <div className="bg-white rounded-lg shadow-2xl max-w-lg w-full p-5 sm:p-6 border border-gray-100">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-5 sm:p-6 border border-gray-100">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-900">Add New Site</h2>
           <button
@@ -95,7 +100,7 @@ function AddSiteForm({
               name="site_name"
               required
               disabled={loading}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white text-sm"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white text-sm"
               placeholder="My Awesome Website"
             />
           </div>
@@ -113,13 +118,13 @@ function AddSiteForm({
               name="domain"
               required
               disabled={loading}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white text-sm"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50 transition-all duration-200 bg-gray-50 focus:bg-white text-sm"
               placeholder="https://example.com"
             />
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
               <p className="text-sm text-red-600">{error}</p>
             </div>
           )}
@@ -128,7 +133,7 @@ function AddSiteForm({
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md text-sm"
+              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md text-sm"
             >
               {loading ? "Adding..." : "Add Site"}
             </button>
@@ -136,7 +141,7 @@ function AddSiteForm({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 text-sm"
+              className="px-4 py-2.5 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 text-sm"
             >
               Cancel
             </button>
@@ -183,7 +188,7 @@ function SnippetCode({ site }: { site: Site }) {
   return (
     <div className="mt-6 space-y-4">
       {/* API Key Section */}
-      <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+      <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <svg
@@ -203,7 +208,7 @@ function SnippetCode({ site }: { site: Site }) {
           </div>
           <CopyToClipboard text={site.api_key || ""} onCopy={handleApiKeyCopy}>
             <button
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all duration-200 shadow-sm hover:shadow-md"
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-all duration-200 shadow-sm hover:shadow-md"
               disabled={!site.api_key}
             >
               <DocumentDuplicateIcon className="w-4 h-4" />
@@ -221,16 +226,16 @@ function SnippetCode({ site }: { site: Site }) {
       </div>
 
       {/* Installation Code Section */}
-      <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+      <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <CodeBracketIcon className="w-5 h-5 text-blue-600" />
+            <CodeBracketIcon className="w-5 h-5 text-indigo-600" />
             <h4 className="text-sm font-semibold text-gray-900">
               Installation Code
             </h4>
           </div>
           <CopyToClipboard text={snippet} onCopy={handleSnippetCopy}>
-            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md">
               <DocumentDuplicateIcon className="w-4 h-4" />
               {snippetCopied ? "Copied!" : "Copy"}
             </button>
@@ -242,7 +247,7 @@ function SnippetCode({ site }: { site: Site }) {
           then the Navlens tracker. This enables session recording and DOM
           snapshots.
         </p>
-        <div className="bg-white p-3 rounded-lg border border-gray-200 overflow-x-auto">
+        <div className="bg-white p-3 rounded-xl border border-indigo-100 overflow-x-auto">
           <pre className="text-xs text-gray-800">
             <code>{snippet}</code>
           </pre>
@@ -261,6 +266,71 @@ export default function SiteManager({ sites }: SiteManagerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { setSelectedSiteId, fetchSites } = useSite();
   const router = useRouter();
+
+  // Site status tracking
+  const [siteStatuses, setSiteStatuses] = useState<Record<string, { hasRecentEvents: boolean; lastEventTime: string | null }>>({});
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Fetch site statuses on mount
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      if (sites.length === 0) {
+        setStatusLoading(false);
+        return;
+      }
+
+      try {
+        const siteIds = sites.map(s => s.id);
+        const res = await fetch('/api/sites/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ siteIds })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const statusMap: Record<string, { hasRecentEvents: boolean; lastEventTime: string | null }> = {};
+          for (const status of data.statuses) {
+            statusMap[status.siteId] = {
+              hasRecentEvents: status.hasRecentEvents,
+              lastEventTime: status.lastEventTime
+            };
+          }
+          setSiteStatuses(statusMap);
+        }
+      } catch (error) {
+        console.error('Failed to fetch site statuses:', error);
+      } finally {
+        setStatusLoading(false);
+      }
+    };
+
+    fetchStatuses();
+  }, [sites]);
+
+  // Toggle tracking for a site
+  const toggleTracking = async (siteId: string, currentState: boolean) => {
+    setTogglingId(siteId);
+    try {
+      const res = await fetch(`/api/sites/${siteId}/toggle-tracking`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_tracking_enabled: !currentState })
+      });
+
+      if (res.ok) {
+        toast.success(currentState ? 'Tracking paused' : 'Tracking enabled');
+        await fetchSites(true); // Refresh to get updated state
+      } else {
+        toast.error('Failed to update tracking status');
+      }
+    } catch (error) {
+      toast.error('Network error');
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   // Force refresh sites in context (bypass cache)
   const refreshSites = async () => {
@@ -293,11 +363,11 @@ export default function SiteManager({ sites }: SiteManagerProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-6">
           {/* Page Header */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-5">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">My Sites</h1>
@@ -307,7 +377,7 @@ export default function SiteManager({ sites }: SiteManagerProps) {
               </div>
               <button
                 onClick={() => setShowAddForm(true)}
-                className="flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md font-semibold w-full sm:w-auto text-sm"
+                className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 font-semibold w-full sm:w-auto text-sm"
               >
                 <PlusIcon className="w-4 h-4" />
                 <span>Add New Site</span>
@@ -325,10 +395,10 @@ export default function SiteManager({ sites }: SiteManagerProps) {
 
           {/* Empty State or Sites List */}
           {sites.length === 0 ? (
-            <div className="bg-white rounded-lg border-2 border-dashed border-blue-200 p-6 sm:p-8 text-center shadow-sm">
+            <div className="bg-white rounded-2xl border-2 border-dashed border-indigo-200 p-6 sm:p-10 text-center shadow-sm">
               <div className="flex justify-center mb-4">
-                <div className="p-3 bg-blue-50 rounded-full">
-                  <GlobeAltIcon className="w-12 h-12 text-blue-600" />
+                <div className="p-4 bg-indigo-50 rounded-2xl">
+                  <GlobeAltIcon className="w-12 h-12 text-indigo-600" />
                 </div>
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">
@@ -340,47 +410,123 @@ export default function SiteManager({ sites }: SiteManagerProps) {
               </p>
               <button
                 onClick={() => setShowAddForm(true)}
-                className="inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md font-semibold text-sm"
+                className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 font-semibold text-sm"
               >
                 <PlusIcon className="w-4 h-4" />
                 <span>Add Your First Site</span>
               </button>
             </div>
           ) : (
-            <div className="space-y-5">
-              {/* Sites Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* Sites Grid - now 2 columns on larger screens */}
               {sites.map((site) => (
                 <div
                   key={site.id}
-                  className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200"
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-indigo-200 transition-all duration-300 overflow-hidden group"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <GlobeAltIcon className="w-8 h-8 text-gray-400 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-gray-900 mb-0.5 truncate">
-                          {site.site_name}
-                        </h3>
-                        <a
-                          href={`https://${site.domain}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-700 transition-colors text-xs font-medium inline-block truncate max-w-full"
-                        >
-                          {site.domain}
-                        </a>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {new Date(site.created_at).toLocaleDateString()}
+                  {/* Card Header - Clean White with Accent */}
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-indigo-50 rounded-xl">
+                          <GlobeAltIcon className="w-6 h-6 text-indigo-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900 truncate max-w-[200px]">
+                            {site.site_name}
+                          </h3>
+                          <a
+                            href={`https://${site.domain}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-600 hover:text-indigo-700 transition-colors text-sm font-medium flex items-center gap-1"
+                          >
+                            <LinkIcon className="w-3 h-3" />
+                            {site.domain}
+                          </a>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDelete(site.id, site.site_name)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                        title="Delete site"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="p-5">
+                    {/* Quick Stats Row */}
+                    <div className="grid grid-cols-3 gap-3 mb-5">
+                      <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <CalendarIcon className="w-5 h-5 text-indigo-500 mx-auto mb-1" />
+                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Added</p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {new Date(site.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </p>
                       </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => handleViewHeatmap(site.id)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm"
+                      <div className="text-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <ChartBarIcon className={`w-5 h-5 mx-auto mb-1 ${
+                          statusLoading ? 'text-gray-400' :
+                          siteStatuses[site.id]?.hasRecentEvents ? 'text-green-500' : 'text-amber-500'
+                        }`} />
+                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Status</p>
+                        {statusLoading ? (
+                          <p className="text-sm font-bold text-gray-400">...</p>
+                        ) : (
+                          <p className={`text-sm font-bold ${
+                            siteStatuses[site.id]?.hasRecentEvents ? 'text-green-600' : 'text-amber-600'
+                          }`}>
+                            {siteStatuses[site.id]?.hasRecentEvents ? 'Active' : 'Inactive'}
+                          </p>
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => toggleTracking(site.id, site.is_tracking_enabled ?? true)}
+                        disabled={togglingId === site.id}
+                        className="text-center p-3 bg-gray-50 rounded-xl border border-gray-100 hover:bg-indigo-50 hover:border-indigo-200 transition-all cursor-pointer disabled:opacity-50"
+                        title="Click to toggle tracking"
                       >
-                        <PresentationChartBarIcon className="w-4 h-4" />
-                        <span className="hidden sm:inline">Heatmap</span>
+                        <EyeIcon className={`w-5 h-5 mx-auto mb-1 ${
+                          (site.is_tracking_enabled ?? true) ? 'text-purple-500' : 'text-gray-400'
+                        }`} />
+                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Tracking</p>
+                        <p className={`text-sm font-bold ${
+                          togglingId === site.id ? 'text-gray-400' :
+                          (site.is_tracking_enabled ?? true) ? 'text-green-600' : 'text-gray-500'
+                        }`}>
+                          {togglingId === site.id ? '...' : (site.is_tracking_enabled ?? true) ? 'On' : 'Off'}
+                        </p>
+                      </button>
+                    </div>
+
+                    {/* Primary Action */}
+                    <button
+                      onClick={() => handleViewHeatmap(site.id)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg group-hover:-translate-y-0.5 mb-4"
+                    >
+                      <PresentationChartBarIcon className="w-5 h-5" />
+                      View Heatmaps & Analytics
+                    </button>
+
+                    {/* Secondary Actions */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          setShowSnippetId(
+                            showSnippetId === site.id ? null : site.id
+                          )
+                        }
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
+                          showSnippetId === site.id
+                            ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                            : 'bg-gray-100 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border border-transparent'
+                        }`}
+                      >
+                        <CodeBracketIcon className="w-4 h-4" />
+                        {showSnippetId === site.id ? "Hide Code" : "Get Code"}
                       </button>
                       <button
                         onClick={() =>
@@ -388,43 +534,31 @@ export default function SiteManager({ sites }: SiteManagerProps) {
                             showPathManagerId === site.id ? null : site.id
                           )
                         }
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
+                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
+                          showPathManagerId === site.id
+                            ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                            : 'bg-gray-100 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border border-transparent'
+                        }`}
                       >
                         <ChevronDownIcon
                           className={`w-4 h-4 transition-transform ${
                             showPathManagerId === site.id ? "rotate-180" : ""
                           }`}
                         />
-                        <span className="hidden sm:inline">Paths</span>
-                      </button>
-                      <button
-                        onClick={() =>
-                          setShowSnippetId(
-                            showSnippetId === site.id ? null : site.id
-                          )
-                        }
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200"
-                      >
-                        <CodeBracketIcon className="w-4 h-4" />
-                        <span className="hidden sm:inline">
-                          {showSnippetId === site.id ? "Hide" : "Code"}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => handleDelete(site.id, site.site_name)}
-                        className="flex items-center justify-center p-1.5 text-xs font-semibold bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all duration-200"
-                      >
-                        <TrashIcon className="w-4 h-4" />
+                        Manage Paths
                       </button>
                     </div>
                   </div>
 
-                  {/* Snippet Code Block */}
-                  {showSnippetId === site.id && <SnippetCode site={site} />}
+                  {/* Expandable Sections */}
+                  {showSnippetId === site.id && (
+                    <div className="border-t border-gray-100">
+                      <SnippetCode site={site} />
+                    </div>
+                  )}
 
-                  {/* Page Path Manager */}
                   {showPathManagerId === site.id && (
-                    <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="border-t border-gray-100 p-5">
                       <PagePathManager
                         siteId={site.id}
                         siteName={site.site_name}
@@ -437,10 +571,10 @@ export default function SiteManager({ sites }: SiteManagerProps) {
           )}
 
           {/* Info Card */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 shadow-sm">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5 shadow-sm">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg shrink-0">
-                <CodeBracketIcon className="w-5 h-5 text-blue-600" />
+              <div className="p-2 bg-indigo-100 rounded-xl shrink-0">
+                <CodeBracketIcon className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-gray-900 mb-2">

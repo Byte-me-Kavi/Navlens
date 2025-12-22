@@ -22,6 +22,7 @@ export interface Site {
   api_key: string;
   user_id: string;
   status: 'active' | 'banned' | 'archived';
+  is_tracking_enabled?: boolean; // New field for tracking toggle
 }
 
 // Pages cache per site

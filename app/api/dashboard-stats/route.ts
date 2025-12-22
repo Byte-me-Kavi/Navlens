@@ -6,6 +6,18 @@ import { encryptedJsonResponse } from '@/lib/encryption';
 import { getClickHouseClient } from '@/lib/clickhouse';
 
 // --- Type Definitions ---
+// Helper for safe result handling
+const handleResult = (result: PromiseSettledResult<any>, transform: (data: any) => any, fallback: any = undefined) => {
+  if (result.status === 'fulfilled') {
+    try {
+      return transform(result.value);
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+};
+
 interface ClickData {
   total_clicks: number;
 }
@@ -142,7 +154,7 @@ export async function GET() {
     const totalSites = siteIds.length;
 
     // 4. PARALLEL EXECUTION (Now with Caching!)
-    const [clickHouseResult, heatmapResult] = await Promise.allSettled([
+    const clickHouseResult = await Promise.allSettled([
       // Task A: Get Clicks/Sessions (CACHED)
       // This will be instant (1ms) if called recently
       getCachedAnalytics(siteIds),
@@ -152,6 +164,133 @@ export async function GET() {
         .from('snapshots') // Assuming you have a table tracking snapshots
         .select('id', { count: 'exact', head: true }) // 'head: true' returns count only, no data
         .in('site_id', siteIds),
+
+      // Task C: Get Top Pages (Optimized MV Query)
+      clickHouseClient.query({
+        query: `
+          SELECT
+            page_path,
+            sum(visits) as count
+          FROM top_pages_hourly
+          WHERE site_id IN ({siteIds:Array(String)})
+            AND hour >= now() - INTERVAL 7 DAY
+          GROUP BY page_path
+          ORDER BY count DESC
+          LIMIT 5
+        `,
+        query_params: { siteIds: siteIds },
+        format: 'JSON'
+      }).then(res => res.json()),
+
+      // Task D: Get Weekly Activity (Daily Clicks)
+      clickHouseClient.query({
+        query: `
+          SELECT
+            toStartOfDay(hour) as day,
+            sum(total_clicks) as clicks
+          FROM dashboard_stats_hourly
+          WHERE site_id IN ({siteIds:Array(String)})
+            AND hour >= now() - INTERVAL 7 DAY
+          GROUP BY day
+          ORDER BY day ASC
+        `,
+        query_params: { siteIds: siteIds },
+        format: 'JSON'
+      }).then(res => res.json()),
+
+      // Task E: Live Users (5 min)
+      clickHouseClient.query({
+        query: `
+          SELECT uniq(session_id) as count
+          FROM events
+          WHERE site_id IN ({siteIds:Array(String)})
+            AND timestamp >= now() - INTERVAL 5 MINUTE
+        `,
+        query_params: { siteIds: siteIds },
+        format: 'JSON'
+      }).then(res => res.json()),
+
+      // Task F: Frustration Signals (Today) - Uses frustration_stats_hourly MV + debug_events for errors
+      Promise.all([
+        // Rage clicks and dead clicks from MV
+        clickHouseClient.query({
+          query: `
+            SELECT 
+              sum(rage_clicks) as rage_clicks,
+              sum(dead_clicks) as dead_clicks
+            FROM frustration_stats_hourly
+            WHERE site_id IN ({siteIds:Array(String)})
+              AND hour >= toStartOfDay(now())
+          `,
+          query_params: { siteIds: siteIds },
+          format: 'JSON'
+        }).then(res => res.json()),
+        // Console errors from debug_events
+        clickHouseClient.query({
+          query: `
+            SELECT count() as errors
+            FROM debug_events
+            WHERE site_id IN ({siteIds:Array(String)})
+              AND timestamp >= toStartOfDay(now())
+              AND console_level = 'error'
+          `,
+          query_params: { siteIds: siteIds },
+          format: 'JSON'
+        }).then(res => res.json())
+      ]).then(([frustration, errors]) => ({
+        ...frustration,
+        errors: errors
+      })),
+
+      // Task G: Recent Sessions (Feed) - Uses session_analytics MV
+      clickHouseClient.query({
+        query: `
+          SELECT 
+            session_id,
+            device_type as device,
+            start_time,
+            end_time,
+            rage_clicks as rage_count,
+            event_count
+          FROM session_analytics
+          WHERE site_id IN ({siteIds:Array(String)})
+            AND end_time >= now() - INTERVAL 24 HOUR
+          ORDER BY end_time DESC
+          LIMIT 3
+        `,
+        query_params: { siteIds: siteIds },
+        format: 'JSON'
+      }).then(res => res.json()),
+
+      // Task H: Device Breakdown (7 Days) - Uses device_stats_daily MV
+      clickHouseClient.query({
+        query: `
+          SELECT 
+            device_type,
+            uniqMerge(unique_sessions) as count
+          FROM device_stats_daily
+          WHERE site_id IN ({siteIds:Array(String)})
+            AND day >= toStartOfDay(now() - INTERVAL 7 DAY)
+          GROUP BY device_type
+          ORDER BY count DESC
+        `,
+        query_params: { siteIds: siteIds },
+        format: 'JSON'
+      }).then(res => res.json()),
+
+      // Task I: Core Web Vitals (7 Days)
+      clickHouseClient.query({
+        query: `
+          SELECT 
+            avgIf(load_time, event_type = 'LCP' AND load_time > 0) as lcp
+            -- Add CLS if available, otherwise just LCP
+          FROM events
+          WHERE site_id IN ({siteIds:Array(String)})
+            AND timestamp >= now() - INTERVAL 7 DAY
+        `,
+        query_params: { siteIds: siteIds },
+        format: 'JSON'
+      }).then(res => res.json())
     ]);
 
     // 5. Process Results (Handle partial failures gracefully)
@@ -160,10 +299,12 @@ export async function GET() {
     let totalHeatmaps = 0;
     let activeSessions = 0;
     let sessionTrend = { value: 0, isPositive: true };
+    let topPages: { path: string; visits: number }[] = [];
+    let weeklyActivity: { date: string; clicks: number }[] = [];
 
     // Handle ClickHouse (Cached) Response
-    if (clickHouseResult.status === 'fulfilled') {
-      const data = clickHouseResult.value as { data: any[] }; // simplified type
+    if (clickHouseResult[0].status === 'fulfilled') {
+      const data = clickHouseResult[0].value as { data: any[] }; // simplified type
       const megaData = data.data[0];
       const currentClicks = megaData?.current_clicks || 0;
       const prevClicks = megaData?.prev_clicks || 0;
@@ -180,13 +321,84 @@ export async function GET() {
     }
 
     // Handle Heatmap Response
-    if (heatmapResult.status === 'fulfilled') {
+    if (clickHouseResult[1].status === 'fulfilled') {
       // If using DB Count (Preferred Enterprise Approach)
-      totalHeatmaps = heatmapResult.value.count || 0;
+      totalHeatmaps = clickHouseResult[1].value.count || 0;
     } else {
       // Continue with totalHeatmaps = 0 (Partial data is better than error)
     }
 
+    // Handle Top Pages Response
+    if (clickHouseResult[2].status === 'fulfilled') {
+      const data = clickHouseResult[2].value as { data: any[] };
+      topPages = data.data.map((row: any) => ({
+        path: row.page_path,
+        visits: +row.count
+      }));
+    }
+
+    // Handle Weekly Activity Response
+    if (clickHouseResult[3].status === 'fulfilled') {
+      const data = clickHouseResult[3].value as { data: any[] };
+      // Create a map of existing data
+      const dataMap = new Map(data.data.map((row: any) => [row.day.split(' ')[0], +row.clicks]));
+
+      // Fill in last 7 days including today
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const clicks = dataMap.get(dateStr) || 0;
+        weeklyActivity.push({ date: dateStr, clicks });
+      }
+    }
+
+    // Process New Metrics (Live, Frustration, Sessions, Devices, Vitals)
+    const liveUsers = handleResult(clickHouseResult[4], (d: any) => +d.data[0]?.count || 0);
+    const frustration = handleResult(clickHouseResult[5], (d: any) => {
+      // d contains: { data: [...], errors: { data: [...] } }
+      const frustData = d.data?.[0] || {};
+      const errorData = d.errors?.data?.[0] || {};
+      return {
+        rageClicks: +frustData.rage_clicks || 0,
+        deadClicks: +frustData.dead_clicks || 0,
+        errors: +errorData.errors || 0
+      };
+    }, { rageClicks: 0, deadClicks: 0, errors: 0 });
+
+    const recentSessions = handleResult(clickHouseResult[6], (d: any) => {
+      return d.data.map((row: any) => {
+        const durationMs = new Date(row.end_time).getTime() - new Date(row.start_time).getTime();
+        const minutes = Math.floor(durationMs / 60000);
+        const seconds = Math.floor((durationMs % 60000) / 1000);
+        const durationStr = `${minutes}m ${seconds}s`;
+
+        // Determine status
+        let status: 'smooth' | 'frustrated' | 'bounced' = 'smooth';
+        if (row.rage_count > 0) status = 'frustrated';
+        else if (row.event_count < 3 && durationMs < 5000) status = 'bounced';
+
+        return {
+          id: row.session_id,
+          country: 'Unknown', // row.country if available
+          duration: durationStr,
+          device: row.device || 'Desktop',
+          status
+        };
+      });
+    }, []);
+
+    const deviceStats = handleResult(clickHouseResult[7], (d: any) => {
+      return d.data.map((row: any) => ({
+        device: row.device_type || 'Desktop',
+        count: +row.count
+      }));
+    }, []);
+
+    const webVitals = handleResult(clickHouseResult[8], (d: any) => ({
+      lcp: +(d.data[0]?.lcp || 0).toFixed(2),
+      cls: 0 // Placeholder
+    }), { lcp: 0, cls: 0 });
 
     // 6. Return Data with Cache Headers (Enterprise Standard)
     // Tell the browser: "Keep this data for 60 seconds. Do not reload page on back button."
@@ -196,7 +408,14 @@ export async function GET() {
         totalClicks: { value: totalClicks, trend: clickTrend },
         totalHeatmaps: { value: totalHeatmaps, trend: { value: 18, isPositive: true } }, // Placeholder for now
         activeSessions: { value: activeSessions, trend: sessionTrend }
-      }
+      },
+      topPages,
+      weeklyActivity,
+      liveUsers,
+      frustration,
+      recentSessions,
+      deviceStats,
+      webVitals
     }, {
       status: 200,
       headers: {

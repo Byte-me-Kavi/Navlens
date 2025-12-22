@@ -65,7 +65,7 @@ export default function LoadingSpinner({
                   cx={x}
                   cy={y}
                   r="3"
-                  fill={`rgba(59, 130, 246, ${opacity})`}
+                  fill={`rgba(79, 70, 229, ${opacity})`}
                 />
               );
             })}

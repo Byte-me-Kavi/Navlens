@@ -94,6 +94,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (!validation.allowed) {
+      // Check if tracking is paused specifically
+      if (validation.valid && !validation.isTrackingEnabled) {
+        console.log(`[v1/ingest] Tracking paused for site ${siteId}, dropping events`);
+        // Return success silently so tracker doesn't retry
+        return jsonResponse({ success: true, processed: 0, reason: 'tracking_paused' }, 200, origin);
+      }
       console.warn(`[v1/ingest] Origin ${origin} not allowed for site ${siteId}`);
       // Return without CORS headers - browser will block
       return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });

@@ -10,7 +10,7 @@ import {
   BellIcon,
   QuestionMarkCircleIcon,
   Bars3Icon,
-  SparklesIcon,
+  BoltIcon,
   CreditCardIcon,
   Cog6ToothIcon,
   UserCircleIcon,
@@ -36,7 +36,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   );
   const { navigateTo, isNavigating } = useNavigation();
   const pathname = usePathname();
-  const { openChat } = useAI();
+  const { openChat, isLoading } = useAI();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<string | null>(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -294,7 +294,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         {/* Mobile Menu Button */}
         <button
           onClick={onMenuToggle}
-          className="md:hidden p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          className="md:hidden p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
           title="Toggle Menu"
         >
           <Bars3Icon className="w-6 h-6" />
@@ -302,7 +302,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
 
         {/* Left Section - Page Title/Breadcrumb */}
         <div className="flex items-center gap-2 sm:gap-4 flex-1">
-          <h1 className="text-base sm:text-xl md:text-2xl font-bold text-blue-900">
+          <h1 className="text-base sm:text-xl md:text-2xl font-bold text-indigo-900">
             {getPageTitle()}
           </h1>
         </div>
@@ -314,7 +314,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors relative"
+                className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-50 rounded-lg transition-colors relative"
                 title="Notifications"
               >
                 <BellIcon className="w-5 h-5" />
@@ -336,7 +336,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                       {notifications.length > 0 && (
                         <button 
                           onClick={markAllAsRead}
-                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
                         >
                           Mark all read
                         </button>
@@ -352,11 +352,11 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                         {notifications.map((notif) => (
                           <div 
                             key={notif.id} 
-                            className={`px-4 py-3 hover:bg-gray-50 transition-colors ${!notif.read ? 'bg-blue-50/50' : ''}`}
+                            className={`px-4 py-3 hover:bg-gray-50 transition-colors ${!notif.read ? 'bg-indigo-50/50' : ''}`}
                             onClick={() => !notif.read && markAsRead(notif.id)}
                           >
                             <div className="flex gap-3">
-                              <div className={`shrink-0 w-2 h-2 mt-2 rounded-full ${!notif.read ? 'bg-blue-600' : 'bg-transparent'}`} />
+                              <div className={`shrink-0 w-2 h-2 mt-2 rounded-full ${!notif.read ? 'bg-indigo-600' : 'bg-transparent'}`} />
                               <div>
                                 <p className="text-sm font-medium text-gray-900">{notif.title}</p>
                                 <p className="text-xs text-gray-500 mt-1">{notif.message}</p>
@@ -374,7 +374,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
               )}
             </div>
             <button
-              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-50 rounded-lg transition-colors"
               title="Help (Coming Soon)"
             >
               <QuestionMarkCircleIcon className="w-5 h-5" />
@@ -382,11 +382,14 @@ export default function Header({ onMenuToggle }: HeaderProps) {
             {/* AI Assistant Button */}
             <button
               onClick={() => openChat('dashboard')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg text-white transition-all shadow-sm"
+              disabled={isLoading}
+              className="group flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white transition-all shadow-sm disabled:opacity-80 disabled:cursor-wait"
               title="Ask Navlens AI"
             >
-              <SparklesIcon className="w-5 h-5 text-white" />
-              <span className="text-xs font-medium text-white">Navlens AI</span>  
+              <BoltIcon className={`w-5 h-5 text-white transition-transform duration-700 ease-in-out ${isLoading ? 'animate-pulse' : 'group-hover:rotate-[360deg]'}`} />
+              <span className="text-xs font-medium text-white">
+                {isLoading ? 'Thinking...' : 'Navlens AI'}
+              </span>  
             </button>
           </div>
 
@@ -414,7 +417,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                   }}
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm">
+                <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold text-sm">
                   {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
                 </div>
               )}
@@ -441,9 +444,9 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                         navigateTo("/dashboard/account");
                         setShowDesktopMenu(false);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all group"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-xl transition-all group"
                     >
-                        <div className="p-2 bg-gray-50 group-hover:bg-blue-50 group-hover:text-blue-600 rounded-lg transition-colors">
+                        <div className="p-2 bg-gray-50 group-hover:bg-indigo-50 group-hover:text-indigo-600 rounded-lg transition-colors">
                             <UserCircleIcon className="w-4 h-4" />
                         </div>
                         <span className="text-sm font-medium">Profile</span>
@@ -455,9 +458,9 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                         navigateTo("/dashboard/account"); 
                         setShowDesktopMenu(false);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all group"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-xl transition-all group"
                     >
-                        <div className="p-2 bg-gray-50 group-hover:bg-blue-50 group-hover:text-blue-600 rounded-lg transition-colors">
+                        <div className="p-2 bg-gray-50 group-hover:bg-indigo-50 group-hover:text-indigo-600 rounded-lg transition-colors">
                             <CreditCardIcon className="w-4 h-4" />
                         </div>
                         <span className="text-sm font-medium">Billing & Plans</span>
@@ -468,9 +471,9 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                         navigateTo("/dashboard/account");
                         setShowDesktopMenu(false);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all group"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-xl transition-all group"
                     >
-                        <div className="p-2 bg-gray-50 group-hover:bg-blue-50 group-hover:text-blue-600 rounded-lg transition-colors">
+                        <div className="p-2 bg-gray-50 group-hover:bg-indigo-50 group-hover:text-indigo-600 rounded-lg transition-colors">
                             <Cog6ToothIcon className="w-4 h-4" />
                         </div>
                         <span className="text-sm font-medium">Settings</span>
@@ -517,7 +520,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                   }}
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm">
+                <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold text-sm">
                   {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
                 </div>
               )}

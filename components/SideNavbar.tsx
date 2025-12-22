@@ -22,6 +22,7 @@ import {
   FireIcon,
   ChartBarIcon,
   UserGroupIcon,
+  BanknotesIcon,
 } from "@heroicons/react/24/outline";
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useState, useRef } from "react";
@@ -37,6 +38,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
   featureKey?: string;
+  highlight?: boolean;
 }
 
 interface NavGroup {
@@ -86,7 +88,8 @@ const navGroups: NavGroup[] = [
 
 // Footer items
 const footerItems: NavItem[] = [
-  { name: "Experiments", href: "/dashboard/experiments", icon: BeakerIcon, badge: "Soon", featureKey: 'ab_testing' },
+  { name: "Experiments", href: "/dashboard/experiments", icon: BeakerIcon, featureKey: 'ab_testing' },
+  { name: "View Pricing", href: "/pricing", icon: BanknotesIcon, highlight: true },
 ];
 
 interface SideNavbarProps {
@@ -234,7 +237,9 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
     const isLocked = !subLoading && item.featureKey && !hasFeature(item.featureKey);
     
     // Allow access only to 'My Sites' if banned
-    const isAllowed = !isBanned || item.href === '/dashboard/my-sites';
+    // Highlighted items (like Pricing) should always be accessible regardless of bans (usually)
+    // But for logic consistency, let's keep it simple. Pricing is usually public so safe.
+    const isAllowed = (!isBanned || item.href === '/dashboard/my-sites' || item.highlight);
 
     return (
       <button
@@ -245,26 +250,28 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         className={`
           w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
           ${isNested ? 'pl-9' : ''}
-          ${isActive
-            ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600 shadow-sm font-medium"
-            : isAllowed 
-                ? "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
-                : "text-gray-400 cursor-not-allowed opacity-60"
+          ${item.highlight 
+            ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/30 hover:shadow-lg hover:bg-indigo-700 font-semibold my-2" 
+            : isActive
+                ? "bg-indigo-50 text-indigo-700 shadow-sm font-medium"
+                : isAllowed 
+                    ? "text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
+                    : "text-gray-400 cursor-not-allowed opacity-60"
           }
         `}
       >
-        <Icon className={`w-4 h-4 ${isActive ? "text-blue-600" : isAllowed ? "" : "text-gray-300"}`} />
-        <span className={isActive ? "font-semibold" : "font-medium"}>
+        <Icon className={`w-4 h-4 ${item.highlight ? "text-white" : isActive ? "text-indigo-600" : isAllowed ? "" : "text-gray-300"}`} />
+        <span className={isActive || item.highlight ? "font-semibold" : "font-medium"}>
           {item.name}
         </span>
         {item.badge && (
-          <span className="ml-auto text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
+          <span className="ml-auto text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-medium">
             {item.badge}
           </span>
         )}
         
         {/* Lock Icon for gating */}
-        {isLocked && (
+        {isLocked && !item.highlight && (
              <span className="ml-auto">
                  <LockClosedIcon className="w-3.5 h-3.5 text-gray-400" />
              </span>
@@ -290,11 +297,11 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
           onClick={() => toggleGroup(group.name)}
           className={`
             w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
-            ${hasActive ? 'bg-blue-50/50' : 'hover:bg-gray-50'}
+            ${hasActive ? 'bg-indigo-50/50' : 'hover:bg-gray-50'}
           `}
         >
-          <Icon className={`w-4 h-4 ${hasActive ? 'text-blue-600' : 'text-gray-500'}`} />
-          <span className={`flex-1 text-left font-medium ${hasActive ? 'text-blue-900' : 'text-gray-700'}`}>
+          <Icon className={`w-4 h-4 ${hasActive ? 'text-indigo-600' : 'text-gray-500'}`} />
+          <span className={`flex-1 text-left font-medium ${hasActive ? 'text-indigo-900' : 'text-gray-700'}`}>
             {group.name}
           </span>
           {isOpen ? (
@@ -331,7 +338,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
           {onClose && (
             <button
               onClick={onClose}
-              className="md:hidden p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="md:hidden p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
               title="Close Menu"
             >
               <XMarkIcon className="w-6 h-6" />
@@ -346,10 +353,10 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
           <button
             onClick={() => setSiteDropdownOpen(!siteDropdownOpen)}
             disabled={sitesLoading}
-            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-white hover:bg-blue-50 border border-gray-200 rounded-lg transition-all text-left"
+            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-white hover:bg-indigo-50 border border-gray-200 rounded-lg transition-all text-left"
           >
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <GlobeAltIcon className={`w-4 h-4 shrink-0 ${currentSite?.status === 'banned' ? 'text-red-500' : 'text-blue-600'}`} />
+              <GlobeAltIcon className={`w-4 h-4 shrink-0 ${currentSite?.status === 'banned' ? 'text-red-500' : 'text-indigo-600'}`} />
               <span className={`text-sm font-medium truncate ${currentSite?.status === 'banned' ? 'text-red-600' : 'text-gray-900'}`}>
                 {sitesLoading ? "Loading..." : currentSite ? (
                     <>
@@ -372,13 +379,13 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
                     setSelectedSiteId(site.id);
                     setSiteDropdownOpen(false);
                   }}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-blue-50 transition-colors ${
-                    selectedSiteId === site.id ? 'bg-blue-50' : ''
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-indigo-50 transition-colors ${
+                    selectedSiteId === site.id ? 'bg-indigo-50' : ''
                   }`}
                 >
-                  <GlobeAltIcon className={`w-4 h-4 shrink-0 ${site.status === 'banned' ? 'text-red-500' : selectedSiteId === site.id ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <GlobeAltIcon className={`w-4 h-4 shrink-0 ${site.status === 'banned' ? 'text-red-500' : selectedSiteId === site.id ? 'text-indigo-600' : 'text-gray-400'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm truncate flex items-center gap-2 ${selectedSiteId === site.id ? 'font-semibold text-blue-900' : 'font-medium text-gray-900'}`}>
+                    <p className={`text-sm truncate flex items-center gap-2 ${selectedSiteId === site.id ? 'font-semibold text-indigo-900' : 'font-medium text-gray-900'}`}>
                       {site.site_name}
                       {site.status === 'banned' && (
                         <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded uppercase tracking-wide">
@@ -388,7 +395,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
                     </p>
                     <p className="text-xs text-gray-500 truncate">{site.domain}</p>
                   </div>
-                  {selectedSiteId === site.id && <CheckIcon className="w-4 h-4 text-blue-600 shrink-0" />}
+                  {selectedSiteId === site.id && <CheckIcon className="w-4 h-4 text-indigo-600 shrink-0" />}
                 </button>
               ))}
             </div>
@@ -404,7 +411,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
                   setSiteDropdownOpen(false);
                   onClose?.();
                 }}
-                className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="w-full text-center text-sm text-indigo-600 hover:text-indigo-700 font-medium"
               >
                 Add your first site →
               </button>
@@ -446,7 +453,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
               }}
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-lg">
+            <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold text-lg">
               {userEmail ? userEmail.charAt(0).toUpperCase() : "U"}
             </div>
           )}
@@ -458,7 +465,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         <button
           onClick={handleLogout}
           disabled={isNavigating}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           <ArrowRightOnRectangleIcon className="w-5 h-5" />
           <span className="font-medium">{isNavigating ? "Logging out..." : "Logout"}</span>

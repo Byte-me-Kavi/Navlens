@@ -15,20 +15,20 @@ const supabase = createClient(
 );
 
 // Direct site domain lookup (no caching to avoid stale data issues)
-export async function getSiteDomain(siteId: string): Promise<{ domain: string | null; valid: boolean }> {
+export async function getSiteDomain(siteId: string): Promise<{ domain: string | null; valid: boolean; isTrackingEnabled: boolean }> {
     const { data, error } = await supabase
         .from('sites')
-        .select('domain')
+        .select('domain, is_tracking_enabled')
         .eq('id', siteId)
         .single();
 
     console.log(`[trackerCors] getSiteDomain for ${siteId}:`, { data, error: error?.message });
 
     if (error || !data) {
-        return { domain: null, valid: false };
+        return { domain: null, valid: false, isTrackingEnabled: false };
     }
 
-    return { domain: data.domain, valid: true };
+    return { domain: data.domain, valid: true, isTrackingEnabled: data.is_tracking_enabled ?? true };
 }
 
 /**
@@ -126,7 +126,7 @@ export function createPreflightResponse(origin: string | null): NextResponse {
 
 /**
  * Validate site and origin together
- * Returns validation result with domain info
+ * Returns validation result with domain info and tracking status
  */
 export async function validateSiteAndOrigin(
     siteId: string,
@@ -135,13 +135,19 @@ export async function validateSiteAndOrigin(
     valid: boolean;
     allowed: boolean;
     domain: string | null;
+    isTrackingEnabled: boolean;
     error?: string;
 }> {
     // Get site domain
     const siteInfo = await getSiteDomain(siteId);
 
     if (!siteInfo.valid) {
-        return { valid: false, allowed: false, domain: null, error: 'Site not found' };
+        return { valid: false, allowed: false, domain: null, isTrackingEnabled: false, error: 'Site not found' };
+    }
+
+    // Check if tracking is enabled
+    if (!siteInfo.isTrackingEnabled) {
+        return { valid: true, allowed: false, domain: siteInfo.domain, isTrackingEnabled: false, error: 'Tracking is paused for this site' };
     }
 
     // Check if origin is allowed
@@ -151,6 +157,7 @@ export async function validateSiteAndOrigin(
         valid: true,
         allowed,
         domain: siteInfo.domain,
+        isTrackingEnabled: true,
         error: allowed ? undefined : 'Origin not allowed for this site'
     };
 }
