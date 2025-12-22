@@ -2028,10 +2028,13 @@
 
   /**
    * Get form identifier (prefer id, then name, then selector)
+   * Uses getAttribute to avoid DOM clobbering (e.g., input name="id" or name="name")
    */
   function getFormId(form) {
-    if (form.id) return `id:${form.id}`;
-    if (form.name) return `name:${form.name}`;
+    const formId = form.getAttribute('id');
+    if (formId) return `id:${formId}`;
+    const formName = form.getAttribute('name');
+    if (formName) return `name:${formName}`;
     // Generate selector-based ID
     const index = Array.from(document.forms).indexOf(form);
     return `form:${index}`;
@@ -3274,6 +3277,27 @@
     };
 
     sendWrappedFetch(V1_INGEST_ENDPOINT, hoverData).catch(console.error);
+    
+    // Send dedicated erratic_movement event for frustration signal tracking
+    if (pathMetrics.isErratic) {
+      const erraticData = {
+        event_type: 'erratic_movement',
+        event_id: generateEventId(),
+        session_id: SESSION_ID,
+        timestamp: new Date().toISOString(),
+        page_url: window.location.href,
+        page_path: window.location.pathname,
+        cursor_path_distance: pathMetrics.totalDistance,
+        cursor_direction_changes: pathMetrics.directionChanges,
+        avg_velocity: pathMetrics.avgVelocity,
+        erratic_score: parseFloat((pathMetrics.directionChanges / pathMetrics.totalDistance).toFixed(4)),
+        document_width: docDimensions.width,
+        document_height: docDimensions.height,
+        device_info: getDeviceInfo(),
+      };
+      sendWrappedFetch(V1_INGEST_ENDPOINT, erraticData).catch(console.error);
+      console.log('[Navlens] Erratic mouse movement detected! Direction changes:', pathMetrics.directionChanges);
+    }
   }
 
   // ============================================

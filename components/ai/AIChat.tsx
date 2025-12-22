@@ -159,6 +159,25 @@ export function AIChat({ onClose }: AIChatProps) {
   // Extract cohort data from AI response using regex - more robust than JSON parsing
   const parseCohortJSON = (content: string): { name: string; description: string; rules: { field: string; operator: string; value: string | number }[] } | null => {
     try {
+      // Strategy 1: Attempt to find and parse valid JSON object
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.name && Array.isArray(parsed.rules)) {
+            // Validate rules structure
+            const validRules = parsed.rules.every((r: any) => r.field && r.operator && r.value !== undefined);
+            if (validRules) {
+              console.log('✅ Parsed valid JSON directly');
+              return parsed;
+            }
+          }
+        } catch (e) {
+          // JSON parse failed, continue to regex strategy
+        }
+      }
+
+      // Strategy 2: Regex fallback for slightly malformed JSON or markdown blocks
       // Extract name
       const nameMatch = content.match(/"name"\s*:\s*"([^"]+)"/);
       if (!nameMatch) return null;
@@ -193,7 +212,7 @@ export function AIChat({ onClose }: AIChatProps) {
         rules
       };
       
-      console.log('✅ Extracted cohort data:', result);
+      console.log('✅ Extracted cohort data via regex:', result);
       return result;
     } catch (e) {
       console.log('❌ Extraction failed:', e);
@@ -467,12 +486,20 @@ export function AIChat({ onClose }: AIChatProps) {
                   </button>
                 )}
 
-                {/* Create Cohort button for cohort context with valid JSON */}
+                {/* Create Cohort button */}
                 {(() => {
-                  if (message.role === 'assistant') {
+                  if (message.role === 'assistant' && currentContext === 'cohort' && onCohortCreate) {
                     const jsonData = parseCohortJSON(message.content);
-                    console.log('🔍 Button check:', { context: currentContext, hasJson: !!jsonData, hasCallback: !!onCohortCreate });
-                    if (currentContext === 'cohort' && jsonData && onCohortCreate) {
+                    // broader check: if it has curly braces and seems to be attempting a structure
+                    const looksLikeJSON = message.content.includes('{') && (
+                      message.content.includes('"name"') || 
+                      message.content.includes('name:') || 
+                      message.content.includes('"rules"') || 
+                      message.content.includes('rules:') ||
+                      message.content.includes('""') // catch empty keys
+                    );
+                    
+                    if (jsonData) {
                       return (
                         <button
                           onClick={() => handleCreateCohort(message.content)}
@@ -488,6 +515,25 @@ export function AIChat({ onClose }: AIChatProps) {
                             </>
                           )}
                         </button>
+                      );
+                    } else if (looksLikeJSON) {
+                      // Show error state if it looks like JSON but failed parsing
+                      return (
+                        <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg text-sm">
+                          <div className="flex items-center gap-2 text-red-800 font-medium mb-2">
+                            <XMarkIcon className="w-4 h-4" />
+                            Invalid Configuration
+                          </div>
+                          <p className="text-red-600 mb-3 text-xs">
+                            The generated cohort configuration has syntax errors.
+                          </p>
+                          <button
+                            onClick={() => sendMessage("The JSON format is invalid. Ensure keys are 'name', 'description', and 'rules'. Do not use empty strings for keys.")}
+                            className="w-full py-1.5 bg-white border border-red-200 text-red-600 rounded-md text-xs font-medium hover:bg-red-50 transition-colors"
+                          >
+                            Fix Format
+                          </button>
+                        </div>
                       );
                     }
                   }

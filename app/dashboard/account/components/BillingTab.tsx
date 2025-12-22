@@ -13,6 +13,10 @@ import {
   SparklesIcon,
   FireIcon,
   ChartBarIcon,
+  RocketLaunchIcon,
+  StarIcon,
+  BuildingOffice2Icon,
+  PaperAirplaneIcon
 } from "@heroicons/react/24/outline";
 import { PLANS, FEATURE_LABELS } from '@/lib/plans/config';
 import { UpgradeModal } from "@/components/subscription/UpgradeModal";
@@ -31,70 +35,179 @@ interface PaymentRecord {
 }
 
 // Plan Configurations for UI
-const PLAN_UI: Record<string, { icon: string; gradient: string }> = {
-  Free: { icon: '🆓', gradient: 'from-gray-500 to-gray-600' },
-  Starter: { icon: '🚀', gradient: 'from-emerald-500 to-teal-600' },
-  Pro: { icon: '💎', gradient: 'from-blue-500 to-indigo-600' },
-  Enterprise: { icon: '🏢', gradient: 'from-purple-500 to-pink-600' }
+const PLAN_UI: Record<string, { icon: React.ElementType; color: string; badge: string; ring: string }> = {
+  Free: { 
+      icon: PaperAirplaneIcon, 
+      color: 'bg-gray-50 text-gray-600', 
+      badge: 'bg-gray-100 text-gray-700',
+      ring: 'ring-gray-200'
+  },
+  Starter: { 
+      icon: RocketLaunchIcon, 
+      color: 'bg-emerald-50 text-emerald-600', 
+      badge: 'bg-emerald-50 text-emerald-700',
+      ring: 'ring-emerald-200'
+  },
+  Pro: { 
+      icon: StarIcon, 
+      color: 'bg-indigo-50 text-indigo-600', 
+      badge: 'bg-indigo-50 text-indigo-700',
+      ring: 'ring-indigo-200'
+  },
+  Enterprise: { 
+      icon: BuildingOffice2Icon, 
+      color: 'bg-purple-50 text-purple-600', 
+      badge: 'bg-purple-50 text-purple-700',
+      ring: 'ring-purple-200'
+  }
 };
 
 // Invoice Generator
-const generateInvoice = (payment: PaymentRecord, planName: string, userName: string = 'Valued Customer') => {
+const generateInvoice = async (payment: PaymentRecord, planName: string, userName: string = 'Valued Customer', userEmail: string = '') => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     
-    // Header
-    doc.setFontSize(22);
-    doc.setTextColor(79, 70, 229); // Indigo 600
-    doc.text("INVOICE", 20, 20);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text("Navlens Analytics", 20, 26);
-    doc.text("support@navlens.com", 20, 31);
+    // -- Brand Colors --
+    const PRIMARY_COLOR = '#4F46E5'; // Indigo 600
+    const TEXT_COLOR = '#1F2937';    // Gray 800
+    const GRAY_COLOR = '#6B7280';    // Gray 500
+    const BORDER_COLOR = '#E5E7EB';  // Gray 200
 
-    // Invoice Details - Right Aligned
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Invoice #: ${payment.payhere_order_id || 'INV-' + payment.id.slice(0, 8)}`, pageWidth - 20, 20, { align: 'right' });
-    doc.text(`Date: ${new Date(payment.payment_date).toLocaleDateString()}`, pageWidth - 20, 25, { align: 'right' });
-    doc.text(`Status: ${payment.status.toUpperCase()}`, pageWidth - 20, 30, { align: 'right' });
+    // -- Helper: Load Logo --
+    const loadLogo = (): Promise<string | null> => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.src = '/images/logo.png';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/png'));
+                } else {
+                    resolve(null);
+                }
+            };
+            img.onerror = () => resolve(null);
+        });
+    };
 
-    // Bill To
-    doc.line(20, 40, pageWidth - 20, 40);
-    doc.setFontSize(12);
-    doc.text("Bill To:", 20, 50);
-    doc.setFontSize(10);
-    doc.text(userName, 20, 56);
-    
-    // Table Header
-    const tableTop = 70;
-    doc.setFillColor(243, 244, 246); // Gray 100
-    doc.rect(20, tableTop, pageWidth - 40, 10, 'F');
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Description", 25, tableTop + 7);
-    doc.text("Amount", pageWidth - 25, tableTop + 7, { align: 'right' });
+    const logoData = await loadLogo();
 
-    // Table Row
+    // -- Header Section --
+    // Logo
+    if (logoData) {
+        doc.addImage(logoData, 'PNG', 20, 15, 12, 12); // Adjust aspect ratio as needed
+        doc.setFontSize(20);
+        doc.setTextColor(TEXT_COLOR);
+        doc.setFont("helvetica", "bold");
+        doc.text("Navlens Analytics", 36, 23);
+    } else {
+        // Fallback if logo invalid
+        doc.setFontSize(20);
+        doc.setTextColor(PRIMARY_COLOR);
+        doc.setFont("helvetica", "bold");
+        doc.text("Navlens Analytics", 20, 23);
+    }
+
+    // Company Contact Info (Left, under logo/title)
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
+    doc.setTextColor(GRAY_COLOR);
+    doc.text("Email: navlensanalytics@gmail.com", 20, 32);
+    doc.text("Mobile: 077 467 1009", 20, 37);
+
+    // Invoice Label & Details (Right Side)
+    doc.setFontSize(24);
+    doc.setTextColor(PRIMARY_COLOR); // Indigo Accent
+    doc.setFont("helvetica", "bold");
+    doc.text("INVOICE", pageWidth - 20, 23, { align: 'right' });
+
+    doc.setFontSize(9);
+    doc.setTextColor(TEXT_COLOR);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Invoice #: ${payment.payhere_order_id || 'INV-' + payment.id.slice(0, 8)}`, pageWidth - 20, 32, { align: 'right' });
+    doc.text(`Date: ${new Date(payment.payment_date).toLocaleDateString()}`, pageWidth - 20, 37, { align: 'right' });
+    doc.text(`Status: ${payment.status.toUpperCase()}`, pageWidth - 20, 42, { align: 'right' });
+
+    // -- Divider --
+    doc.setDrawColor(BORDER_COLOR);
+    doc.line(20, 48, pageWidth - 20, 48);
+
+    // -- Bill To Section --
+    doc.setFontSize(10);
+    doc.setTextColor(GRAY_COLOR);
+    doc.text("Bill To:", 20, 58);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(TEXT_COLOR);
+    doc.setFont("helvetica", "bold");
+    doc.text(userName, 20, 64);
+    
+    if (userEmail) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(userEmail, 20, 69);
+    }
+
+    // -- Item Table --
+    const tableTop = 80;
+    
+    // Table Header Background
+    doc.setFillColor(249, 250, 251); // Gray 50
+    doc.rect(20, tableTop, pageWidth - 40, 10, 'F');
+    
+    // Table Header Text
+    doc.setFontSize(9);
+    doc.setTextColor(GRAY_COLOR);
+    doc.setFont("helvetica", "bold");
+    doc.text("DESCRIPTION", 25, tableTop + 7);
+    doc.text("AMOUNT", pageWidth - 25, tableTop + 7, { align: 'right' });
+
+    // Table Content
     const rowTop = tableTop + 18;
+    doc.setFontSize(10);
+    doc.setTextColor(TEXT_COLOR);
+    doc.setFont("helvetica", "normal");
     doc.text(`Subscription - ${planName} Plan`, 25, rowTop);
     doc.text(`${payment.currency.toUpperCase()} ${payment.amount.toFixed(2)}`, pageWidth - 25, rowTop, { align: 'right' });
 
-    // Total
-    doc.line(20, rowTop + 10, pageWidth - 20, rowTop + 10);
+    // Divider
+    doc.line(20, rowTop + 8, pageWidth - 20, rowTop + 8);
+
+    // -- Totals Section (Right Aligned) --
+    const totalY = rowTop + 18;
+    
+    // Subtotal
+    doc.setFontSize(9);
+    doc.setTextColor(GRAY_COLOR);
+    doc.text("Subtotal", pageWidth - 60, totalY);
+    doc.text(`${payment.currency.toUpperCase()} ${payment.amount.toFixed(2)}`, pageWidth - 25, totalY, { align: 'right' });
+
+    // Total (Bold)
+    doc.setFontSize(12);
+    doc.setTextColor(TEXT_COLOR);
     doc.setFont("helvetica", "bold");
-    doc.text("Total", pageWidth - 60, rowTop + 20);
-    doc.text(`${payment.currency.toUpperCase()} ${payment.amount.toFixed(2)}`, pageWidth - 25, rowTop + 20, { align: 'right' });
+    doc.text("Total", pageWidth - 60, totalY + 8);
+    doc.text(`${payment.currency.toUpperCase()} ${payment.amount.toFixed(2)}`, pageWidth - 25, totalY + 8, { align: 'right' });
 
-    // Footer
+    // -- Footer --
+    const footerY = pageHeight - 20;
+    doc.setDrawColor(BORDER_COLOR);
+    doc.line(20, footerY - 10, pageWidth - 20, footerY - 10);
+
     doc.setFontSize(8);
+    doc.setTextColor(GRAY_COLOR);
     doc.setFont("helvetica", "italic");
-    doc.setTextColor(150, 150, 150);
-    doc.text("Thank you for your business. This is a computer-generated invoice.", pageWidth / 2, pageWidth + 20, { align: 'center' });
+    doc.text("Thank you for choosing Navlens Analytics.", 20, footerY);
+    
+    doc.setFont("helvetica", "normal");
+    doc.text("Questions? Contact us at navlensanalytics@gmail.com or 077 467 1009", pageWidth - 20, footerY, { align: 'right' });
 
-    doc.save(`invoice_${payment.payhere_order_id || payment.id}.pdf`);
+    doc.save(`Navlens_Invoice_${payment.payhere_order_id || payment.id}.pdf`);
 };
 
 export function BillingTab() {
@@ -103,6 +216,7 @@ export function BillingTab() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [usage, setUsage] = useState<any>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [userData, setUserData] = useState<{ name: string; email: string }>({ name: '', email: '' });
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -114,6 +228,11 @@ export function BillingTab() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+
+        setUserData({
+            name: user.user_metadata?.full_name || 'Valued Customer',
+            email: user.email || ''
+        });
 
         // 1. Fetch Subscription
         // Attempt to get via profile first
@@ -184,7 +303,6 @@ export function BillingTab() {
                 });
                  if (usageRes.ok) {
                     const usageData = await usageRes.json();
-                    console.log("BillingTab: Fetched usage data", usageData);
                     setUsage(usageData);
                  }
             } catch (e) { console.error("Usage fetch failed", e); }
@@ -203,7 +321,7 @@ export function BillingTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent shadow-lg shadow-indigo-500/20" />
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent shadow-sm" />
       </div>
     );
   }
@@ -226,131 +344,138 @@ export function BillingTab() {
   const heatmapPct = heatmapLimit ? Math.min((heatmaps / heatmapLimit) * 100, 100) : 0;
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 p-6">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      {/* 1. Plan Banner Card - Purple Glass Theme */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/60 shadow-xl shadow-indigo-500/10">
-        <div className={`absolute inset-0 bg-gradient-to-r ${ui.gradient} opacity-10`} />
-        <div className="absolute inset-0 backdrop-blur-3xl" />
-        
-        <div className="relative p-6 sm:p-8 z-10">
-            <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-                <div className="flex items-start gap-5">
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${ui.gradient} flex items-center justify-center text-3xl shadow-lg shadow-indigo-500/30 text-white`}>
-                        {ui.icon}
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-2xl font-bold text-gray-900">{normPlanName} Plan</h2>
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${subscription?.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
-                                {subscription?.status || 'Active'}
-                            </span>
-                        </div>
-                        <p className="text-gray-600 mt-2 max-w-md text-sm leading-relaxed">
-                            {isFree 
-                                ? "You are on the basic plan. Upgrade to unlock powerful analytics and remove limits." 
-                                : `You are enjoying premium features of the ${normPlanName} plan.`}
-                        </p>
-                    </div>
+      {/* 1. Plan Banner Card - Modern & Premium */}
+      <div className={`bg-white rounded-2xl p-6 sm:p-8 border shadow-sm transition-all ${isFree ? 'border-gray-200' : 'border-indigo-100 ring-4 ring-indigo-50/50'}`}>
+        <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+            <div className="flex items-start gap-5">
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm ${ui.color}`}>
+                   <ui.icon className="w-8 h-8" />
                 </div>
-
-                <div className="flex flex-col gap-3 w-full md:w-auto">
-                    <button
-                        onClick={() => setShowUpgradeModal(true)}
-                        className={`
-                            inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-lg hover:scale-105 active:scale-95
-                            ${isFree 
-                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-indigo-500/30' 
-                                : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50'
-                            }
-                        `}
-                    >
-                        {isFree ? <><SparklesIcon className="w-4 h-4" /> Upgrade to Pro</> : 'Change Plan'}
-                    </button>
-                    {subscription && (
-                         <div className="text-xs text-center text-gray-500 font-medium">
-                            Renews on {new Date(subscription.current_period_end).toLocaleDateString()}
-                         </div>
-                    )}
+                <div>
+                    <div className="flex items-center gap-3 mb-1">
+                        <h2 className="text-2xl font-bold text-gray-900">{normPlanName} Plan</h2>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${subscription?.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {subscription?.status || 'Active'}
+                        </span>
+                    </div>
+                    <p className="text-gray-500 text-sm leading-relaxed max-w-md">
+                        {isFree 
+                            ? "Unlock the full potential of your analytics. Upgrade to Pro for unlimited access and advanced features." 
+                            : `You are currently on the ${normPlanName} plan. Your next billing date is approaching.`}
+                    </p>
                 </div>
             </div>
 
-            {/* Usage Stats Mini-Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 pt-6 border-t border-indigo-100/50">
-                {/* Sessions Bar */}
-                <div className="bg-white/60 rounded-xl p-4 border border-white/50 shadow-sm">
-                    <div className="flex justify-between items-end mb-2">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                            <FireIcon className="w-4 h-4 text-orange-500" />
-                            Sessions
-                        </div>
-                        <div className="text-xs font-bold text-gray-900">
-                           {sessions.toLocaleString()} <span className="text-gray-400 font-normal">/ {sessionLimit ? sessionLimit.toLocaleString() : '∞'}</span>
-                        </div>
+            <div className="flex flex-col gap-3 w-full md:w-auto min-w-[160px]">
+                <button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className={`
+                        w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all shadow-sm
+                        ${isFree 
+                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-indigo-200 shadow-indigo-100' 
+                            : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                        }
+                    `}
+                >
+                    {isFree ? <><SparklesIcon className="w-4 h-4" /> Upgrade Plan</> : 'Manage Plan'}
+                </button>
+                {subscription && (
+                    <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 font-medium">
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        Renews {new Date(subscription.current_period_end).toLocaleDateString()}
                     </div>
-                    {sessionLimit && (
-                        <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                            <div 
-                                className={`h-full rounded-full transition-all duration-1000 ${sessionPct > 90 ? 'bg-red-500' : 'bg-blue-500'}`} 
-                                style={{ width: `${sessionPct}%` }} 
-                            />
-                        </div>
-                    )}
-                </div>
+                )}
+            </div>
+        </div>
 
-                {/* Heatmaps Bar */}
-                <div className="bg-white/60 rounded-xl p-4 border border-white/50 shadow-sm">
-                    <div className="flex justify-between items-end mb-2">
-                         <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                            <ChartBarIcon className="w-4 h-4 text-purple-500" />
-                            Heatmaps
+        {/* Usage Stats - Enhanced Visuals */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8 pt-8 border-t border-gray-100">
+            {/* Sessions Bar */}
+            <div className="space-y-3">
+                <div className="flex justify-between items-end">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <div className="p-1.5 bg-orange-50 rounded-lg text-orange-600">
+                             <FireIcon className="w-4 h-4" />
                         </div>
-                        <div className="text-xs font-bold text-gray-900">
-                           {heatmaps.toLocaleString()} <span className="text-gray-400 font-normal">/ {heatmapLimit ? heatmapLimit + '/day' : '∞'}</span>
+                        Sessions
+                    </div>
+                    <div className="text-xs font-bold text-gray-900">
+                        {sessions.toLocaleString()} <span className="text-gray-400 font-normal">/ {sessionLimit ? sessionLimit.toLocaleString() : '∞'}</span>
+                    </div>
+                </div>
+                {sessionLimit && (
+                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                            className={`h-full rounded-full transition-all duration-1000 ${sessionPct > 90 ? 'bg-red-500' : 'bg-indigo-500'}`} 
+                            style={{ width: `${sessionPct}%` }} 
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* Heatmaps Bar */}
+            <div className="space-y-3">
+                <div className="flex justify-between items-end">
+                     <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <div className="p-1.5 bg-purple-50 rounded-lg text-purple-600">
+                             <ChartBarIcon className="w-4 h-4" />
+                        </div>
+                        Heatmaps
+                    </div>
+                    <div className="text-xs font-bold text-gray-900">
+                        {heatmaps.toLocaleString()} <span className="text-gray-400 font-normal">/ {heatmapLimit ? heatmapLimit + '/day' : '∞'}</span>
+                    </div>
+                </div>
+                {heatmapLimit ? (
+                     <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                            className="h-full bg-purple-500 rounded-full transition-all duration-1000" 
+                            style={{ width: `${heatmapPct}%` }} 
+                        />
+                    </div>
+                ) : (
+                    <div className="h-2 flex items-center">
+                        <div className="text-xs text-emerald-600 font-semibold flex items-center gap-1.5 bg-emerald-50 px-2 py-0.5 rounded-full">
+                            <CheckCircleIcon className="w-3.5 h-3.5" /> Unlimited Access
                         </div>
                     </div>
-                    {heatmapLimit ? (
-                         <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                            <div 
-                                className="h-full bg-purple-500 rounded-full transition-all duration-1000" 
-                                style={{ width: `${heatmapPct}%` }} 
-                            />
-                        </div>
-                    ) : (
-                        <div className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                            <CheckCircleIcon className="w-3 h-3" /> Unlimited
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
         </div>
       </div>
 
-      {/* Payment History Table - Modern */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/60 shadow-xl shadow-indigo-500/5 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100/50 flex items-center justify-between bg-gradient-to-r from-gray-50/50 to-white">
+      {/* Payment History Table - Clean & Consistent */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white">
             <div className="flex items-center gap-2">
-                <BanknotesIcon className="w-5 h-5 text-indigo-500" />
-                <h3 className="font-bold text-gray-900">Payment History</h3>
+                <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                    <BanknotesIcon className="w-5 h-5" />
+                </div>
+                <div>
+                    <h3 className="font-bold text-gray-900">Payment History</h3>
+                    <p className="text-xs text-gray-500">View your recent transactions and invoices</p>
+                </div>
             </div>
         </div>
         
         <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-                <thead className="text-xs text-gray-500 uppercase bg-gray-50/30 border-b border-gray-100">
+                <thead className="text-xs text-gray-500 uppercase bg-gray-50/50 border-b border-gray-100">
                     <tr>
-                        <th className="px-6 py-3 font-semibold">Date</th>
-                        <th className="px-6 py-3 font-semibold">Description</th>
-                        <th className="px-6 py-3 font-semibold">Amount</th>
-                        <th className="px-6 py-3 font-semibold">Status</th>
-                        <th className="px-6 py-3 font-semibold text-right">Invoice</th>
+                        <th className="px-6 py-3 font-semibold text-gray-600">Date</th>
+                        <th className="px-6 py-3 font-semibold text-gray-600">Description</th>
+                        <th className="px-6 py-3 font-semibold text-gray-600">Amount</th>
+                        <th className="px-6 py-3 font-semibold text-gray-600">Status</th>
+                        <th className="px-6 py-3 font-semibold text-right text-gray-600">Invoice</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50/50">
+                <tbody className="divide-y divide-gray-100">
                     {payments.length > 0 ? (
                         payments.map((payment) => (
-                            <tr key={payment.id} className="hover:bg-indigo-50/30 transition-colors group">
-                                <td className="px-6 py-4 text-gray-600 group-hover:text-indigo-900 transition-colors">
+                            <tr key={payment.id} className="hover:bg-gray-50/80 transition-colors group">
+                                <td className="px-6 py-4 text-gray-600 group-hover:text-gray-900 transition-colors">
                                     {new Date(payment.payment_date).toLocaleDateString()}
                                 </td>
                                 <td className="px-6 py-4 text-gray-900 font-medium">
@@ -362,8 +487,9 @@ export function BillingTab() {
                                 </td>
                                 <td className="px-6 py-4">
                                 {payment.status === 'success' ? (
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                                        Active
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                        <CheckCircleIcon className="w-3.5 h-3.5" />
+                                        Paid
                                     </span>
                                 ) : (
                                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200 capitalize">
@@ -373,10 +499,11 @@ export function BillingTab() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <button 
-                                        onClick={() => generateInvoice(payment, normPlanName)}
-                                        className="text-indigo-600 hover:text-indigo-800 font-medium text-xs hover:underline transition-all"
+                                        onClick={() => generateInvoice(payment, normPlanName, userData.name, userData.email)}
+                                        className="text-indigo-600 hover:text-indigo-800 font-medium text-xs hover:underline transition-all flex items-center justify-end gap-1 ml-auto"
                                     >
-                                        Download PDF
+                                        <ArrowUpRightIcon className="w-3 h-3" />
+                                        Download
                                     </button>
                                 </td>
                             </tr>
@@ -384,11 +511,11 @@ export function BillingTab() {
                     ) : (
                         <tr>
                             <td colSpan={5} className="px-6 py-16 text-center text-gray-400">
-                                <div className="flex flex-col items-center gap-2">
+                                <div className="flex flex-col items-center gap-3">
                                     <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center">
                                         <CloudIcon className="w-6 h-6 text-gray-300" />
                                     </div>
-                                    <p>No payment history found</p>
+                                    <p className="text-sm">No payment history available</p>
                                 </div>
                             </td>
                         </tr>

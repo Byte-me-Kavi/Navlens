@@ -52,94 +52,137 @@ export async function POST(request: NextRequest) {
                 console.log('[user-journeys] Using date filter:', dateFilter);
 
                 try {
-                    // Simple query - get page views by session
-                    const simpleQuery = `
+                    // Optimized query - fetch events with timestamps to reconstruct journeys correctly
+                    const query = `
                         SELECT 
                             session_id,
                             page_path,
-                            count() as visits
+                            timestamp
                         FROM events
                         WHERE 
                             site_id = {siteId:String}
                             AND ${dateFilter}
                             AND page_path IS NOT NULL
                             AND page_path != ''
-                        GROUP BY session_id, page_path
-                        ORDER BY session_id, visits DESC
-                        LIMIT 5000
+                        ORDER BY session_id, timestamp ASC
+                        LIMIT 10000
                     `;
 
                     const result = await clickhouse.query({
-                        query: simpleQuery,
+                        query: query,
                         query_params: { siteId },
                         format: 'JSONEachRow',
                     });
 
-                    interface PageViewRow {
+                    interface EventRow {
                         session_id: string;
                         page_path: string;
-                        visits: string;
+                        timestamp: string;
                     }
 
                     const rawData = await result.json();
-                    const pageViews = rawData as PageViewRow[];
+                    const events = rawData as EventRow[];
 
-                    console.log('[user-journeys] Raw data count:', pageViews.length);
+                    console.log('[user-journeys] Raw event count:', events.length);
 
-                    // Group by session to build paths
-                    const sessionPages = new Map<string, string[]>();
-                    for (const row of pageViews) {
-                        const pages = sessionPages.get(row.session_id) || [];
-                        pages.push(row.page_path);
-                        sessionPages.set(row.session_id, pages);
+                    // Group by session to build paths and calculate durations
+                    const sessionPaths = new Map<string, { paths: string[], startTime: number, endTime: number }>();
+
+                    for (const row of events) {
+                        const time = new Date(row.timestamp).getTime();
+
+                        if (!sessionPaths.has(row.session_id)) {
+                            sessionPaths.set(row.session_id, {
+                                paths: [row.page_path],
+                                startTime: time,
+                                endTime: time
+                            });
+                        } else {
+                            const session = sessionPaths.get(row.session_id)!;
+                            // Only add if different from last page (deduplicate consecutive refreshes)
+                            if (session.paths[session.paths.length - 1] !== row.page_path) {
+                                session.paths.push(row.page_path);
+                            }
+                            session.endTime = Math.max(session.endTime, time);
+                        }
                     }
 
-                    console.log('[user-journeys] Unique sessions:', sessionPages.size);
+                    console.log('[user-journeys] Unique sessions:', sessionPaths.size);
 
-                    // Build transitions
-                    const transitions = new Map<string, number>();
-                    const pathCounts = new Map<string, number>();
+                    // Build transitions and path statistics
+                    const pathStats = new Map<string, { count: number, totalDuration: number, path: string[] }>();
                     const entryPages = new Map<string, number>();
                     const exitPages = new Map<string, number>();
 
-                    for (const [, pages] of sessionPages.entries()) {
-                        // Count paths (include single-page sessions too)
-                        const pathKey = pages.slice(0, 5).join(' → ');
-                        pathCounts.set(pathKey, (pathCounts.get(pathKey) || 0) + 1);
+                    for (const [, data] of sessionPaths.entries()) {
+                        const { paths, startTime, endTime } = data;
 
-                        // Entry & exit pages for ALL sessions
-                        if (pages.length > 0) {
-                            entryPages.set(pages[0], (entryPages.get(pages[0]) || 0) + 1);
-                            exitPages.set(pages[pages.length - 1], (exitPages.get(pages[pages.length - 1]) || 0) + 1);
+                        // Need at least 2 pages for a valid "journey" context usually, 
+                        // but we can track single page visits too for entry/exit stats.
+
+                        // Capture Entry & Exit
+                        if (paths.length > 0) {
+                            entryPages.set(paths[0], (entryPages.get(paths[0]) || 0) + 1);
+                            exitPages.set(paths[paths.length - 1], (exitPages.get(paths[paths.length - 1]) || 0) + 1);
                         }
 
-                        // Transitions only for multi-page sessions
-                        if (pages.length >= 2) {
-                            for (let i = 0; i < pages.length - 1; i++) {
-                                const key = `${pages[i]}|||${pages[i + 1]}`;
-                                transitions.set(key, (transitions.get(key) || 0) + 1);
-                            }
+                        // Path Analysis (limit to 5 steps for readability)
+                        // This identifies unique full journeys (up to 5 steps)
+                        const truncatedPath = paths.slice(0, 5);
+                        const pathString = truncatedPath.join(' → ');
+                        const currentStats = pathStats.get(pathString) || { count: 0, totalDuration: 0, path: truncatedPath };
+
+                        currentStats.count++;
+                        currentStats.totalDuration += (endTime - startTime) / 1000; // seconds
+                        pathStats.set(pathString, currentStats);
+                    }
+
+                    // Identify Top Paths first
+                    const topPathsList = Array.from(pathStats.entries())
+                        .map(([pathStr, stats]) => ({
+                            path: stats.path,
+                            count: stats.count,
+                            avgDuration: Math.round(stats.totalDuration / stats.count),
+                            pathString: pathStr
+                        }))
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 20); // Top 20 common paths
+
+                    // Build Sankey transitions exclusively from the Top Paths
+                    // This ensures the diagram visualizes the "Top Unique Paths" as requested
+                    const transitions = new Map<string, number>();
+
+                    for (const journey of topPathsList) {
+                        const p = journey.path;
+                        if (p.length < 2) continue;
+
+                        for (let i = 0; i < p.length - 1; i++) {
+                            // Add step index to node keys to ensure DAG
+                            const source = `${i}__${p[i]}`;
+                            const target = `${i + 1}__${p[i + 1]}`;
+                            const key = `${source}|||${target}`;
+
+                            // Add the count of this entire path to the link weight
+                            // If 50 people took this exact path, this link gets +50 weight
+                            transitions.set(key, (transitions.get(key) || 0) + journey.count);
                         }
                     }
 
-                    // Build response
+                    // Build response objects
                     const sankeyLinks = Array.from(transitions.entries())
-                        .filter(([, v]) => v >= 2)
+                        // We actuall keep all transitions from the top paths, 
+                        // as they are already filtered by virtue of being top paths
                         .map(([k, v]) => {
                             const [source, target] = k.split('|||');
                             return { source, target, value: v };
                         })
-                        .sort((a, b) => b.value - a.value)
-                        .slice(0, limit);
+                        .sort((a, b) => b.value - a.value);
 
-                    const topPaths = Array.from(pathCounts.entries())
-                        .map(([path, count]) => ({
-                            path: path.split(' → '),
-                            count,
-                            avgDuration: 0,
-                        }))
-                        .sort((a, b) => b.count - a.count)
-                        .slice(0, 20);
+                    const topPathsResponse = topPathsList.map(p => ({
+                        path: p.path,
+                        count: p.count,
+                        avgDuration: p.avgDuration
+                    }));
 
                     const topEntry = Array.from(entryPages.entries())
                         .map(([page, count]) => ({ page, count }))
@@ -153,10 +196,10 @@ export async function POST(request: NextRequest) {
 
                     return {
                         sankeyLinks,
-                        topPaths,
+                        topPaths: topPathsResponse,
                         entryPages: topEntry,
                         exitPages: topExit,
-                        totalSessions: sessionPages.size,
+                        totalSessions: sessionPaths.size,
                     };
                 } catch (queryError) {
                     console.error('[user-journeys] Query error:', queryError);

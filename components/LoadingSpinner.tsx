@@ -2,11 +2,19 @@
 
 export default function LoadingSpinner({
   message = "Loading...",
+  fullScreen = true,
+  className = "",
 }: {
   message?: string;
+  fullScreen?: boolean;
+  className?: string;
 }) {
+  const containerClasses = fullScreen 
+    ? "min-h-screen bg-gray-50" 
+    : "w-full h-full bg-transparent";
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className={`flex items-center justify-center ${containerClasses} ${className}`}>
       <div className="flex flex-col items-center gap-6">
         {/* Windows 11 Loading Animation - Segmented Ring */}
         <div className="relative w-16 h-16">

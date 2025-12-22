@@ -26,43 +26,35 @@
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  /* Global Custom Scrollbar - Minimal Clean Style (matches iframe) */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: #4bb1d3 transparent;
+  /* Global Custom Scrollbar - Minimal Clean Style */
+  html {
+     scrollbar-width: thin;
+     scrollbar-color: #cbd5e1 transparent;
   }
 
-  *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  /* Webkit Scrollbar Customization */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
 
-  *::-webkit-scrollbar-track {
+  ::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  *::-webkit-scrollbar-thumb {
-    background: #4290ef;
-    border-radius: 4px;
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1; /* Gray-300 */
+    border-radius: 99px;
+    transition: background 0.2s ease;
   }
 
-  *::-webkit-scrollbar-thumb:hover {
-    background: #a0aec0;
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; /* Gray-400 */
   }
 
-  /* Dark mode scrollbar */
-  @media (prefers-color-scheme: dark) {
-    * {
-      scrollbar-color: #3398f1 transparent;
-    }
-
-    *::-webkit-scrollbar-thumb {
-      background: #4a5568;
-    }
-
-    *::-webkit-scrollbar-thumb:hover {
-      background: #718096;
-    }
+  /* Specific elements that need a bit more contrast on hover */
+  .hover-scroll:hover::-webkit-scrollbar-thumb {
+     background: #6366f1; /* Indigo-500 */
   }
 }
 

@@ -27,6 +27,7 @@ export {
   FunnelCard,
   FunnelStepEditor,
   CreateFunnelModal,
+  DeleteFunnelModal,
 } from './components';
 
 // Hooks

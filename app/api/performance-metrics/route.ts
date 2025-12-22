@@ -91,17 +91,22 @@ export async function POST(request: NextRequest) {
                         ORDER BY time_bucket
                     `;
 
-                    // Device breakdown from events
+                    // Device breakdown from events - use per-session aggregation for consistent counting
                     const deviceQuery = `
                         SELECT 
                             device_type,
-                            uniq(session_id) as sessions,
-                            count() as total_events
-                        FROM events
-                        WHERE 
-                            site_id = {siteId:String}
-                            AND ${dateFilter}
-                            ${pagePath ? 'AND page_path = {pagePath:String}' : ''}
+                            count() as sessions
+                        FROM (
+                            SELECT 
+                                session_id,
+                                any(device_type) as device_type
+                            FROM events
+                            WHERE 
+                                site_id = {siteId:String}
+                                AND ${dateFilter}
+                                ${pagePath ? 'AND page_path = {pagePath:String}' : ''}
+                            GROUP BY session_id
+                        )
                         GROUP BY device_type
                     `;
 
@@ -120,24 +125,29 @@ export async function POST(request: NextRequest) {
                         GROUP BY vital_name
                     `;
 
-                    // Browser breakdown - extract browser from user_agent
+                    // Browser breakdown - use per-session aggregation for consistent counting
                     const browserQuery = `
                         SELECT 
-                            multiIf(
-                                user_agent LIKE '%Chrome%' AND user_agent NOT LIKE '%Edge%' AND user_agent NOT LIKE '%OPR%', 'Chrome',
-                                user_agent LIKE '%Firefox%', 'Firefox',
-                                user_agent LIKE '%Safari%' AND user_agent NOT LIKE '%Chrome%', 'Safari',
-                                user_agent LIKE '%Edge%', 'Edge',
-                                user_agent LIKE '%OPR%' OR user_agent LIKE '%Opera%', 'Opera',
-                                'Other'
-                            ) as browser,
-                            uniq(session_id) as sessions,
-                            count() as total_events
-                        FROM events
-                        WHERE 
-                            site_id = {siteId:String}
-                            AND ${dateFilter}
-                            ${pagePath ? 'AND page_path = {pagePath:String}' : ''}
+                            browser,
+                            count() as sessions
+                        FROM (
+                            SELECT 
+                                session_id,
+                                multiIf(
+                                    any(user_agent) LIKE '%Chrome%' AND any(user_agent) NOT LIKE '%Edge%' AND any(user_agent) NOT LIKE '%OPR%', 'Chrome',
+                                    any(user_agent) LIKE '%Firefox%', 'Firefox',
+                                    any(user_agent) LIKE '%Safari%' AND any(user_agent) NOT LIKE '%Chrome%', 'Safari',
+                                    any(user_agent) LIKE '%Edge%', 'Edge',
+                                    any(user_agent) LIKE '%OPR%' OR any(user_agent) LIKE '%Opera%', 'Opera',
+                                    'Other'
+                                ) as browser
+                            FROM events
+                            WHERE 
+                                site_id = {siteId:String}
+                                AND ${dateFilter}
+                                ${pagePath ? 'AND page_path = {pagePath:String}' : ''}
+                            GROUP BY session_id
+                        )
                         GROUP BY browser
                         ORDER BY sessions DESC
                     `;

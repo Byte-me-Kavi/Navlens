@@ -7,6 +7,15 @@
 "use client";
 
 import React from "react";
+
+import {
+  FunnelChart as RechartsFunnelChart,
+  Funnel,
+  LabelList,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import { FunnelStepResult } from "../types/funnel.types";
 
 interface FunnelChartProps {
@@ -15,6 +24,16 @@ interface FunnelChartProps {
   className?: string;
 }
 
+const COLORS = [
+  "#4f46e5", // Indigo 600
+  "#7c3aed", // Violet 600
+  "#db2777", // Pink 600
+  "#ea580c", // Orange 600
+  "#059669", // Emerald 600
+  "#2563eb", // Blue 600
+  "#d97706", // Amber 600
+];
+
 export function FunnelChart({
   steps,
   totalSessions,
@@ -22,153 +41,109 @@ export function FunnelChart({
 }: FunnelChartProps) {
   if (!steps || steps.length === 0) {
     return (
-      <div className={`bg-gray-50 rounded-lg p-8 text-center ${className}`}>
+      <div className={`bg-gray-50 rounded-2xl p-8 text-center border border-gray-100 ${className}`}>
         <p className="text-gray-500">No funnel data available</p>
       </div>
     );
   }
 
   const sortedSteps = [...steps].sort((a, b) => a.order_index - b.order_index);
-  const maxVisitors = sortedSteps[0]?.visitors || 1;
+
+  const data = sortedSteps.map((step, index) => ({
+    name: step.step_name,
+    value: step.visitors,
+    conversion: step.conversion_rate,
+    dropOff: 100 - step.drop_off_rate,
+    visitors: step.visitors,
+    originalStep: step,
+  }));
+
+  // Calculate stats for summary
+  const startCount = sortedSteps[0]?.visitors || 0;
+  const endCount = sortedSteps[sortedSteps.length - 1]?.visitors || 0;
+  const overallRate =
+    startCount > 0 ? ((endCount / startCount) * 100).toFixed(1) : "0.0";
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const color = payload[0].payload.fill;
+      return (
+        <div className="bg-white p-4 border border-gray-100 shadow-xl rounded-xl">
+          <p className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></span>
+            {data.name}
+          </p>
+          <div className="space-y-1 text-sm">
+            <p className="text-gray-600">
+              Visitors: <span className="font-semibold text-gray-900">{data.visitors.toLocaleString()}</span>
+            </p>
+            <p className="text-gray-600">
+              Conversion: <span className="font-semibold text-indigo-600">{data.conversion.toFixed(1)}%</span>
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {sortedSteps.map((step, index) => {
-        const widthPercentage = Math.max(
-          (step.visitors / maxVisitors) * 100,
-          5
-        );
-        const isFirst = index === 0;
-        const isLast = index === sortedSteps.length - 1;
-        const prevVisitors =
-          index > 0 ? sortedSteps[index - 1].visitors : step.visitors;
-        const dropoff = prevVisitors - step.visitors;
-
-        // Color gradient from blue to green
-        const colors = [
-          "from-blue-500 to-blue-600",
-          "from-blue-400 to-cyan-500",
-          "from-cyan-400 to-teal-500",
-          "from-teal-400 to-emerald-500",
-          "from-emerald-400 to-green-500",
-        ];
-        const colorClass = colors[Math.min(index, colors.length - 1)];
-
-        return (
-          <div key={step.step_id} className="relative">
-            {/* Step label and stats */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-xs font-bold text-gray-600">
-                  {step.order_index + 1}
-                </span>
-                <span className="font-medium text-gray-900">
-                  {step.step_name}
-                </span>
-              </div>
-              <div className="flex items-center gap-4 text-sm">
-                <span className="font-semibold text-gray-900">
-                  {step.visitors.toLocaleString()} users
-                </span>
-                {!isFirst && (
-                  <span
-                    className={`font-medium ${
-                      100 - step.drop_off_rate >= 50
-                        ? "text-green-600"
-                        : 100 - step.drop_off_rate >= 25
-                        ? "text-yellow-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {(100 - step.drop_off_rate).toFixed(1)}% conversion
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Bar visualization */}
-            <div className="relative h-12 bg-gray-100 rounded-lg overflow-hidden">
-              <div
-                className={`absolute inset-y-0 left-0 bg-linear-to-r ${colorClass} rounded-lg transition-all duration-500 ease-out`}
-                style={{ width: `${widthPercentage}%` }}
-              >
-                <div className="absolute inset-0 flex items-center justify-end pr-3">
-                  <span className="text-white font-bold text-sm drop-shadow-sm">
-                    {step.conversion_rate.toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Dropoff indicator */}
-            {!isFirst && dropoff > 0 && (
-              <div className="flex items-center gap-1 mt-1 text-xs text-red-500">
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                  />
-                </svg>
-                <span>
-                  {dropoff.toLocaleString()} dropped (
-                  {step.drop_off_rate.toFixed(1)}%)
-                </span>
-              </div>
-            )}
-
-            {/* Connection line to next step */}
-            {!isLast && (
-              <div className="flex justify-center py-2">
-                <svg
-                  className="w-4 h-6 text-gray-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                  />
-                </svg>
-              </div>
-            )}
-          </div>
-        );
-      })}
+    <div className={`space-y-8 ${className}`}>
+      <div className="h-[400px] w-full bg-gray-50/30 rounded-2xl border border-gray-100/50 p-4">
+        <ResponsiveContainer width="100%" height="100%">
+          <RechartsFunnelChart>
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: "transparent" }} />
+            <Funnel
+              dataKey="value"
+              data={data}
+              isAnimationActive
+              stroke="#ffffff"
+              strokeWidth={3}
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+              <LabelList
+                position="right"
+                fill="#4b5563"
+                stroke="none"
+                dataKey="name"
+                className="font-medium text-sm"
+              />
+               <LabelList
+                position="center"
+                fill="#ffffff"
+                stroke="none"
+                dataKey="value"
+                formatter={(val: any) => val.toLocaleString()}
+                className="font-bold text-sm drop-shadow-sm"
+              />
+            </Funnel>
+          </RechartsFunnelChart>
+        </ResponsiveContainer>
+      </div>
 
       {/* Summary stats */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-gray-900">
-              {sortedSteps[0]?.visitors.toLocaleString() || 0}
+      <div className="border-t border-gray-100 pt-6">
+        <div className="grid grid-cols-3 gap-6">
+          <div className="text-center p-4 bg-gray-50 rounded-2xl border border-gray-100 transition-all hover:shadow-md hover:border-indigo-100">
+            <p className="text-3xl font-bold text-gray-900 mb-1">
+              {startCount.toLocaleString()}
             </p>
-            <p className="text-xs text-gray-500">Started</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Started</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">
-              {sortedSteps[sortedSteps.length - 1]?.visitors.toLocaleString() ||
-                0}
+          <div className="text-center p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 transition-all hover:shadow-md hover:border-emerald-200">
+            <p className="text-3xl font-bold text-emerald-600 mb-1">
+              {endCount.toLocaleString()}
             </p>
-            <p className="text-xs text-gray-500">Completed</p>
+            <p className="text-xs font-semibold text-emerald-600/70 uppercase tracking-wider">Completed</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-600">
-              {sortedSteps[sortedSteps.length - 1]?.conversion_rate.toFixed(
-                1
-              ) || 0}
-              %
+          <div className="text-center p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 transition-all hover:shadow-md hover:border-indigo-200">
+            <p className="text-3xl font-bold text-indigo-600 mb-1">
+              {overallRate}%
             </p>
-            <p className="text-xs text-gray-500">Conversion Rate</p>
+            <p className="text-xs font-semibold text-indigo-600/70 uppercase tracking-wider">Overall Rate</p>
           </div>
         </div>
       </div>

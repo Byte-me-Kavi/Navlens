@@ -115,15 +115,17 @@ export function GoalConfig({ goals, onChange, disabled, onVisualSelect }: GoalCo
         <div className="space-y-4">
             {/* Goals Header */}
             <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <Star className="w-4 h-4" />
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <div className="p-1.5 bg-violet-50 rounded-lg">
+                        <Star className="w-4 h-4 text-violet-600" />
+                    </div>
                     Goals ({goals.length})
                 </h3>
                 <button
                     type="button"
                     onClick={() => setShowTypeSelector(!showTypeSelector)}
                     disabled={disabled || goals.length >= 10}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm shadow-indigo-200/50"
                 >
                     <Plus className="w-4 h-4" />
                     Add Goal
@@ -132,20 +134,22 @@ export function GoalConfig({ goals, onChange, disabled, onVisualSelect }: GoalCo
 
             {/* Goal Type Selector */}
             {showTypeSelector && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Select goal type:</p>
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <p className="text-xs font-medium text-gray-600 mb-3">Select goal type:</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {GOAL_TYPES.map(({ type, label, description, icon: Icon }) => (
                             <button
                                 key={type}
                                 type="button"
                                 onClick={() => addGoal(type)}
-                                className="flex items-start gap-3 p-3 text-left bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors"
+                                className="flex items-start gap-3 p-3 text-left bg-white rounded-xl border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 transition-all"
                             >
-                                <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                                <div className="p-1.5 bg-indigo-50 rounded-lg">
+                                    <Icon className="w-4 h-4 text-indigo-600" />
+                                </div>
                                 <div>
-                                    <div className="text-sm font-medium text-gray-900 dark:text-white">{label}</div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">{description}</div>
+                                    <div className="text-sm font-medium text-gray-900">{label}</div>
+                                    <div className="text-xs text-gray-500">{description}</div>
                                 </div>
                             </button>
                         ))}
@@ -155,10 +159,12 @@ export function GoalConfig({ goals, onChange, disabled, onVisualSelect }: GoalCo
 
             {/* Goals List */}
             {goals.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
-                    <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No goals configured</p>
-                    <p className="text-xs mt-1">Add at least one goal to measure experiment success</p>
+                <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
+                    <div className="w-12 h-12 bg-violet-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <AlertCircle className="w-6 h-6 text-violet-500" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-700">No goals configured</p>
+                    <p className="text-xs text-gray-500 mt-1">Add at least one goal to measure experiment success</p>
                 </div>
             ) : (
                 <div className="space-y-2">
@@ -169,22 +175,24 @@ export function GoalConfig({ goals, onChange, disabled, onVisualSelect }: GoalCo
                         return (
                             <div
                                 key={goal.id}
-                                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+                                className="bg-white border border-gray-200 rounded-xl overflow-hidden"
                             >
                                 {/* Goal Header */}
                                 <div 
-                                    className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                    className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors"
                                     onClick={() => setExpandedGoalId(isExpanded ? null : goal.id)}
                                 >
-                                    <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
-                                    <Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                    <GripVertical className="w-4 h-4 text-gray-300 cursor-grab" />
+                                    <div className="p-1.5 bg-indigo-50 rounded-lg">
+                                        <Icon className="w-4 h-4 text-indigo-600" />
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                                 {goal.name}
                                             </span>
                                             {goal.is_primary && (
-                                                <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full">
+                                                <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-violet-50 text-violet-700 border border-violet-100 rounded-md">
                                                     Primary
                                                 </span>
                                             )}
@@ -227,10 +235,10 @@ export function GoalConfig({ goals, onChange, disabled, onVisualSelect }: GoalCo
 
                                 {/* Goal Configuration Panel */}
                                 {isExpanded && (
-                                    <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-4">
+                                    <div className="px-4 pb-4 pt-3 border-t border-gray-100 space-y-4 bg-gray-50">
                                         {/* Goal Name */}
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                                                 Goal Name
                                             </label>
                                             <input
@@ -239,7 +247,7 @@ export function GoalConfig({ goals, onChange, disabled, onVisualSelect }: GoalCo
                                                 onChange={(e) => updateGoal(goal.id, { name: e.target.value })}
                                                 disabled={disabled}
                                                 placeholder="e.g., Add to Cart Click"
-                                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
                                             />
                                         </div>
 
@@ -276,7 +284,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
             return (
                 <div className="space-y-3">
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                             CSS Selector
                         </label>
                         <div className="flex gap-2">
@@ -286,7 +294,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                                 onChange={(e) => onUpdate({ selector: e.target.value })}
                                 disabled={disabled}
                                 placeholder="e.g., button.add-to-cart, #submit-btn"
-                                className="flex-1 px-3 py-2 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="flex-1 px-3 py-2.5 text-sm font-mono border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
                             />
                             {onVisualSelect && (
                                 <button
@@ -304,7 +312,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                         </p>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                             URL Pattern (optional)
                         </label>
                         <input
@@ -313,7 +321,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                             onChange={(e) => onUpdate({ url_pattern: e.target.value })}
                             disabled={disabled}
                             placeholder="e.g., /products, /checkout"
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
                         />
                     </div>
                 </div>
@@ -323,7 +331,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
             return (
                 <div className="space-y-3">
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                             URL Pattern
                         </label>
                         <input
@@ -332,18 +340,18 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                             onChange={(e) => onUpdate({ url_pattern: e.target.value })}
                             disabled={disabled}
                             placeholder="e.g., /checkout, /thank-you"
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                             Match Type
                         </label>
                         <select
                             value={goal.url_match || 'contains'}
                             onChange={(e) => onUpdate({ url_match: e.target.value as UrlMatchType })}
                             disabled={disabled}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
                         >
                             <option value="exact">Exact match</option>
                             <option value="contains">Contains</option>
@@ -357,7 +365,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
             return (
                 <div className="space-y-3">
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                             Event Name
                         </label>
                         <input
@@ -366,9 +374,9 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                             onChange={(e) => onUpdate({ event_name: e.target.value })}
                             disabled={disabled}
                             placeholder="e.g., conversion, signup, add_to_cart"
-                            className="w-full px-3 py-2 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 text-sm font-mono border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
                         />
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        <p className="mt-1.5 text-xs text-gray-500">
                             Track with: navlens.track(&apos;{goal.event_name || 'event_name'}&apos;)
                         </p>
                     </div>
@@ -378,7 +386,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
         case 'scroll_depth':
             return (
                 <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                         Scroll Depth Threshold
                     </label>
                     <div className="flex items-center gap-3">
@@ -390,9 +398,9 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                             value={goal.depth_percentage || 75}
                             onChange={(e) => onUpdate({ depth_percentage: parseInt(e.target.value) })}
                             disabled={disabled}
-                            className="flex-1"
+                            className="flex-1 accent-indigo-600"
                         />
-                        <span className="w-12 text-sm font-medium text-gray-900 dark:text-white">
+                        <span className="w-12 text-sm font-bold text-indigo-900">
                             {goal.depth_percentage || 75}%
                         </span>
                     </div>
@@ -402,7 +410,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
         case 'time_on_page':
             return (
                 <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                         Time Threshold (seconds)
                     </label>
                     <input
@@ -412,7 +420,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                         value={goal.seconds || 30}
                         onChange={(e) => onUpdate({ seconds: parseInt(e.target.value) || 30 })}
                         disabled={disabled}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                 </div>
             );
@@ -421,7 +429,7 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
             return (
                 <div className="space-y-3">
                     <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                             Event Name
                         </label>
                         <input
@@ -430,12 +438,12 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                             onChange={(e) => onUpdate({ event_name: e.target.value })}
                             disabled={disabled}
                             placeholder="e.g., purchase, transaction"
-                            className="w-full px-3 py-2 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-3 py-2.5 text-sm font-mono border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                                 Value Field
                             </label>
                             <input
@@ -444,11 +452,11 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                                 onChange={(e) => onUpdate({ value_field: e.target.value })}
                                 disabled={disabled}
                                 placeholder="amount"
-                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label className="block text-xs font-semibold text-indigo-900 mb-1.5">
                                 Currency
                             </label>
                             <input
@@ -458,11 +466,11 @@ function GoalTypeConfig({ goal, onUpdate, disabled, onVisualSelect }: GoalTypeCo
                                 disabled={disabled}
                                 maxLength={3}
                                 placeholder="USD"
-                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
                             />
                         </div>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-gray-500">
                         Track with: navlens.track(&apos;{goal.event_name || 'purchase'}&apos;, &#123; {goal.value_field || 'amount'}: 99.99 &#125;)
                     </p>
                 </div>

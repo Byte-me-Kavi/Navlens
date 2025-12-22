@@ -40,6 +40,8 @@ export async function getFormMetrics(
 
 /**
  * Calculate overall drop-off rate from fields
+ * This measures what percentage of users who started the form didn't reach the last field
+ * If first-to-last comparison isn't meaningful, uses average of field-level drop-offs
  */
 export function calculateOverallDropoff(fields: FieldMetrics[]): number {
     if (!fields || fields.length < 2) return 0;
@@ -47,11 +49,27 @@ export function calculateOverallDropoff(fields: FieldMetrics[]): number {
     const firstField = fields[0];
     const lastField = fields[fields.length - 1];
 
-    // Prevent division by zero and handle edge cases
-    if (!firstField.focus_count || firstField.focus_count === 0) return 0;
-    if (!lastField.blur_count && lastField.blur_count !== 0) return 0;
+    // Method 1: Calculate drop-off from first to last field
+    let dropoff = 0;
+    if (firstField.focus_count && firstField.focus_count > 0) {
+        const startCount = firstField.focus_count;
+        const endCount = lastField.focus_count;
 
-    const dropoff = Math.round((1 - lastField.blur_count / firstField.focus_count) * 100);
+        if (endCount < startCount) {
+            dropoff = Math.round(((startCount - endCount) / startCount) * 100);
+        }
+    }
+
+    // Method 2: If first-to-last shows 0%, calculate average of positive field drop-offs
+    if (dropoff === 0) {
+        const positiveDropoffs = fields
+            .map(f => f.drop_off_rate)
+            .filter(rate => rate > 0 && Number.isFinite(rate));
+
+        if (positiveDropoffs.length > 0) {
+            dropoff = Math.round(positiveDropoffs.reduce((sum, r) => sum + r, 0) / positiveDropoffs.length);
+        }
+    }
 
     // Handle edge cases like NaN, Infinity, -Infinity
     if (!Number.isFinite(dropoff) || Number.isNaN(dropoff)) return 0;

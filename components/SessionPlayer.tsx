@@ -66,11 +66,13 @@ export default function SessionPlayer({ events, markers = [] }: SessionPlayerPro
   const [currentTime, setCurrentTime] = useState(0);
   const [speed, setSpeed] = useState(1);
 
-  // 1. Calculate Duration Immediately from Data (No waiting for player)
+  // 1. Calculate Duration Immediately from Data
   const duration = useMemo(() => {
     if (events && events.length > 1) {
-      const startTime = events[0].timestamp;
-      const endTime = events[events.length - 1].timestamp;
+      // Create a sorted view just for duration calculation to be safe
+      const sortedEvents = [...events].sort((a, b) => a.timestamp - b.timestamp);
+      const startTime = sortedEvents[0].timestamp;
+      const endTime = sortedEvents[sortedEvents.length - 1].timestamp;
       return endTime - startTime;
     }
     return 0;
@@ -80,128 +82,175 @@ export default function SessionPlayer({ events, markers = [] }: SessionPlayerPro
   useEffect(() => {
     if (!playerRef.current || !events || events.length === 0) return;
 
-    // Check if player already exists and events haven't changed significantly
-    // REMOVED: We want to force re-creation if `events` prop changes (e.g. sorted/cleaned), 
-    // because React considers the new array a new reference.
-    // Passing [events] in dependency array is enough to trigger this effect.
-    
-    // However, if the parent passes the SAME events array reference (no change), effect won't run.
-    // If parent creates a NEW array reference every render, this effect runs every render -> Bad.
-    // Ensure parent memoizes events or only updates them truly when changed.
-    
-    // In our case, page.tsx sets events once (or twice). So it's safe to recreate.
+    let initTimer: NodeJS.Timeout;
+    let playerInstance: any = null;
 
-    // Cleanup old instance gracefully
-    if (playerInstanceRef.current) {
-      try {
-        playerInstanceRef.current.pause?.();
-        // Don't clear DOM immediately, let it transition
-      } catch {
-        // Ignore
-      }
-    }
-
-    // Clear DOM only for new player
-    if (playerRef.current && playerRef.current.innerHTML) {
-      playerRef.current.innerHTML = "";
-    }
-
-    console.log("Creating new player with events length:", events.length);
-
-    try {
-      const newPlayer = new rrwebPlayer({
-        target: playerRef.current,
-        props: {
-          events: events,
-          autoPlay: false,
-          showController: false,
-          speedOption: [0.5, 1, 1.5, 2, 4, 8],
-          skipInactive: true,
-          mouseTail: {
-            duration: 1000,
-            lineCap: "round",
-            lineWidth: 2,
-            strokeStyle: "#3b82f6",
-          },
-          // Add error handling for DOM reconstruction issues
-          liveMode: false,
-          insertStyleRules: [],
-          triggerFocus: false,
-        },
-      });
-
-      console.log("Player created:", newPlayer);
-
-      playerInstanceRef.current = newPlayer;
-
-      // Wait for iframe to load before accessing replayer
-      const iframe = playerRef.current?.querySelector("iframe");
-      if (iframe) {
-        iframe.addEventListener("load", () => {
-          console.log("Iframe loaded");
-        });
-      }
-
-      // Setup event listeners
-      const handleUiUpdate = (payload: { payload: number }) => {
-        // Payload is a percentage (0 to 1)
-        const percentage = payload.payload;
-
-        // We calculate current time based on the Duration we already know
-        // Use the duration state, or recalculate safely
-        const totalTime =
-          events[events.length - 1].timestamp - events[0].timestamp;
-
-        setCurrentTime(percentage * totalTime);
-      };
-
-      const handlePlay = () => setIsPlaying(true);
-      const handlePause = () => setIsPlaying(false);
-
-      // Wait for player to be fully ready before adding listeners
-      setTimeout(() => {
-        try {
-          newPlayer.addEventListener("ui-update-progress", handleUiUpdate);
-          newPlayer.addEventListener("play", handlePlay);
-          newPlayer.addEventListener("pause", handlePause);
-          setPlayerReady(true);
-          console.log("Event listeners added");
-        } catch (e) {
-          console.error("Error adding event listeners:", e);
+    const initializePlayer = () => {
+        // Clear DOM
+        if (playerRef.current) {
+           playerRef.current.innerHTML = "";
         }
-      }, 1000);
-    } catch (error) {
-      console.error("Error creating rrweb player:", error);
-      setPlayerReady(false);
-    }
+
+        console.log("Creating new player with events length:", events.length);
+
+        try {
+            // rrweb requires events to be sorted by timestamp
+            // We also deep clone to prevent mutation issues
+            const clonedEvents = JSON.parse(JSON.stringify(events)).sort((a: RRWebEvent, b: RRWebEvent) => {
+                return a.timestamp - b.timestamp;
+            });
+
+            const newPlayer = new rrwebPlayer({
+                target: playerRef.current!,
+                props: {
+                    events: clonedEvents,
+                    autoPlay: false,
+                    showController: false,
+                    speedOption: [0.5, 1, 1.5, 2, 4, 8],
+                    skipInactive: true,
+                    mouseTail: {
+                        duration: 1000,
+                        lineCap: "round",
+                        lineWidth: 2,
+                        strokeStyle: "#3b82f6",
+                    },
+                    liveMode: false,
+                    triggerFocus: false,
+                    UNSAFE_replayCanvas: false, 
+                },
+            });
+
+            console.log("Player created:", newPlayer);
+            playerInstance = newPlayer;
+            playerInstanceRef.current = newPlayer;
+
+             // Wait for iframe to load before accessing replayer
+            const iframe = playerRef.current?.querySelector("iframe");
+            if (iframe) {
+                iframe.addEventListener("load", () => {
+                console.log("Iframe loaded");
+                });
+            }
+
+            // Setup event listeners
+            const handleUiUpdate = (payload: { payload: number }) => {
+                const percentage = payload.payload;
+                // Use the duration calculated from props for stability
+                const totalTime = duration > 0 ? duration : (clonedEvents[clonedEvents.length - 1].timestamp - clonedEvents[0].timestamp);
+                setCurrentTime(percentage * totalTime);
+            };
+
+            const handlePlay = () => setIsPlaying(true);
+            const handlePause = () => setIsPlaying(false);
+
+            // Wait for player to be fully ready before adding listeners
+            setTimeout(() => {
+                try {
+                    if (!playerInstanceRef.current) return;
+                    newPlayer.addEventListener("ui-update-progress", handleUiUpdate);
+                    newPlayer.addEventListener("play", handlePlay);
+                    newPlayer.addEventListener("pause", handlePause);
+                    setPlayerReady(true);
+                    console.log("Event listeners added");
+                } catch (e) {
+                    console.error("Error adding event listeners:", e);
+                }
+            }, 500);
+
+        } catch (error) {
+            console.error("Error creating rrweb player:", error);
+            setPlayerReady(false);
+        }
+    };
+
+    // Debounce initialization to handle Strict Mode double-mount
+    initTimer = setTimeout(initializePlayer, 100);
 
     return () => {
-      // Cleanup: Destroy player instance to prevent duplication
-      if (playerInstanceRef.current) {
-        console.log("Destroying player instance");
-        try {
-          // Pause if running
-          playerInstanceRef.current.pause?.();
-          
-          // Use the internal replayer destroy if available
-          const replayer = playerInstanceRef.current.getReplayer?.();
-          if (replayer && typeof replayer.destroy === 'function') {
-             replayer.destroy();
-          }
-          
-        } catch (e) {
-          console.error("Error destroying player:", e);
+        // CLEANUP
+        clearTimeout(initTimer);
+        
+        if (playerInstance) {
+            console.log("Destroying player instance");
+            try {
+                playerInstance.pause?.();
+                const replayer = playerInstance.getReplayer?.();
+                if (replayer) {
+                    replayer.destroy?.();
+                }
+            } catch (e) {
+                console.error("Error destroying player:", e);
+            }
+            playerInstanceRef.current = null;
         }
-        playerInstanceRef.current = null;
-      }
-      
-      if (playerRef.current) {
-        playerRef.current.innerHTML = "";
-      }
-    };
-  }, [events]); // Re-create player when events change
 
-  // Control handlers with direct access to player instance
+        if (playerRef.current) {
+            playerRef.current.innerHTML = "";
+        }
+    };
+  }, [events, duration]);
+
+  // Recursive safe seek function
+  const safeSeek = useCallback((targetTime: number, attempts = 0) => {
+      if (!playerInstanceRef.current || attempts > 3) return;
+      
+      try {
+          // Double check player validity before seek
+          if (!playerInstanceRef.current || !playerInstanceRef.current.getReplayer()) {
+             throw new Error("Player not ready");
+          }
+
+          playerInstanceRef.current.goto(targetTime);
+          
+          // If successful, and we were playing, resume
+          if (isPlaying) {
+             // Use a safer play call
+             setTimeout(() => {
+                 if (playerInstanceRef.current && isPlaying) {
+                   try { playerInstanceRef.current.play(); } catch(e) { console.warn("Auto-resume failed", e); }
+                 }
+             }, 50);
+          }
+      } catch (err) {
+          console.warn(`Seek to ${targetTime} failed (attempt ${attempts + 1}):`, err);
+          
+          // Check for critical DOM errors that require reset
+          // if (err instanceof TypeError && err.message.includes("insertBefore")) {
+             // This suggests the DOM is out of sync. 
+             // We can't easily recover without a full rebuild, but maybe we can skip this frame.
+          // }
+
+          // Recursive retry with offset to skip bad frame
+          const nextTime = targetTime + 100;
+          if (nextTime < duration) {
+              setTimeout(() => safeSeek(nextTime, attempts + 1), 50);
+          } else {
+              // Fallback: Just pause
+              setIsPlaying(false);
+              try { playerInstanceRef.current?.pause(); } catch(e) {}
+          }
+      }
+  }, [duration, isPlaying]);
+
+  const handleSeek = useCallback((timeMs: number) => {
+    if (!playerInstanceRef.current) return;
+
+    // Clamp time to valid range
+    const clampedTime = Math.max(0, Math.min(timeMs, duration));
+
+    // 1. Optimistic UI update
+    setCurrentTime(clampedTime);
+
+    // 2. Pause first
+    if (isPlaying) {
+       try { playerInstanceRef.current.pause(); } catch(e) { /* ignore */ }
+    }
+
+    // 3. Initiate Safe Seek
+    safeSeek(clampedTime);
+
+  }, [duration, isPlaying, safeSeek]); 
+
   const togglePlay = useCallback(() => {
     if (!playerInstanceRef.current) return;
 
@@ -219,38 +268,10 @@ export default function SessionPlayer({ events, markers = [] }: SessionPlayerPro
       }
     } catch (error) {
       console.error("Play/pause error:", error);
+      // Recovery for play/pause error
+      setIsPlaying(false);
     }
   }, [isPlaying]);
-
-  const handleSeek = useCallback((timeMs: number) => {
-    if (!playerInstanceRef.current) return;
-
-    // Clamp time to valid range
-    const clampedTime = Math.max(0, Math.min(timeMs, duration));
-
-    // 1. Optimistic UI update
-    setCurrentTime(clampedTime);
-
-    // 2. Command Player with error handling
-    try {
-      playerInstanceRef.current.goto(clampedTime);
-
-      // 3. Keep playing if we were playing
-      if (isPlaying) {
-        playerInstanceRef.current.play();
-      }
-    } catch (error) {
-      console.error("Seek error (rrweb DOM reconstruction issue):", error);
-      try {
-        playerInstanceRef.current.pause();
-        setIsPlaying(false);
-        playerInstanceRef.current.goto(0);
-        setCurrentTime(0);
-      } catch (recoveryError) {
-        console.error("Recovery failed:", recoveryError);
-      }
-    }
-  }, [duration, isPlaying]);
 
   const handleSpeedChange = useCallback((newSpeed: number) => {
     if (!playerInstanceRef.current) return;

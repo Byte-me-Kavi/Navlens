@@ -142,6 +142,7 @@ export async function GET(request: NextRequest) {
         FROM form_interactions
         WHERE site_id = {siteId:String}
           AND timestamp >= now() - INTERVAL {days:Int32} DAY
+          AND form_id != ''
         GROUP BY form_id
         ORDER BY total_sessions DESC
         LIMIT 50
@@ -154,6 +155,10 @@ export async function GET(request: NextRequest) {
             });
 
             const formsData = await formsResult.json();
+            console.log(`[insights/forms] Raw forms data count: ${formsData.length}`);
+            if (formsData.length > 0) {
+                console.log(`[insights/forms] First form sample:`, JSON.stringify(formsData[0]));
+            }
             response.forms = formsData as FormSummary[];
 
             // Add summary

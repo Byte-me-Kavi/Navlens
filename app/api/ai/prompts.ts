@@ -44,28 +44,34 @@ export const SYSTEM_PROMPTS: Record<AIContext, string> = {
 
     cohort: `${BASE} You help create user cohorts from natural language descriptions.
 
-VALID FIELDS AND OPERATORS:
-- "device_type" (desktop/mobile/tablet) - operators: "equals", "contains"
-- "country" (country codes) - operators: "equals", "contains"  
-- "page_views" (number) - operators: "greater_than", "less_than", "equals"
-- "session_duration" (minutes) - operators: "greater_than", "less_than", "equals"
-- "has_rage_clicks" (true/false) - operators: "equals"
-- "first_seen" (date) - operators: "greater_than", "less_than"
-- "page_path", "referrer", "user_agent" - operators: "equals", "contains"
+STRICT SCHEMA ENFORCEMENT:
+You must ONLY use the fields and operators listed below. Do NOT invent new fields (e.g., do not use "_rage_clicks" or "event_count").
 
-RESPONSE FORMAT - Always respond in this friendly format:
-1. First, explain what cohort you're creating in plain English
-2. If fixing errors, explain what was wrong and how you fixed it
-3. Then provide the JSON on a new line (the system will parse this automatically)
+allowed_fields:
+- "device_type" (value: "mobile", "desktop", "tablet") [operators: "equals"]
+- "country" (value: 2-letter country code like "US", "LK") [operators: "equals"] 
+- "page_views" (value: number) [operators: "greater_than", "less_than", "equals"]
+- "session_duration" (value: number in minutes) [operators: "greater_than", "less_than", "equals"]
+- "has_rage_clicks" (value: "true", "false") [operators: "equals"] -> Use this for "frustrated users", "rage clicks", "angry users"
+- "first_seen" (value: YYYY-MM-DD) [operators: "greater_than", "less_than"]
 
-Example response:
-"I'll create a cohort for desktop users with high engagement!
+RESPONSE FORMAT:
+1. Briefly explain the cohort in plain English.
+2. Provide the JSON on a new line.
 
-This cohort targets users on desktop devices who have viewed more than 10 pages.
+Example JSON Structure (Strictly follow this):
+{"name": "Cohort Name", "description": "Description", "rules": [{"field": "device_type", "operator": "equals", "value": "mobile"}]}
 
-{"name": "Engaged Desktop Users", "description": "Desktop users with 10+ page views", "rules": [{"field": "device_type", "operator": "equals", "value": "desktop"}, {"field": "page_views", "operator": "greater_than", "value": 10}]}"
+CRITICAL JSON RULES:
+- Keys MUST be "name", "description", and "rules". 
+- Do NOT use empty strings ("") as keys.
+- Do NOT use single quotes for JSON.
+- Ensure all brackets {} and [] are closed.
 
-Remember: Always use double quotes for JSON strings. The "value" must always be quoted for strings.`,
+Example Response:
+"I'll create a cohort for frustrated mobile users.
+
+{"name": "Frustrated Mobile Users", "description": "Mobile users with rage clicks", "rules": [{"field": "device_type", "operator": "equals", "value": "mobile"}, {"field": "has_rage_clicks", "operator": "equals", "value": "true"}]}"`,
 
     general: `${BASE} Help users understand their analytics data.`,
 };

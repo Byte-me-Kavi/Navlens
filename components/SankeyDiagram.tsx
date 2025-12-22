@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useMemo } from "react";
+import { Sankey, Tooltip, ResponsiveContainer, Layer, Rectangle } from "recharts";
 
 interface PathNode {
   source: string;
@@ -12,122 +13,122 @@ interface SankeyDiagramProps {
   links: PathNode[];
   width?: number;
   height?: number;
+  getColor?: (name: string) => string;
 }
+
+const CustomNode = ({ x, y, width, height, index, payload, containerWidth, getColor }: any) => {
+  if (isNaN(x) || isNaN(y) || isNaN(width) || isNaN(height)) return null;
+
+  const isOut = x + width + 6 > (containerWidth || 800);
+  
+  // Clean name for display and color lookup
+  const rawName = payload.name;
+  const name = rawName.includes('__') ? rawName.split('__')[1] : rawName;
+  const displayName = name === '/' ? 'Homepage' : name;
+  
+  // Use provided getColor or fallback
+  const color = getColor ? getColor(name) : '#3b82f6';
+
+  return (
+    <Layer key={`node-${index}`}>
+      <Rectangle
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={color}
+        fillOpacity="1"
+        radius={[4, 4, 4, 4]}
+      />
+      <text
+        x={isOut ? x - 6 : x + width + 6}
+        y={y + height / 2}
+        textAnchor={isOut ? "end" : "start"}
+        fontSize={12}
+        fontWeight={500}
+        fill="#374151"
+        dy={4}
+      >
+        {displayName}
+      </text>
+      <text
+        x={isOut ? x - 6 : x + width + 6}
+        y={y + height / 2}
+        textAnchor={isOut ? "end" : "start"}
+        fontSize={10}
+        fill="#9CA3AF"
+        dy={16}
+      >
+        {payload.value.toLocaleString()} sessions
+      </text>
+    </Layer>
+  );
+};
+
+const CustomTooltip = ({ active, payload }: any) => {
+  if (!active || !payload || !payload.length) return null;
+  const data = payload[0];
+  
+  // Link tooltip
+  if (data.payload.source && data.payload.target) {
+    const sourceName = data.payload.source.name.includes('__') ? data.payload.source.name.split('__')[1] : data.payload.source.name;
+    const targetName = data.payload.target.name.includes('__') ? data.payload.target.name.split('__')[1] : data.payload.target.name;
+    
+    return (
+      <div className="bg-white p-3 border border-gray-100 shadow-lg rounded-xl">
+        <div className="text-sm text-gray-500 mb-1">Transition</div>
+        <div className="font-semibold text-gray-900 flex items-center gap-2">
+          <span className="text-indigo-600">{sourceName === '/' ? 'Homepage' : sourceName}</span>
+          <span>→</span>
+          <span className="text-emerald-600">{targetName === '/' ? 'Homepage' : targetName}</span>
+        </div>
+        <div className="mt-2 text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded inline-block">
+          {data.value.toLocaleString()} users
+        </div>
+      </div>
+    );
+  }
+
+  // Node tooltip
+  const rawName = data.payload.name;
+  const name = rawName.includes('__') ? rawName.split('__')[1] : rawName;
+  
+  return (
+    <div className="bg-white p-3 border border-gray-100 shadow-lg rounded-xl">
+      <div className="font-semibold text-gray-900 mb-1">
+        {name === '/' ? 'Homepage' : name}
+      </div>
+      <div className="text-sm text-gray-600">
+        Total Volume: <span className="font-bold text-gray-900">{data.value.toLocaleString()}</span>
+      </div>
+    </div>
+  );
+};
 
 export function SankeyDiagram({ 
   links, 
   width = 800, 
-  height = 500 
-}: SankeyDiagramProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
+  height = 500,
+  getColor
+}: SankeyDiagramProps): React.ReactNode {
+  
+  const data = useMemo(() => {
+    if (!links || links.length === 0) return { nodes: [], links: [] };
 
-  // Process data for visualization
-  const processedData = useMemo(() => {
-    if (!links || links.length === 0) return null;
+    const nodes = Array.from(
+      new Set(links.flatMap((l) => [l.source, l.target]))
+    ).map((name) => ({ name }));
 
-    // Build unique nodes
-    const nodeSet = new Set<string>();
-    links.forEach((link) => {
-      nodeSet.add(link.source);
-      nodeSet.add(link.target);
-    });
+    const nodeIndices = new Map(nodes.map((n, i) => [n.name, i]));
 
-    const nodes = Array.from(nodeSet).map((name) => ({ name }));
-    const nodeIndex = new Map(nodes.map((n, i) => [n.name, i]));
-
-    // Build links with node indices
-    const sankeyLinks = links.map((link) => ({
-      source: nodeIndex.get(link.source)!,
-      target: nodeIndex.get(link.target)!,
+    const chartLinks = links.map((link) => ({
+      source: nodeIndices.get(link.source) ?? 0,
+      target: nodeIndices.get(link.target) ?? 0,
       value: link.value,
     }));
 
-    return { nodes, links: sankeyLinks };
+    return { nodes, links: chartLinks };
   }, [links]);
-
-  useEffect(() => {
-    const loadD3AndRender = async () => {
-      if (!svgRef.current || !processedData) return;
-
-      try {
-        const d3 = await import("d3");
-        const { sankey, sankeyLinkHorizontal } = await import("d3-sankey");
-
-        const svg = d3.select(svgRef.current);
-        svg.selectAll("*").remove();
-
-        const margin = { top: 20, right: 120, bottom: 20, left: 120 };
-        const innerWidth = width - margin.left - margin.right;
-        const innerHeight = height - margin.top - margin.bottom;
-
-        const g = svg
-          .append("g")
-          .attr("transform", `translate(${margin.left},${margin.top})`);
-
-        // Create sankey generator - use any to avoid complex type issues
-        const sankeyGenerator = sankey()
-          .nodeWidth(20)
-          .nodePadding(15)
-          .extent([[0, 0], [innerWidth, innerHeight]]);
-
-        // Generate layout
-        const layout = sankeyGenerator({
-          nodes: processedData.nodes.map((d) => ({ ...d })) as any,
-          links: processedData.links.map((d) => ({ ...d })) as any,
-        });
-
-        const colorScale = d3.scaleOrdinal(d3.schemeTableau10);
-
-        // Draw links
-        g.append("g")
-          .attr("fill", "none")
-          .selectAll("path")
-          .data(layout.links)
-          .join("path")
-          .attr("d", sankeyLinkHorizontal() as any)
-          .attr("stroke", (d: any) => colorScale((d.source as any).name))
-          .attr("stroke-opacity", 0.4)
-          .attr("stroke-width", (d: any) => Math.max(1, d.width || 1));
-
-        // Draw nodes
-        g.append("g")
-          .selectAll("rect")
-          .data(layout.nodes)
-          .join("rect")
-          .attr("x", (d: any) => d.x0)
-          .attr("y", (d: any) => d.y0)
-          .attr("height", (d: any) => Math.max(1, d.y1 - d.y0))
-          .attr("width", (d: any) => d.x1 - d.x0)
-          .attr("fill", (d: any) => colorScale(d.name))
-          .attr("stroke", "#333")
-          .attr("stroke-width", 0.5)
-          .attr("rx", 3);
-
-        // Add labels
-        g.append("g")
-          .style("font-size", "11px")
-          .style("font-family", "Inter, sans-serif")
-          .selectAll("text")
-          .data(layout.nodes)
-          .join("text")
-          .attr("x", (d: any) => (d.x0 < innerWidth / 2 ? d.x1 + 6 : d.x0 - 6))
-          .attr("y", (d: any) => (d.y1 + d.y0) / 2)
-          .attr("dy", "0.35em")
-          .attr("text-anchor", (d: any) => (d.x0 < innerWidth / 2 ? "start" : "end"))
-          .attr("fill", "#374151")
-          .text((d: any) => {
-            const name = d.name;
-            if (name === "/" || name === "") return "Homepage";
-            if (name.length > 20) return "..." + name.slice(-17);
-            return name;
-          });
-      } catch (error) {
-        console.error("[SankeyDiagram] Failed to render:", error);
-      }
-    };
-
-    loadD3AndRender();
-  }, [processedData, width, height]);
 
   if (!links || links.length === 0) {
     return (
@@ -139,15 +140,25 @@ export function SankeyDiagram({
       </div>
     );
   }
-
+  
   return (
-    <div className="overflow-x-auto">
-      <svg
-        ref={svgRef}
-        width={width}
-        height={height}
-        className="bg-white rounded-xl"
-      />
+    <div className="w-full" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <Sankey
+          data={data}
+          node={<CustomNode containerWidth={width} getColor={getColor} />}
+          nodePadding={50}
+          margin={{
+            left: 20,
+            right: 120, // Space for labels
+            top: 20,
+            bottom: 20,
+          }}
+          link={{ stroke: '#cbd5e1', strokeOpacity: 0.3 }}
+        >
+          <Tooltip content={<CustomTooltip />} />
+        </Sankey>
+      </ResponsiveContainer>
     </div>
   );
 }

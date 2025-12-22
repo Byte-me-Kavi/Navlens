@@ -66,9 +66,12 @@ export function useFunnels(siteId: string | null): UseFunnelsResult {
     mutate((current) => (current || []).filter(f => f.id !== funnelId), false);
     try {
       await funnelApi.deleteFunnel(funnelId, siteId);
+      // Force revalidation to ensure server state is synced
+      await mutate();
     } catch (error) {
       // Revert on error
       await mutate();
+      throw error; // Re-throw so UI can handle it
     }
   }, [siteId, mutate]);
 

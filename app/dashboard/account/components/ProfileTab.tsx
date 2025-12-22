@@ -131,12 +131,12 @@ export function ProfileTab() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 p-6">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {message && (
-        <div className={`p-4 rounded-xl text-sm font-medium shadow-lg backdrop-blur-sm ${
+        <div className={`p-4 rounded-xl text-sm font-medium shadow-sm border ${
           message.type === "success"
-            ? "bg-emerald-50/80 text-emerald-700 border border-emerald-200"
-            : "bg-red-50/80 text-red-700 border border-red-200"
+            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+            : "bg-red-50 text-red-700 border-red-200"
         }`}>
           {message.text}
         </div>
@@ -145,10 +145,10 @@ export function ProfileTab() {
       {/* Grid Layout for Profile & Security */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile Settings */}
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white/60 shadow-xl shadow-indigo-500/5 p-6 md:p-8">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 md:p-8">
           <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20">
-                <UserCircleIcon className="w-6 h-6 text-white" />
+            <div className="p-3 bg-indigo-50 rounded-xl">
+                <UserCircleIcon className="w-6 h-6 text-indigo-600" />
             </div>
             <div>
                 <h2 className="text-lg font-bold text-gray-900">Personal Information</h2>
@@ -165,7 +165,7 @@ export function ProfileTab() {
                 type="email"
                 value={email}
                 disabled
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50/50 text-gray-500 text-sm font-medium cursor-not-allowed"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-500 text-sm font-medium cursor-not-allowed"
               />
             </div>
             <div>
@@ -184,7 +184,7 @@ export function ProfileTab() {
                 <button
                 onClick={handleSaveProfile}
                 disabled={loading}
-                className="w-full sm:w-auto px-8 py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all disabled:opacity-50 shadow-lg shadow-gray-900/10 hover:-translate-y-0.5"
+                className="w-full sm:w-auto px-8 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-sm hover:shadow-md"
                 >
                 {loading ? "Saving..." : "Save Changes"}
                 </button>
@@ -193,10 +193,10 @@ export function ProfileTab() {
         </div>
 
         {/* Security Settings */}
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white/60 shadow-xl shadow-indigo-500/5 p-6 md:p-8 h-fit">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 md:p-8 h-fit">
           <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20">
-                <ShieldCheckIcon className="w-6 h-6 text-white" />
+            <div className="p-3 bg-indigo-50 rounded-xl">
+                <ShieldCheckIcon className="w-6 h-6 text-indigo-600" />
             </div>
             <div>
                 <h2 className="text-lg font-bold text-gray-900">Security</h2>
@@ -207,7 +207,7 @@ export function ProfileTab() {
           <div className="space-y-4">
             <button
               onClick={handleChangePassword}
-              className="w-full text-left px-5 py-4 bg-white/80 border border-white rounded-xl hover:border-indigo-300 hover:shadow-md transition-all group"
+              className="w-full text-left px-5 py-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-300 hover:shadow-sm transition-all group"
             >
               <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-700">Change Password</span>
@@ -215,7 +215,7 @@ export function ProfileTab() {
               </div>
             </button>
             
-            <div className="w-full px-5 py-4 bg-gray-50/50 border border-gray-100 rounded-xl opacity-75">
+            <div className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl opacity-75">
                <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500">Two-Factor Auth</span>
                   <span className="text-[10px] font-bold bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full uppercase tracking-wide">
@@ -230,8 +230,8 @@ export function ProfileTab() {
       {/* Notification Settings */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-blue-50 rounded-lg">
-                <BellIcon className="w-6 h-6 text-blue-600" />
+            <div className="p-2 bg-indigo-50 rounded-lg">
+                <BellIcon className="w-6 h-6 text-indigo-600" />
             </div>
             <div>
                 <h2 className="text-base font-bold text-gray-900">Notifications</h2>
@@ -240,7 +240,7 @@ export function ProfileTab() {
         </div>
 
         <div className="space-y-3 max-w-2xl">
-          <label className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:bg-white hover:border-blue-200 transition-all group">
+          <label className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-indigo-300 transition-all group">
             <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Email notifications for new data</span>
             <div className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -249,11 +249,11 @@ export function ProfileTab() {
                     onChange={(e) => setEmailNotifications(e.target.checked)}
                     className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:border-white"></div>
             </div>
           </label>
 
-          <label className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:bg-white hover:border-blue-200 transition-all group">
+          <label className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-indigo-300 transition-all group">
             <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Weekly analytics reports</span>
             <div className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -262,11 +262,11 @@ export function ProfileTab() {
                     onChange={(e) => setWeeklyReports(e.target.checked)}
                     className="sr-only peer"
                 />
-                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:border-white"></div>
             </div>
           </label>
 
-          <label className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:bg-white hover:border-blue-200 transition-all group">
+          <label className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-indigo-300 transition-all group">
             <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Product updates and news</span>
             <div className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -275,7 +275,7 @@ export function ProfileTab() {
                     onChange={(e) => setProductUpdates(e.target.checked)}
                     className="sr-only peer"
                 />
-                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:border-white"></div>
             </div>
           </label>
         </div>

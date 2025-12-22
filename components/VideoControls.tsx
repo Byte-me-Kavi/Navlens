@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 import { TimelineMarker } from "@/features/dev-tools/types/devtools.types";
 
@@ -33,12 +33,64 @@ export default function VideoControls({
 }: VideoControlsProps) {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
+  // Local state for smooth slider interaction without overwhelming the player
+  const [sliderValue, setSliderValue] = useState(currentTime || 0);
+  const [isInteracting, setIsInteracting] = useState(false);
+  const seekDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync slider with player time when not interacting
+  useEffect(() => {
+    if (!isInteracting) {
+      setSliderValue(Number.isNaN(currentTime) ? 0 : currentTime);
+    }
+  }, [currentTime, isInteracting]);
+  
+  // Clean up debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (seekDebounceRef.current) {
+        clearTimeout(seekDebounceRef.current);
+      }
+    };
+  }, []);
+
   const formatTime = (ms: number) => {
     if (Number.isNaN(ms) || ms === undefined || ms === null) return "0:00";
     const seconds = Math.floor(ms / 1000);
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = parseInt(e.target.value) || 0;
+    setSliderValue(newValue);
+    setIsInteracting(true);
+
+    // Debounce the actual seek trigger
+    if (seekDebounceRef.current) {
+      clearTimeout(seekDebounceRef.current);
+    }
+
+    seekDebounceRef.current = setTimeout(() => {
+      onSeek(newValue);
+    }, 200); // 200ms debounce
+  };
+
+  const handleSliderCommit = () => {
+    // Clear any pending debounce
+    if (seekDebounceRef.current) {
+      clearTimeout(seekDebounceRef.current);
+      seekDebounceRef.current = null;
+    }
+    
+    // Trigger immediate seek on release
+    onSeek(sliderValue);
+    
+    // Small delay before allowing external updates again to prevent jumping
+    setTimeout(() => {
+      setIsInteracting(false);
+    }, 100);
   };
 
   return (
@@ -101,7 +153,7 @@ export default function VideoControls({
 
           {/* Center: Current Time */}
           <span className="text-xs font-semibold text-indigo-900 w-12 flex-shrink-0 text-center font-mono">
-            {formatTime(currentTime)}
+            {formatTime(sliderValue)}
           </span>
 
           {/* Progress Bar Container */}
@@ -161,12 +213,10 @@ export default function VideoControls({
               type="range"
               min="0"
               max={Math.max(duration || 0, 1)}
-              value={
-                Number.isNaN(currentTime)
-                  ? 0
-                  : Math.min(currentTime || 0, duration || 0)
-              }
-              onChange={(e) => onSeek(parseInt(e.target.value) || 0)}
+              value={sliderValue}
+              onChange={handleSliderChange}
+              onMouseUp={handleSliderCommit}
+              onTouchEnd={handleSliderCommit}
               disabled={!playerReady}
               className="w-full h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer relative z-20
               disabled:cursor-not-allowed
@@ -194,12 +244,12 @@ export default function VideoControls({
               hover:h-2 transition-all disabled:opacity-50"
               style={{
                 background: `linear-gradient(to right, #4f46e5 0%, #4f46e5 ${
-                  duration > 0 && !Number.isNaN(currentTime)
-                    ? (currentTime / duration) * 100
+                  duration > 0
+                    ? (sliderValue / duration) * 100
                     : 0
                 }%, #e5e7eb ${
-                  duration > 0 && !Number.isNaN(currentTime)
-                    ? (currentTime / duration) * 100
+                  duration > 0
+                    ? (sliderValue / duration) * 100
                     : 0
                 }%, #e5e7eb 100%)`,
               }}

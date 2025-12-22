@@ -33,7 +33,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
       // Fetch subscription data
       // First try to get from profile
-      const { data: profile } = await supabase
+      const { data: profileData } = await supabase
         .from('profiles')
         .select(`
           subscription_id,
@@ -43,7 +43,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           )
         `)
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
+
+      const profile = profileData?.[0];
 
       let activeSubscription: any = profile?.subscriptions;
       let planName = 'Free';

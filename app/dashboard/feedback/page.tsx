@@ -135,13 +135,13 @@ export default function FeedbackDashboardPage() {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'bug':
-        return <HiBugAnt className="w-4 h-4 text-red-500" />;
+        return <HiBugAnt className="w-5 h-5" />;
       case 'suggestion':
-        return <HiLightBulb className="w-4 h-4 text-yellow-500" />;
+        return <HiLightBulb className="w-5 h-5" />;
       case 'survey_response':
-        return <FiStar className="w-4 h-4 text-purple-500" />;
+        return <FiStar className="w-5 h-5" />;
       default:
-        return <HiChatBubbleLeftRight className="w-4 h-4 text-blue-500" />;
+        return <HiChatBubbleLeftRight className="w-5 h-5" />;
     }
   };
 
@@ -174,70 +174,26 @@ export default function FeedbackDashboardPage() {
       title="Unlock Feedback Widget" 
       description="Collect bug reports, suggestions, and feedback directly from your users."
     >
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 py-4 md:px-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg">
-              <FiMessageCircle className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">User Feedback</h1>
-              <p className="text-sm text-gray-600">
-                Voice of Customer - Feedback & Survey Responses
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6 border border-gray-100">
-          <div className="flex flex-wrap gap-4 items-center justify-between">
+        
+        {/* Header Section */}
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              {/* Filter by Type */}
-              <div className="flex items-center gap-2">
-                <FiFilter className="w-4 h-4 text-gray-500" />
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Types</option>
-                  <option value="bug">Bug Reports</option>
-                  <option value="suggestion">Suggestions</option>
-                  <option value="general">General</option>
-                  <option value="survey_response">Survey Responses</option>
-                </select>
-              </div>
-
-              {/* Date Range */}
-              <div className="flex items-center gap-2">
-                <FiCalendar className="w-4 h-4 text-gray-500" />
-                <div className="flex gap-1">
-                  {(['7d', '30d', '90d'] as const).map((range) => (
-                    <button
-                      key={range}
-                      onClick={() => setDateRange(range)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        dateRange === range
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {range === '7d' ? '7D' : range === '30d' ? '30D' : '90D'}
-                    </button>
-                  ))}
+                <div className="p-3 bg-indigo-50 rounded-xl">
+                    <FiMessageCircle className="w-6 h-6 text-indigo-600" />
                 </div>
-              </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">User Feedback</h1>
+                    <p className="text-gray-500">Listen to your users and improve their experience</p>
+                </div>
             </div>
-
-            <div className="flex gap-2">
-              {/* AI Analysis Button */}
-              <button
+            
+            <div className="flex items-center gap-3">
+               <button
                 onClick={handleAIAnalysis}
                 disabled={feedback.length === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all disabled:opacity-50 hover:shadow-lg"
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-100 text-indigo-600 hover:bg-indigo-50 rounded-xl font-medium transition-all disabled:opacity-50 shadow-sm"
               >
                 <SparklesIcon className="w-4 h-4" />
                 AI Insights
@@ -246,13 +202,47 @@ export default function FeedbackDashboardPage() {
               <button
                 onClick={fetchFeedback}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 font-medium shadow-sm"
               >
                 <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
             </div>
-          </div>
+        </div>
+
+        {/* Filters Bar */}
+        <div className="flex flex-wrap gap-4 items-center justify-between mb-6">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+                {['all', 'bug', 'suggestion', 'survey_response', 'general'].map((type) => (
+                    <button
+                        key={type}
+                        onClick={() => setFilterType(type)}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap border ${
+                            filterType === type 
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' 
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                    >
+                        {type === 'all' ? 'All Feedback' : getTypeLabel(type)}
+                    </button>
+                ))}
+            </div>
+
+            <div className="flex bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
+                {(['7d', '30d', '90d'] as const).map((range) => (
+                <button
+                    key={range}
+                    onClick={() => setDateRange(range)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    dateRange === range
+                        ? 'bg-indigo-50 text-indigo-700 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+                </button>
+                ))}
+            </div>
         </div>
 
         {/* No Sites or No Site Selected */}
@@ -267,166 +257,194 @@ export default function FeedbackDashboardPage() {
 
         {selectedSiteId && (
             <>
-            {/* Stats Cards */}
+            {/* Stats Overview */}
             {stats && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white rounded-xl shadow p-4 border border-gray-100">
-                  <div className="text-3xl font-bold text-gray-900">{stats.totalFeedback}</div>
-                  <div className="text-sm text-gray-500">Total Feedback</div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:border-indigo-100 transition-colors group">
+                  <div className="text-sm font-medium text-indigo-600 mb-1">Total Feedback</div>
+                  <div className="text-2xl font-bold text-indigo-600 transition-colors">{stats.totalFeedback}</div>
                 </div>
-                <div className="bg-white rounded-xl shadow p-4 border border-gray-100">
-                  <div className="text-3xl font-bold text-red-600">{stats.typeCounts.bug || 0}</div>
-                  <div className="text-sm text-gray-500">Bug Reports</div>
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:border-red-100 transition-colors group">
+                  <div className="text-sm font-medium text-red-600 mb-1 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500" /> Bug Reports
+                  </div>
+                  <div className="text-2xl font-bold text-red-600 transition-colors">{stats.typeCounts.bug || 0}</div>
                 </div>
-                <div className="bg-white rounded-xl shadow p-4 border border-gray-100">
-                  <div className="text-3xl font-bold text-yellow-600">{stats.typeCounts.suggestion || 0}</div>
-                  <div className="text-sm text-gray-500">Suggestions</div>
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:border-amber-100 transition-colors group">
+                   <div className="text-sm font-medium text-amber-600 mb-1 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-500" /> Suggestions
+                  </div>
+                  <div className="text-2xl font-bold text-amber-600 transition-colors">{stats.typeCounts.suggestion || 0}</div>
                 </div>
-                <div className="bg-white rounded-xl shadow p-4 border border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <div className="text-3xl font-bold text-purple-600">
+                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:border-green-100 transition-colors group">
+                  <div className="text-sm font-medium text-green-600 mb-1">Avg Rating</div>
+                  <div className="flex items-baseline gap-2">
+                    <div className="text-2xl font-bold text-green-600 transition-colors">
                       {stats.avgRating !== null ? stats.avgRating.toFixed(1) : '-'}
                     </div>
-                    {stats.avgRating !== null && <FiStar className="w-5 h-5 text-purple-400" />}
+                    {stats.avgRating !== null && <FiStar className="w-4 h-4 text-green-600 fill-green-600" />}
                   </div>
-                  <div className="text-sm text-gray-500">Avg Rating</div>
                 </div>
               </div>
             )}
 
-            {/* Loading */}
+            {/* Loading State */}
             {loading && (
-              <div className="bg-white rounded-xl shadow-lg p-8 text-center border border-gray-100">
-                <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-                <p className="text-gray-500">Loading feedback...</p>
+              <div className="bg-white rounded-2xl shadow-sm p-12 text-center border border-gray-100">
+                <LoadingSpinner message="Loading feedback..." fullScreen={false} />
               </div>
             )}
 
-            {/* Error */}
+            {/* Error State */}
             {error && (
-              <div className="bg-red-50 rounded-xl p-6 text-center border border-red-100">
-                <FiAlertCircle className="w-8 h-8 mx-auto text-red-500 mb-2" />
-                <p className="text-red-700">{error}</p>
+              <div className="bg-red-50 rounded-2xl p-8 text-center border border-red-100">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FiAlertCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Failed to load feedback</h3>
+                <p className="text-red-600 mb-4">{error}</p>
+                <button onClick={fetchFeedback} className="text-sm font-medium text-red-700 hover:text-red-800 underline">Try Again</button>
               </div>
             )}
 
-            {/* Feedback List */}
+            {/* Empty State */}
             {!loading && !error && feedback.length === 0 && (
-              <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-100">
-                <FiThumbsUp className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">No Feedback Yet</h3>
-                <p className="text-gray-500 text-sm">
-                  User feedback will appear here once collected via the feedback widget.
+              <div className="bg-white rounded-2xl shadow-sm p-16 text-center border border-dashed border-gray-300">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <FiMessageCircle className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">No Feedback Yet</h3>
+                <p className="text-gray-500 text-sm max-w-md mx-auto mb-8">
+                  Get valuable insights from your users. Ensure the feedback widget is installed on your site.
                 </p>
+                <a href="/docs/installation" className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium transition-colors">
+                    Setup Instructions
+                </a>
               </div>
             )}
 
+            {/* Content List */}
             {!loading && !error && feedback.length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                <div className="divide-y divide-gray-100">
+              <div className="space-y-4">
                     {feedback.map((item) => {
-                      // Extract intent and issues from metadata if not at top level
+                      // Extract intent and issues
                       const intent = item.intent || item.metadata?.intent;
                       const issues = item.issues || item.metadata?.issues || [];
                       
                       return (
                         <div
                           key={item.id}
-                          className="p-4 hover:bg-gray-50 transition-colors"
+                          className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-all group"
                         >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                {getTypeIcon(item.feedback_type)}
-                                <span className="text-sm font-medium text-gray-700">
-                                  {getTypeLabel(item.feedback_type)}
-                                </span>
-                                {item.rating !== null && (
-                                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
-                                    Score: {item.rating}
-                                  </span>
-                                )}
-                                {intent && (
-                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                                    Intent: {intent}
-                                  </span>
-                                )}
-                                {item.survey_type && (
-                                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">
-                                    {item.survey_type.replace('_', ' ')}
-                                  </span>
-                                )}
-                                <span className="text-xs text-gray-400">
-                                  {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString()}
-                                </span>
-                              </div>
-                              
-                              {/* Issues */}
-                              {issues.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                  {issues.map((issue, idx) => (
-                                    <span key={idx} className="px-2 py-0.5 bg-red-50 text-red-600 text-xs rounded-full">
-                                      {issue.replace('_', ' ')}
-                                    </span>
-                                  ))}
+                          <div className="flex flex-col md:flex-row gap-4 md:items-start">
+                            {/* Icon Column */}
+                            <div className="flex-shrink-0">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                    item.feedback_type === 'bug' ? 'bg-red-50 text-red-600' :
+                                    item.feedback_type === 'suggestion' ? 'bg-amber-50 text-amber-600' :
+                                    item.feedback_type === 'survey_response' ? 'bg-purple-50 text-purple-600' :
+                                    'bg-blue-50 text-blue-600'
+                                }`}>
+                                    {getTypeIcon(item.feedback_type)}
                                 </div>
-                              )}
-                              
-                              {/* Message */}
-                              {item.message && (
-                                <p className="text-gray-800 text-sm bg-gray-50 p-3 rounded-lg mb-2">
-                                  "{item.message}"
+                            </div>
+
+                            {/* Main Content */}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                    <span className="font-semibold text-gray-900">
+                                        {getTypeLabel(item.feedback_type)}
+                                    </span>
+                                    
+                                    <span className="text-gray-300 text-xs">•</span>
+                                    
+                                    <span className="text-sm text-gray-500">
+                                        {new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+
+                                    {item.rating !== null && (
+                                        <span className={`ml-auto md:ml-2 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                                            item.rating >= 4 ? 'bg-green-50 text-green-700 border-green-100' :
+                                            item.rating <= 2 ? 'bg-red-50 text-red-700 border-red-100' :
+                                            'bg-gray-50 text-gray-700 border-gray-100'
+                                        }`}>
+                                            {item.rating} / 5
+                                        </span>
+                                    )}
+                                </div>
+                                
+                                <p className="text-gray-800 text-base leading-relaxed mb-3">
+                                    "{item.message}"
                                 </p>
-                              )}
-                              
-                              {/* Details Row */}
-                              <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
-                                <span className="flex items-center gap-1">
-                                  <FiGlobe className="w-3 h-3" />
-                                  {item.page_path}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <FiSmartphone className="w-3 h-3" />
-                                  {item.device_type}
-                                </span>
-                                {item.visitor_id && (
-                                  <span className="flex items-center gap-1">
-                                    <FiUser className="w-3 h-3" />
-                                    {item.visitor_id.slice(0, 8)}...
-                                  </span>
+                                
+                                {/* Tags container */}
+                                {(intent || issues.length > 0 || item.survey_type) && (
+                                    <div className="flex flex-wrap gap-2 mb-3">
+                                        {intent && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-md border border-indigo-100">
+                                                <SparklesIcon className="w-3 h-3" /> {intent}
+                                            </span>
+                                        )}
+                                        {item.survey_type && (
+                                            <span className="inline-flex items-center px-2 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-md border border-purple-100 uppercase tracking-wider">
+                                                {item.survey_type.replace('_', ' ')}
+                                            </span>
+                                        )}
+                                        {issues.map((issue, idx) => (
+                                            <span key={idx} className="inline-flex items-center px-2 py-1 bg-red-50 text-red-700 text-xs font-medium rounded-md border border-red-100">
+                                                {issue.replace('_', ' ')}
+                                            </span>
+                                        ))}
+                                    </div>
                                 )}
-                                <Link
-                                  href={`/dashboard/session-replayer?sessionId=${item.session_id}`}
-                                  className="flex items-center gap-1 text-blue-600 hover:underline"
-                                >
-                                  <FiExternalLink className="w-3 h-3" />
-                                  View Session
-                                </Link>
-                              </div>
+
+                                {/* Meta Footer */}
+                                <div className="flex items-center gap-4 text-xs text-gray-500 pt-3 border-t border-gray-50 mt-2">
+                                    <div className="flex items-center gap-1.5" title="Page URL">
+                                        <FiGlobe className="w-3.5 h-3.5" />
+                                        <span className="truncate max-w-[150px] md:max-w-[300px] font-mono">{item.page_path}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5" title="Device">
+                                        <FiSmartphone className="w-3.5 h-3.5" />
+                                        <span className="capitalize">{item.device_type}</span>
+                                    </div>
+                                    {item.visitor_id && (
+                                        <div className="flex items-center gap-1.5 ml-auto" title="Visitor ID">
+                                            <FiUser className="w-3.5 h-3.5" />
+                                            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{item.visitor_id.slice(0, 8)}</span>
+                                        </div>
+                                    )}
+                                    <Link
+                                        href={`/dashboard/session-replayer?sessionId=${item.session_id}`}
+                                        className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 hover:underline font-medium transition-colors ml-2"
+                                    >
+                                        <FiExternalLink className="w-3.5 h-3.5" />
+                                        Replay Session
+                                    </Link>
+                                </div>
                             </div>
                           </div>
                         </div>
                       );
                     })}
-                </div>
-
+                
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="p-4 border-t border-gray-100 flex justify-center gap-2">
+                  <div className="flex justify-center gap-2 mt-8">
                     <button
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className="px-3 py-1 bg-gray-100 rounded-lg disabled:opacity-50"
+                      className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Previous
                     </button>
-                    <span className="px-3 py-1 text-gray-600">
+                    <span className="px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl font-medium">
                       Page {page} of {totalPages}
                     </span>
                     <button
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
-                      className="px-3 py-1 bg-gray-100 rounded-lg disabled:opacity-50"
+                      className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Next
                     </button>
