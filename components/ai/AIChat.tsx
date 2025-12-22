@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAI } from '@/context/AIProvider';
 import { getQuickPrompts, type AIContext as AIContextType } from '@/app/api/ai/prompts';
+import { FeatureLock } from '@/components/subscription/FeatureLock';
 
 interface AIChatProps {
   onClose?: () => void;
@@ -361,6 +362,11 @@ export function AIChat({ onClose }: AIChatProps) {
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
+        <FeatureLock 
+          feature="navlens_ai" 
+          title="Unlock AI Insights" 
+          description="Get deep insights into your user behavior with our advanced AI assistant."
+        >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-cyan-500/10 to-blue-500/10">
           <div className="flex items-center gap-3">
@@ -545,6 +551,7 @@ export function AIChat({ onClose }: AIChatProps) {
             Powered by Llama 3.3 70B
           </p>
         </div>
+        </FeatureLock>
       </div>
     </>
   );

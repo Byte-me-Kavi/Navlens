@@ -46,63 +46,58 @@ interface UsageData {
   planName: string;
 }
 
-// Plan configurations with limits
-const planLimits: Record<string, { sessions: number | null; heatmaps: number | null }> = {
-  Free: { sessions: 1000, heatmaps: 10 },
-  Starter: { sessions: 5000, heatmaps: null },
-  Pro: { sessions: 25000, heatmaps: null },
-  Enterprise: { sessions: null, heatmaps: null },
+import { PLANS, FEATURE_LABELS } from '@/lib/plans/config';
+
+// UI Specific mappings that aren't in shared config
+const PLAN_UI = {
+  Free: { icon: '🆓', gradient: 'from-gray-500 to-gray-600' },
+  Starter: { icon: '🚀', gradient: 'from-emerald-500 to-teal-600' },
+  Pro: { icon: '💎', gradient: 'from-blue-500 to-indigo-600' },
+  Enterprise: { icon: '🏢', gradient: 'from-purple-500 to-pink-600' }
 };
 
-const planDetails: Record<string, { description: string; features: string[]; gradient: string; icon: string }> = {
-  Free: {
-    description: 'Basic analytics to get you started with user behavior tracking.',
-    features: [
-      '1,000 sessions/month',
-      'Basic heatmaps (10/day)',
-      'Session replay',
-      '14-day retention',
-    ],
-    gradient: 'from-gray-500 to-gray-600',
-    icon: '🆓',
-  },
-  Starter: {
-    description: 'Perfect for small websites and blogs with growing traffic.',
-    features: [
-      '5,000 sessions/month',
-      'Unlimited heatmaps',
-      'Full session replay',
-      'A/B testing (2 tests)',
-      'Email support',
-    ],
-    gradient: 'from-emerald-500 to-teal-600',
-    icon: '🚀',
-  },
-  Pro: {
-    description: 'Advanced insights for growing businesses and agencies.',
-    features: [
-      '25,000 sessions/month',
-      'Revenue attribution',
-      'AI insights',
-      'Funnel & form analytics',
-      'Priority support',
-    ],
-    gradient: 'from-blue-500 to-indigo-600',
-    icon: '💎',
-  },
-  Enterprise: {
-    description: 'Enterprise-grade analytics with unlimited capabilities.',
-    features: [
-      'Unlimited sessions',
-      'Revenue heatmaps',
-      'SSO/SAML',
-      'Dedicated manager',
-      'Custom integrations',
-    ],
-    gradient: 'from-purple-500 to-pink-600',
-    icon: '🏢',
-  },
+// Plan configurations with limits derived from config
+// We map the centralized limit keys to the dashboard's expected keys if necessary, 
+// or update usage to use new keys. Here we map for backward compatibility.
+const getPlanLimits = (planName: string) => {
+    // @ts-ignore
+    const plan = PLANS[planName.toUpperCase()] || PLANS.FREE;
+    // Map -1 to null for dashboard logic 'Unlimited' check
+    return {
+        sessions: plan.limits.sessions === -1 ? null : plan.limits.sessions,
+        heatmaps: plan.limits.heatmaps === -1 ? null : plan.limits.heatmaps // Note: Config uses 'heatmaps' from seed, but locally we removed it in favor of boolean? 
+        // Wait, seed had 'heatmaps_limited' feature but limits has 'heatmaps' key in seed?
+        // In clean config, limits are: sessions, recordings, retention_days... 
+        // Heatmaps is a feature flag. If 'heatmaps' is not in limits, we need to handle it.
+        // User said "Click Heatmaps: Unlimited" for Starter/Pro.
+        // Let's check config limits again.
+    };
 };
+// Actually, looking at config.ts from step 128:
+// limit keys: sessions, recordings, retention_days, active_experiments, active_surveys.
+// It DOES NOT have 'heatmaps' limit. Heatmap limitation is "Limited heatmaps (10/day)" for free.
+// So for Free, we might want to hardcode or add to config.
+// For now, I will preserve the existing dashboard logic for heatmaps if it's not in config, or interpret 'recordings' as a proxy? No.
+// Let's assume heatmaps limit is 10 for Free and null (Unlimited) for others, as per plan features.
+
+const planDetailsProxy = new Proxy({}, {
+    get: (target, prop) => {
+        if (typeof prop !== 'string') return undefined;
+        // @ts-ignore
+        const plan = PLANS[prop.toUpperCase()];
+        if (!plan) return undefined;
+        
+        // @ts-ignore
+        const ui = PLAN_UI[prop] || PLAN_UI.Free;
+
+        return {
+            description: plan.description,
+            features: plan.features.slice(0, 5).map((k: string) => FEATURE_LABELS[k] || k),
+            gradient: ui.gradient,
+            icon: ui.icon
+        };
+    }
+});
 
 export default function SubscriptionDashboard() {
   const router = useRouter();
@@ -173,8 +168,18 @@ export default function SubscriptionDashboard() {
       // Get plan name
       const subscriptionData = activeSubscription as any;
       const sub = Array.isArray(subscriptionData) ? subscriptionData[0] : subscriptionData;
-      const planName = sub?.subscription_plans?.name || 'Free';
-      const limits = planLimits[planName] || planLimits.Free;
+      const planNameData = sub?.subscription_plans?.name || 'Free';
+      // Normalize plan name case
+      const planName = planNameData.charAt(0).toUpperCase() + planNameData.slice(1).toLowerCase(); 
+
+      // Derive limits
+      // @ts-ignore
+      const configPlan = PLANS[planName.toUpperCase()] || PLANS.FREE;
+      const limits = {
+          sessions: configPlan.limits.sessions === -1 ? null : configPlan.limits.sessions,
+          // Handle 'heatmaps' specifically: Free has 10, others Unlimited (null)
+          heatmaps: planName === 'Free' ? 10 : null 
+      };
 
       // Fetch real usage from API with sessionStorage caching
       const USAGE_CACHE_KEY = 'navlens_subscription_usage';
@@ -330,7 +335,8 @@ export default function SubscriptionDashboard() {
 
   const planName = usage?.planName || 'Free';
   const isFreePlan = planName === 'Free';
-  const currentPlanDetails = planDetails[planName] || planDetails.Free;
+  // @ts-ignore
+  const currentPlanDetails = planDetailsProxy[planName] || planDetailsProxy.Free;
   const sessionPercentage = getUsagePercentage(usage?.sessions || 0, usage?.sessionLimit ?? null);
   const heatmapPercentage = getUsagePercentage(usage?.heatmaps || 0, usage?.heatmapLimit ?? null);
 
@@ -389,7 +395,7 @@ export default function SubscriptionDashboard() {
 
           {/* Features Grid */}
           <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-3">
-            {currentPlanDetails.features.map((feature, idx) => (
+            {currentPlanDetails.features.map((feature: string, idx: number) => (
               <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-lg">
                 <CheckCircleIcon className="w-4 h-4 text-emerald-500 shrink-0" />
                 <span className="text-xs text-gray-700 truncate">{feature}</span>

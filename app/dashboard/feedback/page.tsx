@@ -22,6 +22,7 @@ import { HiBugAnt, HiLightBulb, HiChatBubbleLeftRight } from 'react-icons/hi2';
 import { SparklesIcon } from '@heroicons/react/24/outline';
 import { useAI } from '@/context/AIProvider';
 import Link from 'next/link';
+import { FeatureLock } from '@/components/subscription/FeatureLock';
 
 interface Feedback {
   id: string;
@@ -168,6 +169,11 @@ export default function FeedbackDashboardPage() {
   const selectedSite = sites.find((s) => s.id === selectedSiteId);
 
   return (
+    <FeatureLock 
+      feature="feedback_widget" 
+      title="Unlock Feedback Widget" 
+      description="Collect bug reports, suggestions, and feedback directly from your users."
+    >
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 py-4 md:px-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -260,7 +266,7 @@ export default function FeedbackDashboardPage() {
         ) : null}
 
         {selectedSiteId && (
-          <>
+            <>
             {/* Stats Cards */}
             {stats && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -428,9 +434,10 @@ export default function FeedbackDashboardPage() {
                 )}
               </div>
             )}
-          </>
+            </>
         )}
       </div>
     </div>
+    </FeatureLock>
   );
 }

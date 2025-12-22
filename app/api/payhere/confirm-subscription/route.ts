@@ -8,10 +8,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@/lib/supabase/server-admin';
 
 export async function POST(req: NextRequest) {
     try {
         const supabase = await createClient();
+        const adminSupabase = createAdminClient();
 
         // Get authenticated user
         const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
         console.log('[Confirm Subscription] Processing for user:', user.id, 'Order:', orderId);
 
         // Find the user's pending subscription
-        const { data: pendingSubscription, error: findError } = await supabase
+        const { data: pendingSubscription, error: findError } = await adminSupabase
             .from('subscriptions')
             .select('id, plan_id, status')
             .eq('user_id', user.id)
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
             console.log('[Confirm Subscription] No pending subscription found:', findError);
 
             // Check if there's already an active subscription
-            const { data: activeSubscription } = await supabase
+            const { data: activeSubscription } = await adminSupabase
                 .from('subscriptions')
                 .select('id, plan_id, subscription_plans(name)')
                 .eq('user_id', user.id)
@@ -66,11 +68,25 @@ export async function POST(req: NextRequest) {
 
         console.log('[Confirm Subscription] Found pending subscription:', pendingSubscription.id);
 
+        // CRITICAL FIX: Cancel any EXISTING active subscriptions to prevent multiple active plans
+        // This handles upgrades/downgrades correctly
+        const { error: cancelError } = await adminSupabase
+            .from('subscriptions')
+            .update({ status: 'cancelled' })
+            .eq('user_id', user.id)
+            .eq('status', 'active');
+
+        if (cancelError) {
+            console.warn('[Confirm Subscription] Failed to cancel old subscriptions:', cancelError);
+        } else {
+            console.log('[Confirm Subscription] Cancelled old active subscriptions');
+        }
+
         // Activate the subscription
         const now = new Date();
         const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 days
 
-        const { error: updateError } = await supabase
+        const { error: updateError } = await adminSupabase
             .from('subscriptions')
             .update({
                 status: 'active',
@@ -89,7 +105,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Update the user's profile to link to this subscription
-        const { error: profileError } = await supabase
+        const { error: profileError } = await adminSupabase
             .from('profiles')
             .update({ subscription_id: pendingSubscription.id })
             .eq('user_id', user.id);
@@ -100,7 +116,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Fetch the updated subscription with plan details
-        const { data: activatedSubscription } = await supabase
+        const { data: activatedSubscription } = await adminSupabase
             .from('subscriptions')
             .select('id, plan_id, status, subscription_plans(name, price_usd)')
             .eq('id', pendingSubscription.id)

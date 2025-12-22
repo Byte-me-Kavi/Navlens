@@ -21,6 +21,9 @@ import {
   FiSmartphone,
   FiTablet,
 } from "react-icons/fi";
+import { FeatureLock } from "@/components/subscription/FeatureLock";
+import { UpgradeModal } from "@/components/subscription/UpgradeModal";
+import { useSubscription } from "@/app/context/SubscriptionContext";
 
 interface CohortRule {
   field: string;
@@ -616,11 +619,13 @@ const CreateCohortModal = ({
 
 export default function CohortsDashboard() {
   const { selectedSiteId, sites, sitesLoading } = useSite();
+  const { hasFeature } = useSubscription(); // Add subscription context
   const { openChat, setOnCohortCreate } = useAI();
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [showAIUpgradeModal, setShowAIUpgradeModal] = useState(false); // New state for AI upgrade
   const [viewCohortId, setViewCohortId] = useState<string | null>(null);
   const [cohortDetails, setCohortDetails] = useState<CohortDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -630,6 +635,12 @@ export default function CohortsDashboard() {
 
   // Handle AI cohort creation - register callback
   const handleAICreate = () => {
+    // Check for AI feature access
+    if (!hasFeature('ai_cohort_generator')) {
+      setShowAIUpgradeModal(true);
+      return;
+    }
+
     openChat('cohort', {
       existingCohorts: cohorts.map(c => c.name),
       availableFields: ['device_type', 'country', 'page_views', 'session_duration', 'has_rage_clicks', 'first_seen'],
@@ -784,6 +795,7 @@ export default function CohortsDashboard() {
   }
 
   return (
+    <FeatureLock feature="cohorts" title="Unlock Cohorts" description="Create behavioral cohorts to segment and analyze users">
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -825,37 +837,49 @@ export default function CohortsDashboard() {
           </div>
         </div>
 
+        {/* Filters/Search placeholder */}
+        <div className="mb-6 flex gap-4">
+          <div className="flex-1 relative">
+            <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Filter cohorts..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            />
+          </div>
+        </div>
+
         {/* Cohorts Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <LoadingSpinner message="Loading cohorts..." />
-          </div>
-        ) : cohorts.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center border border-gray-100 shadow-sm">
-            <FiUsers className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Cohorts Yet</h3>
-            <p className="text-gray-600 mb-6">
-              Create your first cohort to start segmenting users based on behavior.
-            </p>
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Create Your First Cohort
-            </button>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cohorts.map(cohort => (
-              <CohortCard
-                key={cohort.id}
-                cohort={cohort}
-                onDelete={handleDelete}
-                onView={handleView}
-              />
-            ))}
-          </div>
-        )}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <LoadingSpinner message="Loading cohorts..." />
+            </div>
+          ) : cohorts.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-gray-100 shadow-sm">
+              <FiUsers className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Cohorts Yet</h3>
+              <p className="text-gray-600 mb-6">
+                Create your first cohort to start segmenting users based on behavior.
+              </p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Create Your First Cohort
+              </button>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {cohorts.map(cohort => (
+                <CohortCard
+                  key={cohort.id}
+                  cohort={cohort}
+                  onDelete={handleDelete}
+                  onView={handleView}
+                />
+              ))}
+            </div>
+          )}
       </div>
 
       {/* Modals */}
@@ -897,6 +921,15 @@ export default function CohortsDashboard() {
           onFixWithAI={handleFixWithAI}
         />
       )}
+
+      {/* AI Feature Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showAIUpgradeModal}
+        onClose={() => setShowAIUpgradeModal(false)}
+        planName="Pro" // Explicitly requires Pro
+        featureName="AI Cohort Generator"
+      />
     </div>
+    </FeatureLock>
   );
 }

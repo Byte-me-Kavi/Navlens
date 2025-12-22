@@ -230,6 +230,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 import { DateRangeProvider } from "@/context/DateRangeContext";
 import { PageFilterProvider } from "@/context/PageFilterContext";
 import { AIProvider } from "@/context/AIProvider";
+import { SubscriptionProvider } from "@/app/context/SubscriptionContext";
 import { AIChat } from "@/components/ai/AIChat";
 
 export default function DashboardLayout({
@@ -240,14 +241,16 @@ export default function DashboardLayout({
   return (
     <NavigationProvider>
       <SiteProvider>
-        <DateRangeProvider>
-          <PageFilterProvider>
-            <AIProvider>
-              <DashboardLayoutContent>{children}</DashboardLayoutContent>
-              <AIChat />
-            </AIProvider>
-          </PageFilterProvider>
-        </DateRangeProvider>
+        <SubscriptionProvider>
+          <DateRangeProvider>
+            <PageFilterProvider>
+              <AIProvider>
+                <DashboardLayoutContent>{children}</DashboardLayoutContent>
+                <AIChat />
+              </AIProvider>
+            </PageFilterProvider>
+          </DateRangeProvider>
+        </SubscriptionProvider>
       </SiteProvider>
     </NavigationProvider>
   );

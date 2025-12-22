@@ -25,6 +25,7 @@ import {
   FiArrowDown,
   FiArrowUp,
 } from "react-icons/fi";
+import { FeatureLock } from "@/components/subscription/FeatureLock";
 
 // =============================================================================
 // Types
@@ -889,7 +890,7 @@ export default function PerformanceDashboard() {
   if (!selectedSiteId) {
     return (
       <NoSiteSelected
-        featureName="performance metrics"
+        featureName="Performance Metrics"
         description="View Core Web Vitals and network health insights for your site."
       />
     );
@@ -915,6 +916,11 @@ export default function PerformanceDashboard() {
   const grade = getGrade(overall.avgLcp);
 
   return (
+    <FeatureLock 
+      feature="performance_metrics" 
+      title="Unlock Performance Metrics" 
+      description="Unlock Core Web Vitals and Network Health monitoring to optimize your site performance."
+    >
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -960,162 +966,162 @@ export default function PerformanceDashboard() {
           </button>
         </div>
 
-        {/* Web Vitals Tab */}
-        {activeTab === 'vitals' && (
-          <>
-            {/* Performance Grade Banner */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 mb-6 text-white shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-blue-100 text-sm mb-1">Overall Performance</div>
-                  <div className="text-4xl font-bold flex items-center gap-3">
-                    {grade.icon}
-                    {grade.grade}
+          {/* Web Vitals Tab */}
+          {activeTab === 'vitals' && (
+            <>
+              {/* Performance Grade Banner */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 mb-6 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-blue-100 text-sm mb-1">Overall Performance</div>
+                    <div className="text-4xl font-bold flex items-center gap-3">
+                      {grade.icon}
+                      {grade.grade}
+                    </div>
+                    <div className="text-blue-200 mt-2">
+                      Based on {overall.totalSessions.toLocaleString()} sessions
+                    </div>
                   </div>
-                  <div className="text-blue-200 mt-2">
-                    Based on {overall.totalSessions.toLocaleString()} sessions
+                  <div className="text-right">
+                    <FiTrendingUp className="w-16 h-16 text-blue-300/50" />
                   </div>
                 </div>
-                <div className="text-right">
-                  <FiTrendingUp className="w-16 h-16 text-blue-300/50" />
+              </div>
+
+              {/* Core Web Vitals Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <MetricCard
+                  label="LCP"
+                  value={overall.avgLcp}
+                  unit="ms"
+                  description="Largest Contentful Paint"
+                  threshold={{ good: 2500, needsWork: 4000 }}
+                />
+                <MetricCard
+                  label="CLS"
+                  value={parseFloat(overall.avgCls)}
+                  unit=""
+                  description="Cumulative Layout Shift"
+                  threshold={{ good: 0.1, needsWork: 0.25 }}
+                />
+                <MetricCard
+                  label="INP"
+                  value={overall.avgInp}
+                  unit="ms"
+                  description="Interaction to Next Paint"
+                  threshold={{ good: 200, needsWork: 500 }}
+                />
+                <MetricCard
+                  label="FCP"
+                  value={overall.avgFcp}
+                  unit="ms"
+                  description="First Contentful Paint"
+                  threshold={{ good: 1800, needsWork: 3000 }}
+                />
+                <MetricCard
+                  label="TTFB"
+                  value={overall.avgTtfb}
+                  unit="ms"
+                  description="Time to First Byte"
+                  threshold={{ good: 800, needsWork: 1800 }}
+                />
+              </div>
+
+              {/* Device & Browser Breakdown */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <DeviceBreakdownCard data={data?.deviceBreakdown || []} />
+
+                {/* Browser Breakdown */}
+                <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <FiMonitor className="w-4 h-4 text-blue-600" />
+                    Traffic by Browser
+                  </h3>
+                  <div className="space-y-3">
+                    {(!data?.browserBreakdown || data.browserBreakdown.length === 0) ? (
+                      <div className="text-gray-500 text-sm text-center py-4">No browser data available</div>
+                    ) : (() => {
+                      const totalBrowserSessions = data.browserBreakdown.reduce((sum, b) => sum + Number(b.sessions || 0), 0);
+                      return data.browserBreakdown.map((browser) => {
+                        const sessionCount = Number(browser.sessions) || 0;
+                        const percentage = totalBrowserSessions > 0 ? ((sessionCount / totalBrowserSessions) * 100).toFixed(1) : '0';
+                        return (
+                          <div key={browser.browser} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1">
+                              <div className="font-medium">{browser.browser || "Unknown"}</div>
+                              <div className="text-xs text-gray-500">{sessionCount.toLocaleString()} sessions</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold text-blue-600 text-lg">{percentage}%</div>
+                              <div className="text-xs text-gray-500">of traffic</div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
                 </div>
               </div>
-            </div>
+            </>
+          )}
 
-            {/* Core Web Vitals Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-              <MetricCard
-                label="LCP"
-                value={overall.avgLcp}
-                unit="ms"
-                description="Largest Contentful Paint"
-                threshold={{ good: 2500, needsWork: 4000 }}
-              />
-              <MetricCard
-                label="CLS"
-                value={parseFloat(overall.avgCls)}
-                unit=""
-                description="Cumulative Layout Shift"
-                threshold={{ good: 0.1, needsWork: 0.25 }}
-              />
-              <MetricCard
-                label="INP"
-                value={overall.avgInp}
-                unit="ms"
-                description="Interaction to Next Paint"
-                threshold={{ good: 200, needsWork: 500 }}
-              />
-              <MetricCard
-                label="FCP"
-                value={overall.avgFcp}
-                unit="ms"
-                description="First Contentful Paint"
-                threshold={{ good: 1800, needsWork: 3000 }}
-              />
-              <MetricCard
-                label="TTFB"
-                value={overall.avgTtfb}
-                unit="ms"
-                description="Time to First Byte"
-                threshold={{ good: 800, needsWork: 1800 }}
-              />
-            </div>
+          {/* Network Health Tab */}
+          {activeTab === 'network' && networkData && (
+            <>
+              {/* Network Health Score Banner */}
+              <NetworkHealthScoreBanner data={networkData.overview} />
 
-            {/* Device & Browser Breakdown */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <DeviceBreakdownCard data={data?.deviceBreakdown || []} />
+              {/* Quick Stats Row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <NetworkMetricCard
+                  label="Total Requests"
+                  value={networkData.overview.totalRequests.toLocaleString()}
+                  icon={<FiServer className="w-5 h-5" />}
+                  color="blue"
+                />
+                <NetworkMetricCard
+                  label="4xx Errors"
+                  value={networkData.overview.clientErrors.toLocaleString()}
+                  icon={<FiAlertTriangle className="w-5 h-5" />}
+                  color="amber"
+                />
+                <NetworkMetricCard
+                  label="5xx Errors"
+                  value={networkData.overview.serverErrors.toLocaleString()}
+                  icon={<FiXCircle className="w-5 h-5" />}
+                  color="red"
+                />
+                <NetworkMetricCard
+                  label="Success Rate"
+                  value={`${(100 - networkData.overview.errorRate).toFixed(1)}%`}
+                  icon={<FiCheckCircle className="w-5 h-5" />}
+                  color="green"
+                />
+              </div>
 
-              {/* Browser Breakdown */}
-              <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-                <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <FiMonitor className="w-4 h-4 text-blue-600" />
-                  Traffic by Browser
-                </h3>
-                <div className="space-y-3">
-                  {(!data?.browserBreakdown || data.browserBreakdown.length === 0) ? (
-                    <div className="text-gray-500 text-sm text-center py-4">No browser data available</div>
-                  ) : (() => {
-                    const totalBrowserSessions = data.browserBreakdown.reduce((sum, b) => sum + Number(b.sessions || 0), 0);
-                    return data.browserBreakdown.map((browser) => {
-                      const sessionCount = Number(browser.sessions) || 0;
-                      const percentage = totalBrowserSessions > 0 ? ((sessionCount / totalBrowserSessions) * 100).toFixed(1) : '0';
-                      return (
-                        <div key={browser.browser} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                          <div className="flex-1">
-                            <div className="font-medium">{browser.browser || "Unknown"}</div>
-                            <div className="text-xs text-gray-500">{sessionCount.toLocaleString()} sessions</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-semibold text-blue-600 text-lg">{percentage}%</div>
-                            <div className="text-xs text-gray-500">of traffic</div>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
+              {/* Network Trends Chart */}
+              <div className="grid grid-cols-1 gap-6 mb-6">
+                <NetworkTrendChart data={networkData.trends} />
+              </div>
+
+              {/* Page Alerts (if any) */}
+              {networkData.pageAlerts.length > 0 && (
+                <div className="mb-6">
+                  <PageAlertsList data={networkData.pageAlerts} />
                 </div>
+              )}
+
+              {/* Main Grid */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                <LatencyVisualization data={networkData.overview} />
+                <StatusCodeVisualization data={networkData.statusCodeDistribution} />
+                <RecentErrorsTimeline data={networkData.recentErrors} />
               </div>
-            </div>
-          </>
-        )}
 
-        {/* Network Health Tab */}
-        {activeTab === 'network' && networkData && (
-          <>
-            {/* Network Health Score Banner */}
-            <NetworkHealthScoreBanner data={networkData.overview} />
-
-            {/* Quick Stats Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <NetworkMetricCard
-                label="Total Requests"
-                value={networkData.overview.totalRequests.toLocaleString()}
-                icon={<FiServer className="w-5 h-5" />}
-                color="blue"
-              />
-              <NetworkMetricCard
-                label="4xx Errors"
-                value={networkData.overview.clientErrors.toLocaleString()}
-                icon={<FiAlertTriangle className="w-5 h-5" />}
-                color="amber"
-              />
-              <NetworkMetricCard
-                label="5xx Errors"
-                value={networkData.overview.serverErrors.toLocaleString()}
-                icon={<FiXCircle className="w-5 h-5" />}
-                color="red"
-              />
-              <NetworkMetricCard
-                label="Success Rate"
-                value={`${(100 - networkData.overview.errorRate).toFixed(1)}%`}
-                icon={<FiCheckCircle className="w-5 h-5" />}
-                color="green"
-              />
-            </div>
-
-            {/* Network Trends Chart */}
-            <div className="grid grid-cols-1 gap-6 mb-6">
-              <NetworkTrendChart data={networkData.trends} />
-            </div>
-
-            {/* Page Alerts (if any) */}
-            {networkData.pageAlerts.length > 0 && (
-              <div className="mb-6">
-                <PageAlertsList data={networkData.pageAlerts} />
-              </div>
-            )}
-
-            {/* Main Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-              <LatencyVisualization data={networkData.overview} />
-              <StatusCodeVisualization data={networkData.statusCodeDistribution} />
-              <RecentErrorsTimeline data={networkData.recentErrors} />
-            </div>
-
-            {/* Failing Endpoints - Full Width */}
-            <FailingEndpointsList data={networkData.topFailingEndpoints} />
-          </>
-        )}
+              {/* Failing Endpoints - Full Width */}
+              <FailingEndpointsList data={networkData.topFailingEndpoints} />
+            </>
+          )}
 
         {/* Network Health Empty State */}
         {activeTab === 'network' && !networkData && (
@@ -1138,5 +1144,6 @@ export default function PerformanceDashboard() {
         </div>
       </div>
     </div>
+    </FeatureLock>
   );
 }

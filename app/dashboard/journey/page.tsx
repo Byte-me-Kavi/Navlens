@@ -8,6 +8,7 @@ import { useDateRange } from "@/context/DateRangeContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
 import DateRangePicker from "@/components/ui/DateRangePicker";
+import { FeatureLock } from '@/components/subscription/FeatureLock';
 import {
   FiArrowRight,
   FiLogIn,
@@ -204,133 +205,139 @@ export default function JourneyDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <FiMap className="w-6 h-6 text-blue-600" />
-              User Journeys
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Analyze how users navigate through your site
-            </p>
-          </div>
-          <DateRangePicker />
-        </div>
-
-        {/* Summary */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
+        <FeatureLock 
+            feature="user_journeys" 
+            title="Unlock User Journeys" 
+            description="Visualize how users navigate through your site from entry to exit."
+        >
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
-              <div className="text-indigo-100 text-sm mb-1">Total Multi-Page Sessions</div>
-              <div className="text-4xl font-bold">
-                {(data?.totalSessions || 0).toLocaleString()}
-              </div>
-              <div className="text-indigo-200 mt-2">
-                Sessions with 2+ page views analyzed
-              </div>
-            </div>
-            <div className="text-right">
-              <FiTrendingUp className="w-16 h-16 text-indigo-300/50" />
-            </div>
-          </div>
-        </div>
-
-        {/* Entry/Exit Pages */}
-        <div className="grid md:grid-cols-2 gap-6 mb-6">
-          <PageList
-            pages={data?.entryPages || []}
-            title="Top Entry Pages"
-            icon={<FiLogIn className="w-4 h-4" />}
-            color="text-green-600"
-          />
-          <PageList
-            pages={data?.exitPages || []}
-            title="Top Exit Pages"
-            icon={<FiLogOut className="w-4 h-4" />}
-            color="text-red-600"
-          />
-        </div>
-
-        {/* Top Paths */}
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <FiArrowRight className="w-5 h-5 text-blue-600" />
-            Most Common User Paths
-          </h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            {(!data?.topPaths || data.topPaths.length === 0) ? (
-              <div className="col-span-2 bg-white rounded-xl p-8 text-center border border-gray-100">
-                <FiMap className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Path Data Yet</h3>
-                <p className="text-gray-600">
-                  User journeys will appear here once visitors navigate through multiple pages on your site.
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <FiMap className="w-6 h-6 text-blue-600" />
+                User Journeys
+                </h1>
+                <p className="text-gray-600 mt-1">
+                Analyze how users navigate through your site
                 </p>
-              </div>
-            ) : (
-              data.topPaths.slice(0, 10).map((journey, i) => (
-                <PathCard key={i} journey={journey} rank={i + 1} />
-              ))
-            )}
-          </div>
-        </div>
+            </div>
+            <DateRangePicker />
+            </div>
 
-        {/* Top Transitions (Sankey Preview) */}
-        {data?.sankeyLinks && data.sankeyLinks.length > 0 && (
-          <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <FiArrowRight className="w-4 h-4 text-blue-600" />
-              Top Page Transitions
-            </h3>
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {data.sankeyLinks.slice(0, 20).map((link, i) => (
-                <div 
-                  key={i} 
-                  className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
-                >
-                  <span 
-                    className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium truncate max-w-[150px]"
-                    title={link.source}
-                  >
-                    {formatPath(link.source)}
-                  </span>
-                  <FiArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span 
-                    className="text-sm bg-green-100 text-green-700 px-2 py-1 rounded font-medium truncate max-w-[150px]"
-                    title={link.target}
-                  >
-                    {formatPath(link.target)}
-                  </span>
-                  <span className="ml-auto text-sm font-semibold text-gray-700">
-                    {link.value}
-                  </span>
+            {/* Summary */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white shadow-lg">
+            <div className="flex items-center justify-between">
+                <div>
+                <div className="text-indigo-100 text-sm mb-1">Total Multi-Page Sessions</div>
+                <div className="text-4xl font-bold">
+                    {(data?.totalSessions || 0).toLocaleString()}
                 </div>
-              ))}
+                <div className="text-indigo-200 mt-2">
+                    Sessions with 2+ page views analyzed
+                </div>
+                </div>
+                <div className="text-right">
+                <FiTrendingUp className="w-16 h-16 text-indigo-300/50" />
+                </div>
             </div>
-          </div>
-        )}
+            </div>
 
-        {/* Sankey Flow Diagram */}
-        {data?.sankeyLinks && data.sankeyLinks.length > 0 && (
-          <div className="mb-6">
+            {/* Entry/Exit Pages */}
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <PageList
+                pages={data?.entryPages || []}
+                title="Top Entry Pages"
+                icon={<FiLogIn className="w-4 h-4" />}
+                color="text-green-600"
+            />
+            <PageList
+                pages={data?.exitPages || []}
+                title="Top Exit Pages"
+                icon={<FiLogOut className="w-4 h-4" />}
+                color="text-red-600"
+            />
+            </div>
+
+            {/* Top Paths */}
+            <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <FiGitMerge className="w-5 h-5 text-purple-600" />
-              User Flow Visualization
+                <FiArrowRight className="w-5 h-5 text-blue-600" />
+                Most Common User Paths
             </h2>
-            <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-              <SankeyDiagram links={data.sankeyLinks} width={800} height={400} />
+            <div className="grid md:grid-cols-2 gap-4">
+                {(!data?.topPaths || data.topPaths.length === 0) ? (
+                <div className="col-span-2 bg-white rounded-xl p-8 text-center border border-gray-100">
+                    <FiMap className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Path Data Yet</h3>
+                    <p className="text-gray-600">
+                    User journeys will appear here once visitors navigate through multiple pages on your site.
+                    </p>
+                </div>
+                ) : (
+                data.topPaths.slice(0, 10).map((journey, i) => (
+                    <PathCard key={i} journey={journey} rank={i + 1} />
+                ))
+                )}
             </div>
-          </div>
-        )}
+            </div>
 
-        {/* Note when no Sankey data */}
-        {(!data?.sankeyLinks || data.sankeyLinks.length === 0) && (
-          <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-xl text-center">
-            <p className="text-sm text-purple-800">
-              <strong>Note:</strong> Sankey diagram will appear once sufficient user journey data is collected.
-            </p>
-          </div>
-        )}
+            {/* Top Transitions (Sankey Preview) */}
+            {data?.sankeyLinks && data.sankeyLinks.length > 0 && (
+            <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <FiArrowRight className="w-4 h-4 text-blue-600" />
+                Top Page Transitions
+                </h3>
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                {data.sankeyLinks.slice(0, 20).map((link, i) => (
+                    <div 
+                    key={i} 
+                    className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
+                    >
+                    <span 
+                        className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium truncate max-w-[150px]"
+                        title={link.source}
+                    >
+                        {formatPath(link.source)}
+                    </span>
+                    <FiArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <span 
+                        className="text-sm bg-green-100 text-green-700 px-2 py-1 rounded font-medium truncate max-w-[150px]"
+                        title={link.target}
+                    >
+                        {formatPath(link.target)}
+                    </span>
+                    <span className="ml-auto text-sm font-semibold text-gray-700">
+                        {link.value}
+                    </span>
+                    </div>
+                ))}
+                </div>
+            </div>
+            )}
+
+            {/* Sankey Flow Diagram */}
+            {data?.sankeyLinks && data.sankeyLinks.length > 0 && (
+            <div className="mb-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <FiGitMerge className="w-5 h-5 text-purple-600" />
+                User Flow Visualization
+                </h2>
+                <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                <SankeyDiagram links={data.sankeyLinks} width={800} height={400} />
+                </div>
+            </div>
+            )}
+
+            {/* Note when no Sankey data */}
+            {(!data?.sankeyLinks || data.sankeyLinks.length === 0) && (
+            <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-xl text-center">
+                <p className="text-sm text-purple-800">
+                <strong>Note:</strong> Sankey diagram will appear once sufficient user journey data is collected.
+                </p>
+            </div>
+            )}
+        </FeatureLock>
       </div>
     </div>
   );

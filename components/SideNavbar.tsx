@@ -27,6 +27,8 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useState, useRef } from "react";
 import { useNavigation } from "@/context/NavigationContext";
 import { useSite } from "@/app/context/SiteContext";
+import { useSubscription } from "@/app/context/SubscriptionContext";
+import { LockClosedIcon } from "@heroicons/react/24/solid";
 
 // Group definitions
 interface NavItem {
@@ -34,6 +36,7 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  featureKey?: string;
 }
 
 interface NavGroup {
@@ -56,35 +59,34 @@ const navGroups: NavGroup[] = [
     icon: ChartBarIcon,
     defaultOpen: true,
     items: [
-      { name: "Heatmaps", href: "/dashboard/heatmaps", icon: PresentationChartBarIcon },
-      { name: "Sessions", href: "/dashboard/sessions", icon: EyeIcon },
-      { name: "Funnels", href: "/dashboard/funnels", icon: FunnelIcon },
-      { name: "Form Analytics", href: "/dashboard/form-analytics", icon: DocumentChartBarIcon },
+      { name: "Heatmaps", href: "/dashboard/heatmaps", icon: PresentationChartBarIcon, featureKey: 'click_heatmaps' },
+      { name: "Sessions", href: "/dashboard/sessions", icon: EyeIcon, featureKey: 'session_recording' },
+      { name: "Funnels", href: "/dashboard/funnels", icon: FunnelIcon, featureKey: 'funnels' },
+      { name: "Form Analytics", href: "/dashboard/form-analytics", icon: DocumentChartBarIcon, featureKey: 'form_analytics' },
     ],
   },
   {
     name: "Insights",
     icon: FireIcon,
     items: [
-      { name: "Frustration Signals", href: "/dashboard/frustration-signals", icon: ExclamationTriangleIcon },
-      { name: "Performance", href: "/dashboard/performance", icon: PresentationChartBarIcon},
-      { name: "User Journeys", href: "/dashboard/journey", icon: FunnelIcon},
-      { name: "Cohorts", href: "/dashboard/cohorts", icon: UserGroupIcon},
+      { name: "Frustration Signals", href: "/dashboard/frustration-signals", icon: ExclamationTriangleIcon, featureKey: 'frustration_signals' },
+      { name: "Performance", href: "/dashboard/performance", icon: PresentationChartBarIcon, featureKey: 'performance_metrics'},
+      { name: "User Journeys", href: "/dashboard/journey", icon: FunnelIcon, featureKey: 'user_journeys'},
+      { name: "Cohorts", href: "/dashboard/cohorts", icon: UserGroupIcon, featureKey: 'cohorts'},
     ],
   },
   {
     name: "Feedback",
     icon: DocumentChartBarIcon,
     items: [
-      { name: "User Feedback", href: "/dashboard/feedback", icon: DocumentChartBarIcon },
+      { name: "User Feedback", href: "/dashboard/feedback", icon: DocumentChartBarIcon, featureKey: 'feedback_widget' },
     ],
   },
 ];
 
 // Footer items
 const footerItems: NavItem[] = [
-  { name: "Experiments", href: "/dashboard/experiments", icon: BeakerIcon, badge: "Soon" },
-  { name: "Settings", href: "/dashboard/settings", icon: Cog6ToothIcon },
+  { name: "Experiments", href: "/dashboard/experiments", icon: BeakerIcon, badge: "Soon", featureKey: 'ab_testing' },
 ];
 
 interface SideNavbarProps {
@@ -108,6 +110,9 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
     getSiteById,
     fetchSites 
   } = useSite();
+
+  // Subscription Context
+  const { hasFeature, isLoading: subLoading } = useSubscription();
 
   const currentSite = selectedSiteId ? getSiteById(selectedSiteId) : null;
 
@@ -223,6 +228,11 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
 
     const isBanned = currentSite?.status === 'banned';
     
+    // Check feature access
+    // If loading, assume access (don't flash locks)
+    // If item has no featureKey, assume available (like Overview)
+    const isLocked = !subLoading && item.featureKey && !hasFeature(item.featureKey);
+    
     // Allow access only to 'My Sites' if banned
     const isAllowed = !isBanned || item.href === '/dashboard/my-sites';
 
@@ -231,7 +241,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         key={item.name}
         onClick={isAllowed ? handleNavClick(item.href) : undefined}
         disabled={!isAllowed}
-        title={!isAllowed ? "Site is banned. Switch sites to access features." : ""}
+        title={!isAllowed ? "Site is banned. Switch sites to access features." : isLocked ? "Requires Upgrade" : ""}
         className={`
           w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
           ${isNested ? 'pl-9' : ''}
@@ -252,6 +262,14 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
             {item.badge}
           </span>
         )}
+        
+        {/* Lock Icon for gating */}
+        {isLocked && (
+             <span className="ml-auto">
+                 <LockClosedIcon className="w-3.5 h-3.5 text-gray-400" />
+             </span>
+        )}
+
         {!isAllowed && (
             <span className="ml-auto">
                 <ExclamationTriangleIcon className="w-4 h-4 text-red-400" />

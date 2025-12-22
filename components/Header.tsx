@@ -13,6 +13,7 @@ import {
   SparklesIcon,
   CreditCardIcon,
   Cog6ToothIcon,
+  UserCircleIcon,
 } from "@heroicons/react/24/outline";
 
 interface HeaderProps {
@@ -426,42 +427,68 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                   className="fixed inset-0 z-10"
                   onClick={() => setShowDesktopMenu(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100 py-2 z-20 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50">
+                    <p className="text-sm font-bold text-gray-900 truncate">
                       {userEmail || "User"}
                     </p>
+                    <p className="text-xs text-gray-500 mt-0.5">Manage your account</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      navigateTo("/dashboard/subscription");
-                      setShowDesktopMenu(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <CreditCardIcon className="w-5 h-5 text-gray-500" />
-                    <span className="text-sm">Manage Subscription</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      navigateTo("/dashboard/settings");
-                      setShowDesktopMenu(false);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <Cog6ToothIcon className="w-5 h-5 text-gray-500" />
-                    <span className="text-sm">Settings</span>
-                  </button>
-                  <div className="border-t border-gray-100 mt-1 pt-1">
+                  
+                  <div className="p-2 space-y-1">
+                    <button
+                        onClick={() => {
+                        navigateTo("/dashboard/account");
+                        setShowDesktopMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all group"
+                    >
+                        <div className="p-2 bg-gray-50 group-hover:bg-blue-50 group-hover:text-blue-600 rounded-lg transition-colors">
+                            <UserCircleIcon className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-medium">Profile</span>
+                    </button>
+                    
+                    <button
+                        onClick={() => {
+                        // We can use query params or just direct to account page
+                        navigateTo("/dashboard/account"); 
+                        setShowDesktopMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all group"
+                    >
+                        <div className="p-2 bg-gray-50 group-hover:bg-blue-50 group-hover:text-blue-600 rounded-lg transition-colors">
+                            <CreditCardIcon className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-medium">Billing & Plans</span>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                        navigateTo("/dashboard/account");
+                        setShowDesktopMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-blue-600 rounded-xl transition-all group"
+                    >
+                        <div className="p-2 bg-gray-50 group-hover:bg-blue-50 group-hover:text-blue-600 rounded-lg transition-colors">
+                            <Cog6ToothIcon className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-medium">Settings</span>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-gray-100 mt-1 pt-1 p-2">
                     <button
                       onClick={() => {
                         handleLogout();
                         setShowDesktopMenu(false);
                       }}
                       disabled={isNavigating}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-red-600 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50 group"
                     >
-                      <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                      <div className="p-2 bg-red-50 group-hover:bg-red-100 rounded-lg transition-colors">
+                         <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                      </div>
                       <span className="text-sm font-medium">
                         {isNavigating ? "Logging out..." : "Logout"}
                       </span>

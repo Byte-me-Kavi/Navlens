@@ -68,6 +68,13 @@ export async function POST(req: NextRequest) {
             // Success - Activate subscription
             console.log('[PayHere Webhook] Payment successful, activating subscription');
 
+            // CRITICAL FIX: Cancel any EXISTING active subscriptions to prevent multiple active plans
+            await supabase
+                .from('subscriptions')
+                .update({ status: 'cancelled' })
+                .eq('user_id', userId)
+                .eq('status', 'active');
+
             // Find existing pending subscription or create new one
             const { data: existingSubscription } = await supabase
                 .from('subscriptions')

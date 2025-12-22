@@ -20,6 +20,8 @@ import {
 } from 'react-icons/fi';
 import { SparklesIcon } from '@heroicons/react/24/outline';
 import { useAI } from '@/context/AIProvider';
+import { FeatureLock } from '@/components/subscription/FeatureLock';
+import { useSubscription } from '@/app/context/SubscriptionContext';
 
 // Date range options
 const DATE_RANGES = [
@@ -32,6 +34,7 @@ const DATE_RANGES = [
 export default function FormAnalyticsPage() {
   const { selectedSiteId: siteId, sites, sitesLoading } = useSite();
   const { openChat } = useAI();
+  const { hasFeature } = useSubscription();
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [days, setDays] = useState(7);
 
@@ -44,11 +47,13 @@ export default function FormAnalyticsPage() {
     });
   };
 
+  const isFeatureEnabled = hasFeature('form_analytics');
+
   // Fetch forms list
   const { forms, isLoading: formsLoading, refresh: refreshForms } = useFormList({
     siteId: siteId || '',
     days,
-    enabled: !!siteId,
+    enabled: !!siteId && isFeatureEnabled,
   });
 
   // Compute effective form ID (selected or first available)
@@ -65,7 +70,7 @@ export default function FormAnalyticsPage() {
     siteId: siteId || '',
     formId: effectiveFormId,
     days,
-    enabled: !!siteId && !!effectiveFormId,
+    enabled: !!siteId && !!effectiveFormId && isFeatureEnabled,
   });
 
   // Get selected form details
@@ -110,300 +115,306 @@ export default function FormAnalyticsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <FiFileText className="w-7 h-7 text-blue-600" />
-            Form Analytics
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Analyze field-level form performance and drop-off
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {/* AI Analysis Button */}
-          <button
-            onClick={handleAIAnalysis}
-            disabled={forms.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all disabled:opacity-50 hover:shadow-lg"
-          >
-            <SparklesIcon className="w-4 h-4" />
-            AI Insights
-          </button>
+    <FeatureLock 
+      feature="form_analytics" 
+      title="Unlock Form Analytics" 
+      description="Optimize your conversion rates by tracking field-level drop-offs and time-to-fill metrics."
+    >
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <FiFileText className="w-7 h-7 text-blue-600" />
+              Form Analytics
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Analyze field-level form performance and drop-off
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {/* AI Analysis Button */}
+            <button
+              onClick={handleAIAnalysis}
+              disabled={forms.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all disabled:opacity-50 hover:shadow-lg"
+            >
+              <SparklesIcon className="w-4 h-4" />
+              AI Insights
+            </button>
 
-          <button
-            onClick={refreshForms}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <FiRefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
+            <button
+              onClick={refreshForms}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <FiRefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+          </div>
         </div>
-      </div>
 
-      {forms.length === 0 ? (
-        <div className="bg-white rounded-xl shadow p-12 text-center">
-          <FiFileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Forms Tracked Yet</h3>
-          <p className="text-gray-600 max-w-md mx-auto">
-            Forms will appear here once users interact with them on your tracked pages.
-            Make sure the Navlens tracker is installed on pages with forms.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Form selector and date range */}
-          <div className="bg-white rounded-xl shadow p-4 flex flex-wrap gap-4 items-center">
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Form
-              </label>
-              <div className="relative">
-                <select
-                  value={effectiveFormId || ''}
-                  onChange={(e) => setSelectedFormId(e.target.value)}
-                  className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {forms.map(form => {
-                    // Clean up form_id if it contains [object ...]
-                    const displayName = form.form_id.includes('[object') 
-                      ? `Form ${forms.indexOf(form) + 1}`
-                      : form.form_id;
-                    return (
-                      <option key={form.form_id} value={form.form_id}>
-                        {displayName} ({form.total_submissions} submissions)
+        {forms.length === 0 ? (
+          <div className="bg-white rounded-xl shadow p-12 text-center">
+            <FiFileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Forms Tracked Yet</h3>
+            <p className="text-gray-600 max-w-md mx-auto">
+              Forms will appear here once users interact with them on your tracked pages.
+              Make sure the Navlens tracker is installed on pages with forms.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Form selector and date range */}
+            <div className="bg-white rounded-xl shadow p-4 flex flex-wrap gap-4 items-center">
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Select Form
+                </label>
+                <div className="relative">
+                  <select
+                    value={effectiveFormId || ''}
+                    onChange={(e) => setSelectedFormId(e.target.value)}
+                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {forms.map(form => {
+                      // Clean up form_id if it contains [object ...]
+                      const displayName = form.form_id.includes('[object') 
+                        ? `Form ${forms.indexOf(form) + 1}`
+                        : form.form_id;
+                      return (
+                        <option key={form.form_id} value={form.form_id}>
+                          {displayName} ({form.total_submissions} submissions)
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+  
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date Range
+                </label>
+                <div className="relative">
+                  <select
+                    value={days}
+                    onChange={(e) => setDays(Number(e.target.value))}
+                    className="px-4 py-2 pr-10 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {DATE_RANGES.map(range => (
+                      <option key={range.value} value={range.value}>
+                        {range.label}
                       </option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+  
+            {/* Summary cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-xl shadow p-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-100 rounded-lg">
+                    <FiCheckCircle className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Submissions</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {selectedForm?.total_submissions || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+  
+              <div className="bg-white rounded-xl shadow p-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-green-100 rounded-lg">
+                    <FiClock className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Avg Time</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {formAnalyticsApi.formatTime(avgTimeMs)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+  
+              <div className="bg-white rounded-xl shadow p-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-orange-100 rounded-lg">
+                    <FiAlertTriangle className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Drop-off Rate</p>
+                    <p className="text-2xl font-bold" style={{ color: formAnalyticsApi.getDropoffColor(overallDropoff) }}>
+                      {Number.isFinite(overallDropoff) && overallDropoff >= 0 ? `${overallDropoff}%` : '0%'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+  
+              <div className="bg-white rounded-xl shadow p-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-red-100 rounded-lg">
+                    <FiRefreshCw className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Top Refill Field</p>
+                    <p className="text-lg font-bold text-gray-900 truncate">
+                      {worstRefillField?.field_name || 'N/A'}
+                    </p>
+                    {worstRefillField && (
+                      <p className="text-xs text-red-600">
+                        {worstRefillField.refill_rate}% refill rate
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+  
+            {/* Field Drop-off Funnel */}
+            <div className="bg-white rounded-xl shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Field Drop-off Funnel
+              </h2>
+              
+              {metricsLoading ? (
+                <div className="flex items-center justify-center h-48">
+                  <LoadingSpinner message="Loading field metrics..." />
+                </div>
+              ) : fields.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">
+                  No field data available for this form
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {fields
+                    .filter(field => field.field_name || field.field_id) // Filter out empty fields
+                    .map((field) => {
+                    const percentage = fields[0].focus_count > 0 
+                      ? Math.round((field.focus_count / fields[0].focus_count) * 100) 
+                      : 0;
+                    
+                    // Clean up field name
+                    const displayName = (field.field_name || field.field_id || '').includes('[object')
+                      ? `Field ${fields.indexOf(field) + 1}`
+                      : (field.field_name || field.field_id || 'Unknown Field');
+                    
+                    return (
+                      <div key={field.field_id} className="flex items-center gap-4">
+                        <div className="w-32 text-sm text-gray-700 font-medium truncate" title={displayName}>
+                          {displayName}
+                        </div>
+                        <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden relative">
+                          <div 
+                            className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                          <span className="absolute inset-0 flex items-center justify-center text-sm font-medium">
+                            {percentage}%
+                          </span>
+                        </div>
+                        <div className="w-20 text-right">
+                          {field.drop_off_rate > 0 && Number.isFinite(field.drop_off_rate) && (
+                            <span 
+                              className="text-sm font-medium"
+                              style={{ color: formAnalyticsApi.getDropoffColor(field.drop_off_rate) }}
+                            >
+                              -{field.drop_off_rate}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     );
                   })}
-                </select>
-                <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-              </div>
+                </div>
+              )}
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Date Range
-              </label>
-              <div className="relative">
-                <select
-                  value={days}
-                  onChange={(e) => setDays(Number(e.target.value))}
-                  className="px-4 py-2 pr-10 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {DATE_RANGES.map(range => (
-                    <option key={range.value} value={range.value}>
-                      {range.label}
-                    </option>
-                  ))}
-                </select>
-                <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+  
+            {/* Field Metrics Table */}
+            <div className="bg-white rounded-xl shadow overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Field Details
+                </h2>
               </div>
+              
+              {metricsLoading ? (
+                <div className="flex items-center justify-center h-48">
+                  <LoadingSpinner message="Loading..." />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr className="text-left text-gray-600">
+                        <th className="px-6 py-3 font-medium">Field</th>
+                        <th className="px-6 py-3 font-medium">Type</th>
+                        <th className="px-6 py-3 font-medium text-right">Avg Time</th>
+                        <th className="px-6 py-3 font-medium text-right">Drop-off</th>
+                        <th className="px-6 py-3 font-medium text-right">Refill Rate</th>
+                        <th className="px-6 py-3 font-medium text-right">Interactions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {fields
+                        .filter(field => field.field_name || field.field_id) // Filter out empty fields
+                        .map((field) => {
+                          // Clean up field name
+                          const displayName = (field.field_name || field.field_id || '').includes('[object')
+                            ? `Field ${fields.indexOf(field) + 1}`
+                            : (field.field_name || field.field_id || 'Unknown Field');
+                          
+                          return (
+                            <tr key={field.field_id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4">
+                                <div className="font-medium text-gray-900">
+                                  {displayName}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
+                                  {field.field_type}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right text-gray-700">
+                                {formAnalyticsApi.formatTime(field.avg_time_ms)}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span 
+                                  className="font-medium"
+                                  style={{ color: formAnalyticsApi.getDropoffColor(field.drop_off_rate) }}
+                                >
+                                  {Number.isFinite(field.drop_off_rate) ? `${field.drop_off_rate}%` : '0%'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span 
+                                  className="font-medium"
+                                  style={{ color: formAnalyticsApi.getRefillColor(field.refill_rate) }}
+                                >
+                                  {Number.isFinite(field.refill_rate) ? `${field.refill_rate}%` : '0%'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right text-gray-700">
+                                {field.focus_count}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          </div>
-
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl shadow p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <FiCheckCircle className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Submissions</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {selectedForm?.total_submissions || 0}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <FiClock className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Avg Time</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {formAnalyticsApi.formatTime(avgTimeMs)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-orange-100 rounded-lg">
-                  <FiAlertTriangle className="w-6 h-6 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Drop-off Rate</p>
-                  <p className="text-2xl font-bold" style={{ color: formAnalyticsApi.getDropoffColor(overallDropoff) }}>
-                    {Number.isFinite(overallDropoff) && overallDropoff >= 0 ? `${overallDropoff}%` : '0%'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-red-100 rounded-lg">
-                  <FiRefreshCw className="w-6 h-6 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Top Refill Field</p>
-                  <p className="text-lg font-bold text-gray-900 truncate">
-                    {worstRefillField?.field_name || 'N/A'}
-                  </p>
-                  {worstRefillField && (
-                    <p className="text-xs text-red-600">
-                      {worstRefillField.refill_rate}% refill rate
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Field Drop-off Funnel */}
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Field Drop-off Funnel
-            </h2>
-            
-            {metricsLoading ? (
-              <div className="flex items-center justify-center h-48">
-                <LoadingSpinner message="Loading field metrics..." />
-              </div>
-            ) : fields.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">
-                No field data available for this form
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {fields
-                  .filter(field => field.field_name || field.field_id) // Filter out empty fields
-                  .map((field) => {
-                  const percentage = fields[0].focus_count > 0 
-                    ? Math.round((field.focus_count / fields[0].focus_count) * 100) 
-                    : 0;
-                  
-                  // Clean up field name
-                  const displayName = (field.field_name || field.field_id || '').includes('[object')
-                    ? `Field ${fields.indexOf(field) + 1}`
-                    : (field.field_name || field.field_id || 'Unknown Field');
-                  
-                  return (
-                    <div key={field.field_id} className="flex items-center gap-4">
-                      <div className="w-32 text-sm text-gray-700 font-medium truncate" title={displayName}>
-                        {displayName}
-                      </div>
-                      <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden relative">
-                        <div 
-                          className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-500"
-                          style={{ width: `${percentage}%` }}
-                        />
-                        <span className="absolute inset-0 flex items-center justify-center text-sm font-medium">
-                          {percentage}%
-                        </span>
-                      </div>
-                      <div className="w-20 text-right">
-                        {field.drop_off_rate > 0 && Number.isFinite(field.drop_off_rate) && (
-                          <span 
-                            className="text-sm font-medium"
-                            style={{ color: formAnalyticsApi.getDropoffColor(field.drop_off_rate) }}
-                          >
-                            -{field.drop_off_rate}%
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Field Metrics Table */}
-          <div className="bg-white rounded-xl shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Field Details
-              </h2>
-            </div>
-            
-            {metricsLoading ? (
-              <div className="flex items-center justify-center h-48">
-                <LoadingSpinner message="Loading..." />
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr className="text-left text-gray-600">
-                      <th className="px-6 py-3 font-medium">Field</th>
-                      <th className="px-6 py-3 font-medium">Type</th>
-                      <th className="px-6 py-3 font-medium text-right">Avg Time</th>
-                      <th className="px-6 py-3 font-medium text-right">Drop-off</th>
-                      <th className="px-6 py-3 font-medium text-right">Refill Rate</th>
-                      <th className="px-6 py-3 font-medium text-right">Interactions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {fields
-                      .filter(field => field.field_name || field.field_id) // Filter out empty fields
-                      .map((field) => {
-                        // Clean up field name
-                        const displayName = (field.field_name || field.field_id || '').includes('[object')
-                          ? `Field ${fields.indexOf(field) + 1}`
-                          : (field.field_name || field.field_id || 'Unknown Field');
-                        
-                        return (
-                          <tr key={field.field_id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4">
-                              <div className="font-medium text-gray-900">
-                                {displayName}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-                                {field.field_type}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right text-gray-700">
-                              {formAnalyticsApi.formatTime(field.avg_time_ms)}
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <span 
-                                className="font-medium"
-                                style={{ color: formAnalyticsApi.getDropoffColor(field.drop_off_rate) }}
-                              >
-                                {Number.isFinite(field.drop_off_rate) ? `${field.drop_off_rate}%` : '0%'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <span 
-                                className="font-medium"
-                                style={{ color: formAnalyticsApi.getRefillColor(field.refill_rate) }}
-                              >
-                                {Number.isFinite(field.refill_rate) ? `${field.refill_rate}%` : '0%'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right text-gray-700">
-                              {field.focus_count}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </FeatureLock>
   );
 }

@@ -9,10 +9,13 @@ import { frustrationSignalsApi } from '@/features/frustration-signals/services/f
 import { HoverHeatmapData, CursorPathsData } from '@/features/frustration-signals/types/frustrationSignals.types';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import NoSiteSelected, { NoSitesAvailable } from '@/components/NoSiteSelected';
+import { FeatureLock } from '@/components/subscription/FeatureLock';
+import { useSubscription } from '@/app/context/SubscriptionContext';
 import { FiAlertTriangle, FiRefreshCw, FiCalendar, FiGlobe, FiLayers } from 'react-icons/fi';
 
 export default function FrustrationSignalsPage() {
   const { selectedSiteId, sites, sitesLoading, fetchSites } = useSite();
+  const { hasFeature } = useSubscription();
   const [pagePath, setPagePath] = useState('/');
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d'>('7d');
 
@@ -54,6 +57,11 @@ export default function FrustrationSignalsPage() {
   const fetchData = useCallback(async () => {
     if (!selectedSiteId) return;
 
+    // Check feature access
+    if (!hasFeature('frustration_signals')) {
+      return;
+    }
+
     const { startDate, endDate } = getDateRange();
 
     // Fetch hover heatmap data
@@ -89,7 +97,7 @@ export default function FrustrationSignalsPage() {
     } finally {
       setCursorLoading(false);
     }
-  }, [selectedSiteId, pagePath, dateRange]);
+  }, [selectedSiteId, pagePath, dateRange, hasFeature]);
 
   useEffect(() => {
     fetchData();
@@ -119,129 +127,135 @@ export default function FrustrationSignalsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-red-50 to-orange-50 px-4 py-4 md:px-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg">
-              <FiAlertTriangle className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Frustration Signals</h1>
-              <p className="text-sm text-gray-600">
-                Detect and analyze user frustration patterns
-              </p>
+        <FeatureLock 
+          feature="frustration_signals"
+          title="Unlock Frustration Signals"
+          description="Identify rage clicks and dead clicks to improve user experience."
+        >
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg">
+                <FiAlertTriangle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Frustration Signals</h1>
+                <p className="text-sm text-gray-600">
+                  Detect and analyze user frustration patterns
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Controls */}
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6 border border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Site Selector */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                <FiGlobe className="w-4 h-4" />
-                Site
-              </label>
-              <div className="text-sm">
-                {selectedSite ? (
-                  <span className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg inline-block">
-                    {selectedSite.site_name || selectedSite.domain}
-                  </span>
-                ) : (
-                  <span className="text-gray-400">Select a site first</span>
-                )}
+          {/* Controls */}
+          <div className="bg-white rounded-xl shadow-lg p-4 mb-6 border border-gray-100">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Site Selector */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                  <FiGlobe className="w-4 h-4" />
+                  Site
+                </label>
+                <div className="text-sm">
+                  {selectedSite ? (
+                    <span className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg inline-block">
+                      {selectedSite.site_name || selectedSite.domain}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">Select a site first</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Page Path */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                  <FiLayers className="w-4 h-4" />
+                  Page Path
+                </label>
+                <input
+                  type="text"
+                  value={pagePath}
+                  onChange={(e) => setPagePath(e.target.value)}
+                  placeholder="/"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Date Range */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                  <FiCalendar className="w-4 h-4" />
+                  Date Range
+                </label>
+                <div className="flex gap-2">
+                  {(['7d', '30d', '90d'] as const).map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => setDateRange(range)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        dateRange === range
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Page Path */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                <FiLayers className="w-4 h-4" />
-                Page Path
-              </label>
-              <input
-                type="text"
-                value={pagePath}
-                onChange={(e) => setPagePath(e.target.value)}
-                placeholder="/"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            {/* Refresh Button */}
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={fetchData}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all"
+              >
+                <FiRefreshCw className="w-4 h-4" />
+                Refresh All
+              </button>
+            </div>
+          </div>
+
+          {/* No Site Selected */}
+          {!selectedSiteId && (
+            <NoSiteSelected 
+              featureName="frustration signals"
+              description="Rage clicks, dead clicks, U-turns, and other user frustration patterns will appear here."
+            />
+          )}
+
+          {/* Dashboard Grid */}
+          {selectedSiteId && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Frustration Signals Panel */}
+              <FrustrationSignalsPanel
+                siteId={selectedSiteId}
+                pagePath={pagePath}
+                startDate={startDate}
+                endDate={endDate}
+                className="lg:col-span-2"
+              />
+
+              {/* Attention Zones Chart */}
+              <AttentionZonesChart
+                data={hoverData}
+                loading={hoverLoading}
+                error={hoverError}
+                onRefresh={fetchData}
+              />
+
+              {/* Cursor Paths Panel */}
+              <CursorPathsPanel
+                data={cursorData}
+                loading={cursorLoading}
+                error={cursorError}
+                onRefresh={fetchData}
               />
             </div>
-
-            {/* Date Range */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                <FiCalendar className="w-4 h-4" />
-                Date Range
-              </label>
-              <div className="flex gap-2">
-                {(['7d', '30d', '90d'] as const).map((range) => (
-                  <button
-                    key={range}
-                    onClick={() => setDateRange(range)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      dateRange === range
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Refresh Button */}
-          <div className="flex justify-end mt-4">
-            <button
-              onClick={fetchData}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all"
-            >
-              <FiRefreshCw className="w-4 h-4" />
-              Refresh All
-            </button>
-          </div>
-        </div>
-
-        {/* No Site Selected */}
-        {!selectedSiteId && (
-          <NoSiteSelected 
-            featureName="frustration signals"
-            description="Rage clicks, dead clicks, U-turns, and other user frustration patterns will appear here."
-          />
-        )}
-
-        {/* Dashboard Grid */}
-        {selectedSiteId && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Frustration Signals Panel */}
-            <FrustrationSignalsPanel
-              siteId={selectedSiteId}
-              pagePath={pagePath}
-              startDate={startDate}
-              endDate={endDate}
-              className="lg:col-span-2"
-            />
-
-            {/* Attention Zones Chart */}
-            <AttentionZonesChart
-              data={hoverData}
-              loading={hoverLoading}
-              error={hoverError}
-              onRefresh={fetchData}
-            />
-
-            {/* Cursor Paths Panel */}
-            <CursorPathsPanel
-              data={cursorData}
-              loading={cursorLoading}
-              error={cursorError}
-              onRefresh={fetchData}
-            />
-          </div>
-        )}
+          )}
+        </FeatureLock>
       </div>
     </div>
   );

@@ -1,0 +1,295 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { createBrowserClient } from "@supabase/ssr";
+import {
+  UserCircleIcon,
+  BellIcon,
+  ShieldCheckIcon,
+} from "@heroicons/react/24/outline";
+
+export function ProfileTab() {
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [weeklyReports, setWeeklyReports] = useState(true);
+  const [productUpdates, setProductUpdates] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const [supabase] = useState(() =>
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  );
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.user?.email) {
+            setEmail(session.user.email);
+            setDisplayName(session.user.user_metadata?.full_name || "");
+        }
+
+        const { data: prefs, error } = await supabase
+          .from("user_preferences")
+          .select("*")
+          .single();
+
+        if (!error && prefs) {
+          setEmailNotifications(prefs.email_notifications ?? true);
+          setWeeklyReports(prefs.weekly_reports ?? true);
+          setProductUpdates(prefs.product_updates ?? false);
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error);
+      }
+    };
+
+    loadUserData();
+  }, [supabase]);
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not found");
+
+      const { error } = await supabase.auth.updateUser({
+        data: { full_name: displayName },
+      });
+
+      if (error) throw error;
+      setMessage({ type: "success", text: "Profile updated successfully!" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to update profile",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not found");
+
+      const { error } = await supabase.from("user_preferences").upsert(
+        {
+            user_id: user.id,
+            email_notifications: emailNotifications,
+            weekly_reports: weeklyReports,
+            product_updates: productUpdates,
+            updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (error) throw error;
+      setMessage({ type: "success", text: "Notification preferences saved!" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to save preferences",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/account`,
+      });
+
+      if (error) throw error;
+      setMessage({
+        type: "success",
+        text: "Password reset link sent to your email!",
+      });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Failed to send reset link",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 p-6">
+      {message && (
+        <div className={`p-4 rounded-xl text-sm font-medium shadow-lg backdrop-blur-sm ${
+          message.type === "success"
+            ? "bg-emerald-50/80 text-emerald-700 border border-emerald-200"
+            : "bg-red-50/80 text-red-700 border border-red-200"
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Grid Layout for Profile & Security */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Profile Settings */}
+        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white/60 shadow-xl shadow-indigo-500/5 p-6 md:p-8">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20">
+                <UserCircleIcon className="w-6 h-6 text-white" />
+            </div>
+            <div>
+                <h2 className="text-lg font-bold text-gray-900">Personal Information</h2>
+                <p className="text-sm text-gray-500">Update your personal details</p>
+            </div>
+          </div>
+          
+          <div className="space-y-5">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                disabled
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50/50 text-gray-500 text-sm font-medium cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Display Name
+              </label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all bg-white"
+                placeholder="Your Name"
+              />
+            </div>
+            <div className="pt-4">
+                <button
+                onClick={handleSaveProfile}
+                disabled={loading}
+                className="w-full sm:w-auto px-8 py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all disabled:opacity-50 shadow-lg shadow-gray-900/10 hover:-translate-y-0.5"
+                >
+                {loading ? "Saving..." : "Save Changes"}
+                </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Security Settings */}
+        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white/60 shadow-xl shadow-indigo-500/5 p-6 md:p-8 h-fit">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20">
+                <ShieldCheckIcon className="w-6 h-6 text-white" />
+            </div>
+            <div>
+                <h2 className="text-lg font-bold text-gray-900">Security</h2>
+                <p className="text-sm text-gray-500">Manage password and authentication</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <button
+              onClick={handleChangePassword}
+              className="w-full text-left px-5 py-4 bg-white/80 border border-white rounded-xl hover:border-indigo-300 hover:shadow-md transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-700">Change Password</span>
+                  <span className="text-xs text-gray-400 font-medium">Via Email</span>
+              </div>
+            </button>
+            
+            <div className="w-full px-5 py-4 bg-gray-50/50 border border-gray-100 rounded-xl opacity-75">
+               <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Two-Factor Auth</span>
+                  <span className="text-[10px] font-bold bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                    Soon
+                  </span>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Notification Settings */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+        <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-50 rounded-lg">
+                <BellIcon className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+                <h2 className="text-base font-bold text-gray-900">Notifications</h2>
+                <p className="text-xs text-gray-500">Manage email preferences</p>
+            </div>
+        </div>
+
+        <div className="space-y-3 max-w-2xl">
+          <label className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:bg-white hover:border-blue-200 transition-all group">
+            <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Email notifications for new data</span>
+            <div className="relative inline-flex items-center cursor-pointer">
+                <input
+                    type="checkbox"
+                    checked={emailNotifications}
+                    onChange={(e) => setEmailNotifications(e.target.checked)}
+                    className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </div>
+          </label>
+
+          <label className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:bg-white hover:border-blue-200 transition-all group">
+            <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Weekly analytics reports</span>
+            <div className="relative inline-flex items-center cursor-pointer">
+                <input
+                    type="checkbox"
+                    checked={weeklyReports}
+                    onChange={(e) => setWeeklyReports(e.target.checked)}
+                    className="sr-only peer"
+                />
+                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </div>
+          </label>
+
+          <label className="flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:bg-white hover:border-blue-200 transition-all group">
+            <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Product updates and news</span>
+            <div className="relative inline-flex items-center cursor-pointer">
+                <input
+                    type="checkbox"
+                    checked={productUpdates}
+                    onChange={(e) => setProductUpdates(e.target.checked)}
+                    className="sr-only peer"
+                />
+                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </div>
+          </label>
+        </div>
+
+        <div className="mt-6 pt-6 border-t border-gray-100">
+            <button
+            onClick={handleSaveNotifications}
+            disabled={loading}
+            className="px-6 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 hover:text-gray-900 transition-all disabled:opacity-50"
+            >
+            {loading ? "Saving..." : "Save Preferences"}
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+}

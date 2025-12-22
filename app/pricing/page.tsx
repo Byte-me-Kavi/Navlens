@@ -16,6 +16,7 @@ import {
   RocketLaunchIcon,
   CodeBracketIcon,
 } from "@heroicons/react/24/outline";
+import { PLANS, FEATURE_LABELS } from '@/lib/plans/config';
 
 const PricingPage: React.FC = () => {
   const router = useRouter();
@@ -35,166 +36,102 @@ const PricingPage: React.FC = () => {
   const [downgradeLoading, setDowngradeLoading] = useState(false);
   const [selectedDowngradePlan, setSelectedDowngradePlan] = useState<{id: string, name: string} | null>(null);
 
-  // Fallback plans data (used if database query fails or migration not run yet)
-  const getFallbackPlans = () => {
-    return [
-      {
-        id: 'free-fallback',
-        name: 'Free',
-        description: 'Get started with basic analytics',
-        price: { monthly: 0, yearly: 0 },
-        originalPrice: { monthly: 0, yearly: 0 },
-        popular: false,
-        icon: RocketLaunchIcon,
-        features: [
-          '1,000 sessions/month',
-          'Limited heatmaps (10/day)',
-          'Session recordings',
-          '14-day data retention',
-          'Community support',
-        ],
-        cta: 'Get Started',
-        isFree: true,
-      },
-      {
-        id: 'starter-fallback',
-        name: 'Starter',
-        description: 'Perfect for small websites and blogs',
-        price: { monthly: 29,  yearly: 261 },
-        originalPrice: { monthly: 39, yearly: 348 },
-        popular: false,
-        icon: RocketLaunchIcon,
-        features: [
-          '5,000 sessions/month',
-          'Unlimited heatmaps',
-          'Full session recording',
-          '1-month data retention',
-          'Email support',
-          'A/B testing (2 tests)',
-        ],
-        cta: 'Subscribe Now',
-        isFree: false,
-      },
-      {
-        id: 'pro-fallback',
-        name: 'Pro',
-        description: 'Ideal for growing businesses and agencies',
-        price: { monthly: 79, yearly: 711 },
-        originalPrice: { monthly: 99, yearly: 948 },
-        popular: true,
-        icon: SparklesIcon,
-        features: [
-          '25,000 sessions/month',
-          'Revenue attribution',
-          'AI insights (weekly)',
-          'Funnel & form analytics',
-          'Error tracking',
-          '3-month data retention',
-          'Priority support',
-        ],
-        cta: 'Subscribe Now',
-        isFree: false,
-      },
-      {
-        id: 'enterprise-fallback',
-        name: 'Enterprise',
-        description: 'For large organizations with advanced needs',
-        price: { monthly: 299, yearly: 2691 },
-        originalPrice: { monthly: 399, yearly: 3588 },
-        popular: false,
-        icon: CodeBracketIcon,
-        features: [
-          'Unlimited sessions',
-          'Revenue heatmaps',
-          'API monitoring',
-          'SSO/SAML',
-          '1-year data retention',
-          'Dedicated support',
-          'Custom integrations',
-        ],
-        cta: 'Contact Sales',
-        isFree: false,
-      },
-    ];
+  // Map Config to UI
+  const getPlansFromConfig = () => {
+    return Object.values(PLANS).map((plan, index, allPlans) => {
+        // Format limits for display
+        const limitFeatures = [
+            `${plan.limits.sessions === -1 ? 'Unlimited' : plan.limits.sessions.toLocaleString()} Sessions/mo`,
+            `${plan.limits.recordings === -1 ? 'Unlimited' : plan.limits.recordings.toLocaleString()} Recordings/mo`,
+            `${plan.limits.retention_days} Days Data Retention`
+        ];
+
+        // Determine distinctive features (diff from lower tier)
+        let displayFeatures: string[] = [];
+        let inheritanceText = '';
+
+        if (plan.name === 'Free') {
+            displayFeatures = plan.features;
+        } else {
+             // Find lower tier (assuming sorted by price roughly or fixed order: Free -> Starter -> Pro -> Enterprise)
+             let previousPlanFeatures: string[] = [];
+             let previousPlanName = '';
+
+             if (plan.id === 'starter') {
+                 previousPlanFeatures = PLANS.FREE.features;
+                 previousPlanName = 'Free';
+             } else if (plan.id === 'pro') {
+                 previousPlanFeatures = PLANS.STARTER.features;
+                 previousPlanName = 'Starter';
+             } else if (plan.id === 'enterprise') {
+                 previousPlanFeatures = PLANS.PRO.features;
+                 previousPlanName = 'Pro';
+             }
+
+             displayFeatures = plan.features.filter(f => !previousPlanFeatures.includes(f));
+             if (previousPlanName) {
+                 inheritanceText = `Everything in ${previousPlanName}, plus:`;
+             }
+        }
+
+        // Slice to fit card, prioritize differentiators
+        const featureLabels = displayFeatures.slice(0, 8).map(key => FEATURE_LABELS[key] || key);
+
+        // Prepend inheritance text as a special item if it exists
+        const cardFeatures = inheritanceText ? [inheritanceText, ...featureLabels] : featureLabels;
+
+        return {
+            id: plan.id,
+            name: plan.name,
+            description: plan.description,
+            price: {
+                monthly: plan.price,
+                yearly: Math.round(plan.price * 12 * 0.85) // 15% discount to match badge
+            },
+            originalPrice: {
+                monthly: plan.price,
+                yearly: plan.price * 12
+            },
+            popular: plan.name === 'Pro',
+            icon: getPlanIcon(plan.name),
+            status: plan.status || 'active',
+            // Combine limits + distinct features
+            features: [
+                ...limitFeatures,
+                ...cardFeatures
+            ], 
+            cta: plan.name === 'Free' ? 'Get Started' : plan.name === 'Enterprise' ? 'Contact Sales' : 'Subscribe Now',
+            isFree: plan.name === 'Free',
+            allFeatures: plan.features,
+            inheritanceText // Pass to component if needed for special styling, but strictly putting in list usually works for simple cards
+        };
+    }).sort((a, b) => a.price.monthly - b.price.monthly);
   };
 
   // Fetch plans from database with localStorage caching
   useEffect(() => {
     const CACHE_KEY = 'navlens_subscription_plans';
-    const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
+    const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
     async function fetchPlans() {
+      // Use centralized config primarily
+      const uiPlans = getPlansFromConfig();
+      setPlans(uiPlans);
+      setLoading(false);
+      
+      // Optionally fetch from DB purely to cache or verify, but UI uses config
       try {
-        // Check localStorage cache first
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          try {
-            const { data: cachedPlans, timestamp } = JSON.parse(cached);
-            if (Date.now() - timestamp < CACHE_TTL && cachedPlans?.length > 0) {
-              console.log('📦 Using cached subscription plans');
-              const mappedPlans = mapPlansToUI(cachedPlans);
-              setPlans(mappedPlans);
-              setLoading(false);
-              return;
-            }
-          } catch {
-            // Invalid cache, continue to fetch
-          }
-        }
-
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('subscription_plans')
           .select('*')
           .order('price_usd', { ascending: true });
-
-        if (error) {
-          console.warn('Database query failed, using fallback data:', error);
-          setPlans(getFallbackPlans());
-          setLoading(false);
-          return;
-        }
-
-        if (data && data.length > 0) {
-          // Cache the raw data in localStorage
-          localStorage.setItem(CACHE_KEY, JSON.stringify({
-            data,
-            timestamp: Date.now(),
-          }));
-          console.log('💾 Cached subscription plans');
-          
-          const mappedPlans = mapPlansToUI(data);
-          setPlans(mappedPlans);
-        } else {
-          setPlans(getFallbackPlans());
-        }
-      } catch (error) {
-        console.error('Failed to fetch plans:', error);
-        setPlans(getFallbackPlans());
-      } finally {
-        setLoading(false);
+        
+         if (data && data.length > 0) {
+             console.log('✅ DB plans fetched (background check ok)');
+         }
+      } catch (e) {
+          console.warn('DB fetch warning:', e);
       }
-    }
-
-    // Map database plans to UI format
-    function mapPlansToUI(data: any[]) {
-      return data.map((plan: any) => ({
-        id: plan.id,
-        name: plan.name,
-        description: getPlanDescription(plan.name),
-        price: {
-          monthly: plan.price_usd,
-          yearly: plan.price_usd * 12 * 0.75,
-        },
-        originalPrice: {
-          monthly: plan.price_usd * 1.25,
-          yearly: plan.price_usd * 12,
-        },
-        popular: plan.name === 'Pro',
-        icon: getPlanIcon(plan.name),
-        features: getPlanFeatures(plan.name, plan.session_limit),
-        cta: plan.name === 'Free' ? 'Get Started' : plan.name === 'Enterprise' ? 'Contact Sales' : 'Subscribe Now',
-        isFree: plan.name === 'Free',
-      }));
     }
 
     // Also check user's current subscription
@@ -439,52 +376,12 @@ const PricingPage: React.FC = () => {
   }
 
   function getPlanDescription(name: string) {
-    const descriptions: any = {
-      Free: 'Get started with basic analytics',
-      Starter: 'Perfect for small websites and blogs',
-      Pro: 'Ideal for growing businesses and agencies',
-      Enterprise: 'For large organizations with advanced needs',
-    };
-    return descriptions[name] || '';
+      // Use config first if available
+      return '';
   }
 
   function getPlanFeatures(name: string, sessionLimit: number | null) {
-    const features: any = {
-      Free: [
-        `${sessionLimit?.toLocaleString() || '1,000'} sessions/month`,
-        'Limited heatmaps (10/day)',
-        'Session recordings',
-        '14-day data retention',
-        'Community support',
-      ],
-      Starter: [
-        `${sessionLimit?.toLocaleString() || '5,000'} sessions/month`,
-        'Unlimited heatmaps',
-        'Full session recording',
-        '1-month data retention',
-        'Email support',
-        'A/B testing (2 tests)',
-      ],
-      Pro: [
-        `${sessionLimit?.toLocaleString() || '25,000'} sessions/month`,
-        'Revenue attribution',
-        'AI insights (weekly)',
-        'Funnel & form analytics',
-        'Error tracking',
-        '3-month data retention',
-        'Priority support',
-      ],
-      Enterprise: [
-        'Unlimited sessions',
-        'Revenue heatmaps',
-        'API monitoring',
-        'SSO/SAML',
-        '1-year data retention',
-        'Dedicated support',
-        'Custom integrations',
-      ],
-    };
-    return features[name] || [];
+      return [];
   }
 
   const faqs = [
@@ -577,7 +474,7 @@ const PricingPage: React.FC = () => {
             >
               Yearly
               <span className="absolute -top-3 -right-3 bg-linear-to-r from-blue-600 to-purple-600 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg">
-                SAVE 25%
+                SAVE 15%
               </span>
             </button>
           </div>
@@ -615,7 +512,7 @@ const PricingPage: React.FC = () => {
                   )}
 
                   {/* Card Content */}
-                  <div className="p-6 flex flex-col flex-1">
+                  <div className={`p-6 flex flex-col flex-1 ${plan.status === 'inactive' ? 'opacity-70 grayscale' : ''}`}>
                     {/* Icon */}
                     <div
                       className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
@@ -684,6 +581,17 @@ const PricingPage: React.FC = () => {
 
                     {/* CTA Button */}
                     {(() => {
+                      if (plan.status === 'inactive') {
+                        return (
+                          <button
+                            disabled
+                            className="w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm bg-gray-100 text-gray-400 cursor-not-allowed"
+                          >
+                            Coming Soon
+                          </button>
+                        );
+                      }
+
                       // Define plan tier hierarchy for upgrade/downgrade logic
                       const planTier: Record<string, number> = {
                         'Free': 0,
@@ -695,7 +603,7 @@ const PricingPage: React.FC = () => {
                       const targetTier = planTier[plan.name] ?? 0;
                       const isUpgrade = currentPlanName && targetTier > currentTier;
                       const isDowngrade = currentPlanName && targetTier < currentTier;
-                      const isSamePlan = currentPlanId === plan.id;
+                      const isSamePlan = currentPlanName === plan.name;
 
                       if (isSamePlan) {
                         return (
@@ -741,6 +649,15 @@ const PricingPage: React.FC = () => {
                       }
                     })()}
                   </div>
+
+                  {/* Coming Soon Overlay */}
+                  {plan.status === 'inactive' && (
+                    <div className="absolute top-0 right-0 p-4 z-20">
+                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200 shadow-sm">
+                            Coming Soon
+                         </span>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -788,54 +705,44 @@ const PricingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  ["Websites", "3", "10", "Unlimited"],
-                  ["Monthly Pageviews", "10K", "100K", "Unlimited"],
-                  ["Data Retention", "30 days", "90 days", "1 year"],
-                  ["Heatmap Types", "Basic", "Advanced", "All"],
-                  ["Session Recording", "✗", "✓", "✓"],
-                  ["API Access", "✗", "✓", "✓"],
-                  ["Custom Integrations", "✗", "✓", "✓"],
-                  ["A/B Testing", "✗", "✓", "✓"],
-                  ["Priority Support", "✗", "✓", "✓"],
-                  ["White-label", "✗", "✗", "✓"],
-                  ["Dedicated Manager", "✗", "✗", "✓"],
-                  ["SLA Guarantee", "✗", "✗", "✓"],
-                ].map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors"
-                  >
-                    <td className="p-4 font-medium text-gray-900">{row[0]}</td>
-                    <td className="p-4 text-center text-gray-600">
-                      {row[1] === "✓" ? (
-                        <CheckIcon className="w-4 h-4 text-blue-600 mx-auto" />
-                      ) : row[1] === "✗" ? (
-                        <XMarkIcon className="w-4 h-4 text-gray-300 mx-auto" />
-                      ) : (
-                        row[1]
-                      )}
-                    </td>
-                    <td className="p-4 text-center text-purple-900 font-semibold bg-purple-50/30">
-                      {row[2] === "✓" ? (
-                        <CheckIcon className="w-4 h-4 text-purple-600 mx-auto" />
-                      ) : row[2] === "✗" ? (
-                        <XMarkIcon className="w-4 h-4 text-gray-300 mx-auto" />
-                      ) : (
-                        row[2]
-                      )}
-                    </td>
-                    <td className="p-4 text-center text-gray-900 font-semibold">
-                      {row[3] === "✓" ? (
-                        <CheckIcon className="w-4 h-4 text-blue-600 mx-auto" />
-                      ) : row[3] === "✗" ? (
-                        <XMarkIcon className="w-4 h-4 text-gray-300 mx-auto" />
-                      ) : (
-                        row[3]
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                  {Object.entries(PLANS.FREE.limits).map(([key, limit]) => {
+                      if (key === 'active_experiments' || key === 'active_surveys') return null;
+                      const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                      return (
+                        <tr key={key} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                            <td className="p-4 text-gray-700 font-medium">{label}</td>
+                            <td className="p-4 text-center text-gray-600">{PLANS.STARTER.limits[key as keyof typeof PLANS.STARTER.limits] === -1 ? 'Unlimited' : PLANS.STARTER.limits[key as keyof typeof PLANS.STARTER.limits]}</td>
+                            <td className="p-4 text-center text-gray-600 font-medium bg-purple-50/30">{PLANS.PRO.limits[key as keyof typeof PLANS.PRO.limits] === -1 ? 'Unlimited' : PLANS.PRO.limits[key as keyof typeof PLANS.PRO.limits]}</td>
+                            <td className="p-4 text-center text-gray-600">{PLANS.ENTERPRISE.limits[key as keyof typeof PLANS.ENTERPRISE.limits] === -1 ? 'Unlimited' : PLANS.ENTERPRISE.limits[key as keyof typeof PLANS.ENTERPRISE.limits]}</td>
+                        </tr>
+                      );
+                  })}
+                  {Object.entries(FEATURE_LABELS).map(([key, label]) => (
+                    <tr key={key} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+                      <td className="p-4 text-gray-700 font-medium">{label}</td>
+                      <td className="p-4 text-center">
+                        {PLANS.STARTER.features.includes(key) ? (
+                            <CheckIcon className="w-5 h-5 text-green-500 mx-auto" />
+                        ) : (
+                            <XMarkIcon className="w-5 h-5 text-gray-300 mx-auto" />
+                        )}
+                      </td>
+                      <td className="p-4 text-center bg-purple-50/30">
+                        {PLANS.PRO.features.includes(key) ? (
+                            <CheckIcon className="w-5 h-5 text-purple-600 mx-auto" />
+                        ) : (
+                            <XMarkIcon className="w-5 h-5 text-gray-300 mx-auto" />
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        {PLANS.ENTERPRISE.features.includes(key) ? (
+                            <CheckIcon className="w-5 h-5 text-blue-600 mx-auto" />
+                        ) : (
+                            <XMarkIcon className="w-5 h-5 text-gray-300 mx-auto" />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

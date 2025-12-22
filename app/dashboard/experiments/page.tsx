@@ -22,6 +22,8 @@ import { secureApi } from "@/lib/secureApi";
 import { GoalConfig } from "@/features/experiments/components/GoalConfig";
 import type { ExperimentGoal, GoalResults } from "@/lib/experiments/types";
 import { useAI } from "@/context/AIProvider";
+import { FeatureLock } from '@/components/subscription/FeatureLock';
+import { useSubscription } from '@/app/context/SubscriptionContext';
 
 // Types
 interface Variant {
@@ -1190,263 +1192,269 @@ export default function ExperimentsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BeakerIcon className="w-7 h-7 text-blue-600" />
-            A/B Experiments
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Create and analyze experiments to optimize conversions
-          </p>
-        </div>
-
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          <PlusIcon className="w-5 h-5" />
-          New Experiment
-        </button>
-      </div>
-
-      {/* Error state */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {/* Main content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Experiments list */}
-        <div className="lg:col-span-2 space-y-3">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <ArrowPathIcon className="w-6 h-6 animate-spin text-gray-400" />
-            </div>
-          ) : experiments.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <BeakerIcon className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-              <h3 className="text-lg font-medium text-gray-900 mb-1">
-                No experiments yet
-              </h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Create your first A/B test to start optimizing
-              </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                <PlusIcon className="w-5 h-5" />
-                Create Experiment
-              </button>
-            </div>
-          ) : (
-            experiments.map((exp) => (
-              <div
-                key={exp.id}
-                onClick={() => setSelectedExperiment(exp)}
-                className={`p-4 bg-white rounded-lg border cursor-pointer transition hover:shadow-md ${selectedExperiment?.id === exp.id ? "border-blue-500 ring-2 ring-blue-100" : "border-gray-200"}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium text-gray-900">{exp.name}</h3>
-                  <StatusBadge status={exp.status} />
-                </div>
-
-                {exp.description && (
-                  <p className="text-sm text-gray-500 mb-3">{exp.description}</p>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <span>{exp.variants.length} variants</span>
-                    <span>•</span>
-                    <span>{exp.traffic_percentage}% traffic</span>
-                    {exp.modifications && exp.modifications.length > 0 && (
-                      <>
-                        <span>•</span>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">
-                          {exp.modifications.length} changes
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {exp.status === "draft" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateStatus(exp.id, "running");
-                        }}
-                        className="p-1.5 text-green-600 hover:bg-green-50 rounded"
-                        title="Start experiment"
-                      >
-                        <PlayIcon className="w-4 h-4" />
-                      </button>
-                    )}
-                    {exp.status === "running" && (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateStatus(exp.id, "paused");
-                          }}
-                          className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"
-                          title="Pause experiment"
-                        >
-                          <PauseIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateStatus(exp.id, "completed");
-                          }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                          title="Complete experiment"
-                        >
-                          <CheckCircleIcon className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                    {exp.status === "paused" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateStatus(exp.id, "running");
-                        }}
-                        className="p-1.5 text-green-600 hover:bg-green-50 rounded"
-                        title="Resume experiment"
-                      >
-                        <PlayIcon className="w-4 h-4" />
-                      </button>
-                    )}
-                    {/* Edit Variant button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingExperiment(exp);
-                        setShowEditModal(true);
-                      }}
-                      className="p-1.5 text-purple-600 hover:bg-purple-50 rounded"
-                      title="Edit variants visually"
-                    >
-                      <PencilSquareIcon className="w-4 h-4" />
-                    </button>
-                    {/* Edit Experiment button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingExperiment(exp);
-                        setShowEditExperimentModal(true);
-                      }}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                      title="Edit experiment settings"
-                    >
-                      <Cog6ToothIcon className="w-4 h-4" />
-                    </button>
-                    {/* Delete button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingExperiment(exp);
-                        setShowDeleteModal(true);
-                      }}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                      title="Delete experiment"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Results panel */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b">
-            <ChartBarIcon className="w-5 h-5 text-gray-500" />
-            <h2 className="font-medium text-gray-900">Results</h2>
+    <FeatureLock 
+      feature="ab_testing" 
+      title="Unlock A/B Testing"
+      description="Run A/B tests to optimize your site's conversion rate."
+    >
+      <div className="space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <BeakerIcon className="w-7 h-7 text-blue-600" />
+              A/B Experiments
+            </h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Create and analyze experiments to optimize conversions
+            </p>
           </div>
 
-          {isLoadingResults ? (
-            <div className="flex items-center justify-center py-8">
-              <ArrowPathIcon className="w-6 h-6 animate-spin text-gray-400" />
-            </div>
-          ) : (
-            <ResultsPanel results={results} experiment={selectedExperiment} />
-          )}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <PlusIcon className="w-5 h-5" />
+            New Experiment
+          </button>
         </div>
+
+        {/* Error state */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {/* Main content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Experiments list */}
+          <div className="lg:col-span-2 space-y-3">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <ArrowPathIcon className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : experiments.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <BeakerIcon className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                  No experiments yet
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Create your first A/B test to start optimizing
+                </p>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <PlusIcon className="w-5 h-5" />
+                  Create Experiment
+                </button>
+              </div>
+            ) : (
+              experiments.map((exp) => (
+                <div
+                  key={exp.id}
+                  onClick={() => setSelectedExperiment(exp)}
+                  className={`p-4 bg-white rounded-lg border cursor-pointer transition hover:shadow-md ${selectedExperiment?.id === exp.id ? "border-blue-500 ring-2 ring-blue-100" : "border-gray-200"}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium text-gray-900">{exp.name}</h3>
+                    <StatusBadge status={exp.status} />
+                  </div>
+
+                  {exp.description && (
+                    <p className="text-sm text-gray-500 mb-3">{exp.description}</p>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <span>{exp.variants.length} variants</span>
+                      <span>•</span>
+                      <span>{exp.traffic_percentage}% traffic</span>
+                      {exp.modifications && exp.modifications.length > 0 && (
+                        <>
+                          <span>•</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">
+                            {exp.modifications.length} changes
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {exp.status === "draft" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateStatus(exp.id, "running");
+                          }}
+                          className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                          title="Start experiment"
+                        >
+                          <PlayIcon className="w-4 h-4" />
+                        </button>
+                      )}
+                      {exp.status === "running" && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateStatus(exp.id, "paused");
+                            }}
+                            className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"
+                            title="Pause experiment"
+                          >
+                            <PauseIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateStatus(exp.id, "completed");
+                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                            title="Complete experiment"
+                          >
+                            <CheckCircleIcon className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      {exp.status === "paused" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateStatus(exp.id, "running");
+                          }}
+                          className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                          title="Resume experiment"
+                        >
+                          <PlayIcon className="w-4 h-4" />
+                        </button>
+                      )}
+                      {/* Edit Variant button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingExperiment(exp);
+                          setShowEditModal(true);
+                        }}
+                        className="p-1.5 text-purple-600 hover:bg-purple-50 rounded"
+                        title="Edit variants visually"
+                      >
+                        <PencilSquareIcon className="w-4 h-4" />
+                      </button>
+                      {/* Edit Experiment button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingExperiment(exp);
+                          setShowEditExperimentModal(true);
+                        }}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                        title="Edit experiment settings"
+                      >
+                        <Cog6ToothIcon className="w-4 h-4" />
+                      </button>
+                      {/* Delete button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingExperiment(exp);
+                          setShowDeleteModal(true);
+                        }}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                        title="Delete experiment"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Results panel */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b">
+              <ChartBarIcon className="w-5 h-5 text-gray-500" />
+              <h2 className="font-medium text-gray-900">Results</h2>
+            </div>
+
+            {isLoadingResults ? (
+              <div className="flex items-center justify-center py-8">
+                <ArrowPathIcon className="w-6 h-6 animate-spin text-gray-400" />
+              </div>
+            ) : (
+              <ResultsPanel results={results} experiment={selectedExperiment} />
+            )}
+          </div>
+        </div>
+
+        {/* Create modal */}
+        <CreateExperimentModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreateExperiment}
+        />
+
+        {/* Edit Variant modal */}
+        <EditVariantModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingExperiment(null);
+          }}
+          experiment={editingExperiment}
+          siteId={selectedSite?.id || ''}
+          siteDomain={selectedSite?.domain}
+        />
+
+        {/* Edit Settings modal */}
+        <EditSettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => {
+            setShowSettingsModal(false);
+            setEditingExperiment(null);
+          }}
+          experiment={editingExperiment}
+          siteId={selectedSite?.id || ''}
+          onSave={fetchExperiments}
+        />
+
+        {/* Edit Experiment Modal */}
+        <EditExperimentModal
+          isOpen={showEditExperimentModal}
+          onClose={() => {
+            setShowEditExperimentModal(false);
+            setEditingExperiment(null);
+          }}
+          experiment={editingExperiment}
+          siteId={selectedSite?.id || ''}
+          onSave={() => {
+            fetchExperiments();
+            // Also refresh results if editing the selected experiment
+            if (editingExperiment && editingExperiment.id === selectedExperiment?.id) {
+              fetchResults(editingExperiment.id);
+            }
+          }}
+        />
+
+        {/* Delete Confirmation Modal */}
+        <DeleteConfirmModal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setEditingExperiment(null);
+          }}
+          experiment={editingExperiment}
+          siteId={selectedSite?.id || ''}
+          onDeleted={() => {
+            fetchExperiments();
+            setSelectedExperiment(null);
+          }}
+        />
       </div>
-
-      {/* Create modal */}
-      <CreateExperimentModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSubmit={handleCreateExperiment}
-      />
-
-      {/* Edit Variant modal */}
-      <EditVariantModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setEditingExperiment(null);
-        }}
-        experiment={editingExperiment}
-        siteId={selectedSite?.id || ''}
-        siteDomain={selectedSite?.domain}
-      />
-
-      {/* Edit Settings modal */}
-      <EditSettingsModal
-        isOpen={showSettingsModal}
-        onClose={() => {
-          setShowSettingsModal(false);
-          setEditingExperiment(null);
-        }}
-        experiment={editingExperiment}
-        siteId={selectedSite?.id || ''}
-        onSave={fetchExperiments}
-      />
-
-      {/* Edit Experiment Modal */}
-      <EditExperimentModal
-        isOpen={showEditExperimentModal}
-        onClose={() => {
-          setShowEditExperimentModal(false);
-          setEditingExperiment(null);
-        }}
-        experiment={editingExperiment}
-        siteId={selectedSite?.id || ''}
-        onSave={() => {
-          fetchExperiments();
-          // Also refresh results if editing the selected experiment
-          if (editingExperiment && editingExperiment.id === selectedExperiment?.id) {
-            fetchResults(editingExperiment.id);
-          }
-        }}
-      />
-
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setEditingExperiment(null);
-        }}
-        experiment={editingExperiment}
-        siteId={selectedSite?.id || ''}
-        onDeleted={() => {
-          fetchExperiments();
-          setSelectedExperiment(null);
-        }}
-      />
-    </div>
+    </FeatureLock>
   );
 }
