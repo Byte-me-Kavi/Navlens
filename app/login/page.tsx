@@ -17,6 +17,7 @@ export default function Login() {
   );
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const hasShownToastRef = useRef(false);
 
   // --- Define your Navlens Brand Colors ---
@@ -154,67 +155,110 @@ export default function Login() {
       </Link>
 
       {/* 2. The Themed Authentication Card */}
-      <div className="w-full max-w-md p-8 space-y-8 bg-white/70 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(59,130,246,0.15)] border border-blue-200 relative z-10">
-        <Auth
-          supabaseClient={supabase}
-          // Add providers you enabled in your Supabase project
-          providers={["google"]}
-          redirectTo={
-            typeof window !== "undefined"
-              ? `${window.location.origin}/login`
-              : "/login"
-          }
-          socialLayout="horizontal"
-          // This 'appearance' prop is where all the theming happens
-          appearance={{
-            theme: ThemeSupa,
-            variables: {
-              default: {
-                colors: {
-                  brand: "#335398", // Dark button
-                  brandAccent: "#112A56", // Even darker on hover
-                  brandButtonText: "white", // White text on button
+      <div className="w-full max-w-md p-8 space-y-6 bg-white/70 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(59,130,246,0.15)] border border-blue-200 relative z-10">
+        {/* Terms and Privacy Acceptance Checkbox */}
+        <div className="flex items-start gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-200">
+          <input
+            type="checkbox"
+            id="terms-checkbox"
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            className="mt-1 w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+          />
+          <label htmlFor="terms-checkbox" className="text-sm text-gray-700 cursor-pointer">
+            I agree to the{" "}
+            <Link 
+              href="/terms" 
+              target="_blank"
+              className="text-blue-600 hover:text-blue-800 font-medium underline"
+            >
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link 
+              href="/privacy" 
+              target="_blank"
+              className="text-blue-600 hover:text-blue-800 font-medium underline"
+            >
+              Privacy Policy
+            </Link>
+          </label>
+        </div>
 
-                  defaultButtonBackground: "white",
-                  defaultButtonBackgroundHover: themeColors.lightGray,
-                  defaultButtonBorder: themeColors.border,
-                  defaultButtonText: themeColors.textDark,
+        {/* Auth Form with overlay when terms not accepted */}
+        <div className="relative">
+          {/* Overlay to block interaction when terms not accepted */}
+          {!termsAccepted && (
+            <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 rounded-xl flex items-center justify-center cursor-not-allowed">
+              <p className="text-sm text-gray-500 text-center px-4">
+                Please accept the Terms and Privacy Policy above to continue
+              </p>
+            </div>
+          )}
+          
+          <div className={!termsAccepted ? "pointer-events-none opacity-50" : ""}>
+            <Auth
+              supabaseClient={supabase}
+              // Add providers you enabled in your Supabase project
+              providers={["google"]}
+              redirectTo={
+                typeof window !== "undefined"
+                  ? `${window.location.origin}/login`
+                  : "/login"
+              }
+              socialLayout="horizontal"
+              // This 'appearance' prop is where all the theming happens
+              appearance={{
+                theme: ThemeSupa,
+                variables: {
+                  default: {
+                    colors: {
+                      brand: "#335398", // Dark button
+                      brandAccent: "#112A56", // Even darker on hover
+                      brandButtonText: "white", // White text on button
 
-                  dividerBackground: themeColors.border,
+                      defaultButtonBackground: "white",
+                      defaultButtonBackgroundHover: themeColors.lightGray,
+                      defaultButtonBorder: themeColors.border,
+                      defaultButtonText: themeColors.textDark,
 
-                  inputBackground: themeColors.inputBg,
-                  inputBorder: themeColors.border,
-                  inputBorderHover: themeColors.accent,
-                  inputBorderFocus: themeColors.accent,
-                  inputText: themeColors.textDark,
-                  inputLabelText: "#666666",
-                  inputPlaceholder: "#999999",
+                      dividerBackground: themeColors.border,
 
-                  messageText: themeColors.textDark,
-                  messageTextDanger: "#335398",
+                      inputBackground: themeColors.inputBg,
+                      inputBorder: themeColors.border,
+                      inputBorderHover: themeColors.accent,
+                      inputBorderFocus: themeColors.accent,
+                      inputText: themeColors.textDark,
+                      inputLabelText: "#666666",
+                      inputPlaceholder: "#999999",
 
-                  anchorTextColor: "#335398", // Dark links (navy)
-                  anchorTextHoverColor: themeColors.electricBlue, // Blue hover (matching logo)
+                      messageText: themeColors.textDark,
+                      messageTextDanger: "#335398",
+
+                      anchorTextColor: "#335398", // Dark links (navy)
+                      anchorTextHoverColor: themeColors.electricBlue, // Blue hover (matching logo)
+                    },
+                    space: {
+                      buttonPadding: "12px 20px",
+                      inputPadding: "12px 16px",
+                    },
+                    radii: {
+                      borderRadiusButton: "10px",
+                      buttonBorderRadius: "10px",
+                      inputBorderRadius: "10px",
+                    },
+                    fontSizes: {
+                      baseButtonSize: "15px",
+                      baseInputSize: "15px",
+                    },
+                  },
                 },
-                space: {
-                  buttonPadding: "12px 20px",
-                  inputPadding: "12px 16px",
-                },
-                radii: {
-                  borderRadiusButton: "10px",
-                  buttonBorderRadius: "10px",
-                  inputBorderRadius: "10px",
-                },
-                fontSizes: {
-                  baseButtonSize: "15px",
-                  baseInputSize: "15px",
-                },
-              },
-            },
-          }}
-          // We force the 'light' theme
-          theme="light"
-        />
+              }}
+              // We force the 'light' theme
+              theme="light"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

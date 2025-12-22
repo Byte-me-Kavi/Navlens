@@ -186,17 +186,24 @@ export default function Footer() {
               © 2025 Navlens Analytics. All rights reserved.
             </p>
             <div className="flex gap-6 text-sm">
-              {["Privacy Policy", "Terms of Service", "Cookie Policy"].map(
-                (item) => (
-                  <a
-                    key={item}
-                    href="#"
-                    className="text-gray-600 hover:text-blue-600 transition-colors"
-                  >
-                    {item}
-                  </a>
-                )
-              )}
+              <a
+                href="/privacy"
+                className="text-gray-600 hover:text-blue-600 transition-colors"
+              >
+                Privacy Policy
+              </a>
+              <a
+                href="/terms"
+                className="text-gray-600 hover:text-blue-600 transition-colors"
+              >
+                Terms of Service
+              </a>
+              <a
+                href="/refund"
+                className="text-gray-600 hover:text-blue-600 transition-colors"
+              >
+                Refund Policy
+              </a>
             </div>
           </div>
         </div>

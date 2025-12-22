@@ -2,6 +2,7 @@
 
 import { Toast } from "../components/Toast";
 import { AnimatedBackground } from "../components/ui/AnimatedBackground";
+import CookieConsent from "../components/CookieConsent";
 import { usePathname } from "next/navigation";
 import "./globals.css";
 
@@ -29,6 +30,9 @@ function RootLayoutClient({
       <div className="relative z-10">
         <Toast>{children}</Toast>
       </div>
+
+      {/* Cookie Consent Banner */}
+      <CookieConsent />
     </body>
   );
 }

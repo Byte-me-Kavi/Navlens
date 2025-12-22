@@ -100,19 +100,34 @@ export async function GET() {
       }
     );
 
-    // 3. OPTIMIZATION: Skip explicit 'getUser()'. 
-    // Just query 'sites' directly. RLS will handle security.
+    // 3. Get authenticated user first to distinguish between auth failure and no sites
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.log('[dashboard-stats] Auth failed:', authError?.message || 'No user session');
+      return NextResponse.json({
+        message: 'Authentication required',
+        error: 'Please log in to access dashboard stats'
+      }, { status: 401 });
+    }
+
+    // 4. Query sites with explicit user filter (RLS backup)
     const { data: userSites, error: siteError } = await supabase
       .from('sites')
-      .select('id'); // No .eq('user_id', user.id) needed! RLS does this.
+      .select('id')
+      .eq('user_id', user.id);
 
-    // If RLS fails or token is invalid, this returns null/error
-    if (siteError || !userSites) {
-      return NextResponse.json({ message: 'Unauthorized or No Sites' }, { status: 401 });
+    // If RLS fails or query error
+    if (siteError) {
+      console.log('[dashboard-stats] Site query error:', siteError.message);
+      return NextResponse.json({
+        message: 'Failed to fetch sites',
+        error: siteError.message
+      }, { status: 500 });
     }
 
     // Handle case where user has no sites yet (Early exit saves resources)
-    if (userSites.length === 0) {
+    if (!userSites || userSites.length === 0) {
       return NextResponse.json({
         totalSites: 0,
         stats: {
