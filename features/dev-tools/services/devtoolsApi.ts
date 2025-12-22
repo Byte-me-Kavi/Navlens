@@ -41,7 +41,19 @@ export function createTimelineMarkers(
     // Console errors
     for (const event of data.console) {
         if (event.console_level === 'error') {
-            const timestamp = new Date(event.timestamp).getTime() - sessionStartTime;
+            const eventTime = new Date(event.timestamp).getTime();
+            const timestamp = eventTime - sessionStartTime;
+
+            // Log first error for debugging
+            if (markers.length === 0) {
+                console.log('Debug Markers: First Error Calc', {
+                    eventTimestamp: event.timestamp,
+                    eventTime,
+                    sessionStartTime,
+                    diff: timestamp
+                });
+            }
+
             markers.push({
                 timestamp,
                 type: 'error',

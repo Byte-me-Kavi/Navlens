@@ -45,7 +45,8 @@ export const PLAN_FEATURES = {
         'ai_heatmap_analysis',
         'ai_form_insights',
         'ai_assistant',
-        'ai_cohort_generator'
+        'ai_cohort_generator',
+        'ai_element_insights'
     ],
     EXPERIMENTATION: [
         'ab_testing',
@@ -128,6 +129,7 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
             'ai_heatmap_analysis',
             'ai_form_insights',
             'ai_assistant',
+            'ai_element_insights',
             // Unlocked Deep Insights
             'funnels',
             'user_journeys',
@@ -165,6 +167,7 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
             'funnels', 'user_journeys', 'form_analytics', 'element_clicks', 'js_errors', 'performance_metrics',
             'team_management', 'data_export', 'priority_support',
             // Unlocked Enterprise
+            'ai_element_insights',
             'ai_cohort_generator',
             'cohorts',
             'network_health',
@@ -197,6 +200,7 @@ export const FEATURE_LABELS: Record<string, string> = {
     ai_form_insights: 'AI Form Insights',
     ai_assistant: 'AI Assistant',
     ai_cohort_generator: 'AI Cohort Generator',
+    ai_element_insights: 'AI Element Insights',
     ab_testing: 'A/B Testing',
     surveys: 'Surveys',
     feedback_widget: 'Feedback Widget',

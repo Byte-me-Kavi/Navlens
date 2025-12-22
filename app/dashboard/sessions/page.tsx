@@ -27,7 +27,10 @@ import {
   FiAlertCircle,
   FiMousePointer,
   FiCornerUpLeft,
+  FiTerminal,
+  FiActivity,
 } from "react-icons/fi";
+import { CommandLineIcon } from "@heroicons/react/24/outline";
 import { HiOutlineDesktopComputer } from "react-icons/hi";
 import { BsDisplay, BsWindows, BsApple } from "react-icons/bs";
 import { FaLinux, FaAndroid } from "react-icons/fa";
@@ -367,7 +370,7 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="min-h-screen px-3 md:py-4 md:px-1">
+    <div className="min-h-screen px-3 md:py-0 md:px-1">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-2">
@@ -391,138 +394,181 @@ export default function SessionsPage() {
           />
         ) : (
           <>
-            {/* Filters */}
-            <div className="bg-white rounded-xl shadow-lg p-4 md:p-6 mb-6 border border-gray-100">
-              <div className="flex items-center gap-2 mb-4">
-                <FiFilter className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+            {/* Dev Tools Promo */}
+            <div className="bg-gradient-to-r from-indigo-50 to-white rounded-2xl p-5 mb-8 border border-indigo-100 flex items-start sm:items-center justify-between gap-4 relative overflow-hidden group">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-100/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-200/40 transition-all duration-700"></div>
+              
+              <div className="flex items-start gap-4 relative z-10">
+                <div className="p-3 bg-white rounded-xl shadow-sm border border-indigo-50 text-indigo-600">
+                  <CommandLineIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">Advanced Session Debugging</h3>
+                  <p className="text-sm text-gray-600 max-w-xl">
+                    Inspect <span className="font-semibold text-indigo-600">Console Logs</span>, monitor <span className="font-semibold text-indigo-600">Network Requests</span>, and analyze <span className="font-semibold text-indigo-600">Core Web Vitals</span> directly within the session replay player.
+                  </p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              
+              <div className="hidden sm:flex items-center gap-2 relative z-10 pr-2">
+                 <div className="flex -space-x-2">
+                    <div className="w-8 h-8 rounded-lg bg-white border border-gray-100 flex items-center justify-center shadow-sm text-gray-400" title="Console">
+                        <FiTerminal className="w-4 h-4" />
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-white border border-gray-100 flex items-center justify-center shadow-sm text-gray-400" title="Network">
+                        <FiGlobe className="w-4 h-4" />
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-white border border-gray-100 flex items-center justify-center shadow-sm text-gray-400" title="Vitals">
+                        <FiActivity className="w-4 h-4" />
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200/60 p-5 md:p-6 mb-8">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
+                  <FiFilter className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Filter Sessions</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                 {/* Search */}
                 <div className="md:col-span-2">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                    <FiSearch className="w-4 h-4 text-gray-500" />
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-1">
                     Search
                   </label>
-                  <div className="relative">
+                  <div className="relative group">
                     <input
                       type="text"
                       placeholder="Search by visitor ID or country..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full px-4 py-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white"
+                      className="w-full px-4 py-3 pl-11 border border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all bg-white hover:border-gray-300 shadow-sm"
                     />
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
                   </div>
                 </div>
 
                 {/* Date Filter */}
                 <div>
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                    <FiCalendar className="w-4 h-4 text-gray-500" />
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-1">
                     Date
                   </label>
-                  <input
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white"
-                  />
+                  <div className="relative group">
+                    <input
+                      type="date"
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                      className="w-full px-4 py-3 pl-11 border border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all bg-white hover:border-gray-300 shadow-sm text-gray-700"
+                    />
+                    <FiCalendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                  </div>
                 </div>
 
                 {/* Device Filter */}
                 <div>
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                    <FiMonitor className="w-4 h-4 text-gray-500" />
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-1">
                     Device
                   </label>
-                  <select
-                    value={deviceFilter}
-                    onChange={(e) => setDeviceFilter(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-gray-50 hover:bg-white cursor-pointer"
-                  >
-                    <option value="all">All Devices</option>
-                    <option value="desktop">Desktop</option>
-                    <option value="tablet">Tablet</option>
-                    <option value="mobile">Mobile</option>
-                  </select>
+                  <div className="relative group">
+                    <select
+                      value={deviceFilter}
+                      onChange={(e) => setDeviceFilter(e.target.value)}
+                      className="w-full px-4 py-3 pl-11 border border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all bg-white hover:border-gray-300 shadow-sm cursor-pointer appearance-none text-gray-700"
+                    >
+                      <option value="all">All Devices</option>
+                      <option value="desktop">Desktop</option>
+                      <option value="tablet">Tablet</option>
+                      <option value="mobile">Mobile</option>
+                    </select>
+                    <FiMonitor className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                    <FiChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
               {/* Clear Filters */}
               {(dateFilter || deviceFilter !== "all" || searchQuery) && (
-                <button
-                  onClick={() => {
-                    setDateFilter("");
-                    setDeviceFilter("all");
-                    setSearchQuery("");
-                  }}
-                  className="mt-4 flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                >
-                  <FiX className="w-4 h-4" />
-                  Clear all filters
-                </button>
+                <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+                    <button
+                    onClick={() => {
+                        setDateFilter("");
+                        setDeviceFilter("all");
+                        setSearchQuery("");
+                    }}
+                    className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors px-3 py-1.5 rounded-lg hover:bg-indigo-50"
+                    >
+                    <FiX className="w-4 h-4" />
+                    Clear all filters
+                    </button>
+                </div>
               )}
             </div>
 
             {/* Sessions Count */}
-            <div className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
-              <FiEye className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900">
-                Showing {filteredSessions.length} of {sessions.length} sessions
+            {/* Sessions Count */}
+            <div className="mb-4 flex items-center gap-2 px-3 py-1.5 bg-indigo-50/50 w-fit rounded-full border border-indigo-100">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              </span>
+              <span className="text-xs font-semibold text-indigo-700">
+                Found {filteredSessions.length} sessions
               </span>
             </div>
 
             {/* Sessions Table */}
             {filteredSessions.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-100">
-                <div className="inline-flex p-4 bg-linear-to-br from-blue-50 to-indigo-50 rounded-full mb-4">
-                  <FiPlay className="w-12 h-12 text-blue-600" />
+              <div className="bg-white rounded-2xl shadow-sm p-12 text-center border border-gray-200/60">
+                <div className="inline-flex p-4 bg-indigo-50 rounded-full mb-4 ring-8 ring-indigo-50/50">
+                  <FiPlay className="w-8 h-8 text-indigo-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
                   No sessions found
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-500 max-w-md mx-auto">
                   {sessions.length === 0
                     ? "No recorded sessions yet. Sessions will appear here once visitors interact with your site."
-                    : "Try adjusting your filters to see more results."}
+                    : "Try adjusting your search criteria or filters to see more results."}
                 </p>
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200/60">
                 {/* Desktop Table */}
                 <div className="hidden lg:block overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-linear-to-r from-blue-600 to-indigo-600 text-white">
+                    <thead className="bg-gray-50/80 border-b border-gray-200">
                       <tr>
-                        <th className="px-6 py-4 text-left text-sm font-semibold">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Date/Time
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Location
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Duration
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Page Views
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Signals
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Screen
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Browser
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Device/OS
                         </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Visitor ID
                         </th>
-                        <th className="px-6 py-4 text-center text-sm font-semibold">
+                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Action
                         </th>
                       </tr>
@@ -538,13 +584,13 @@ export default function SessionsPage() {
                         return (
                           <React.Fragment key={session.session_id}>
                             <tr
-                              className={`hover:bg-blue-50 transition-colors ${
-                                index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                              className={`hover:bg-indigo-50/30 transition-colors group ${
+                                index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
                               }`}
                             >
                               <td className="px-6 py-4">
-                                <div className="text-sm">
-                                  <div className="font-medium text-gray-900">
+                                <div className="text-xs">
+                                  <div className="font-semibold text-gray-900">
                                     {date}
                                   </div>
                                   <div className="text-gray-500">{time}</div>
@@ -581,9 +627,9 @@ export default function SessionsPage() {
                                       isExpanded ? null : session.session_id
                                     )
                                   }
-                                  className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                                  className="flex items-center gap-2 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors group/btn"
                                 >
-                                  <span className="bg-blue-100 px-3 py-1 rounded-full flex items-center gap-1.5">
+                                  <span className="bg-indigo-50 px-2.5 py-1 rounded-lg flex items-center gap-1.5 group-hover/btn:bg-indigo-100 transition-colors">
                                     <FiEye className="w-3.5 h-3.5" />
                                     {session.page_views}
                                   </span>
@@ -598,22 +644,22 @@ export default function SessionsPage() {
                                 <SignalBadges session={session} />
                               </td>
                               <td className="px-6 py-4">
-                                <div className="text-sm text-gray-900">
+                                <div className="text-xs text-gray-900 bg-gray-100/50 px-2 py-1 rounded-md w-fit">
                                   {session.screen_width} ×{" "}
                                   {session.screen_height}
                                 </div>
                               </td>
                               <td className="px-6 py-4">
-                                <div className="flex items-center justify-center">
+                                <div className="flex items-center justify-center text-gray-800">
                                   {getBrowserIcon(session.user_agent)}
                                 </div>
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="p-2 bg-blue-50 rounded-lg">
+                                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                                     {getDeviceIcon(session.device_type)}
                                   </div>
-                                  <div className="p-2 bg-gray-50 rounded-lg">
+                                  <div className="p-2 bg-gray-100 text-gray-800 rounded-lg">
                                     {getOSIcon(
                                       session.platform,
                                       session.user_agent
@@ -646,9 +692,9 @@ export default function SessionsPage() {
                                   onClick={() =>
                                     handlePlaySession(session.session_id)
                                   }
-                                  className="inline-flex items-center gap-2 px-4 py-2 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-medium transition-all hover:shadow-lg hover:scale-105"
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm shadow-indigo-200 transition-all hover:shadow-md hover:scale-105"
                                 >
-                                  <FiPlay className="w-4 h-4" />
+                                  <FiPlay className="w-3.5 h-3.5" />
                                   <span>Play</span>
                                 </button>
                               </td>
@@ -657,7 +703,7 @@ export default function SessionsPage() {
                               <tr>
                                 <td
                                   colSpan={8}
-                                  className="px-6 py-4 bg-linear-to-r from-blue-50 to-indigo-50"
+                                  className="px-6 py-4 bg-gray-50/50 border-t border-gray-100"
                                 >
                                   <div className="space-y-2">
                                     <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -699,7 +745,7 @@ export default function SessionsPage() {
                     return (
                       <div
                         key={session.session_id}
-                        className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
+                        className="bg-white border border-gray-200/60 rounded-2xl p-5 shadow-sm"
                       >
                         {/* Header */}
                         <div className="flex items-start justify-between mb-4">
@@ -741,35 +787,35 @@ export default function SessionsPage() {
                             onClick={() =>
                               handlePlaySession(session.session_id)
                             }
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-linear-to-r from-green-600 to-emerald-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 shadow-sm"
                           >
-                            <FiPlay className="w-4 h-4" />
+                            <FiPlay className="w-3.5 h-3.5" />
                             Play
                           </button>
                         </div>
 
                         {/* Stats Grid */}
                         <div className="grid grid-cols-2 gap-3 mb-4">
-                          <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
-                            <div className="flex items-center gap-1.5 text-xs text-blue-700 mb-1">
+                          <div className="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100/60">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 mb-1">
                               <FiClock className="w-3 h-3" />
                               Duration
                             </div>
-                            <div className="font-semibold text-gray-900">
+                            <div className="font-semibold text-gray-900 text-sm">
                               {formatDuration(session.duration)}
                             </div>
                           </div>
-                          <div className="bg-linear-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
-                            <div className="flex items-center gap-1.5 text-xs text-purple-700 mb-1">
+                          <div className="bg-violet-50/50 rounded-xl p-3 border border-violet-100/60">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-violet-600 mb-1">
                               <FiEye className="w-3 h-3" />
                               Page Views
                             </div>
-                            <div className="font-semibold text-gray-900">
+                            <div className="font-semibold text-gray-900 text-sm">
                               {session.page_views}
                             </div>
                           </div>
-                          <div className="bg-linear-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
-                            <div className="flex items-center gap-1.5 text-xs text-green-700 mb-1">
+                          <div className="bg-emerald-50/50 rounded-xl p-3 border border-emerald-100/60">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 mb-1">
                               <BsDisplay className="w-3 h-3" />
                               Screen
                             </div>
@@ -777,12 +823,12 @@ export default function SessionsPage() {
                               {session.screen_width} × {session.screen_height}
                             </div>
                           </div>
-                          <div className="bg-linear-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
-                            <div className="flex items-center gap-1.5 text-xs text-orange-700 mb-1">
+                          <div className="bg-gray-50/80 rounded-xl p-3 border border-gray-200/60">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 mb-1">
                               Device
                             </div>
                             <div className="flex items-center gap-2">
-                              <span>{getDeviceIcon(session.device_type)}</span>
+                              <span className="text-gray-500">{getDeviceIcon(session.device_type)}</span>
                               <span className="font-semibold text-gray-900 text-sm capitalize">
                                 {session.device_type}
                               </span>

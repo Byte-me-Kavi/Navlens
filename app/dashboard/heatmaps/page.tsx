@@ -47,6 +47,16 @@ const heatmapTypes = [
     hoverBorder: "hover:border-violet-300",
     accentColor: "violet",
   },
+  {
+    id: "elements",
+    title: "Element Analysis & AI",
+    description: "Deep dive into interactive elements with tech specs and AI optimization insights.",
+    icon: SparklesIcon,
+    bgColor: "bg-indigo-50",
+    iconColor: "text-indigo-600",
+    hoverBorder: "hover:border-indigo-300",
+    accentColor: "indigo",
+  },
 ];
 
 export default function HeatmapsPage() {
@@ -70,9 +80,14 @@ export default function HeatmapsPage() {
 
   // Navigate to viewer with specific data type
   const openViewer = (dataType?: string) => {
-    const url = dataType 
-      ? `/dashboard/heatmaps/heatmap-viewer?type=${dataType}`
-      : "/dashboard/heatmaps/heatmap-viewer";
+    let url = "/dashboard/heatmaps/heatmap-viewer";
+    
+    if (dataType === 'elements') {
+      url += "?type=elements&showElements=true";
+    } else if (dataType) {
+      url += `?type=${dataType}`;
+    }
+    
     router.push(url);
   };
 
@@ -150,7 +165,7 @@ export default function HeatmapsPage() {
             {/* Heatmap Type Cards */}
             <div className="mb-6">
               <h3 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Choose a Heatmap Type</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {heatmapTypes.map((type) => {
                   const Icon = type.icon;
                   return (

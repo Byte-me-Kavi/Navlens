@@ -348,16 +348,23 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
       </div>
 
       {/* Global Site Selector */}
-      <div className="p-3 border-b border-gray-200" ref={dropdownRef}>
+      <div className="p-4 border-b border-gray-100 bg-white" ref={dropdownRef}>
+        <label className="text-xs font-semibold text-gray-900 mb-0.5 block px-1">
+          Select Site
+        </label>
         <div className="relative">
           <button
             onClick={() => setSiteDropdownOpen(!siteDropdownOpen)}
             disabled={sitesLoading}
-            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-white hover:bg-indigo-50 border border-gray-200 rounded-lg transition-all text-left"
+            className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 
+              ${siteDropdownOpen ? 'ring-2 ring-indigo-500/10 border-indigo-200' : 'border-gray-200 hover:border-indigo-300'} 
+              bg-white rounded-xl border transition-all shadow-sm group`}
           >
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <GlobeAltIcon className={`w-4 h-4 shrink-0 ${currentSite?.status === 'banned' ? 'text-red-500' : 'text-indigo-600'}`} />
-              <span className={`text-sm font-medium truncate ${currentSite?.status === 'banned' ? 'text-red-600' : 'text-gray-900'}`}>
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className={`p-1.5 rounded-lg shrink-0 ${currentSite?.status === 'banned' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 group-hover:text-indigo-700'}`}>
+                <GlobeAltIcon className="w-4 h-4" />
+              </div>
+              <span className={`text-sm font-semibold truncate ${currentSite?.status === 'banned' ? 'text-red-700' : 'text-gray-900'}`}>
                 {sitesLoading ? "Loading..." : currentSite ? (
                     <>
                         {currentSite.site_name}
@@ -366,7 +373,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
                 ) : sites.length === 0 ? "No sites" : "Select site..."}
               </span>
             </div>
-            <ChevronUpDownIcon className="w-4 h-4 text-gray-500 shrink-0" />
+            <ChevronUpDownIcon className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors shrink-0" />
           </button>
 
           {/* Site Dropdown Menu */}

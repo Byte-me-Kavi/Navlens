@@ -197,9 +197,11 @@ export function ElementOverlay({
       // Check if element OR ANY PARENT is fixed/sticky
       let isFixed = false;
       let currentEl: HTMLElement | null = element as HTMLElement;
+      const iframeWindow = iframe.contentWindow;
       while (currentEl && currentEl.tagName !== 'BODY' && currentEl.tagName !== 'HTML') {
-        const s = window.getComputedStyle(currentEl);
-        if (s.position === 'fixed' || s.position === 'sticky') {
+        // Use iframe's window for getComputedStyle, not parent window
+        const s = iframeWindow?.getComputedStyle(currentEl);
+        if (s?.position === 'fixed' || s?.position === 'sticky') {
           isFixed = true;
           break;
         }
@@ -233,8 +235,10 @@ export function ElementOverlay({
       // Count clicks that fall within this element's bounding box
       let clicksInside = 0;
       heatmapClicks.forEach((click) => {
-        // Skip clicks that don't have required relative coordinates
-        if (!click.x_relative || !click.y_relative) return;
+        // Skip clicks that don't have relative coordinates defined (undefined/null)
+        // Allow 0 values as they are valid coordinates for top-left area
+        if (click.x_relative === undefined || click.x_relative === null || 
+            click.y_relative === undefined || click.y_relative === null) return;
 
         const clickX = click.x_relative * currentDocWidth;
         const clickY = click.y_relative * currentDocHeight;
@@ -317,6 +321,8 @@ export function ElementOverlay({
           y_relative: elementTop / currentDocHeight,
           document_width: currentDocWidth,
           document_height: currentDocHeight,
+          width: rect.width,
+          height: rect.height,
           clickCount: clicksInside,
           percentage: totalPageClicks > 0 ? (clicksInside / totalPageClicks) * 100 : 0,
         };

@@ -35,10 +35,7 @@ export interface HeatmapViewerProps {
   statsBarOpen?: boolean;
   onStatsBarOpenChange?: () => void;
   onStatsBarClose?: () => void;
-  // Snapshot data passed from parent - REMOVED for cleanup
-  // snapshotData?: SnapshotData | null;
-  // snapshotLoading?: boolean;
-  // snapshotError?: Error | null;
+  onIframeScroll?: (scrollY: number) => void;
 }
 
 export function HeatmapViewer({
@@ -54,6 +51,7 @@ export function HeatmapViewer({
   statsBarOpen = false,
   onStatsBarOpenChange,
   onStatsBarClose,
+  onIframeScroll,
 }: HeatmapViewerProps) {
   const [showAllViewports, setShowAllViewports] = useState(
     externalShowAllViewports
@@ -62,6 +60,9 @@ export function HeatmapViewer({
     heatmap: HeatmapPoint[];
     elements: ElementClick[];
   } | null>(null);
+  
+  // Session count for stats bar
+  const [uniqueSessions, setUniqueSessions] = useState(0);
 
   // Fetch snapshot data internally
   const {
@@ -119,6 +120,28 @@ export function HeatmapViewer({
       handleShowAllViewports();
     }
   }, [externalShowAllViewports, handleShowAllViewports, showAllViewports]);
+
+  // Fetch unique session count for this page
+  useEffect(() => {
+    const fetchSessionCount = async () => {
+      try {
+        const response = await apiClient.post<{ sessions: number }>('/page-sessions', {
+          siteId,
+          pagePath,
+          deviceType
+        });
+        setUniqueSessions(response.sessions || 0);
+      } catch (error) {
+        // Fallback: estimate from heatmap data if API fails
+        console.log('[HeatmapViewer] Could not fetch session count, using estimate');
+        // Will be updated when heatmap data loads
+      }
+    };
+    
+    if (siteId && pagePath) {
+      fetchSessionCount();
+    }
+  }, [siteId, pagePath, deviceType]);
 
   // Extract viewport dimensions from snapshot
   // The snapshot HTML contains viewport dimensions from when it was captured
@@ -376,6 +399,7 @@ export function HeatmapViewer({
         showElements={showElements}
         showHeatmap={showHeatmap}
         dataType={dataType}
+        onIframeScroll={onIframeScroll}
       />
 
       {/* Device Stats Sidebar for mobile/tablet */}
@@ -395,6 +419,8 @@ export function HeatmapViewer({
         isOpen={statsBarOpen}
         onOpenChange={onStatsBarOpenChange}
         onClose={onStatsBarClose}
+        pagePath={pagePath}
+        uniqueSessions={uniqueSessions}
       />
     </div>
   );

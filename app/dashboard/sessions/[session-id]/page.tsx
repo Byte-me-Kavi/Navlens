@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -26,8 +26,17 @@ import {
   CommandLineIcon,
   InformationCircleIcon,
 } from "@heroicons/react/24/outline";
+import { useDebugData } from "@/features/dev-tools/hooks/useDebugData";
+import { TimelineMarker } from "@/features/dev-tools/types/devtools.types";
 import { useAI } from "@/context/AIProvider";
 import { summarizeRRWebEvents } from "@/lib/ai/sanitizer";
+import { cleanRRWebEvents } from "@/lib/utils/rrweb";
+
+interface SessionSignal {
+  type: string;
+  timestamp: string;
+  data: Record<string, unknown>;
+}
 
 interface SessionMetadata {
   visitor_id: string;
@@ -42,6 +51,8 @@ interface SessionMetadata {
   page_path: string;
   viewport_width: number;
   viewport_height: number;
+  duration?: number;
+  signals?: SessionSignal[];
 }
 
 const getCountryFlag = (countryCode: string) => {
@@ -91,7 +102,7 @@ export default function SessionReplayPage() {
   );
 
   const [debugPanelOpen, setDebugPanelOpen] = useState(false);
-  const [infoBarOpen, setInfoBarOpen] = useState(false);
+  // Removed infoBarOpen state as per request
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
 
   // Get current site details
@@ -128,7 +139,12 @@ export default function SessionReplayPage() {
 
       // Fetch stitched events from replay API
       const replayData = await secureApi.sessions.replayEvents(sessionId, siteId);
-      setEvents((replayData.events as RRWebEvent[]) || []);
+      
+      // Clean and sort events
+      const rawEvents = (replayData.events as RRWebEvent[]) || [];
+      const sanitizedEvents = cleanRRWebEvents(rawEvents);
+      
+      setEvents(sanitizedEvents);
 
       // Fetch session metadata
       const metaData = await secureApi.sessions.get(sessionId, siteId);
@@ -150,6 +166,126 @@ export default function SessionReplayPage() {
     fetchSessionReplay();
   }, [siteId, sessionId, fetchSessionReplay, router]);
 
+  // Fetch debug data first to check for network/console timestamps
+  const { data: debugData, markers } = useDebugData({
+    sessionId: params["session-id"] as string,
+    siteId: currentSite?.id || "",
+    // We pass 0 initially because we need the data to calculate the TRUE start time
+    sessionStartTime: 0, 
+    enabled: !!currentSite?.id,
+  });
+
+  // Determine TRUE session start time
+  const sessionStartTime = useMemo(() => {
+    let startTime = Date.now();
+    let hasSetStart = false;
+
+    // 1. Try first rrweb event
+    if (events.length > 0) {
+      startTime = events[0].timestamp;
+      hasSetStart = true;
+    }
+
+    // 2. Check if metadata is earlier
+    if (metadata?.timestamp) {
+        const metaTime = new Date(metadata.timestamp).getTime();
+        if (!hasSetStart || metaTime < startTime) {
+            startTime = metaTime;
+            hasSetStart = true;
+        }
+    }
+
+    // 3. Check if any network/console events are earlier (to avoid 00:00.000)
+    if (debugData) {
+        if (debugData.network && debugData.network.length > 0) {
+             // Find earliest network request
+             const earliestNetwork = Math.min(...debugData.network.map(n => new Date(n.timestamp).getTime()));
+             if (earliestNetwork < startTime) startTime = earliestNetwork;
+        }
+        if (debugData.console && debugData.console.length > 0) {
+             const earliestConsole = Math.min(...debugData.console.map(c => new Date(c.timestamp).getTime()));
+             if (earliestConsole < startTime) startTime = earliestConsole;
+        }
+    }
+    
+    return startTime;
+  }, [metadata, events, debugData]);
+
+  // Re-calculate markers with correct sessionStartTime
+  // We utilize a memosized transformation here since the hook was initialized with 0
+  const realMarkers = useMemo(() => {
+      if (!debugData) return [];
+      // Manually import createTimelineMarkers logic or rely on the hook update?
+      // The hook uses 'sessionStartTime' prop. 
+      // Issue: We can't pass the calculated sessionStartTime to the hook because the hook *provides* the data needed to calculate it.
+      // Solution: We must recalculate markers here locally, OR update the hook to accept raw data.
+      // Let's recalculate locally for safety.
+      
+      const newMarkers: TimelineMarker[] = [];
+      
+      debugData.console.forEach(event => {
+          if (event.console_level === 'error') {
+              newMarkers.push({
+                  timestamp: new Date(event.timestamp).getTime() - sessionStartTime,
+                  type: 'error',
+                  label: 'JS Error',
+                  details: event.console_message
+              });
+          }
+      });
+      
+      debugData.network.forEach(event => {
+          if (event.network_status >= 400 || event.network_status === 0) {
+              newMarkers.push({
+                  timestamp: new Date(event.timestamp).getTime() - sessionStartTime,
+                  type: 'network-error',
+                  label: 'Network Error',
+                  details: `${event.network_method} ${event.network_status}`
+              });
+          }
+      });
+
+      return newMarkers;
+  }, [debugData, sessionStartTime]);
+
+  // Create markers from session signals
+  const signalMarkers = useMemo(() => {
+    if (!metadata?.signals) return [];
+    
+    return metadata.signals.map((signal) => {
+        let type: TimelineMarker['type'] | undefined;
+        let label = 'Signal';
+        
+        if (signal.type === 'rage_click') {
+            type = 'rage-click';
+            label = 'Rage Click';
+        } else if (signal.type === 'dead_click') {
+            type = 'dead-click';
+            label = 'Dead Click';
+        }
+        
+        if (!type) return null;
+
+        const timestamp = new Date(signal.timestamp).getTime() - sessionStartTime;
+        
+        return {
+            timestamp,
+            type,
+            label,
+            details: JSON.stringify(signal.data)
+        } as TimelineMarker;
+    }).filter((m): m is TimelineMarker => m !== null);
+  }, [metadata, sessionStartTime]);
+
+  const allMarkers = useMemo(() => {
+     return [...realMarkers, ...signalMarkers].sort((a, b) => a.timestamp - b.timestamp);
+  }, [realMarkers, signalMarkers]);
+
+  const duration = useMemo(() => {
+    if (!metadata) return 0;
+    return metadata.duration || 0;
+  }, [metadata]);
+
   const formatDateTime = (timestamp: string) => {
     const date = new Date(timestamp);
     return {
@@ -157,6 +293,10 @@ export default function SessionReplayPage() {
       time: date.toLocaleTimeString(),
     };
   };
+
+  const { date, time } = metadata?.timestamp
+    ? formatDateTime(metadata.timestamp)
+    : { date: "", time: "" };
 
   if (loading) {
     return (
@@ -230,212 +370,119 @@ export default function SessionReplayPage() {
     );
   }
 
-  const { date, time } = metadata
-    ? formatDateTime(metadata.timestamp)
-    : { date: "", time: "" };
-
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50/50">
       {/* Enhanced Navbar */}
-      <nav className="bg-white border-b border-gray-200 shadow-sm relative">
-        {/* Main Controls Row */}
-        <div className="px-4 py-2">
-          <div className="flex items-center justify-between gap-4">
-            {/* Left: Back & Site Info */}
-            <div className="flex items-center gap-3 min-w-0">
-              <button
-                onClick={() => router.back()}
-                className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 hover:text-gray-900 transition-colors flex-shrink-0"
-                title="Back to Sessions"
-              >
-                <ArrowLeftIcon className="w-5 h-5" />
-              </button>
-              
-              <div className="min-w-0 hidden md:block">
-                <h1 className="text-base font-bold text-gray-900">
-                  Session Replay
-                </h1>
-                <p className="text-xs text-gray-500 truncate">
-                  {currentSite?.site_name || "Session Player"}
-                </p>
-              </div>
-            </div>
-
-            {/* Center: Session Info */}
-            <div className="flex items-center gap-3 flex-1 justify-center">
-              {metadata && (
-                <>
-                  {/* Session ID */}
-                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-                    <span className="text-xs font-medium text-gray-500">Session:</span>
-                    <code className="text-xs font-mono text-gray-900">
-                      {sessionId.slice(0, 8)}...
-                    </code>
-                  </div>
-
-                  {/* Device Type */}
-                  <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
-                    {getDeviceIcon(metadata.device_type)}
-                    <span className="text-xs font-semibold text-blue-900 capitalize hidden sm:inline">
-                      {metadata.device_type}
-                    </span>
-                  </div>
-
-                  {/* Country Flag */}
-                  {getCountryFlag(metadata.country) && (
-                    <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
-                      <span
-                        className={`fi fi-${getCountryFlag(metadata.country)?.toLowerCase()}`}
-                        style={{ fontSize: "1rem" }}
-                      />
-                      <span className="text-xs font-medium text-gray-700 hidden lg:inline">
-                        {getCountryName(metadata.country)}
+      <div className="flex-none z-50">
+        <div className="bg-white/80 backdrop-blur-md border-b border-indigo-100 px-6 py-3 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-indigo-50 rounded-xl transition-colors text-gray-500 hover:text-indigo-600"
+            >
+              <ArrowLeftIcon className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col">
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                Session Replay
+                {metadata && (
+                   <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold uppercase tracking-wider">
+                     {metadata.duration ? Math.round(metadata.duration / 1000) + 's' : 'LIVE'}
+                   </span>
+                )}
+              </h1>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                  {currentSite && (
+                      <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                          {currentSite.domain}
                       </span>
-                    </div>
                   )}
-                </>
-              )}
-            </div>
+              </div>
+          </div>
+          </div>
 
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-3">
+             {/* Info Badges - Modernized */}
+             {metadata && (
+                 <div className="hidden md:flex items-center gap-3 text-xs font-medium text-gray-600">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/50 border border-indigo-100/50 rounded-full shadow-sm">
+                         <span className="text-indigo-600/70 font-semibold">Started</span>
+                         <span className="text-indigo-900 font-bold">{new Date(metadata.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/50 border border-indigo-100/50 rounded-full shadow-sm">
+                         <span className="text-indigo-600/70 font-semibold">Date</span>
+                         <span className="text-indigo-900 font-bold">{new Date(metadata.timestamp).toLocaleDateString()}</span>
+                    </div>
+                     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/50 border border-indigo-100/50 rounded-full shadow-sm">
+                         <span className="text-indigo-600/70 font-semibold">IP</span>
+                         <span className="text-indigo-900 font-bold font-mono">{metadata.ip_address || "Unknown"}</span>
+                    </div>
 
-              {/* AI Analysis Button */}
-              <button
-                onClick={handleAIAnalysis}
-                className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg text-white transition-all shadow-sm"
-                title="AI Analysis"
-              >
-                <SparklesIcon className="w-4 h-4" />
-                <span className="hidden md:inline text-xs font-semibold">Navlens AI</span>
-              </button>
-              {/* Info Toggle Button */}
-              <button
-                onClick={() => setInfoBarOpen(!infoBarOpen)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
-                  infoBarOpen
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                }`}
-                title="Session Details"
-              >
-                <InformationCircleIcon className="w-4 h-4" />
-                <span className="hidden md:inline text-xs font-semibold">Info</span>
-              </button>
+                    <div className="h-4 w-px bg-gray-200 mx-1"></div>
 
-              {/* Dev Tools Toggle */}
-              <button
-                onClick={() => setDebugPanelOpen(!debugPanelOpen)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
-                  debugPanelOpen
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                }`}
-                title="Dev Tools"
-              >
-                <CommandLineIcon className="w-4 h-4" />
-                <span className="hidden lg:inline text-xs font-semibold">Dev Tools</span>
-              </button>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/50 border border-indigo-100/50 rounded-full shadow-sm">
+                        <span className="font-mono text-indigo-600/70 text-[10px] font-semibold">ID</span>
+                        <span className="font-bold text-indigo-900 font-mono tracking-tight">{metadata.visitor_id.substring(0, 8)}</span>
+                    </div>
+                     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/50 border border-indigo-100/50 rounded-full shadow-sm text-indigo-900">
+                        {getDeviceIcon(metadata.device_type)}
+                        <span className="font-semibold">{metadata.device_type}</span>
+                    </div>
+                    {metadata.country && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/50 border border-indigo-100/50 rounded-full shadow-sm text-xs font-medium text-indigo-900">
+                            <span className={`fi fi-${metadata.country.toLowerCase()} rounded-full scale-110 shadow-sm`} />
+                            <span className="font-semibold">{getCountryName(metadata.country)}</span>
+                        </div>
+                    )}
+                 </div>
+             )}
+
+            <button
+              onClick={() => handleAIAnalysis()}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 transition-all font-medium text-sm hover:scale-105 active:scale-95"
+            >
+              <SparklesIcon className="w-4 h-4" />
+              <span>AI Insights</span>
+            </button>
+            {/* Info Button Removed */}
+            <button
+              onClick={() => setDebugPanelOpen(!debugPanelOpen)}
+              className={`flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-all text-sm font-medium border border-indigo-100 ${debugPanelOpen ? 'bg-indigo-100 ring-2 ring-indigo-200' : ''}`}
+            >
+               <CommandLineIcon className="w-4 h-4" />
+               <span>Dev Tools</span>
+            </button>
             </div>
           </div>
         </div>
 
-        {/* Expanded Info Bar - Toggled with Button */}
-        {metadata && infoBarOpen && (
-          <div className="absolute top-full left-0 right-0 z-50 px-4 py-3 bg-white border-t border-b border-gray-200 shadow-lg animate-in slide-in-from-top-2 duration-200">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
-              {/* Location */}
-              <div className="flex items-center gap-1.5">
-                <FiGlobe className="w-3 h-3 text-blue-600" />
-                <div className="min-w-0">
-                  <div className="text-[10px] text-gray-500 uppercase font-medium">Location</div>
-                  <div className="font-semibold text-gray-900 truncate" title={getCountryName(metadata.country)}>
-                    {getCountryName(metadata.country)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Date & Time */}
-              <div className="flex items-center gap-1.5">
-                <FiCalendar className="w-3 h-3 text-blue-600" />
-                <div className="min-w-0">
-                  <div className="text-[10px] text-gray-500 uppercase font-medium">Date</div>
-                  <div className="font-semibold text-gray-900">{date}</div>
-                </div>
-              </div>
-
-              {/* Platform */}
-              <div className="flex items-center gap-1.5">
-                <FiMonitor className="w-3 h-3 text-blue-600" />
-                <div className="min-w-0">
-                  <div className="text-[10px] text-gray-500 uppercase font-medium">Platform</div>
-                  <div className="font-semibold text-gray-900 truncate" title={metadata.platform || "N/A"}>
-                    {metadata.platform || "N/A"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Resolution */}
-              <div className="flex items-center gap-1.5">
-                <FiMaximize className="w-3 h-3 text-blue-600" />
-                <div className="min-w-0">
-                  <div className="text-[10px] text-gray-500 uppercase font-medium">Screen</div>
-                  <div className="font-semibold text-gray-900">
-                    {metadata.screen_width} × {metadata.screen_height}
-                  </div>
-                </div>
-              </div>
-
-              {/* IP Address */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-blue-600 text-xs">🌐</span>
-                <div className="min-w-0">
-                  <div className="text-[10px] text-gray-500 uppercase font-medium">IP</div>
-                  <div className="font-semibold text-gray-900 truncate" title={metadata.ip_address || "N/A"}>
-                    {metadata.ip_address || "N/A"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Visitor ID */}
-              <div className="flex items-center gap-1.5">
-                <FiUser className="w-3 h-3 text-blue-600" />
-                <div className="min-w-0">
-                  <div className="text-[10px] text-gray-500 uppercase font-medium">Visitor</div>
-                  <code className="font-mono font-semibold text-gray-900 text-[10px]" title={metadata.visitor_id}>
-                    {metadata.visitor_id.slice(0, 8)}...
-                  </code>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </nav>
-
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Player Container - Full Width */}
-        <div className="flex-1 p-2 flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-          <div className="w-full h-full max-w-6xl flex items-center justify-center">
+        <div className="flex-1 p-2 flex items-center justify-center overflow-hidden bg-white/50 relative">
+            <div className="absolute inset-0 bg-[radial-gradient(#e0e7ff_1px,transparent_1px)] [background-size:16px_16px] opacity-30"></div>
+          <div className="w-full h-full max-w-6xl flex items-center justify-center relative z-10">
             {events.length > 0 ? (
-              <div className="w-full h-full rounded-lg shadow-2xl overflow-hidden">
-                <SessionPlayer events={events} />
+               <div className="w-full h-full rounded-2xl shadow-2xl shadow-indigo-200/50 overflow-hidden border border-gray-200/50 bg-white ring-1 ring-gray-900/5">
+                <SessionPlayer events={events} markers={allMarkers} />
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-100">
-                <div className="inline-flex p-4 bg-gray-50 rounded-full mb-4">
-                  <FiAlertTriangle className="w-12 h-12 text-gray-600" />
+                <div className="bg-white rounded-2xl shadow-xl p-12 text-center border border-gray-100 max-w-md">
+                <div className="inline-flex p-4 bg-gray-50 rounded-full mb-4 ring-8 ring-gray-50/50">
+                  <FiAlertTriangle className="w-12 h-12 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
                   No Events Found
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-500">
                   This session has no recorded events to replay.
                 </p>
               </div>
             )}
           </div>
         </div>
+
+        {/* Info Panel Removed */}
 
         {/* Dev Tools Panel - Right */}
         {siteId && (
@@ -448,9 +495,7 @@ export default function SessionReplayPage() {
               sessionId={sessionId}
               siteId={siteId}
               currentTime={currentPlaybackTime}
-              sessionStartTime={
-                events.length > 0 ? events[0].timestamp : Date.now()
-              }
+              sessionStartTime={sessionStartTime}
               isOpen={debugPanelOpen}
               onClose={() => setDebugPanelOpen(false)}
             />

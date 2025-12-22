@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
 import VideoControls from "./VideoControls";
+import { TimelineMarker } from "@/features/dev-tools/types/devtools.types";
 
 const playerStyles = `
   .session-player-container {
@@ -51,11 +52,13 @@ export interface RRWebEvent {
 
 interface SessionPlayerProps {
   events: RRWebEvent[];
+  markers?: TimelineMarker[];
 }
 
-export default function SessionPlayer({ events }: SessionPlayerProps) {
+export default function SessionPlayer({ events, markers = [] }: SessionPlayerProps) {
   const playerRef = useRef<HTMLDivElement>(null);
-  const playerInstanceRef = useRef<rrwebPlayer | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const playerInstanceRef = useRef<any>(null);
 
   // UI State
   const [playerReady, setPlayerReady] = useState(false);
@@ -78,9 +81,15 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
     if (!playerRef.current || !events || events.length === 0) return;
 
     // Check if player already exists and events haven't changed significantly
-    if (playerInstanceRef.current && events.length > 0) {
-      return; // Reuse existing player
-    }
+    // REMOVED: We want to force re-creation if `events` prop changes (e.g. sorted/cleaned), 
+    // because React considers the new array a new reference.
+    // Passing [events] in dependency array is enough to trigger this effect.
+    
+    // However, if the parent passes the SAME events array reference (no change), effect won't run.
+    // If parent creates a NEW array reference every render, this effect runs every render -> Bad.
+    // Ensure parent memoizes events or only updates them truly when changed.
+    
+    // In our case, page.tsx sets events once (or twice). So it's safe to recreate.
 
     // Cleanup old instance gracefully
     if (playerInstanceRef.current) {
@@ -167,7 +176,28 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
     }
 
     return () => {
-      // Cleanup will be handled by useEffect cleanup
+      // Cleanup: Destroy player instance to prevent duplication
+      if (playerInstanceRef.current) {
+        console.log("Destroying player instance");
+        try {
+          // Pause if running
+          playerInstanceRef.current.pause?.();
+          
+          // Use the internal replayer destroy if available
+          const replayer = playerInstanceRef.current.getReplayer?.();
+          if (replayer && typeof replayer.destroy === 'function') {
+             replayer.destroy();
+          }
+          
+        } catch (e) {
+          console.error("Error destroying player:", e);
+        }
+        playerInstanceRef.current = null;
+      }
+      
+      if (playerRef.current) {
+        playerRef.current.innerHTML = "";
+      }
     };
   }, [events]); // Re-create player when events change
 
@@ -304,19 +334,19 @@ export default function SessionPlayer({ events }: SessionPlayerProps) {
         <div ref={playerRef} className="w-full h-full" />
       </div>
 
-      {/* Controls Bar */}
-      <VideoControls
-        isPlaying={isPlaying}
-        currentTime={currentTime}
-        duration={duration}
-        speed={speed}
-        playerReady={playerReady}
-        onPlayPause={togglePlay}
-        onSeek={handleSeek}
-        onSpeedChange={handleSpeedChange}
-        onSkipForward={skipForward}
-        onSkipBackward={skipBackward}
-      />
+        <VideoControls
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          speed={speed}
+          playerReady={playerReady}
+          markers={markers}
+          onPlayPause={togglePlay}
+          onSeek={handleSeek}
+          onSpeedChange={handleSpeedChange}
+          onSkipBackward={skipBackward}
+          onSkipForward={skipForward}
+        />
     </div>
   );
 }

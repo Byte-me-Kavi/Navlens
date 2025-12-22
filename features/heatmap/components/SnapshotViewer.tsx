@@ -40,6 +40,7 @@ interface SnapshotViewerProps {
   showElements?: boolean;
   showHeatmap?: boolean;
   dataType?: "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements";
+  onIframeScroll?: (scrollY: number) => void;
 }
 
 export function SnapshotViewer({
@@ -56,6 +57,7 @@ export function SnapshotViewer({
   showElements = true,
   showHeatmap = true,
   dataType = "clicks",
+  onIframeScroll,
 }: SnapshotViewerProps) {
   console.log("🎯 SnapshotViewer received:", {
     dataType,
@@ -117,6 +119,23 @@ export function SnapshotViewer({
   useEffect(() => {
     setIframeElement(iframeRef.current);
   }, []);
+
+  // Setup iframe scroll listener for auto-minimize navbar
+  useEffect(() => {
+    if (!iframeRef.current?.contentWindow || !onIframeScroll) return;
+
+    const handleScroll = () => {
+      const scrollY = iframeRef.current?.contentWindow?.scrollY || 0;
+      onIframeScroll(scrollY);
+    };
+
+    const contentWindow = iframeRef.current.contentWindow;
+    contentWindow.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      contentWindow?.removeEventListener('scroll', handleScroll);
+    };
+  }, [isReady, onIframeScroll]);
 
   // Get device-specific viewport configuration
   const getDeviceConfig = () => {

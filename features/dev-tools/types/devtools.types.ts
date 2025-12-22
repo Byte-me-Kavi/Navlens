@@ -64,7 +64,7 @@ export interface DebugPanelState {
 // Timeline marker for overlay
 export interface TimelineMarker {
     timestamp: number; // Relative to session start (ms)
-    type: 'error' | 'warning' | 'network-error' | 'slow-request' | 'vital-poor';
+    type: 'error' | 'warning' | 'network-error' | 'slow-request' | 'vital-poor' | 'rage-click' | 'dead-click';
     label: string;
     details: string;
 }
