@@ -17,6 +17,8 @@ import {
 import { PLANS, FEATURE_LABELS } from '@/lib/plans/config';
 import { UpgradeModal } from "@/components/subscription/UpgradeModal";
 
+import { jsPDF } from "jspdf";
+
 // Helper Interface
 interface PaymentRecord {
     id: string;
@@ -34,6 +36,65 @@ const PLAN_UI: Record<string, { icon: string; gradient: string }> = {
   Starter: { icon: '🚀', gradient: 'from-emerald-500 to-teal-600' },
   Pro: { icon: '💎', gradient: 'from-blue-500 to-indigo-600' },
   Enterprise: { icon: '🏢', gradient: 'from-purple-500 to-pink-600' }
+};
+
+// Invoice Generator
+const generateInvoice = (payment: PaymentRecord, planName: string, userName: string = 'Valued Customer') => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(79, 70, 229); // Indigo 600
+    doc.text("INVOICE", 20, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Navlens Analytics", 20, 26);
+    doc.text("support@navlens.com", 20, 31);
+
+    // Invoice Details - Right Aligned
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Invoice #: ${payment.payhere_order_id || 'INV-' + payment.id.slice(0, 8)}`, pageWidth - 20, 20, { align: 'right' });
+    doc.text(`Date: ${new Date(payment.payment_date).toLocaleDateString()}`, pageWidth - 20, 25, { align: 'right' });
+    doc.text(`Status: ${payment.status.toUpperCase()}`, pageWidth - 20, 30, { align: 'right' });
+
+    // Bill To
+    doc.line(20, 40, pageWidth - 20, 40);
+    doc.setFontSize(12);
+    doc.text("Bill To:", 20, 50);
+    doc.setFontSize(10);
+    doc.text(userName, 20, 56);
+    
+    // Table Header
+    const tableTop = 70;
+    doc.setFillColor(243, 244, 246); // Gray 100
+    doc.rect(20, tableTop, pageWidth - 40, 10, 'F');
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Description", 25, tableTop + 7);
+    doc.text("Amount", pageWidth - 25, tableTop + 7, { align: 'right' });
+
+    // Table Row
+    doc.setFont("helvetica", "normal");
+    const rowTop = tableTop + 18;
+    doc.text(`Subscription - ${planName} Plan`, 25, rowTop);
+    doc.text(`${payment.currency.toUpperCase()} ${payment.amount.toFixed(2)}`, pageWidth - 25, rowTop, { align: 'right' });
+
+    // Total
+    doc.line(20, rowTop + 10, pageWidth - 20, rowTop + 10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Total", pageWidth - 60, rowTop + 20);
+    doc.text(`${payment.currency.toUpperCase()} ${payment.amount.toFixed(2)}`, pageWidth - 25, rowTop + 20, { align: 'right' });
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(150, 150, 150);
+    doc.text("Thank you for your business. This is a computer-generated invoice.", pageWidth / 2, pageWidth + 20, { align: 'center' });
+
+    doc.save(`invoice_${payment.payhere_order_id || payment.id}.pdf`);
 };
 
 export function BillingTab() {
@@ -311,7 +372,10 @@ export function BillingTab() {
                                 )}
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <button className="text-indigo-400 hover:text-indigo-600 font-medium text-xs disabled:opacity-50 cursor-not-allowed" disabled>
+                                    <button 
+                                        onClick={() => generateInvoice(payment, normPlanName)}
+                                        className="text-indigo-600 hover:text-indigo-800 font-medium text-xs hover:underline transition-all"
+                                    >
                                         Download PDF
                                     </button>
                                 </td>
