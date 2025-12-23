@@ -20,7 +20,7 @@
         }
       }, HIDE_TIMEOUT);
     }
-  } catch (e) {}
+  } catch (_e) {}
 
   const DEBUG = false; // Set to true for verbose logging
   const script = document.currentScript;
@@ -61,7 +61,7 @@
   const FORM_EVENTS_ENDPOINT = `${normalizedHost}/api/v1/form-events`;
   const FEEDBACK_ENDPOINT = `${normalizedHost}/api/feedback`;
   const FEEDBACK_CONFIG_ENDPOINT = `${normalizedHost}/api/feedback-config`;
-  const SURVEYS_ENDPOINT = `${normalizedHost}/api/surveys`;
+  
   
   // New: Unified batch endpoint (reduces network requests)
   const BATCH_ENDPOINT = `${normalizedHost}/api/v1/batch`;
@@ -84,15 +84,14 @@
         cache: 'default'
       }).then(r => r.ok ? r.json() : null).catch(() => null);
     }
-  } catch (e) {}
+  } catch (_e) {}
 
 
   
-  const NAVLENS_CONFIG_URL = `${normalizedHost}/storage/v1/object/public/experiment-configs`;
   // DEBUG defined at top of file
   let experimentAssignments = {};
   let experimentConfig = null;
-  let appliedSelectors = new Set();
+
   let experimentObserver = null;
 
   /**
@@ -159,7 +158,7 @@
         }
         return config;
       }
-    } catch (e) {
+    } catch (_e) {
       console.warn('[navlens] Merged config failed, trying individual:', e.message);
     }
     
@@ -171,7 +170,7 @@
       });
       if (!resp.ok) return null;
       return await resp.json();
-    } catch (e) {
+    } catch (_e) {
       console.warn('[navlens] Config fetch failed:', e);
       return null;
     }
@@ -298,7 +297,7 @@
                   target.parentNode.insertBefore(element, target.nextSibling);
                 }
               }
-            } catch (e) {
+            } catch (_e) {
               console.warn('[navlens] Failed to replay dragMove:', e);
             }
           }
@@ -435,7 +434,7 @@
       }
       
       element.dataset.nvApplied = mod.id;
-    } catch (e) {
+    } catch (_e) {
       console.warn('[navlens] Failed to apply modification:', mod.type, e);
     }
   }
@@ -488,7 +487,7 @@
           const escapedSelector = escapeSelector(mod.selector);
           const elements = document.querySelectorAll(escapedSelector);
           elements.forEach(el => applyModification(el, mod));
-        } catch (e) {
+        } catch (_e) {
           console.warn('[navlens] Invalid selector:', mod.selector, e);
         }
       });
@@ -510,7 +509,7 @@
                 applyModification(el, mod);
               }
             });
-          } catch (e) {
+          } catch (_e) {
             // Invalid selector, skip
           }
         });
@@ -589,7 +588,7 @@
     if (savedAssignments) {
       try {
         Object.assign(experimentAssignments, JSON.parse(decodeURIComponent(savedAssignments)));
-      } catch (e) { /* ignore parse errors */ }
+      } catch (_e) { /* ignore parse errors */ }
     }
     
     // Load config: STALE-WHILE-REVALIDATE - Use cache immediately, refresh in background
@@ -611,7 +610,7 @@
           localStorage.removeItem('navlens_config');
         }
       }
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
 
     // If no valid cache, fetch from network with STRICT 500ms timeout
     if (!config) {
@@ -628,7 +627,7 @@
               }));
               // Cache feedback config
               if (c.feedback) cachedFeedbackConfig = c.feedback;
-            } catch (e) {}
+            } catch (_e) {}
           }
           return c;
         }),
@@ -643,7 +642,7 @@
               data: c,
               timestamp: Date.now()
             }));
-          } catch (e) {}
+          } catch (_e) {}
         }
       });
     }
@@ -724,7 +723,7 @@
       if (cleanUrl.startsWith('http')) {
         path = new URL(cleanUrl).pathname.replace(/\/$/, '') || '/';
       }
-    } catch (e) {
+    } catch (_e) {
       // Fallback if URL parsing fails (e.g. relative path)
       path = cleanUrl.replace(/^https?:\/\/[^\/]+/, '').replace(/\/$/, '') || '/';
     }
@@ -1005,7 +1004,7 @@
       });
       // Also re-apply experiment modifications if needed
       if (window.navlens && window.navlens.getExperiments) {
-        const activeExperiments = window.navlens.getExperiments(); 
+         window.navlens.getExperiments(); 
         // Re-run experiment logic if needed (handled by tracker mostly, but goals need specific trigger)
       }
     }, 100);
@@ -1026,7 +1025,7 @@
 
   // Initialize experiments immediately (before DOMContentLoaded)
   // Store promise so initFeedback can wait for merged config to load
-  const experimentsReady = initExperiments();
+   initExperiments();
 
   // ============================================
   // VISUAL EDITOR MODE DETECTION
@@ -1372,7 +1371,7 @@
     for (const item of items) {
       try {
         await sendCompressedFetch(item.url, item.payload, false);
-      } catch (error) {
+      } catch (_error) {
         addToRetryQueue(item.url, item.payload, item.retryCount + 1);
       }
     }
@@ -1470,7 +1469,7 @@
     if (typeof text !== "string") return text;
 
     let scrubbed = text;
-    for (const [type, config] of Object.entries(PII_PATTERNS)) {
+    for (const [_, config] of Object.entries(PII_PATTERNS)) {
       scrubbed = scrubbed.replace(config.pattern, config.replacement);
     }
     return scrubbed;
@@ -1631,7 +1630,7 @@
   function getStackTrace() {
     try {
       throw new Error();
-    } catch (e) {
+    } catch (_e) {
       const stack = e.stack || '';
       // Remove first 3 lines (Error, getStackTrace, interceptor)
       return stack.split('\n').slice(3).join('\n').substring(0, 2000);
@@ -1761,7 +1760,7 @@
       if (init && typeof init === 'object' && init.method) {
         method = init.method;
       }
-    } catch (e) {
+    } catch (_e) {
       // If we can't parse, just pass through
       return originalFetch.apply(this, args);
     }
@@ -1903,7 +1902,7 @@
         }
       });
       lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
-    } catch (e) { /* Not supported */ }
+    } catch (_e) { /* Not supported */ }
 
     // First Contentful Paint (FCP)
     try {
@@ -1920,7 +1919,7 @@
         }
       });
       fcpObserver.observe({ type: 'paint', buffered: true });
-    } catch (e) { /* Not supported */ }
+    } catch (_e) { /* Not supported */ }
 
     // Cumulative Layout Shift (CLS)
     try {
@@ -1945,7 +1944,7 @@
           });
         }
       });
-    } catch (e) { /* Not supported */ }
+    } catch (_e) { /* Not supported */ }
 
     // Interaction to Next Paint (INP) - using event timing
     try {
@@ -1974,7 +1973,7 @@
           flushDebugEvents();
         }
       });
-    } catch (e) { /* Not supported */ }
+    } catch (_e) { /* Not supported */ }
 
     // Time to First Byte (TTFB)
     try {
@@ -1988,7 +1987,7 @@
           vital_rating: getVitalRating('TTFB', ttfb),
         });
       }
-    } catch (e) { /* Not supported */ }
+    } catch (_e) { /* Not supported */ }
   }
 
   // Start observing Web Vitals
@@ -2104,7 +2103,7 @@
         siteId: SITE_ID,
         sessionId: SESSION_ID,
       }, false);
-    } catch (error) {
+    } catch (_error) {
       // Silently fail - form analytics is non-critical
     }
   }
@@ -2319,7 +2318,7 @@
           return session.id;
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // Ignore parse errors
     }
 
@@ -2341,7 +2340,7 @@
         session.lastActivity = Date.now();
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
       }
-    } catch (e) {
+    } catch (_e) {
       // Ignore
     }
   }
@@ -2368,7 +2367,7 @@
       if (stored) {
         return stored;
       }
-    } catch (e) {
+    } catch (_e) {
       // Ignore localStorage errors
     }
 
@@ -2382,7 +2381,7 @@
 
     try {
       localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
-    } catch (e) {
+    } catch (_e) {
       // Ignore localStorage errors
     }
 
@@ -2746,7 +2745,6 @@
   // ============================================
   // RRWEB SESSION RECORDING
   // ============================================
-  let rrwebRecorder = null;
   let recordedEvents = [];
   let isRecording = false;
   const MAX_EVENTS_PER_BATCH = 100;
@@ -2779,7 +2777,7 @@
         await loadScript(
           `${normalizedHost}/rrweb.min.js`
         );
-      } catch (e) {
+      } catch (_e) {
         console.warn(
           "[Navlens] Failed to load rrweb, session recording disabled"
         );
@@ -2791,7 +2789,7 @@
 
     try {
       isRecording = true;
-      rrwebRecorder = rrweb.record({
+       rrweb.record({
         emit(event) {
           // Scrub PII from events before storing
           const scrubbedEvent = scrubObjectPII(event);
@@ -2883,11 +2881,7 @@
   // ============================================
   // DOM SNAPSHOT CAPTURE
   // ============================================
-  const VIEWPORT_CONFIGS = [
-    { name: "mobile", width: 375, height: 667 },
-    { name: "tablet", width: 768, height: 1024 },
-    { name: "desktop", width: 1440, height: 900 },
-  ];
+
 
   async function captureSnapshot(viewportConfig = null) {
     return scheduleTask(async () => {
@@ -2898,7 +2892,7 @@
           await loadScript(
             "https://cdn.jsdelivr.net/npm/rrweb-snapshot@latest/dist/rrweb-snapshot.min.js"
           );
-        } catch (e) {
+        } catch (_e) {
           console.warn("[Navlens] Failed to load rrweb-snapshot");
           return null;
         }
@@ -2931,44 +2925,7 @@
     }, "normal");
   }
 
-  async function captureSnapshotsForAllDevices() {
-    const snapshots = [];
 
-    for (const config of VIEWPORT_CONFIGS) {
-      const snapshot = await scheduleTask(async () => {
-        // Use current viewport for snapshot (use window. for safer global check)
-        if (typeof window.rrwebSnapshot === "undefined" || !window.rrwebSnapshot?.snapshot) {
-          return null;
-        }
-
-        try {
-          const snapshotData = window.rrwebSnapshot.snapshot(document);
-          return {
-            site_id: SITE_ID,
-            page_path: window.location.pathname,
-            device_type: config.name,
-            snapshot: scrubObjectPII(snapshotData),
-            width: config.width,
-            height: config.height,
-            origin: window.location.origin,
-            timestamp: new Date().toISOString(),
-          };
-        } catch (error) {
-          console.error(
-            `[Navlens] Snapshot capture failed for ${config.name}:`,
-            error
-          );
-          return null;
-        }
-      }, "idle");
-
-      if (snapshot) {
-        snapshots.push(snapshot);
-      }
-    }
-
-    return snapshots;
-  }
 
   async function sendSnapshot(snapshotData) {
     if (!snapshotData) return;
@@ -3137,7 +3094,7 @@
   let lastMousePosition = { x: 0, y: 0 };
   let lastMouseMoveTime = 0;
   let hoverBatchTimer = null;
-  let isMouseMoving = false;
+  // isMouseMoving was unused
   let mouseThrottleTimer = null;
 
   function trackMouseMovement(event) {
@@ -3162,7 +3119,7 @@
 
     lastMousePosition = { x, y };
     lastMouseMoveTime = now;
-    isMouseMoving = true;
+    
 
     // Get element under cursor
     const element = document.elementFromPoint(x, y);
@@ -3410,13 +3367,15 @@
   // HOVER EVENT TRACKING
   // Send hover events when user dwells on elements
   // ============================================
-  let hoverCheckInterval = null;
-  let lastHoverFlushTime = Date.now();
+  // Hover tracking state
+  // hoverCheckInterval was unused
+  // lastHoverFlushTime was unused
+  
 
   function initHoverTracking() {
     // Check hover times periodically and send significant hovers
     hoverCheckInterval = setInterval(() => {
-      const now = Date.now();
+
       const significantHovers = [];
 
       elementHoverTimes.forEach((data, selector) => {
@@ -3434,7 +3393,6 @@
 
       // Clear processed hovers
       elementHoverTimes.clear();
-      lastHoverFlushTime = now;
     }, 30000);  // Check every 30 seconds
   }
 
@@ -3473,7 +3431,6 @@
     
     // Track when mouse stops moving
     document.addEventListener('mouseleave', () => {
-      isMouseMoving = false;
       flushMousePositionBuffer();
     });
 
@@ -4566,7 +4523,7 @@
             }
           });
           lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
-        } catch (e) {
+        } catch (_e) {
           // LCP not supported
         }
         
@@ -4581,7 +4538,7 @@
             }
           });
           clsObserver.observe({ type: 'layout-shift', buffered: true });
-        } catch (e) {
+        } catch (_e) {
           // CLS not supported
         }
         
@@ -4595,7 +4552,7 @@
             }
           });
           fidObserver.observe({ type: 'first-input', buffered: true });
-        } catch (e) {
+        } catch (_e) {
           // FID not supported
         }
         
@@ -4612,7 +4569,7 @@
             }
           });
           inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 16 });
-        } catch (e) {
+        } catch (_e) {
           // INP not supported
         }
       }
@@ -4625,7 +4582,7 @@
           fcpValue = fcp.startTime;
           webVitalsData.fcp = fcpValue;
         }
-      } catch (e) {
+      } catch (_e) {
         // FCP not supported
       }
       
@@ -4636,7 +4593,7 @@
           ttfbValue = navigation.responseStart - navigation.requestStart;
           webVitalsData.ttfb = ttfbValue;
         }
-      } catch (e) {
+      } catch (_e) {
         // TTFB not supported
       }
       
@@ -4688,7 +4645,7 @@
           return; // Don't show banner again
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // localStorage not available or corrupted
     }
     
@@ -4870,7 +4827,7 @@
         timestamp: new Date().toISOString()
       }));
       console.log('[Navlens] Consent saved:', status);
-    } catch (e) {
+    } catch (_e) {
       console.warn('[Navlens] Could not save consent to localStorage');
     }
   }
@@ -4900,7 +4857,7 @@
       try {
         const stored = localStorage.getItem(CONSENT_STORAGE_KEY);
         return stored ? JSON.parse(stored) : null;
-      } catch (e) {
+      } catch (_e) {
         return null;
       }
     },
@@ -4908,7 +4865,7 @@
       try {
         localStorage.removeItem(CONSENT_STORAGE_KEY);
         console.log('[Navlens] Consent reset');
-      } catch (e) {}
+      } catch (_e) {}
     }
   };
   
