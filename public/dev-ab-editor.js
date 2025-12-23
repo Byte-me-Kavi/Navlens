@@ -119,30 +119,30 @@
     .nv-highlight {
       position: absolute;
       pointer-events: none;
-      border: 2px dashed #3b82f6;
-      background: rgba(59, 130, 246, 0.1);
+      border: 2px dashed #4f46e5;
+      background: rgba(79, 70, 229, 0.1);
       transition: all 0.1s ease;
       z-index: 999998;
     }
     
     .nv-selected {
-      border: 2px solid #10b981 !important;
-      background: rgba(16, 185, 129, 0.1) !important;
+      border: 2px solid #4f46e5 !important;
+      background: rgba(79, 70, 229, 0.1) !important;
     }
     
     .nv-toolbar {
       position: fixed;
       top: 10px;
       right: 10px;
-      background: #1f2937;
-      color: white;
-      padding: 12px 16px;
-      border-radius: 8px;
+      background: #ffffff;
+      color: #1f2937;
+      padding: 16px;
+      border-radius: 12px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 14px;
       z-index: 1000000;
       pointer-events: auto;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0,0,0,0.05);
       min-width: 320px;
       max-width: 380px;
       max-height: 90vh;
@@ -153,79 +153,111 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #374151;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e5e7eb;
     }
     
     .nv-toolbar-title {
       font-weight: 600;
-      color: #10b981;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     
     .nv-btn {
-      padding: 6px 12px;
-      border: none;
-      border-radius: 4px;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 500;
       transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      background: white;
+      color: #374151;
+    }
+    
+    .nv-btn:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+
+    .nv-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
     
     .nv-btn-primary {
-      background: #3b82f6;
+      background: #4f46e5;
       color: white;
+      border: 1px solid transparent;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
     
     .nv-btn-primary:hover {
-      background: #2563eb;
+      background: #4338ca;
+      border-color: transparent;
     }
     
     .nv-btn-success {
-      background: #10b981;
+      background: #4f46e5; /* Using Indigo for save actions too for consistency */
       color: white;
+      border: 1px solid transparent;
     }
     
     .nv-btn-danger {
-      background: #ef4444;
-      color: white;
+      background: white;
+      color: #ef4444;
+      border-color: #fee2e2;
+    }
+    
+    .nv-btn-danger:hover {
+      background: #fef2f2;
+      border-color: #fca5a5;
     }
     
     .nv-btn-secondary {
-      background: #374151;
-      color: white;
+      background: white;
+      color: #374151;
+      border: 1px solid #d1d5db;
     }
     
     .nv-panel {
-      margin-top: 12px;
+      margin-top: 16px;
     }
     
     .nv-panel-section {
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
     
     .nv-panel-label {
-      font-size: 11px;
-      color: #9ca3af;
-      margin-bottom: 4px;
-      text-transform: uppercase;
+      font-size: 12px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 6px;
     }
     
     .nv-input {
       width: 100%;
-      padding: 8px;
-      border: 1px solid #374151;
-      border-radius: 4px;
-      background: #111827;
-      color: white;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: white;
+      color: #111827;
       font-size: 13px;
       box-sizing: border-box;
+      transition: border-color 0.15s;
     }
     
     .nv-input:focus {
       outline: none;
-      border-color: #3b82f6;
+      border-color: #4f46e5;
+      ring: 2px solid #e0e7ff;
     }
     
     .nv-color-row {
@@ -236,41 +268,58 @@
     
     .nv-color-input {
       width: 40px;
-      height: 32px;
-      border: none;
+      height: 34px;
+      border: 1px solid #d1d5db;
+      padding: 2px;
       cursor: pointer;
-      border-radius: 4px;
+      border-radius: 6px;
+      background: white;
     }
     
     .nv-selector-display {
-      font-family: monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 11px;
       color: #6b7280;
       margin-top: 4px;
+      padding: 4px 8px;
+      background: #f3f4f6;
+      border-radius: 4px;
       word-break: break-all;
     }
     
     .nv-mod-list {
-      max-height: 150px;
+      max-height: 200px;
       overflow-y: auto;
-      margin-top: 8px;
+      margin-top: 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
     }
     
     .nv-mod-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 8px;
-      background: #111827;
-      border-radius: 4px;
-      margin-bottom: 4px;
-      font-size: 12px;
+      padding: 8px 12px;
+      background: white;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 13px;
+      color: #374151;
+    }
+
+    .nv-mod-item:last-child {
+      border-bottom: none;
     }
     
     .nv-mod-delete {
-      color: #ef4444;
+      color: #9ca3af;
       cursor: pointer;
-      padding: 2px 6px;
+      padding: 4px;
+      border-radius: 4px;
+    }
+    
+    .nv-mod-delete:hover {
+      color: #ef4444;
+      background: #fef2f2;
     }
 
     .nv-row {
@@ -287,28 +336,34 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 6px 10px;
-      background: #374151;
-      color: white;
-      border-radius: 4px;
+      padding: 8px 12px;
+      background: white;
+      border: 1px solid #d1d5db;
+      color: #374151;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      width: 100%;
+      justify-content: center;
     }
 
     .nv-file-btn:hover {
-      background: #4b5563;
+      background: #f9fafb;
+      border-color: #9ca3af;
     }
 
     .nv-preview-img {
       max-width: 100%;
-      max-height: 80px;
-      border-radius: 4px;
-      margin-top: 8px;
+      max-height: 100px;
+      border-radius: 6px;
+      margin-top: 12px;
+      border: 1px solid #e5e7eb;
     }
 
     .nv-type-group {
       padding: 4px 0;
-      border-bottom: 1px solid #374151;
+      border-bottom: 1px solid #e5e7eb;
     }
 
     .nv-type-group:last-child {
@@ -316,10 +371,11 @@
     }
 
     .nv-type-group-label {
-      font-size: 10px;
+      font-size: 11px;
       color: #6b7280;
-      padding: 4px 8px;
-      text-transform: uppercase;
+      padding: 6px 8px;
+      font-weight: 600;
+      background: #f9fafb;
     }
 
     .nv-checkbox-row {
@@ -337,28 +393,100 @@
     .nv-two-col {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 12px;
     }
 
     .nv-tabs {
       display: flex;
       gap: 4px;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
+      background: #f3f4f6;
+      padding: 4px;
+      border-radius: 8px;
     }
 
     .nv-tab {
-      padding: 4px 8px;
-      font-size: 11px;
-      background: #374151;
-      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 6px;
       cursor: pointer;
+      flex: 1;
+      text-align: center;
+      color: #6b7280;
+      transition: all 0.2s;
     }
 
     .nv-tab.active {
-      background: #3b82f6;
+      background: white;
+      color: #4f46e5;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
   `;
   document.head.appendChild(styles);
+
+  // Icon styles
+  const iconStyles = document.createElement('style');
+  iconStyles.textContent = `
+    .nv-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .nv-icon svg {
+      width: 14px;
+      height: 14px;
+      stroke-width: 2px;
+    }
+    /* Specific icon sizes */
+    .nv-mode-btn .nv-icon svg { width: 12px; height: 12px; }
+    .nv-toolbar-title .nv-icon svg { width: 16px; height: 16px; }
+    .nv-btn .nv-icon svg { width: 14px; height: 14px; margin-right: 4px; }
+  `;
+  document.head.appendChild(iconStyles);
+
+  // ============================================
+  // ICONS
+  // ============================================
+  const ICONS = {
+    flask: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 2v7.31"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/></svg>',
+    minimize: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    drag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 10.5 12 7l-3.5 3.5"/><path d="M12 17V7"/><path d="M5 12h14"/></svg>',
+    nav: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
+    undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>',
+    redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 3.7"/></svg>',
+    css: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 12c-3 0-6 3-6 7s3 7 7 7 6-3 6-7-4-7-7-7z"/></svg>',
+    text: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
+    hide: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
+    remove: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+    clone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    insert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    replace: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.53 3.8a5 5 0 1 1 5 6.5"/></svg>',
+    resize: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M9 3v18"/><path d="M21 9H3"/></svg>',
+    reorder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/><polyline points="19 12 12 5 5 12"/></svg>',
+    move: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="19 9 22 12 19 15"/><polyline points="9 19 12 22 15 19"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>',
+    attr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+    class: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
+    tooltip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+    sticky: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>',
+    anim: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+    click: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>',
+    image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    placeholder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
+    form: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+    warning: '<svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+  };
+
+  function getIcon(name, className = '') {
+    return ICONS[name] ? `<span class="nv-icon ${className}">${ICONS[name]}</span>` : '';
+  }
 
   // ============================================
   // UI ELEMENTS
@@ -380,10 +508,10 @@
   toolbar.className = 'nv-toolbar';
   toolbar.innerHTML = `
     <div class="nv-toolbar-header">
-      <span class="nv-toolbar-title">🧪 Navlens Editor</span>
+      <span class="nv-toolbar-title">${getIcon('flask')} Navlens Editor</span>
       <div style="display: flex; gap: 4px;">
-        <button class="nv-btn" id="nv-minimize" title="Minimize to floating button">➖</button>
-        <button class="nv-btn nv-btn-danger" id="nv-close">✕</button>
+        <button class="nv-btn" id="nv-minimize" title="Minimize to floating button">${getIcon('minimize')}</button>
+        <button class="nv-btn nv-btn-danger" id="nv-close">${getIcon('close')}</button>
       </div>
     </div>
     
@@ -391,18 +519,18 @@
     <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 160px;">
         <div class="nv-panel-label" style="margin-bottom: 4px;">Mode</div>
-        <div style="display: flex; background: #374151; border-radius: 6px; overflow: hidden;">
-          <button id="nv-mode-edit" class="nv-mode-btn nv-mode-active" style="flex:1; padding: 6px 6px; font-size: 10px; border: none; cursor: pointer; background: #3b82f6; color: white;">🖱️ Edit</button>
-          <button id="nv-mode-drag" class="nv-mode-btn" style="flex:1; padding: 6px 6px; font-size: 10px; border: none; cursor: pointer; background: transparent; color: #9ca3af;">✋ Drag</button>
-          <button id="nv-mode-navigate" class="nv-mode-btn" style="flex:1; padding: 6px 6px; font-size: 10px; border: none; cursor: pointer; background: transparent; color: #9ca3af;">🔗 Nav</button>
+        <div class="nv-tabs">
+          <div id="nv-mode-edit" class="nv-tab active">${getIcon('edit', 'mr-1')} Edit</div>
+          <div id="nv-mode-drag" class="nv-tab">${getIcon('drag', 'mr-1')} Drag</div>
+          <div id="nv-mode-navigate" class="nv-tab">${getIcon('nav', 'mr-1')} Nav</div>
         </div>
       </div>
     </div>
     
     <!-- Undo/Redo Row -->
     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-      <button id="nv-undo" class="nv-btn" style="flex:1;" disabled title="Undo (Ctrl+Z)">↩️ Undo</button>
-      <button id="nv-redo" class="nv-btn" style="flex:1;" disabled title="Redo (Ctrl+Shift+Z)">↪️ Redo</button>
+      <button id="nv-undo" class="nv-btn" style="flex:1;" disabled title="Undo (Ctrl+Z)">${getIcon('undo')} Undo</button>
+      <button id="nv-redo" class="nv-btn" style="flex:1;" disabled title="Redo (Ctrl+Shift+Z)">${getIcon('redo')} Redo</button>
     </div>
     
     <div id="nv-instructions" style="color: #9ca3af; font-size: 12px;">
@@ -450,15 +578,15 @@
 
       <!-- Hide Panel -->
       <div id="nv-hide-panel" class="nv-panel-section" style="display: none;">
-        <div style="color: #fbbf24; font-size: 12px;">
-          ⚠️ This will hide the selected element (CSS display: none). Element stays in DOM.
+        <div style="color: #d97706; font-size: 12px; display: flex; gap: 6px; align-items: start; background: #fffbeb; padding: 8px; rounded: 4px; border: 1px solid #fcd34d;">
+          ${getIcon('warning')} <span>This will hide the selected element (CSS display: none). Element stays in DOM.</span>
         </div>
       </div>
 
       <!-- Remove Panel (Hard Delete) -->
       <div id="nv-remove-panel" class="nv-panel-section" style="display: none;">
-        <div style="color: #ef4444; font-size: 12px;">
-          🗑️ This will <strong>permanently remove</strong> the element from the DOM for this variant.
+        <div style="color: #dc2626; font-size: 12px; display: flex; gap: 6px; align-items: start; background: #fef2f2; padding: 8px; rounded: 4px; border: 1px solid #fecaca;">
+          ${getIcon('trash')} <span>This will <strong>permanently remove</strong> the element from the DOM for this variant.</span>
         </div>
       </div>
 
@@ -479,7 +607,7 @@
         <input type="text" id="nv-image-url" class="nv-input" placeholder="https://example.com/image.jpg">
         <div style="margin: 8px 0; text-align: center; color: #6b7280; font-size: 11px;">— OR —</div>
         <label class="nv-file-btn">
-          📁 Upload Image
+          ${getIcon('image')} Upload Image
           <input type="file" id="nv-image-file" class="nv-file-input" accept="image/*">
         </label>
         <div id="nv-image-preview"></div>
@@ -513,8 +641,8 @@
       <div id="nv-replaceHtml-panel" class="nv-panel-section" style="display: none;">
         <div class="nv-panel-label">New HTML</div>
         <textarea id="nv-replace-html" class="nv-input" rows="4" placeholder="<div>Replacement HTML</div>" style="font-family: monospace;"></textarea>
-        <div style="color: #fbbf24; font-size: 11px; margin-top: 4px;">
-          ⚠️ This replaces the entire element with your HTML.
+        <div style="color: #d97706; font-size: 11px; margin-top: 4px; display: flex; gap: 4px; align-items: center;">
+          ${getIcon('warning')} This replaces the entire element with your HTML.
         </div>
       </div>
 
@@ -624,8 +752,8 @@
       <div id="nv-formAction-panel" class="nv-panel-section" style="display: none;">
         <div class="nv-panel-label">New Form Action URL</div>
         <input type="text" id="nv-form-action-url" class="nv-input" placeholder="https://example.com/submit">
-        <div style="color: #fbbf24; font-size: 11px; margin-top: 4px;">
-          ⚠️ Only applies to form elements.
+        <div style="color: #d97706; font-size: 11px; margin-top: 4px; display: flex; gap: 4px; align-items: center;">
+          ${getIcon('warning')} Only applies to form elements.
         </div>
       </div>
 
@@ -669,17 +797,18 @@
         </div>
       </div>
       
-      <div style="display: flex; gap: 8px; margin-top: 12px;">
-        <button class="nv-btn nv-btn-primary" id="nv-add-mod" style="flex: 1;">Add Change</button>
+      <button class="nv-btn nv-btn-primary" id="nv-add-mod" style="flex: 1;">Add Change</button>
         <button class="nv-btn nv-btn-secondary" id="nv-cancel">Cancel</button>
       </div>
     </div>
     
-    <div class="nv-panel-section" style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #374151;">
-      <div class="nv-panel-label">Saved Changes (<span id="nv-mod-count">0</span>)</div>
+    <div class="nv-panel-section" style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+      <div class="nv-panel-label w-full flex justify-between items-center">
+        <span>Saved Changes (<span id="nv-mod-count">0</span>)</span>
+      </div>
       <div id="nv-mod-list" class="nv-mod-list"></div>
-      <button class="nv-btn nv-btn-success" id="nv-save" style="width: 100%; margin-top: 8px;">
-        💾 Save All Changes
+      <button class="nv-btn nv-btn-success" id="nv-save" style="width: 100%; margin-top: 12px; font-weight: 600;">
+        Save All Changes
       </button>
     </div>
   `;
@@ -695,30 +824,31 @@
   const originalStates = new Map();
   
   // All available modification types with their requirements
+  // All available modification types with their requirements
   const modificationTypes = {
     // Universal types (work on any element)
-    css: { label: '🎨 Change Style (CSS)', hint: 'Modify colors, fonts, spacing', universal: true },
-    text: { label: '✏️ Change Text', hint: 'Replace text content', universal: true },
-    hide: { label: '👁️ Hide Element', hint: 'Hide from visitors (CSS)', universal: true },
-    remove: { label: '🗑️ Remove Element', hint: 'Delete from DOM', universal: true },
-    clone: { label: '📋 Clone Element', hint: 'Duplicate this element', universal: true },
-    insertHtml: { label: '➕ Insert HTML', hint: 'Add HTML before/after', universal: true },
-    replaceHtml: { label: '🔄 Replace HTML', hint: 'Replace with custom HTML', universal: true },
-    resize: { label: '📐 Resize Element', hint: 'Change width/height', universal: true },
-    reorder: { label: '↕️ Reorder Element', hint: 'Move among siblings', universal: true },
-    move: { label: '✋ Move Element', hint: 'Offset position', universal: true },
-    attribute: { label: '⚙️ Modify Attribute', hint: 'Change any attribute', universal: true },
-    class: { label: '🏷️ Toggle Classes', hint: 'Add/remove CSS classes', universal: true },
-    tooltip: { label: '💬 Add Tooltip', hint: 'Show text on hover', universal: true },
-    sticky: { label: '📌 Make Sticky', hint: 'Stick to viewport', universal: true },
-    animation: { label: '✨ Add Animation', hint: 'Animate on load', universal: true },
-    clickRedirect: { label: '🖱️ Click Redirect', hint: 'Navigate on click', universal: true },
+    css: { label: getIcon('css') + ' Change Style (CSS)', hint: 'Modify colors, fonts, spacing', universal: true },
+    text: { label: getIcon('text') + ' Change Text', hint: 'Replace text content', universal: true },
+    hide: { label: getIcon('hide') + ' Hide Element', hint: 'Hide from visitors (CSS)', universal: true },
+    remove: { label: getIcon('remove') + ' Remove Element', hint: 'Delete from DOM', universal: true },
+    clone: { label: getIcon('clone') + ' Clone Element', hint: 'Duplicate this element', universal: true },
+    insertHtml: { label: getIcon('insert') + ' Insert HTML', hint: 'Add HTML before/after', universal: true },
+    replaceHtml: { label: getIcon('replace') + ' Replace HTML', hint: 'Replace with custom HTML', universal: true },
+    resize: { label: getIcon('resize') + ' Resize Element', hint: 'Change width/height', universal: true },
+    reorder: { label: getIcon('reorder') + ' Reorder Element', hint: 'Move among siblings', universal: true },
+    move: { label: getIcon('move') + ' Move Element', hint: 'Offset position', universal: true },
+    attribute: { label: getIcon('attr') + ' Modify Attribute', hint: 'Change any attribute', universal: true },
+    class: { label: getIcon('class') + ' Toggle Classes', hint: 'Add/remove CSS classes', universal: true },
+    tooltip: { label: getIcon('tooltip') + ' Add Tooltip', hint: 'Show text on hover', universal: true },
+    sticky: { label: getIcon('sticky') + ' Make Sticky', hint: 'Stick to viewport', universal: true },
+    animation: { label: getIcon('anim') + ' Add Animation', hint: 'Animate on load', universal: true },
+    clickRedirect: { label: getIcon('click') + ' Click Redirect', hint: 'Navigate on click', universal: true },
     
     // Element-specific types
-    image: { label: '🖼️ Replace Image', hint: 'Swap image source', tags: ['IMG'] },
-    link: { label: '🔗 Replace Link', hint: 'Change link URL', tags: ['A'] },
-    placeholder: { label: '📝 Change Placeholder', hint: 'Modify placeholder text', tags: ['INPUT', 'TEXTAREA'] },
-    formAction: { label: '📤 Change Form Action', hint: 'Redirect form submission', tags: ['FORM'] }
+    image: { label: getIcon('image') + ' Replace Image', hint: 'Swap image source', tags: ['IMG'] },
+    link: { label: getIcon('link') + ' Replace Link', hint: 'Change link URL', tags: ['A'] },
+    placeholder: { label: getIcon('placeholder') + ' Change Placeholder', hint: 'Modify placeholder text', tags: ['INPUT', 'TEXTAREA'] },
+    formAction: { label: getIcon('form') + ' Change Form Action', hint: 'Redirect form submission', tags: ['FORM'] }
   };
   
   // Populate modification types based on selected element
@@ -1581,25 +1711,26 @@
     document.getElementById('nv-mod-count').textContent = modifications.length;
     
     const typeLabels = {
-      css: '🎨 CSS',
-      text: '✏️ Text',
-      hide: '👁️ Hide',
-      image: '🖼️ Image',
-      link: '🔗 Link',
-      insertHtml: '➕ HTML',
-      replaceHtml: '🔄 HTML',
-      resize: '📐 Resize',
-      clone: '📋 Clone',
-      reorder: '↕️ Reorder',
-      move: '✋ Move',
-      attribute: '⚙️ Attr',
-      class: '🏷️ Class',
-      clickRedirect: '🖱️ Click',
-      tooltip: '💬 Tooltip',
-      sticky: '📌 Sticky',
-      placeholder: '📝 Placeholder',
-      formAction: '📤 Form',
-      animation: '✨ Anim'
+      css: getIcon('css') + ' CSS',
+      text: getIcon('text') + ' Text',
+      hide: getIcon('hide') + ' Hide',
+      image: getIcon('image') + ' Image',
+      link: getIcon('link') + ' Link',
+      insertHtml: getIcon('insert') + ' HTML',
+      replaceHtml: getIcon('replace') + ' HTML',
+      resize: getIcon('resize') + ' Resize',
+      clone: getIcon('clone') + ' Clone',
+      reorder: getIcon('reorder') + ' Reorder',
+      move: getIcon('move') + ' Move',
+      attribute: getIcon('attr') + ' Attr',
+      class: getIcon('class') + ' Class',
+      clickRedirect: getIcon('click') + ' Click',
+      tooltip: getIcon('tooltip') + ' Tooltip',
+      sticky: getIcon('sticky') + ' Sticky',
+      placeholder: getIcon('placeholder') + ' Placeholder',
+      formAction: getIcon('form') + ' Action',
+      animation: getIcon('anim') + ' Anim',
+      remove: getIcon('remove') + ' Remove'
     };
     
     list.innerHTML = modifications.map((mod, i) => `

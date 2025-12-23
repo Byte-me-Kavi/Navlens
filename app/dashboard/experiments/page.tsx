@@ -395,7 +395,7 @@ function EditVariantModal({
                   href={editorUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
                   <ArrowTopRightOnSquareIcon className="w-4 h-4" />
                   Open Editor

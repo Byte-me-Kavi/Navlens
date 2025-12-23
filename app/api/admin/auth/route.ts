@@ -37,7 +37,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Decryption failed' }, { status: 400 });
         }
 
-        const { email, password } = data;
+        const { email, password } = data as { email?: string; password?: string };
 
         // Get credentials from environment
         const validEmail = process.env.ADMIN_EMAIL;
