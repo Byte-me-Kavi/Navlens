@@ -27,13 +27,15 @@ const supabase = createClient(
 );
 
 // Optional: Config to allow large snapshot payloads (Next.js specific)
-export const config = {
-    api: {
-        bodyParser: {
-            sizeLimit: '10mb', // Snapshots can be large
-        },
-    },
-};
+// Optional: Config to allow large snapshot payloads (Next.js specific)
+// Note: In App Router, we validate size manually in the handler or middleware
+// export const config = {
+//     api: {
+//         bodyParser: {
+//             sizeLimit: '10mb', // Snapshots can be large
+//         },
+//     },
+// };
 
 export async function POST(req: NextRequest) {
     const start = performance.now();

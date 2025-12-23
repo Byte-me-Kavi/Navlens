@@ -208,6 +208,64 @@ export async function POST(request: NextRequest) {
 
     await Promise.allSettled(insertPromises);
 
+    // --- SIGNAL SYNC TO POSTGRES (For Session Replay) ---
+    // Log all event types for debugging
+    console.log('[v1/ingest] All event types in batch:', validEvents.map(e => e.type));
+
+    // If we detect signals, sync them to Postgres so they appear in sessions_view
+    const signalEvents = validEvents.filter(e =>
+      e.type === 'rage_click' ||
+      e.type === 'dead_click' ||
+      (e.type === 'custom' && ['u_turn', 'quick_exit'].includes((e.data?.event_name as string) || ''))
+    );
+
+    console.log(`[v1/ingest] Detected ${signalEvents.length} signal events`);
+
+    if (signalEvents.length > 0) {
+      console.log(`[v1/ingest] Syncing ${signalEvents.length} signals to Postgres for session ${validEvents[0].session_id}`);
+
+      // Group signals by session (though usually batch is for one session)
+      const signalsBySession = signalEvents.reduce((acc, event) => {
+        if (!acc[event.session_id]) acc[event.session_id] = [];
+
+        // Format for Postgres JSONB
+        acc[event.session_id].push({
+          type: event.type === 'custom' ? (event.data?.event_name as string) : event.type,
+          timestamp: event.timestamp,
+          data: event.data || {}
+        });
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      // Insert into Postgres (one row per session-batch)
+      const postgresPromises = Object.entries(signalsBySession).map(async ([sessionId, signals]) => {
+        // Find a representative event for metadata
+        const metaEvent = validEvents.find(e => e.session_id === sessionId) || validEvents[0];
+
+        return supabaseAdmin
+          .from('rrweb_events')
+          .insert({
+            site_id: siteId,
+            session_id: sessionId,
+            visitor_id: metaEvent.client_id || '', // Map client_id to visitor_id
+            page_path: metaEvent.page_path || '',
+            events: [], // Empty events - we only care about signals here
+            timestamp: new Date().toISOString(),
+            session_signals: signals,
+            // Minimal metadata to satisfy constraints if any (schema allows nulls mostly)
+            device_type: metaEvent.device_type,
+            country: request.headers.get('x-vercel-ip-country') || 'Unknown',
+            ip_address: clientIP
+          })
+          .then(({ error }) => {
+            if (error) console.error('[v1/ingest] Failed to sync signals to Postgres:', error);
+            else console.log(`[v1/ingest] Successfully synced signals for session ${sessionId}`);
+          });
+      });
+
+      await Promise.allSettled(postgresPromises);
+    }
+
     const duration = Date.now() - startTime;
     console.log(`[v1/ingest] Processed ${validEvents.length} events in ${duration}ms`);
 

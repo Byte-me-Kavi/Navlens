@@ -21,11 +21,11 @@ SELECT
     -- Aggregate session signals (merging non-null arrays)
     -- This assumes session_signals is a JSONB array column
     (
-        SELECT jsonb_agg(elem)
+        SELECT coalesce(jsonb_agg(elem), '[]'::jsonb)
         FROM (
-            SELECT unnest(array_agg(session_signals)) as elem
+            SELECT jsonb_array_elements(sigs) as elem
+            FROM unnest(array_agg(session_signals)) as sigs
         ) s
-        WHERE elem IS NOT NULL AND elem != 'null'::jsonb
     ) as signals
 FROM
     rrweb_events
