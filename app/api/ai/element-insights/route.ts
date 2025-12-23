@@ -11,7 +11,7 @@ import { hasFeatureAccess } from '@/lib/subscription/helpers';
 
 // Groq API configuration (same as main AI)
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'llama-3.1-8b-instant';
 
 const getApiKey = () => process.env.GROQ_API_KEY!;
 
@@ -126,9 +126,9 @@ Return ONLY the JSON array.`
         });
 
         if (!response.ok) {
-            const error = await response.text();
-            console.error('[element-insights] Groq API error:', error);
-            throw new Error(`Groq API error: ${response.status}`);
+            const errorText = await response.text();
+            console.error('[element-insights] Groq API error details:', errorText);
+            throw new Error(`Groq API error: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();

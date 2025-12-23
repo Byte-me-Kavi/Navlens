@@ -39,22 +39,18 @@ export async function GET(request: NextRequest) {
         const endDate = now.toISOString();
 
         // ========================================
-        // SESSIONS: Query from Supabase rrweb_events
+        // SESSIONS: Query from sessions_view (Bypasses 1000-row limit)
         // (current month only - for billing purposes)
         // ========================================
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        // Count unique session_ids across ALL user's sites for current month
-        const { data: sessionData, error: sessionError } = await supabase
-            .from('rrweb_events')
-            .select('session_id')
+        // Count unique sessions directly from the view
+        const { count: totalSessions, error: sessionError } = await supabase
+            .from('sessions_view')
+            .select('*', { count: 'exact', head: true })
             .in('site_id', userSites)
-            .gte('timestamp', startDate)
-            .lte('timestamp', endDate);
-
-        // Get unique session count
-        const uniqueSessions = new Set(sessionData?.map(e => e.session_id) || []);
-        const totalSessions = uniqueSessions.size;
+            .gte('started_at', startDate)
+            .lte('started_at', endDate);
 
         if (sessionError) {
             console.error('[subscription-usage] Supabase error:', sessionError);

@@ -101,11 +101,18 @@ export default function SessionReplayPage() {
     "desktop"
   );
 
-  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(true);
   // Removed infoBarOpen state as per request
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+  const [highlightedEvent, setHighlightedEvent] = useState<{ timestamp: number; type: string } | null>(null);
 
-  // Get current site details
+  const handleMarkerClick = (marker: TimelineMarker) => {
+      setDebugPanelOpen(true);
+      setHighlightedEvent({ timestamp: marker.timestamp, type: marker.type });
+      // Clear after delay to allow re-trigger
+      setTimeout(() => setHighlightedEvent(null), 2500); 
+  };
+
   const currentSite = siteId ? getSiteById(siteId) : null;
 
   // Handle AI analysis
@@ -374,7 +381,7 @@ export default function SessionReplayPage() {
     <div className="h-screen flex flex-col bg-gray-50/50">
       {/* Enhanced Navbar */}
       <div className="flex-none z-50">
-        <div className="bg-white/80 backdrop-blur-md border-b border-indigo-100 px-6 py-3 flex items-center justify-between shadow-sm">
+        <div className="bg-white/80 backdrop-blur-md border-b border-indigo-100 px-6 py-1 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.back()}
@@ -385,13 +392,8 @@ export default function SessionReplayPage() {
             <div className="flex flex-col">
               <h1 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
                 Session Replay
-                {metadata && (
-                   <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold uppercase tracking-wider">
-                     {metadata.duration ? Math.round(metadata.duration / 1000) + 's' : 'LIVE'}
-                   </span>
-                )}
               </h1>
-              <div className="flex items-center gap-2 text-sm font-medium">
+              <div className="flex items-center gap-2 text-xs font-medium">
                   {currentSite && (
                       <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md flex items-center gap-1">
                           {currentSite.domain}
@@ -459,12 +461,16 @@ export default function SessionReplayPage() {
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Player Container - Full Width */}
-        <div className="flex-1 p-2 flex items-center justify-center overflow-hidden bg-white/50 relative">
+        <div className="flex-1 p-0.5 flex items-center justify-center overflow-hidden bg-white/50 relative">
             <div className="absolute inset-0 bg-[radial-gradient(#e0e7ff_1px,transparent_1px)] [background-size:16px_16px] opacity-30"></div>
           <div className="w-full h-full max-w-6xl flex items-center justify-center relative z-10">
             {events.length > 0 ? (
                <div className="w-full h-full rounded-2xl shadow-2xl shadow-indigo-200/50 overflow-hidden border border-gray-200/50 bg-white ring-1 ring-gray-900/5">
-                <SessionPlayer events={events} markers={allMarkers} />
+                <SessionPlayer 
+                    events={events} 
+                    markers={allMarkers} 
+                    onMarkerClick={handleMarkerClick}
+                />
               </div>
             ) : (
                 <div className="bg-white rounded-2xl shadow-xl p-12 text-center border border-gray-100 max-w-md">
@@ -498,6 +504,8 @@ export default function SessionReplayPage() {
               sessionStartTime={sessionStartTime}
               isOpen={debugPanelOpen}
               onClose={() => setDebugPanelOpen(false)}
+              highlightedEvent={highlightedEvent}
+              signals={metadata?.signals || []} // Pass signals here
             />
           </div>
         )}

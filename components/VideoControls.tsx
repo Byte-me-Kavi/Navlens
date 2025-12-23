@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 
 import { TimelineMarker } from "@/features/dev-tools/types/devtools.types";
+import { FiAlertCircle, FiWifiOff, FiZap, FiMousePointer } from "react-icons/fi";
 
 interface VideoControlsProps {
   isPlaying: boolean;
@@ -16,6 +17,7 @@ interface VideoControlsProps {
   onSpeedChange: (speed: number) => void;
   onSkipBackward: () => void;
   onSkipForward: () => void;
+  onMarkerClick?: (marker: TimelineMarker) => void;
 }
 
 export default function VideoControls({
@@ -30,6 +32,7 @@ export default function VideoControls({
   onSpeedChange,
   onSkipBackward,
   onSkipForward,
+  onMarkerClick,
 }: VideoControlsProps) {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
@@ -169,6 +172,7 @@ export default function VideoControls({
             </div>
 
             {/* Markers */}
+            {/* Markers */}
             {playerReady && markers.map((marker, idx) => {
               // Clamp negative timestamps to 0 to ensure pre-session errors are visible at start
               const effectiveTime = Math.max(0, marker.timestamp);
@@ -176,36 +180,47 @@ export default function VideoControls({
               
               if (positionPercent < 0 || positionPercent > 100) return null;
               
-              let colorClass = "bg-gray-400";
+              let Icon = FiAlertCircle;
+              let bgClass = "bg-gray-400";
               let zIndex = 11;
+              let iconSize = "w-3 h-3"; // Slightly smaller icon to fit in button
               
               if (marker.type === 'error') {
-                colorClass = "bg-red-500 ring-2 ring-red-200";
+                Icon = FiAlertCircle;
+                bgClass = "bg-rose-600 shadow-md shadow-rose-900/20";
                 zIndex = 20;
               } else if (marker.type === 'network-error') {
-                colorClass = "bg-amber-500 ring-2 ring-amber-200";
+                Icon = FiWifiOff;
+                bgClass = "bg-amber-500 shadow-md shadow-amber-900/20";
                 zIndex = 15;
               } else if (marker.type === 'vital-poor') {
-                 // Optimization: Only show vitals if we have few markers or on hover? 
-                 // For now, let's skip printing vital markers on seek bar to avoid clutter
-                 // unless specifically asked. The prompt asked for console & network usage markers.
-                 // "marked when network error console error signals appear"
                  return null;
               } else if (marker.type === 'rage-click') {
-                colorClass = "bg-rose-600 ring-2 ring-rose-300 animate-pulse";
+                Icon = FiZap;
+                bgClass = "bg-rose-500 animate-pulse shadow-md shadow-rose-900/20";
                 zIndex = 30; // High priority
               } else if (marker.type === 'dead-click') {
-                colorClass = "bg-gray-500 ring-2 ring-gray-300";
+                Icon = FiMousePointer;
+                bgClass = "bg-gray-500";
                 zIndex = 25;
               }
 
               return (
-                <div
+                <button
                   key={idx}
-                  className={`absolute -top-3 w-2.5 h-2.5 rounded-full pointer-events-none transition-transform hover:scale-150 ${colorClass}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // SEEK to the exact time
+                    onSeek(marker.timestamp);
+                    // Open debug panel
+                    if (onMarkerClick) onMarkerClick(marker);
+                  }}
+                  className={`absolute -top-4 transform -translate-x-1/2 w-6 h-6 flex items-center justify-center rounded-full text-white transition-all hover:scale-125 cursor-pointer hover:z-50 ${bgClass} ${zIndex}`}
                   style={{ left: `${positionPercent}%`, zIndex }}
-                  title={`${marker.label} at ${formatTime(marker.timestamp)}`}
-                />
+                  title={`${marker.label} (${formatTime(marker.timestamp)})`}
+                >
+                  <Icon className={iconSize} />
+                </button>
               );
             })}
 

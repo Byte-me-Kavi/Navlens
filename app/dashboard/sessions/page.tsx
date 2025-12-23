@@ -147,8 +147,21 @@ const getBrowserIcon = (userAgent: string) => {
   return <BsDisplay className="w-5 h-5" />;
 };
 
+// Cache structure
+interface CacheEntry {
+    data: SessionData[];
+    pagination: {
+        hasNextPage: boolean;
+        totalSessions: number;
+        page: number;
+    };
+    timestamp: number;
+}
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // Move cache OUTSIDE the component so it persists across navigation
-const sessionsCache: Record<string, SessionData[]> = {};
+const sessionsCache: Record<string, CacheEntry> = {};
 
 // Color palette for visitor ID highlighting
 const VISITOR_COLORS = [
@@ -257,6 +270,8 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [filteredSessions, setFilteredSessions] = useState<SessionData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // Separate loading state for pagination
+  const [isDeviceMenuOpen, setIsDeviceMenuOpen] = useState(false); // Dropdown state
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
   // Filters
@@ -264,50 +279,119 @@ export default function SessionsPage() {
   const [deviceFilter, setDeviceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 10,
+    hasNextPage: false,
+    totalSessions: 0
+  });
+
   // Ensure sites are fetched (will use cache if available)
   useEffect(() => {
     fetchSites();
   }, [fetchSites]);
 
+  // Reset pagination when site changes
+  useEffect(() => {
+    // We don't clear sessions immediately if we have a cache hit, handling that in the fetch effect
+    setPagination(prev => ({ ...prev, page: 1, hasNextPage: false }));
+  }, [selectedSiteId]);
+
   useEffect(() => {
     if (!selectedSiteId) {
-      console.log("No siteId available, staying on sessions page");
       setLoading(false);
       return;
     }
 
-    // Check cache first - if it exists, don't fetch
-    if (sessionsCache[selectedSiteId]) {
-      console.log("✅ Using cached sessions for siteId:", selectedSiteId);
-      setSessions(sessionsCache[selectedSiteId]);
-      setFilteredSessions(sessionsCache[selectedSiteId]);
-      setLoading(false);
-      return;
-    }
-
-    // Cache miss - fetch from API
     const fetchSessions = async () => {
       try {
-        setLoading(true);
-        console.log("🔄 Calling secureApi.sessions.list with siteId:", selectedSiteId);
-        const data = await secureApi.sessions.list(selectedSiteId);
-        console.log("✅ Sessions data received:", data);
-        const sessionData = (data.sessions as SessionData[]) || [];
+        const isInitialLoad = pagination.page === 1;
+        
+        // CACHE CHECK (Only on initial load)
+        if (isInitialLoad && sessionsCache[selectedSiteId]) {
+            const cache = sessionsCache[selectedSiteId];
+            const isValid = (Date.now() - cache.timestamp) < CACHE_DURATION;
+            
+            if (isValid) {
+                console.log(`✅ Using cached sessions for ${selectedSiteId} (${Math.round((Date.now() - cache.timestamp)/1000)}s old)`);
+                setSessions(cache.data);
+                setFilteredSessions(cache.data);
+                // If we want to restore exact state, we'd use cache.pagination.page. 
+                // For now, let's just show the cached data. If the cache had 20 items (2 pages), we show them all.
+                // We might need to adjust 'page' to match the loaded data count.
+                const loadedPages = Math.ceil(cache.data.length / pagination.pageSize);
+                 setPagination(prev => ({
+                    ...prev,
+                    page: loadedPages, // Set page to match loaded data
+                    hasNextPage: cache.pagination.hasNextPage,
+                    totalSessions: cache.pagination.totalSessions
+                }));
+                setLoading(false);
+                return; // SKIP NETWORK
+            }
+        }
 
-        // Cache the sessions
-        sessionsCache[selectedSiteId] = sessionData;
+        if (isInitialLoad) {
+            setLoading(true);
+        } else {
+            setIsLoadingMore(true);
+        }
+        
+        console.log(`🔄 Fetching sessions for site ${selectedSiteId} (Page ${pagination.page})`);
+        
+        const data = await secureApi.sessions.list(
+          selectedSiteId, 
+          {
+            page: pagination.page, 
+            pageSize: pagination.pageSize
+          }
+        );
+        
+        const newSessions = (data.sessions as SessionData[]) || [];
+        const paginationData = data.pagination as { hasNextPage: boolean; totalSessions: number };
+        
+        setSessions(prev => {
+            const updatedSessions = pagination.page === 1 ? newSessions : [...prev, ...newSessions];
+            
+            // UPDATE CACHE
+            sessionsCache[selectedSiteId] = {
+                data: updatedSessions,
+                pagination: {
+                    hasNextPage: paginationData.hasNextPage,
+                    totalSessions: paginationData.totalSessions,
+                    page: pagination.page
+                },
+                timestamp: Date.now()
+            };
+            
+            return updatedSessions;
+        });
 
-        setSessions(sessionData);
-        setFilteredSessions(sessionData);
+        // Update filtered list (simplistic, assumes filters applied locally after)
+        setFilteredSessions(prev => pagination.page === 1 ? newSessions : [...prev, ...newSessions]);
+        
+        setPagination(prev => ({
+          ...prev,
+          hasNextPage: paginationData.hasNextPage,
+          totalSessions: paginationData.totalSessions
+        }));
+
       } catch (error) {
         console.error("❌ Error fetching sessions:", error);
       } finally {
         setLoading(false);
+        setIsLoadingMore(false);
       }
     };
 
     fetchSessions();
-  }, [selectedSiteId]);
+  }, [selectedSiteId, pagination.page]);
+
+  const handleLoadMore = () => {
+    if (pagination.hasNextPage) {
+        setPagination(prev => ({ ...prev, page: prev.page + 1 }));
+    }
+  };
 
   // Apply filters
   useEffect(() => {
@@ -370,8 +454,8 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="min-h-screen px-3 md:py-0 md:px-1">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen px-3 md:py-0 md:px-4">
+      <div className="w-full max-w-[1600px] mx-auto">
         {/* Header */}
         <div className="mb-2">
           <p className="text-gray-600 flex items-center gap-2">
@@ -468,23 +552,80 @@ export default function SessionsPage() {
                 </div>
 
                 {/* Device Filter */}
-                <div>
+                <div className="relative">
                   <label className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-1">
                     Device
                   </label>
-                  <div className="relative group">
-                    <select
-                      value={deviceFilter}
-                      onChange={(e) => setDeviceFilter(e.target.value)}
-                      className="w-full px-4 py-3 pl-11 border border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all bg-white hover:border-gray-300 shadow-sm cursor-pointer appearance-none text-gray-700"
-                    >
-                      <option value="all">All Devices</option>
-                      <option value="desktop">Desktop</option>
-                      <option value="tablet">Tablet</option>
-                      <option value="mobile">Mobile</option>
-                    </select>
-                    <FiMonitor className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-                    <FiChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  
+                  {/* Dropdown Trigger */}
+                  <button
+                    onClick={() => setIsDeviceMenuOpen(!isDeviceMenuOpen)}
+                    className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-xl bg-white hover:border-indigo-300 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm group relative z-40"
+                  >
+                    <div className="flex items-center gap-3">
+                         {/* Show selected icon */}
+                         {deviceFilter === 'all' && <FiMonitor className="w-5 h-5 text-gray-400 group-hover:text-indigo-500 transition-colors" />}
+                         {deviceFilter === 'desktop' && <HiOutlineDesktopComputer className="w-5 h-5 text-indigo-600" />}
+                         {deviceFilter === 'tablet' && <FiTablet className="w-5 h-5 text-indigo-600" />}
+                         {deviceFilter === 'mobile' && <FiSmartphone className="w-5 h-5 text-indigo-600" />}
+                         
+                         <span className={`font-medium ${deviceFilter === 'all' ? 'text-gray-700' : 'text-gray-900'}`}>
+                            {deviceFilter === 'all' && 'All Devices'}
+                            {deviceFilter === 'desktop' && 'Desktop'}
+                            {deviceFilter === 'tablet' && 'Tablet'}
+                            {deviceFilter === 'mobile' && 'Mobile'}
+                         </span>
+                    </div>
+                    <FiChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isDeviceMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Backdrop for closing */}
+                  {isDeviceMenuOpen && (
+                    <div 
+                        className="fixed inset-0 z-30" 
+                        onClick={() => setIsDeviceMenuOpen(false)}
+                    />
+                  )}
+
+                  {/* Dropdown Menu */}
+                  <div 
+                    className={`
+                        absolute top-[calc(100%+0.5rem)] left-0 w-full bg-white rounded-xl border border-gray-100 shadow-xl shadow-gray-200/50 z-50 overflow-hidden transition-all duration-200 origin-top
+                        ${isDeviceMenuOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
+                    `}
+                  >
+                    <div className="p-1.5 space-y-0.5">
+                        {[
+                          { id: 'all', label: 'All Devices', icon: <FiMonitor className="w-4 h-4" /> },
+                          { id: 'desktop', label: 'Desktop', icon: <HiOutlineDesktopComputer className="w-4 h-4" /> },
+                          { id: 'tablet', label: 'Tablet', icon: <FiTablet className="w-4 h-4" /> },
+                          { id: 'mobile', label: 'Mobile', icon: <FiSmartphone className="w-4 h-4" /> },
+                        ].map((device) => {
+                            const isSelected = deviceFilter === device.id;
+                            return (
+                                <button
+                                    key={device.id}
+                                    onClick={() => {
+                                        setDeviceFilter(device.id);
+                                        setIsDeviceMenuOpen(false);
+                                    }}
+                                    className={`
+                                        w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                                        ${isSelected 
+                                            ? 'bg-indigo-50 text-indigo-700' 
+                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                        }
+                                    `}
+                                >
+                                    <span className={`${isSelected ? 'text-indigo-500' : 'text-gray-400'}`}>
+                                        {device.icon}
+                                    </span>
+                                    {device.label}
+                                    {isSelected && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500"></div>}
+                                </button>
+                            );
+                        })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -798,100 +939,99 @@ export default function SessionsPage() {
                         <div className="grid grid-cols-2 gap-3 mb-4">
                           <div className="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100/60">
                             <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 mb-1">
-                              <FiClock className="w-3 h-3" />
-                              Duration
-                            </div>
-                            <div className="font-semibold text-gray-900 text-sm">
-                              {formatDuration(session.duration)}
-                            </div>
-                          </div>
-                          <div className="bg-violet-50/50 rounded-xl p-3 border border-violet-100/60">
-                            <div className="flex items-center gap-1.5 text-xs font-medium text-violet-600 mb-1">
-                              <FiEye className="w-3 h-3" />
+                              <FiEye className="w-3.5 h-3.5" />
                               Page Views
                             </div>
-                            <div className="font-semibold text-gray-900 text-sm">
+                            <div className="text-lg font-bold text-gray-900">
                               {session.page_views}
                             </div>
                           </div>
-                          <div className="bg-emerald-50/50 rounded-xl p-3 border border-emerald-100/60">
-                            <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 mb-1">
-                              <BsDisplay className="w-3 h-3" />
-                              Screen
+                          <div className="bg-gray-50/50 rounded-xl p-3 border border-gray-100/60">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mb-1">
+                              <FiClock className="w-3.5 h-3.5" />
+                              Duration
                             </div>
-                            <div className="font-semibold text-gray-900 text-sm">
-                              {session.screen_width} × {session.screen_height}
-                            </div>
-                          </div>
-                          <div className="bg-gray-50/80 rounded-xl p-3 border border-gray-200/60">
-                            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-600 mb-1">
-                              Device
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-500">{getDeviceIcon(session.device_type)}</span>
-                              <span className="font-semibold text-gray-900 text-sm capitalize">
-                                {session.device_type}
-                              </span>
+                            <div className="text-lg font-bold text-gray-900">
+                              {formatDuration(session.duration)}
                             </div>
                           </div>
                         </div>
 
-                        {/* Session Signals */}
-                        {(session.has_rage_clicks ||
-                          session.has_dead_clicks ||
-                          session.has_u_turns ||
-                          session.has_errors) && (
-                          <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <div className="text-xs text-gray-600 mb-2 font-medium">
-                              Session Signals
-                            </div>
-                            <SignalBadges session={session} />
+                        {/* Badges */}
+                        <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+                          <SignalBadges session={session} />
+                          <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md">
+                            {getDeviceIcon(session.device_type)}
+                            {session.device_type}
                           </div>
-                        )}
+                        </div>
 
-                        {/* Pages Toggle */}
-                        <button
-                          onClick={() =>
-                            setExpandedSession(
-                              isExpanded ? null : session.session_id
-                            )
-                          }
-                          className="w-full flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium py-2 border-t border-gray-200 pt-3"
-                        >
-                          <FiEye className="w-4 h-4" />
-                          {isExpanded ? "Hide" : "Show"} Pages (
-                          {session.page_views})
-                          {isExpanded ? (
-                            <FiChevronUp className="w-4 h-4" />
-                          ) : (
-                            <FiChevronDown className="w-4 h-4" />
-                          )}
-                        </button>
-
-                        {/* Expanded Pages */}
+                        {/* Collapsible Pages */}
                         {isExpanded && (
-                          <div className="mt-3 space-y-2 border-t border-gray-200 pt-3">
-                            {session.pages.map((page, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-2 text-sm bg-gray-50 px-3 py-2 rounded-lg"
-                              >
-                                <span className="text-blue-600 font-medium">
-                                  {idx + 1}.
-                                </span>
-                                <span className="text-gray-700 truncate">
-                                  {page}
-                                </span>
+                          <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+                             <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                                <FiEye className="w-4 h-4 text-blue-600" />
+                                Pages Visited:
+                              </h4>
+                              <div className="space-y-2">
+                                {session.pages.map((page, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center gap-2 text-sm bg-gray-50 px-3 py-2 rounded-lg"
+                                  >
+                                    <span className="text-blue-600 font-medium">
+                                      {idx + 1}.
+                                    </span>
+                                    <span className="text-gray-700 truncate">
+                                      {page}
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
                           </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
+
+                {/* Load More Button */}
+                {pagination.hasNextPage && (
+                    <div className="py-8 border-t border-gray-100 flex flex-col items-center justify-center bg-gradient-to-b from-white to-gray-50/50">
+                        <button
+                            onClick={handleLoadMore}
+                            disabled={loading || isLoadingMore}
+                            className={`
+                                group relative inline-flex items-center gap-2.5 px-8 py-3 
+                                bg-white text-gray-700 font-medium text-sm rounded-full 
+                                border border-gray-200 shadow-sm transition-all duration-300
+                                hover:border-indigo-300 hover:text-indigo-600 hover:shadow-md hover:-translate-y-0.5
+                                active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0
+                            `}
+                        >
+                            {(loading || isLoadingMore) ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                    <span>Loading sessions...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span>Load More Sessions</span>
+                                    <div className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                        {pagination.totalSessions - sessions.length} remaining
+                                    </div>
+                                    <FiChevronDown className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+                                </>
+                            )}
+                        </button>
+                        <div className="mt-3 text-xs text-gray-400">
+                            Showing {sessions.length} of {pagination.totalSessions} sessions
+                        </div>
+                    </div>
+                )}
               </div>
             )}
+
           </>
         )}
       </div>

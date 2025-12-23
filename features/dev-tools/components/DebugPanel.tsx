@@ -9,7 +9,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useDebugData } from '../hooks/useDebugData';
 import { devtoolsApi } from '../services/devtoolsApi';
-import { DebugPanelProps, ConsoleEvent, NetworkEvent, WebVitalEvent } from '../types/devtools.types';
+import { DebugPanelProps, ConsoleEvent, NetworkEvent, WebVitalEvent, SessionSignal } from '../types/devtools.types';
 import {
   FiX,
   FiTerminal,
@@ -23,6 +23,7 @@ import {
   FiChevronDown,
   FiChevronRight,
   FiRefreshCw,
+  FiZap,
 } from 'react-icons/fi';
 
 // Console level icons
@@ -59,7 +60,8 @@ const ConsoleTab: React.FC<{
   events: ConsoleEvent[];
   sessionStartTime: number;
   onSeek?: (timeMs: number) => void;
-}> = ({ events, sessionStartTime, onSeek }) => {
+  highlightedTimestamp?: number;
+}> = ({ events, sessionStartTime, onSeek, highlightedTimestamp }) => {
   const [filter, setFilter] = useState('');
   const [levelFilter, setLevelFilter] = useState<string[]>(['log', 'warn', 'error', 'info', 'debug']);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -72,6 +74,27 @@ const ConsoleTab: React.FC<{
       return true;
     });
   }, [events, filter, levelFilter]);
+
+  // Scroll to highlighted event
+  useEffect(() => {
+    if (highlightedTimestamp && listRef.current) {
+        
+        const targetId = `console-event-${highlightedTimestamp}`;
+        const element = document.getElementById(targetId);
+        
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Console Error Highlight (Red)
+            const highlightClasses = ['bg-rose-50', 'ring-4', 'ring-rose-200', 'z-20', 'scale-[1.02]', 'shadow-xl', 'transition-all', 'duration-500', 'relative'];
+            element.classList.add(...highlightClasses);
+            
+            setTimeout(() => {
+                element.classList.remove(...highlightClasses);
+            }, 3000); // Increased to 3s
+        }
+    }
+  }, [highlightedTimestamp]);
 
   const toggleLevel = (level: string) => {
     setLevelFilter((prev) =>
@@ -152,6 +175,9 @@ const ConsoleTab: React.FC<{
               const isExpanded = expandedRows.has(index);
               const hasStack = event.console_stack && event.console_stack.length > 0;
               
+              // Key for ID - use relative time
+              const relativeMs = new Date(event.timestamp).getTime() - sessionStartTime;
+              
               let rowClass = "hover:bg-gray-50 transition-colors";
               if (event.console_level === 'error') rowClass = "bg-rose-50/30 hover:bg-rose-50/50";
               if (event.console_level === 'warn') rowClass = "bg-amber-50/30 hover:bg-amber-50/50";
@@ -159,7 +185,8 @@ const ConsoleTab: React.FC<{
               return (
                 <div
                   key={index}
-                  className={`p-3 cursor-pointer group ${rowClass}`}
+                  id={`console-event-${relativeMs}`}
+                  className={`p-3 cursor-pointer group transition-all duration-300 relative ${rowClass}`}
                   onClick={() => handleClick(event)}
                 >
                   <div className="flex items-start gap-3">
@@ -213,7 +240,8 @@ const NetworkTab: React.FC<{
   events: NetworkEvent[];
   sessionStartTime: number;
   onSeek?: (timeMs: number) => void;
-}> = ({ events, sessionStartTime, onSeek }) => {
+  highlightedTimestamp?: number;
+}> = ({ events, sessionStartTime, onSeek, highlightedTimestamp }) => {
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'error'>('all');
 
@@ -225,6 +253,26 @@ const NetworkTab: React.FC<{
       return true;
     });
   }, [events, filter, statusFilter]);
+
+  // Scroll to highlighted event
+  useEffect(() => {
+      if (highlightedTimestamp) {
+          const targetId = `network-event-${highlightedTimestamp}`;
+          const element = document.getElementById(targetId);
+          
+          if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              
+              // Network Error Highlight (Amber)
+              const highlightClasses = ['bg-amber-50', 'ring-4', 'ring-amber-200', 'z-20', 'scale-[1.02]', 'shadow-xl', 'transition-all', 'duration-500'];
+              element.classList.add(...highlightClasses);
+              
+              setTimeout(() => {
+                  element.classList.remove(...highlightClasses);
+              }, 3000);
+          }
+      }
+  }, [highlightedTimestamp]);
 
   const handleClick = (event: NetworkEvent) => {
     if (onSeek) {
@@ -287,6 +335,7 @@ const NetworkTab: React.FC<{
               {filteredEvents.map((event, index) => {
                 const isError = event.network_status >= 400 || event.network_status === 0;
                 const isSlow = event.network_duration_ms > 2000;
+                const relativeMs = new Date(event.timestamp).getTime() - sessionStartTime;
                 
                 let statusClass = "bg-gray-100 text-gray-600";
                 if (event.network_status >= 200 && event.network_status < 300) statusClass = "bg-emerald-50 text-emerald-600 border border-emerald-100";
@@ -297,8 +346,9 @@ const NetworkTab: React.FC<{
                 return (
                   <tr
                     key={index}
+                    id={`network-event-${relativeMs}`}
                     onClick={() => handleClick(event)}
-                    className={`hover:bg-gray-50 cursor-pointer transition-colors group ${isError ? 'bg-rose-50/10' : ''}`}
+                    className={`hover:bg-gray-50 cursor-pointer transition-all duration-300 relative group ${isError ? 'bg-rose-50/10' : ''}`}
                   >
                     <td className="px-3 py-2.5 font-mono text-gray-400 text-[10px]">
                       {formatRelativeTime(event.timestamp, sessionStartTime)}
@@ -392,6 +442,127 @@ const PerformanceTab: React.FC<{
   );
 };
 
+// Signals Tab Component
+const SignalsTab: React.FC<{
+  signals: SessionSignal[];
+  sessionStartTime: number;
+  onSeek?: (timeMs: number) => void;
+  highlightedTimestamp?: number;
+}> = ({ signals, sessionStartTime, onSeek, highlightedTimestamp }) => {
+  const [filter, setFilter] = useState('');
+
+  const filteredSignals = useMemo(() => {
+    return signals.filter((s) => {
+      if (filter && !s.type.toLowerCase().includes(filter.toLowerCase())) return false;
+      return true;
+    });
+  }, [signals, filter]);
+
+  const handleClick = (signal: SessionSignal) => {
+    if (onSeek) {
+      const eventTime = new Date(signal.timestamp).getTime();
+      const relativeMs = eventTime - sessionStartTime;
+      onSeek(relativeMs);
+    }
+  };
+
+  // Scroll to highlighted event
+  useEffect(() => {
+    if (highlightedTimestamp) {
+        // Construct ID properly
+        const targetId = `signal-event-${highlightedTimestamp}`;
+        const element = document.getElementById(targetId);
+        
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Signal Highlight (Red/Orange)
+            const highlightClasses = ['bg-orange-50', 'ring-4', 'ring-orange-200', 'z-20', 'scale-[1.02]', 'shadow-xl', 'transition-all', 'duration-500'];
+            element.classList.add(...highlightClasses);
+            
+            setTimeout(() => {
+                element.classList.remove(...highlightClasses);
+            }, 3000);
+        }
+    }
+}, [highlightedTimestamp]);
+
+  return (
+    <div className="flex flex-col h-full bg-white">
+       {/* Filters */}
+       <div className="p-3 border-b border-indigo-50/60 bg-white space-y-3">
+        <div className="relative group">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+          <input
+            type="text"
+            placeholder="Filter signals..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+        {filteredSignals.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-gray-400 space-y-2">
+            <FiZap className="w-8 h-8 opacity-20" />
+            <span className="text-xs">No signals found</span>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {filteredSignals.map((signal, index) => {
+              const relativeMs = new Date(signal.timestamp).getTime() - sessionStartTime;
+              const isRageClick = signal.type === 'rage_click';
+              const isDeadClick = signal.type === 'dead_click';
+              
+              let icon = <FiZap className="w-4 h-4 text-gray-400" />;
+              let title = 'Signal';
+              let colorClass = 'text-gray-700';
+
+              if (isRageClick) {
+                  icon = <FiZap className="w-4 h-4 text-red-500" />;
+                  title = 'Rage Click';
+                  colorClass = 'text-red-700';
+              } else if (isDeadClick) {
+                  icon = <FiAlertCircle className="w-4 h-4 text-orange-500" />;
+                  title = 'Dead Click';
+                  colorClass = 'text-orange-700';
+              }
+
+              return (
+                <div
+                  key={index}
+                  id={`signal-event-${relativeMs}`}
+                  className="p-3 cursor-pointer hover:bg-gray-50 transition-all duration-300 group"
+                  onClick={() => handleClick(signal)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex-shrink-0">
+                        {icon}
+                    </div>
+                    <span className="text-[10px] text-gray-400 font-mono whitespace-nowrap mt-0.5 select-none">
+                      {formatRelativeTime(signal.timestamp, sessionStartTime)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-bold ${colorClass}`}>
+                        {title}
+                      </p>
+                      <pre className="mt-1 text-[10px] text-gray-500 font-mono overflow-x-auto">
+                        {JSON.stringify(signal.data, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Main DebugPanel Component
 export default function DebugPanel({
   sessionId,
@@ -401,8 +572,19 @@ export default function DebugPanel({
   onSeek,
   isOpen,
   onClose,
-}: DebugPanelProps) {
-  const [activeTab, setActiveTab] = useState<'console' | 'network' | 'performance'>('console');
+  highlightedEvent, // New prop
+  signals = [], // Default to empty array
+}: DebugPanelProps & { highlightedEvent?: { timestamp: number, type: string } | null }) {
+  const [activeTab, setActiveTab] = useState<'console' | 'network' | 'performance' | 'signals'>('console');
+
+  // Auto-switch tab based on highlighted event
+  useEffect(() => {
+    if (highlightedEvent) {
+      if (highlightedEvent.type === 'error') setActiveTab('console');
+      if (highlightedEvent.type === 'network-error') setActiveTab('network');
+      if (highlightedEvent.type === 'rage-click' || highlightedEvent.type === 'dead-click') setActiveTab('signals');
+    }
+  }, [highlightedEvent]);
 
   const { data, isLoading, error, hasErrors, hasNetworkIssues, hasPoorVitals, refresh } = useDebugData({
     sessionId,
@@ -443,16 +625,18 @@ export default function DebugPanel({
 
       {/* Tabs */}
       <div className="flex border-b border-gray-100 bg-white px-2 pt-2">
-        {(['console', 'network', 'performance'] as const).map((tab) => {
+        {(['console', 'network', 'performance', 'signals'] as const).map((tab) => {
             const isActive = activeTab === tab;
             let icon = <FiTerminal className="w-3.5 h-3.5" />;
             if(tab === 'network') icon = <FiGlobe className="w-3.5 h-3.5" />;
             if(tab === 'performance') icon = <FiActivity className="w-3.5 h-3.5" />;
+            if(tab === 'signals') icon = <FiZap className="w-3.5 h-3.5" />;
             
             let indicator = null;
             if(tab === 'console' && hasErrors) indicator = <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />;
             if(tab === 'network' && hasNetworkIssues) indicator = <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />;
             if(tab === 'performance' && hasPoorVitals) indicator = <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />;
+            if(tab === 'signals' && signals.length > 0) indicator = <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />;
 
             return (
                 <button
@@ -474,7 +658,6 @@ export default function DebugPanel({
             )
         })}
       </div>
-
       {/* Content */}
       <div className="flex-1 overflow-hidden bg-white">
         {isLoading ? (
@@ -484,6 +667,7 @@ export default function DebugPanel({
           </div>
         ) : error ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
+            {/* Error view */}
             <div className="p-3 bg-rose-50 rounded-full text-rose-500">
                 <FiAlertCircle className="w-6 h-6" />
             </div>
@@ -503,6 +687,7 @@ export default function DebugPanel({
                 events={data?.console || []}
                 sessionStartTime={sessionStartTime}
                 onSeek={onSeek}
+                highlightedTimestamp={highlightedEvent?.type === 'error' ? highlightedEvent.timestamp : undefined}
               />
             )}
             {activeTab === 'network' && (
@@ -510,10 +695,19 @@ export default function DebugPanel({
                 events={data?.network || []}
                 sessionStartTime={sessionStartTime}
                 onSeek={onSeek}
+                highlightedTimestamp={highlightedEvent?.type === 'network-error' ? highlightedEvent.timestamp : undefined}
               />
             )}
             {activeTab === 'performance' && (
               <PerformanceTab events={data?.webVitals || []} />
+            )}
+            {activeTab === 'signals' && (
+              <SignalsTab 
+                signals={signals} 
+                sessionStartTime={sessionStartTime}
+                onSeek={onSeek}
+                highlightedTimestamp={(highlightedEvent?.type === 'rage-click' || highlightedEvent?.type === 'dead-click') ? highlightedEvent.timestamp : undefined}
+              />
             )}
           </>
         )}
@@ -531,8 +725,12 @@ export default function DebugPanel({
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
                     {data.network.length} requests
                 </span>
+                 <span className="font-medium flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange-400"></div>
+                    {signals.length} signals
+                </span>
             </div>
-            <span className="font-mono opacity-50">v1.0.0</span>
+            <span className="font-mono opacity-50">v1.1.0</span>
         </div>
       )}
     </div>

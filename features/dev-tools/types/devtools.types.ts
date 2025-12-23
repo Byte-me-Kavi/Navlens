@@ -54,7 +54,7 @@ export interface DebugDataResponse {
 // Debug panel state
 export interface DebugPanelState {
     isOpen: boolean;
-    activeTab: 'console' | 'network' | 'performance';
+    activeTab: 'console' | 'network' | 'performance' | 'signals';
     consoleFilter: string;
     consoleLevelFilter: string[];
     networkFilter: string;
@@ -69,6 +69,13 @@ export interface TimelineMarker {
     details: string;
 }
 
+// Session signal event (rage clicks, dead clicks, etc.)
+export interface SessionSignal {
+    type: string;
+    timestamp: string;
+    data: Record<string, unknown>;
+}
+
 // Props for debug components
 export interface DebugPanelProps {
     sessionId: string;
@@ -78,6 +85,7 @@ export interface DebugPanelProps {
     onSeek?: (timeMs: number) => void;
     isOpen: boolean;
     onClose: () => void;
+    signals?: SessionSignal[]; // Added signals prop
 }
 
 export interface ConsoleTabProps {

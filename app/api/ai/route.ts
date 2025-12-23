@@ -11,7 +11,7 @@ import { getSystemPrompt, type AIContext, type SiteInfo } from './prompts';
 
 // Groq API configuration
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'llama-3.1-8b-instant';
 
 // History limits
 const MAX_HISTORY_MESSAGES = 6; // Keep last 6 messages (3 exchanges)
@@ -150,9 +150,9 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string> {
     });
 
     if (!response.ok) {
-        const error = await response.text();
-        console.error('Groq API error:', error);
-        throw new Error(`Groq API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Groq API error details:', errorText);
+        throw new Error(`Groq API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -177,9 +177,9 @@ async function streamAIResponse(messages: ChatMessage[]): Promise<ReadableStream
     });
 
     if (!response.ok) {
-        const error = await response.text();
-        console.error('Groq API error:', error);
-        throw new Error(`Groq API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Groq API error details:', errorText);
+        throw new Error(`Groq API error: ${response.status} - ${errorText}`);
     }
 
     const reader = response.body?.getReader();

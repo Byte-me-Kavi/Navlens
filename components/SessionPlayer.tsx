@@ -53,9 +53,15 @@ export interface RRWebEvent {
 interface SessionPlayerProps {
   events: RRWebEvent[];
   markers?: TimelineMarker[];
+  onMarkerClick?: (marker: TimelineMarker) => void;
 }
 
-export default function SessionPlayer({ events, markers = [] }: SessionPlayerProps) {
+export default function SessionPlayer({ events, markers = [], onMarkerClick }: SessionPlayerProps) {
+  // ... (keep existing refs and state)
+
+  // ... (keep existing code)
+
+
   const playerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerInstanceRef = useRef<any>(null);
@@ -367,6 +373,7 @@ export default function SessionPlayer({ events, markers = [] }: SessionPlayerPro
           onSpeedChange={handleSpeedChange}
           onSkipBackward={skipBackward}
           onSkipForward={skipForward}
+          onMarkerClick={onMarkerClick}
         />
     </div>
   );
