@@ -8,7 +8,7 @@ export function cleanRRWebEvents(events: RRWebEvent[]): RRWebEvent[] {
     const sorted = [...events].sort((a, b) => a.timestamp - b.timestamp);
 
     const uniqueEvents: RRWebEvent[] = [];
-    let hasSeenSnapshot = false;
+    const hasSeenSnapshot = false;
 
     sorted.forEach((event) => {
         // Handle Full Snapshot (Type 2)

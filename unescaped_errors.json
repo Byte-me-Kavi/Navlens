@@ -1,0 +1,75 @@
+[
+  {
+    "filePath": "C:\\Users\\Kavisha Munasinghe\\Desktop\\AI\\web heatmap\\heatmap-app\\app\\dashboard\\cohorts\\page.tsx",
+    "errors": [
+      {
+        "line": 1027,
+        "message": "`\"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`."
+      },
+      {
+        "line": 1027,
+        "message": "`\"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`."
+      },
+      {
+        "line": 1027,
+        "message": "`\"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`."
+      },
+      {
+        "line": 1027,
+        "message": "`\"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`."
+      }
+    ]
+  },
+  {
+    "filePath": "C:\\Users\\Kavisha Munasinghe\\Desktop\\AI\\web heatmap\\heatmap-app\\app\\dashboard\\experiments\\page.tsx",
+    "errors": [
+      {
+        "line": 1328,
+        "message": "`'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`."
+      }
+    ]
+  },
+  {
+    "filePath": "C:\\Users\\Kavisha Munasinghe\\Desktop\\AI\\web heatmap\\heatmap-app\\app\\dashboard\\feedback\\page.tsx",
+    "errors": [
+      {
+        "line": 377,
+        "message": "`\"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`."
+      },
+      {
+        "line": 377,
+        "message": "`\"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`."
+      }
+    ]
+  },
+  {
+    "filePath": "C:\\Users\\Kavisha Munasinghe\\Desktop\\AI\\web heatmap\\heatmap-app\\app\\dashboard\\heatmaps\\page.tsx",
+    "errors": [
+      {
+        "line": 224,
+        "message": "`\"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`."
+      },
+      {
+        "line": 224,
+        "message": "`\"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`."
+      }
+    ]
+  },
+  {
+    "filePath": "C:\\Users\\Kavisha Munasinghe\\Desktop\\AI\\web heatmap\\heatmap-app\\app\\refund\\page.tsx",
+    "errors": [
+      {
+        "line": 195,
+        "message": "`'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`."
+      },
+      {
+        "line": 195,
+        "message": "`'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`."
+      },
+      {
+        "line": 287,
+        "message": "`'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`."
+      }
+    ]
+  }
+]

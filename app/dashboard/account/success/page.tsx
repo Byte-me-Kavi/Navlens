@@ -283,8 +283,8 @@ export default function SubscriptionSuccessPage() {
         {/* Help Text */}
         <p className="text-center text-sm text-gray-500 mt-6">
           Questions? Contact us at{" "}
-          <a href="mailto:support@navlens.com" className="text-blue-600 hover:underline">
-            support@navlens.com
+          <a href="mailto:navlensanalytics@gmail.com" className="text-blue-600 hover:underline">
+            navlensanalytics@gmail.com
           </a>
         </p>
       </div>

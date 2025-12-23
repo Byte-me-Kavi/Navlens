@@ -20,6 +20,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { PLANS, FEATURE_LABELS } from '@/lib/plans/config';
 import { UpgradeModal } from "@/components/subscription/UpgradeModal";
+import { CancelModal } from "@/components/subscription/CancelModal";
 
 import { jsPDF } from "jspdf";
 
@@ -63,7 +64,7 @@ const PLAN_UI: Record<string, { icon: React.ElementType; color: string; badge: s
 };
 
 // Invoice Generator
-const generateInvoice = async (payment: PaymentRecord, planName: string, userName: string = 'Valued Customer', userEmail: string = '') => {
+const generateInvoice = async (payment: PaymentRecord, planName: string, userName: string = 'Valued Customer', userEmail: string = '', subscriptionId: string = '') => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -147,10 +148,20 @@ const generateInvoice = async (payment: PaymentRecord, planName: string, userNam
     doc.setFont("helvetica", "bold");
     doc.text(userName, 20, 64);
     
+    let billToY = 69;
     if (userEmail) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
-        doc.text(userEmail, 20, 69);
+        doc.text(userEmail, 20, billToY);
+        billToY += 5;
+    }
+    
+    // Add Subscription ID
+    if (subscriptionId) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(GRAY_COLOR);
+        doc.text(`Subscription ID: ${subscriptionId}`, 20, billToY);
     }
 
     // -- Item Table --
@@ -216,7 +227,36 @@ export function BillingTab() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [usage, setUsage] = useState<any>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [userData, setUserData] = useState<{ name: string; email: string }>({ name: '', email: '' });
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // Trigger modal
+  const handleCancelClick = () => {
+      setShowCancelModal(true);
+  };
+
+  // Actual cancellation logic
+  const confirmCancellation = async () => {
+      setIsCancelling(true);
+      try {
+          const res = await fetch('/api/payhere/cancel-subscription', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscriptionId: subscription?.id })
+          });
+          
+          if (!res.ok) throw new Error('Failed to cancel');
+          
+          // Refresh page
+          window.location.reload();
+      } catch (e) {
+          console.error(e);
+          alert('Failed to cancel subscription. Please contact support.');
+          setIsCancelling(false);
+          setShowCancelModal(false);
+      }
+  };
+  const [userData, setUserData] = useState<{ name: string; email: string; createdAt?: string }>({ name: '', email: '' });
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -231,7 +271,8 @@ export function BillingTab() {
 
         setUserData({
             name: user.user_metadata?.full_name || 'Valued Customer',
-            email: user.email || ''
+            email: user.email || '',
+            createdAt: user.created_at
         });
 
         // 1. Fetch Subscription
@@ -343,6 +384,12 @@ export function BillingTab() {
   const heatmapLimit = normPlanName === 'Free' ? 10 : null; // Hardcoded free limit
   const heatmapPct = heatmapLimit ? Math.min((heatmaps / heatmapLimit) * 100, 100) : 0;
 
+  // Calculate Trial Status
+  const daysSinceSignup = userData.createdAt 
+    ? Math.floor((new Date().getTime() - new Date(userData.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+  const isTrialExpired = isFree && daysSinceSignup > 30;
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
@@ -350,25 +397,62 @@ export function BillingTab() {
       <div className={`bg-white rounded-2xl p-6 sm:p-8 border shadow-sm transition-all ${isFree ? 'border-gray-200' : 'border-indigo-100 ring-4 ring-indigo-50/50'}`}>
         <div className="flex flex-col md:flex-row justify-between items-start gap-8">
             <div className="flex items-start gap-5">
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm ${ui.color}`}>
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm ${isTrialExpired ? 'bg-red-50 text-red-600' : ui.color}`}>
                    <ui.icon className="w-8 h-8" />
                 </div>
                 <div>
                     <div className="flex items-center gap-3 mb-1">
                         <h2 className="text-2xl font-bold text-gray-900">{normPlanName} Plan</h2>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${subscription?.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
-                            {subscription?.status || 'Active'}
-                        </span>
+                        {subscription?.cancel_at_period_end ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-50 text-orange-700 border border-orange-100">
+                                Cancels Soon
+                            </span>
+                        ) : isTrialExpired ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-100">
+                                Trial Expired
+                            </span>
+                        ) : (
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${subscription?.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+                                {subscription?.status || 'Active'}
+                            </span>
+                        )}
                     </div>
-                    <p className="text-gray-500 text-sm leading-relaxed max-w-md">
-                        {isFree 
-                            ? "Unlock the full potential of your analytics. Upgrade to Pro for unlimited access and advanced features." 
-                            : `You are currently on the ${normPlanName} plan. Your next billing date is approaching.`}
-                    </p>
+                    <div className="text-gray-500 text-sm leading-relaxed max-w-md space-y-1">
+                        <p>
+                            {isTrialExpired
+                                ? "Your 30-day free trial has ended. Please upgrade to Pro to regain access to your dashboard."
+                                : isFree 
+                                    ? `You are on the 30-day Free Trial (${30 - daysSinceSignup} days remaining). Upgrade to Pro for unlimited access.` 
+                                    : subscription?.cancel_at_period_end
+                                        ? `Your subscription will end on ${new Date(subscription.current_period_end).toLocaleDateString()}. You will not be charged again.`
+                                        : `You are currently on the ${normPlanName} plan. Your next billing date is ${new Date(subscription.current_period_end).toLocaleDateString()}.`}
+                        </p>
+                    </div>
+                    {/* Subscription ID Display */}
+                    {subscription?.id && (
+                        <div className="mt-3 flex items-center gap-2">
+                            <span className="text-xs font-medium text-indigo-600">Subscription ID:</span>
+                            <code className="px-2 py-0.5 bg-indigo-100 rounded text-xs font-mono text-indigo-600 select-all">
+                                {subscription.id}
+                            </code>
+                        </div>
+                    )}
+                    
+                    {/* Subtle Cancel Button - Only show if active and NOT already correcting */}
+                    {subscription?.status === 'active' && !isFree && !subscription?.cancel_at_period_end && (
+                        <div className="mt-2">
+                            <button 
+                                onClick={handleCancelClick}
+                                className="text-[11px] text-gray-400 hover:text-red-500 transition-colors border-b border-transparent hover:border-red-500 pb-0.5"
+                            >
+                                Cancel subscription
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <div className="flex flex-col gap-3 w-full md:w-auto min-w-[160px]">
+            {/* <div className="flex flex-col gap-3 w-full md:w-auto min-w-[160px]">
                 <button
                     onClick={() => setShowUpgradeModal(true)}
                     className={`
@@ -387,7 +471,7 @@ export function BillingTab() {
                         Renews {new Date(subscription.current_period_end).toLocaleDateString()}
                     </div>
                 )}
-            </div>
+            </div> */}
         </div>
 
         {/* Usage Stats - Enhanced Visuals */}
@@ -499,7 +583,7 @@ export function BillingTab() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <button 
-                                        onClick={() => generateInvoice(payment, normPlanName, userData.name, userData.email)}
+                                        onClick={() => generateInvoice(payment, normPlanName, userData.name, userData.email, subscription?.id || '')}
                                         className="text-indigo-600 hover:text-indigo-800 font-medium text-xs hover:underline transition-all flex items-center justify-end gap-1 ml-auto"
                                     >
                                         <ArrowUpRightIcon className="w-3 h-3" />
@@ -523,12 +607,33 @@ export function BillingTab() {
                 </tbody>
             </table>
         </div>
+        {/* Subtle refund link at the bottom */}
+        {subscription && !isFree && (
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/30">
+                <p className="text-xs text-gray-400 text-center">
+                    Need help with billing?{' '}
+                    <a
+                        href={`mailto:navlensanalytics@gmail.com?subject=Refund Request - ${subscription.id}&body=Hi Navlens Team,%0D%0A%0D%0AI would like to request a refund for my subscription.%0D%0A%0D%0ASubscription ID: ${subscription.id}%0D%0AAccount Email: ${userData.email}%0D%0APlan: ${normPlanName}%0D%0A%0D%0AReason for refund (optional):%0D%0A%0D%0AThank you.`}
+                        className="text-gray-500 hover:text-gray-700 underline"
+                    >
+                        Request a refund
+                    </a>
+                </p>
+            </div>
+        )}
       </div>
       
       <UpgradeModal 
         isOpen={showUpgradeModal} 
         onClose={() => setShowUpgradeModal(false)} 
         planName="Pro" 
+      />
+
+      <CancelModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={confirmCancellation}
+        isProcessing={isCancelling}
       />
     </div>
   );

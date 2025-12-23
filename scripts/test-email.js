@@ -1,46 +1,47 @@
 
-require('dotenv').config({ path: '.env.local' });
 const nodemailer = require('nodemailer');
+require('dotenv').config({ path: '.env.local' });
+
+const SMTP_EMAIL = process.env.SMTP_EMAIL || 'navlensanalytics@gmail.com';
+const SMTP_PASSWORD = process.env.SMTP_PASSWORD;
 
 async function testEmail() {
-    console.log('--- Email Diagnostic ---');
-    console.log('1. Checking Environment Variables...');
-    const user = process.env.SMTP_EMAIL;
-    const pass = process.env.SMTP_PASSWORD;
-    const admin = process.env.ADMIN_EMAIL;
+    console.log('📧 Testing Email Configuration...');
+    console.log(`User: ${SMTP_EMAIL}`);
+    console.log(`Password: ${SMTP_PASSWORD ? '****** (Set)' : 'MISSING'}`);
 
-    if (!user) console.error('❌ SMTP_EMAIL is missing');
-    else console.log(`✅ SMTP_EMAIL found: ${user}`);
-
-    if (!pass) console.error('❌ SMTP_PASSWORD is missing');
-    else console.log('✅ SMTP_PASSWORD found (length: ' + pass.length + ')');
-
-    if (!user || !pass) {
-        console.error('\nStopping. Please check .env.local');
+    if (!SMTP_PASSWORD) {
+        console.error('❌ Error: SMTP_PASSWORD is not set in .env.local');
         return;
     }
 
-    console.log('\n2. Attempting to send email...');
     const transporter = nodemailer.createTransport({
         service: 'gmail',
-        auth: { user, pass }
+        auth: {
+            user: SMTP_EMAIL,
+            pass: SMTP_PASSWORD,
+        },
     });
 
     try {
-        const info = await transporter.sendMail({
-            from: `"Test" <${user}>`,
-            to: admin || user,
-            subject: 'Test Email from NavLens',
-            text: 'If you see this, email sending is working correctly!'
+        console.log('Attempting to verify connection...');
+        await transporter.verify();
+        console.log('✅ Connection Successful!');
+
+        console.log('Attempting to send test email...');
+        await transporter.sendMail({
+            from: `"Navlens Test" <${SMTP_EMAIL}>`,
+            to: SMTP_EMAIL, // Send to self
+            subject: 'Test Email from Navlens',
+            text: 'If you see this, your SMTP credentials are correct!',
         });
-        console.log('✅ Email sent successfully!');
-        console.log('Message ID:', info.messageId);
+        console.log('✅ Test Email Sent Successfully!');
+        console.log('\nCONCLUSION: Your App Password works. Copy it exactly to Supabase.');
+
     } catch (error) {
-        console.error('❌ Failed to send email:');
-        console.error(error.message);
-        
+        console.error('❌ Connection Failed:', error.message);
         if (error.code === 'EAUTH') {
-            console.log('\n💡 Hint: Check your App Password. It should be 16 characters (spaces are fine).');
+            console.log('\nTIP: Double-check your App Password. It should be 16 characters, no spaces.');
         }
     }
 }

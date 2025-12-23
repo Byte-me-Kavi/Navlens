@@ -18,7 +18,7 @@ async function POST_handler(request: NextRequest) {
 
         const supabase = createClient();
         let targetUserIds: string[] = [];
-        let logDetails: any = { type, audience };
+        const logDetails: any = { type, audience };
 
         // Determine Target Users
         if (audience === 'all') {

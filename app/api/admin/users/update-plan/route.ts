@@ -28,94 +28,65 @@ async function POST_handler(request: NextRequest) {
             console.error('[AdminUpdatePlan] Fetch Error:', fetchError);
         }
 
-        let targetSubId = null;
-        let oldPlanId = null;
+        // STRATEGY: Aggressive Cleanup.
+        // If Admin forces a plan, we assume they want THIS plan to be the ONLY active one.
+        // We cancel ALL existing subscriptions (even if 'active' or 'future valid') to prevent "zombie" access.
 
         if (userSubs && userSubs.length > 0) {
-            // Filter implementation for strict single-active consistency
-            const activeSubs = userSubs.filter(s => s.status === 'active' || s.status === 'trialing');
+            console.log(`[AdminUpdatePlan] cancelling ${userSubs.length} existing subscriptions to enforce new plan.`);
 
-            if (activeSubs.length > 1) {
-                console.warn(`[AdminUpdatePlan] User ${userId} has ${activeSubs.length} active subscriptions. Auto-fixing...`);
-                // Keep newest, cancel others
-                const toKeep = activeSubs[0];
-                const toCancel = activeSubs.slice(1);
-
-                await supabase.from('subscriptions')
-                    .update({ status: 'canceled', cancel_at_period_end: false, canceled_at: new Date().toISOString() })
-                    .in('id', toCancel.map(s => s.id));
-
-                targetSubId = toKeep.id;
-                oldPlanId = toKeep.plan_id;
-            } else if (activeSubs.length === 1) {
-                targetSubId = activeSubs[0].id;
-                oldPlanId = activeSubs[0].plan_id;
-            } else {
-                // Reactivate newest inactive if possible, or just treat as new insert if we prefer.
-                // For safety with Gift logic, let's reuse the newest record if it exists to keep ID stable.
-                targetSubId = userSubs[0].id;
-                oldPlanId = userSubs[0].plan_id;
-            }
-        }
-
-        const existing = targetSubId ? { id: targetSubId } : null;
-
-        if (existing) {
-            // Update existing (Latest/Valid)
-            console.log(`[AdminUpdatePlan] Updating subscription ${existing.id} for user ${userId}`);
-            const { error: updateError } = await supabase
+            // Cancel ALL previous subscriptions immediately
+            const { error: cancelError } = await supabase
                 .from('subscriptions')
                 .update({
-                    plan_id: planId,
-                    status: 'active',
+                    status: 'canceled',
                     cancel_at_period_end: false,
-                    canceled_at: null,
-                    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                    canceled_at: new Date().toISOString(),
+                    // CRITICAL: Set period end to NOW so they stop being "valid" immediately
+                    current_period_end: new Date().toISOString()
                 })
-                .eq('id', existing.id);
+                .in('id', userSubs.map(s => s.id));
 
-            if (updateError) {
-                console.error('[AdminUpdatePlan] Update Error:', updateError);
-                throw updateError;
-            }
-        } else {
-            // Insert new
-            console.log(`[AdminUpdatePlan] Creating new subscription for user ${userId}`);
-            const { error: insertError } = await supabase
-                .from('subscriptions')
-                .insert({
-                    user_id: userId,
-                    plan_id: planId,
-                    status: 'active',
-                    current_period_start: new Date().toISOString(),
-                    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                    start_date: new Date().toISOString()
-                });
-
-            if (insertError) {
-                console.error('[AdminUpdatePlan] Insert Error:', insertError);
-                throw insertError;
-            }
-
-            // Get the ID of the inserted subscription for profile sync
-            const { data: newSub } = await supabase
-                .from('subscriptions')
-                .select('id')
-                .eq('user_id', userId)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (newSub) {
-                await supabase.from('profiles').update({ subscription_id: newSub.id }).eq('user_id', userId);
-                targetSubId = newSub.id;
+            if (cancelError) {
+                console.error('[AdminUpdatePlan] Failed to cancel old subs:', cancelError);
+                // Continue anyway to try and set the new one
             }
         }
 
-        // Ensure profile is synced for updates too
-        if (existing) {
-            await supabase.from('profiles').update({ subscription_id: existing.id }).eq('user_id', userId);
+        // Always INSERT a new clean subscription
+        console.log(`[AdminUpdatePlan] Creating new subscription for user ${userId}`);
+        const { error: insertError } = await supabase
+            .from('subscriptions')
+            .insert({
+                user_id: userId,
+                plan_id: planId,
+                status: 'active',
+                current_period_start: new Date().toISOString(),
+                current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                start_date: new Date().toISOString()
+            });
+
+        if (insertError) {
+            console.error('[AdminUpdatePlan] Insert Error:', insertError);
+            throw insertError;
         }
+
+        // Get the ID of the inserted subscription for profile sync
+        const { data: newSub } = await supabase
+            .from('subscriptions')
+            .select('id')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        let targetSubId = null;
+        if (newSub) {
+            await supabase.from('profiles').update({ subscription_id: newSub.id }).eq('user_id', userId);
+            targetSubId = newSub.id;
+        }
+
+
 
         // Fetch all plans to compare prices
         const { data: allPlans } = await supabase.from('subscription_plans').select('id, name, price_usd');
@@ -123,6 +94,9 @@ async function POST_handler(request: NextRequest) {
         const newPlan = planMap.get(planId);
 
         let isUpgrade = true; // Default to upgrade (optimistic)
+        // Since we force new, we don't have oldPlanId readily available unless we parse it from userSubs[0]
+        const oldPlanId = userSubs && userSubs.length > 0 ? userSubs[0].plan_id : null;
+
         if (oldPlanId && newPlan) {
             const oldPlan = planMap.get(oldPlanId);
             if (oldPlan) {

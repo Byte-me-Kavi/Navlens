@@ -138,7 +138,7 @@ const ConsoleTab: React.FC<{
           {['log', 'warn', 'error', 'info', 'debug'].map((level) => {
             const isActive = levelFilter.includes(level);
             let activeClass = "";
-            let inactiveClass = "bg-white border border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600";
+            const inactiveClass = "bg-white border border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600";
             
             switch(level) {
                 case 'error': activeClass = "bg-rose-50 text-rose-600 border border-rose-200"; break;

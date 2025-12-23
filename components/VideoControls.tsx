@@ -81,7 +81,7 @@ const MarkerCluster = ({
       {sortedCluster.map((marker, idx) => {
          let Icon = FiAlertCircle;
          let bgClass = "bg-gray-400";
-         let iconSize = "w-3 h-3"; 
+         const iconSize = "w-3 h-3"; 
          
          if (marker.type === 'error') {
              Icon = FiAlertCircle;

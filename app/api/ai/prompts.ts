@@ -26,7 +26,17 @@ export interface SiteInfo {
 // Concise base prompt with scope limitation
 const BASE = `You are Navlens AI, a web analytics assistant. Be concise, use bullets, highlight metrics, suggest improvements.
 
-IMPORTANT: You are ONLY an analytics AI. If users ask questions unrelated to web analytics, heatmaps, sessions, forms, A/B tests, or user behavior - politely decline and say: "I'm a web analytics AI assistant. I can only help with questions about your website analytics, user behavior, heatmaps, sessions, A/B tests, and feedback. How can I help with your analytics?"`;
+GENERAL INFO HANDLING:
+If the user asks about general platform information (Refunds, Privacy Policy, Terms, Contact), provide the following standard responses:
+- Refunds: "For refunds, please visit our Refund Policy page at /refund-policy or contact support."
+- Privacy: "You can view our Privacy Policy at /privacy to understand how we handle your data."
+- Terms: "Our Terms of Service are available at /terms."
+- Contact: "You can reach our support team via the Contact page or email navlensanalytics@gmail.com."
+
+IMPORTANT rules:
+1. USE ONLY THE DATA PROVIDED IN THE CONTEXT for analytics.
+2. If context has "0" or "No data", report 0. DO NOT HALLUCINATE.
+3. If users ask questions unrelated to analytics OR the general info above - politely decline.`;
 
 // Short context-specific prompts
 export const SYSTEM_PROMPTS: Record<AIContext, string> = {
@@ -76,6 +86,14 @@ Example Response:
     general: `${BASE} Help users understand their analytics data.`,
 };
 
+export interface DashboardStats {
+    totalClicks: number;
+    activeSessions: number;
+    topPages: { path: string; visits: number }[];
+    liveUsers: number;
+    frustration: { rageClicks: number; deadClicks: number; errors: number };
+}
+
 // Quick prompts (shortened)
 export const QUICK_PROMPTS: Record<AIContext, QuickPrompt[]> = {
     session: [
@@ -116,12 +134,26 @@ export const QUICK_PROMPTS: Record<AIContext, QuickPrompt[]> = {
 };
 
 // Build prompt with site info
-export function getSystemPrompt(context: AIContext, sites?: SiteInfo[]): string {
+export function getSystemPrompt(context: AIContext, sites?: SiteInfo[], stats?: DashboardStats): string {
     let prompt = SYSTEM_PROMPTS[context] || SYSTEM_PROMPTS.general;
 
     if (sites && sites.length > 0) {
         const siteList = sites.map(s => `• ${s.name} (${s.domain})`).join('\n');
         prompt += `\n\nUser's tracked sites:\n${siteList}`;
+    }
+
+    if (stats) {
+        prompt += `\n\nCURRENT REAL-TIME DASHBOARD STATS:
+(These are the ONLY real numbers. If they are 0, it means the user has 0 traffic. DO NOT HALLUCINATE.)
+- Live Users Now: ${stats.liveUsers}
+- Total Clicks (7d): ${stats.totalClicks}
+- Active Sessions (24h): ${stats.activeSessions}
+- Rage Clicks (Today): ${stats.frustration.rageClicks}
+- JS Errors (Today): ${stats.frustration.errors}
+
+Top Pages (7d):
+${stats.topPages.map(p => `- ${p.path}: ${p.visits} visits`).join('\n') || 'No data (0 visits)'}
+`;
     }
 
     return prompt;

@@ -205,15 +205,48 @@ export function ProfileTab() {
           </div>
 
           <div className="space-y-4">
-            <button
-              onClick={handleChangePassword}
-              className="w-full text-left px-5 py-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-300 hover:shadow-sm transition-all group"
-            >
-              <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-700">Change Password</span>
-                  <span className="text-xs text-gray-400 font-medium">Via Email</span>
-              </div>
-            </button>
+            <div className="bg-white border border-gray-200 rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Change Password</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">New Password</label>
+                        <input 
+                            type="password" 
+                            name="new_password" // Specific name to avoid browser autofill confusion
+                            autoComplete="new-password"
+                            placeholder="••••••••"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            id="new-password-input"
+                        />
+                    </div>
+                    <div>
+                        <button
+                            onClick={async () => {
+                                const input = document.getElementById('new-password-input') as HTMLInputElement;
+                                const newPassword = input.value;
+                                if (!newPassword) return setMessage({ type: 'error', text: 'Please enter a password' });
+                                if (newPassword.length < 6) return setMessage({ type: 'error', text: 'Password must be at least 6 characters' });
+                                
+                                setLoading(true);
+                                try {
+                                    const { error } = await supabase.auth.updateUser({ password: newPassword });
+                                    if (error) throw error;
+                                    setMessage({ type: 'success', text: 'Password updated successfully!' });
+                                    input.value = '';
+                                } catch (e: any) {
+                                    setMessage({ type: 'error', text: e.message });
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }}
+                            disabled={loading}
+                            className="w-full px-4 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                        >
+                            {loading ? 'Updating...' : 'Update Password'}
+                        </button>
+                    </div>
+                </div>
+            </div>
             
             <div className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-xl opacity-75">
                <div className="flex items-center justify-between">

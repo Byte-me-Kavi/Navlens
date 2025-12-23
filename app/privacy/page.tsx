@@ -18,169 +18,223 @@ export default function PrivacyPolicy() {
     {
       icon: EyeIcon,
       title: "1. Information We Collect",
-      content: `We collect information to provide and improve our analytics services. This includes:
-
-**Account Information:**
-• Email address and name when you register
-• Billing information for paid subscriptions
-• Communication preferences
-
-**Analytics Data:**
-• Website visitor interactions (clicks, scrolls, mouse movements)
-• Session recordings and heatmap data
-• Form interaction data (anonymized)
-• Page view and navigation patterns
-
-**Technical Data:**
-• Browser type and version
-• Device type and screen resolution
-• IP addresses (anonymized after processing)
-• Cookies and similar tracking technologies`,
+      content: (
+        <>
+          <p className="mb-3">We collect information to provide and improve our analytics services. This includes:</p>
+          <p className="font-semibold mt-4 mb-2">Account Information:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Email address and name when you register</li>
+            <li>Billing information for paid subscriptions</li>
+            <li>Communication preferences</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Analytics Data:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Website visitor interactions (clicks, scrolls, mouse movements)</li>
+            <li>Session recordings and heatmap data</li>
+            <li>Form interaction data (anonymized)</li>
+            <li>Page view and navigation patterns</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Technical Data:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Browser type and version</li>
+            <li>Device type and screen resolution</li>
+            <li>IP addresses (anonymized after processing)</li>
+            <li>Cookies and similar tracking technologies</li>
+          </ul>
+        </>
+      ),
     },
     {
       icon: ServerStackIcon,
       title: "2. How We Use Your Information",
-      content: `We use the collected information for the following purposes:
-
-• **Providing Services:** Generating heatmaps, session recordings, and analytics reports
-• **Account Management:** Processing subscriptions and communicating about your account
-• **Service Improvement:** Analyzing usage patterns to enhance our platform
-• **Security:** Detecting and preventing fraud, abuse, and security incidents
-• **Legal Compliance:** Meeting regulatory requirements and responding to legal requests
-
-We do NOT sell your personal information to third parties.`,
+      content: (
+        <>
+          <p className="mb-3">We use the collected information for the following purposes:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li><span className="font-semibold">Providing Services:</span> Generating heatmaps, session recordings, and analytics reports</li>
+            <li><span className="font-semibold">Account Management:</span> Processing subscriptions and communicating about your account</li>
+            <li><span className="font-semibold">Service Improvement:</span> Analyzing usage patterns to enhance our platform</li>
+            <li><span className="font-semibold">Security:</span> Detecting and preventing fraud, abuse, and security incidents</li>
+            <li><span className="font-semibold">Legal Compliance:</span> Meeting regulatory requirements and responding to legal requests</li>
+          </ul>
+          <p className="font-semibold text-green-700">We do NOT sell your personal information to third parties.</p>
+        </>
+      ),
     },
     {
       icon: FingerPrintIcon,
       title: "3. Data We Collect via Tracking Script",
-      content: `When our tracking script is installed on your websites, we collect:
-
-**Automatically Collected:**
-• Click coordinates and element information
-• Scroll depth and patterns
-• Mouse movement paths
-• Form field interactions (without actual input values)
-• Session duration and page navigation
-
-**Privacy by Design:**
-• All password and payment fields are automatically masked
-• Sensitive input patterns (emails, phones) are detected and anonymized
-• You can add custom masking using CSS classes
-• IP addresses are hashed and not stored in plain text`,
+      content: (
+        <>
+          <p className="mb-3">When our tracking script is installed on your websites, we collect:</p>
+          <p className="font-semibold mt-4 mb-2">Automatically Collected:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Click coordinates and element information</li>
+            <li>Scroll depth and patterns</li>
+            <li>Mouse movement paths</li>
+            <li>Form field interactions (without actual input values)</li>
+            <li>Session duration and page navigation</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Privacy by Design:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>All password and payment fields are automatically masked</li>
+            <li>Sensitive input patterns (emails, phones) are detected and anonymized</li>
+            <li>You can add custom masking using CSS classes</li>
+            <li>IP addresses are hashed and not stored in plain text</li>
+          </ul>
+        </>
+      ),
     },
     {
       icon: UserGroupIcon,
       title: "4. Data Sharing & Third Parties",
-      content: `We share data only in these limited circumstances:
-
-**Service Providers:**
-• Cloud hosting (Vercel, Supabase) for infrastructure
-• ClickHouse for analytics data storage
-• Payment processors (PayHere) for billing
-
-**Legal Requirements:**
-• When required by law, subpoena, or court order
-• To protect our rights, privacy, safety, or property
-
-**Business Transfers:**
-• In connection with a merger, acquisition, or sale of assets
-
-All service providers are bound by confidentiality agreements and data processing terms.`,
+      content: (
+        <>
+          <p className="mb-3">We share data only in these limited circumstances:</p>
+          <p className="font-semibold mt-4 mb-2">Service Providers:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Cloud hosting (Vercel, Supabase) for infrastructure</li>
+            <li>ClickHouse for analytics data storage</li>
+            <li>Payment processors (PayHere) for billing</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Legal Requirements:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>When required by law, subpoena, or court order</li>
+            <li>To protect our rights, privacy, safety, or property</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Business Transfers:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>In connection with a merger, acquisition, or sale of assets</li>
+          </ul>
+          <p className="mt-4 text-gray-600 italic">All service providers are bound by confidentiality agreements and data processing terms.</p>
+        </>
+      ),
     },
     {
       icon: GlobeAltIcon,
       title: "5. Your Rights (GDPR & CCPA)",
-      content: `Depending on your location, you may have the following rights:
-
-**Access & Portability:**
-• Request a copy of your personal data
-• Export your analytics data in common formats
-
-**Correction & Deletion:**
-• Correct inaccurate information
-• Request deletion of your data ("right to be forgotten")
-
-**Restriction & Objection:**
-• Restrict processing of your data
-• Object to processing for marketing purposes
-
-**Withdraw Consent:**
-• Withdraw consent at any time where processing is based on consent
-
-To exercise these rights, contact us at privacy@navlens.com`,
+      content: (
+        <>
+          <p className="mb-3">Depending on your location, you may have the following rights:</p>
+          <p className="font-semibold mt-4 mb-2">Access & Portability:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Request a copy of your personal data</li>
+            <li>Export your analytics data in common formats</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Correction & Deletion:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Correct inaccurate information</li>
+            <li>Request deletion of your data (&quot;right to be forgotten&quot;)</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Restriction & Objection:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Restrict processing of your data</li>
+            <li>Object to processing for marketing purposes</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Withdraw Consent:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>Withdraw consent at any time where processing is based on consent</li>
+          </ul>
+          <p>To exercise these rights, contact us at <a href="mailto:navlensanalytics@gmail.com" className="text-purple-600 hover:underline">navlensanalytics@gmail.com</a></p>
+        </>
+      ),
     },
     {
       icon: ClockIcon,
       title: "6. Data Retention",
-      content: `We retain data based on your subscription plan and legal requirements:
-
-**Analytics Data:**
-• Free Plan: 14 days
-• Starter Plan: 30 days
-• Pro Plan: 90 days
-• Enterprise Plan: 1 year
-
-**Account Data:**
-• Retained while your account is active
-• Deleted within 30 days of account closure
-
-**Backup Data:**
-• May be retained in encrypted backups for up to 90 days after deletion
-
-You can request earlier deletion by contacting support.`,
+      content: (
+        <>
+          <p className="mb-3">We retain data based on your subscription plan and legal requirements:</p>
+          <p className="font-semibold mt-4 mb-2">Analytics Data:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Free Plan: 14 days</li>
+            <li>Starter Plan: 30 days</li>
+            <li>Pro Plan: 90 days</li>
+            <li>Enterprise Plan: 1 year</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Account Data:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Retained while your account is active</li>
+            <li>Deleted within 30 days of account closure</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Backup Data:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>May be retained in encrypted backups for up to 90 days after deletion</li>
+          </ul>
+          <p>You can request earlier deletion by contacting support.</p>
+        </>
+      ),
     },
     {
       icon: ShieldCheckIcon,
       title: "7. Cookies & Tracking Technologies",
-      content: `We use cookies and similar technologies for:
-
-**Essential Cookies:**
-• Authentication and session management
-• Security and fraud prevention
-
-**Analytics Cookies:**
-• Understanding how visitors use our dashboard
-• Improving our services based on usage patterns
-
-**Preferences:**
-• Remembering your settings and preferences
-
-You can control cookies through your browser settings. Our tracking script uses localStorage for session management on your tracked websites.`,
+      content: (
+        <>
+          <p className="mb-3">We use cookies and similar technologies for:</p>
+          <p className="font-semibold mt-4 mb-2">Essential Cookies:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Authentication and session management</li>
+            <li>Security and fraud prevention</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Analytics Cookies:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Understanding how visitors use our dashboard</li>
+            <li>Improving our services based on usage patterns</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Preferences:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>Remembering your settings and preferences</li>
+          </ul>
+          <p>You can control cookies through your browser settings. Our tracking script uses localStorage for session management on your tracked websites.</p>
+        </>
+      ),
     },
     {
       icon: ServerStackIcon,
       title: "8. Security Measures",
-      content: `We implement industry-standard security measures:
-
-• **Encryption:** All data transmitted using TLS 1.3
-• **Access Controls:** Role-based access and two-factor authentication
-• **Infrastructure:** Secure cloud hosting with regular security audits
-• **Data Isolation:** Customer data is logically separated
-• **Monitoring:** 24/7 security monitoring and incident response
-
-Despite our efforts, no method of transmission over the internet is 100% secure. We cannot guarantee absolute security.`,
+      content: (
+        <>
+          <p className="mb-3">We implement industry-standard security measures:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li><span className="font-semibold">Encryption:</span> All data transmitted using TLS 1.3</li>
+            <li><span className="font-semibold">Access Controls:</span> Role-based access and two-factor authentication</li>
+            <li><span className="font-semibold">Infrastructure:</span> Secure cloud hosting with regular security audits</li>
+            <li><span className="font-semibold">Data Isolation:</span> Customer data is logically separated</li>
+            <li><span className="font-semibold">Monitoring:</span> 24/7 security monitoring and incident response</li>
+          </ul>
+          <p className="text-gray-600 italic">Despite our efforts, no method of transmission over the internet is 100% secure. We cannot guarantee absolute security.</p>
+        </>
+      ),
     },
     {
       icon: GlobeAltIcon,
       title: "9. International Data Transfers",
-      content: `Your data may be transferred to and processed in countries outside your residence. We ensure appropriate safeguards:
-
-• Standard Contractual Clauses (SCCs) for EU data transfers
-• Data Processing Agreements with all service providers
-• Compliance with applicable data protection laws
-
-By using our Service, you consent to these transfers.`,
+      content: (
+        <>
+          <p className="mb-3">Your data may be transferred to and processed in countries outside your residence. We ensure appropriate safeguards:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>Standard Contractual Clauses (SCCs) for EU data transfers</li>
+            <li>Data Processing Agreements with all service providers</li>
+            <li>Compliance with applicable data protection laws</li>
+          </ul>
+          <p>By using our Service, you consent to these transfers.</p>
+        </>
+      ),
     },
     {
       icon: ClockIcon,
       title: "10. Changes to This Policy",
-      content: `We may update this Privacy Policy from time to time. We will notify you of material changes by:
-
-• Posting the updated policy on this page
-• Updating the "Last Updated" date
-• Sending an email notification for significant changes
-
-Your continued use of the Service after changes constitutes acceptance of the updated policy.`,
+      content: (
+        <>
+          <p className="mb-3">We may update this Privacy Policy from time to time. We will notify you of material changes by:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>Posting the updated policy on this page</li>
+            <li>Updating the &quot;Last Updated&quot; date</li>
+            <li>Sending an email notification for significant changes</li>
+          </ul>
+          <p>Your continued use of the Service after changes constitutes acceptance of the updated policy.</p>
+        </>
+      ),
     },
   ];
 
@@ -289,10 +343,10 @@ Your continued use of the Service after changes constitutes acceptance of the up
               </p>
               <div className="flex flex-wrap justify-center gap-4">
                 <a
-                  href="mailto:privacy@navlens.com"
+                  href="mailto:navlensanalytics@gmail.com"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-linear-to-r from-purple-600 to-purple-700 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 transition-all duration-300"
                 >
-                  privacy@navlens.com
+                  navlensanalytics@gmail.com
                   <ArrowRightIcon className="w-5 h-5" />
                 </a>
                 <a

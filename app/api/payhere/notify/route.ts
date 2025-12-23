@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server-admin'; // Use service role
 import { verifyPayHereNotification } from '@/lib/payhere/hash';
 import { PAYHERE_STATUS_CODES } from '@/lib/payhere/types';
+import { sendSubscriptionActiveEmail } from '@/lib/email/service';
 
 export async function POST(req: NextRequest) {
     try {
@@ -68,12 +69,23 @@ export async function POST(req: NextRequest) {
             // Success - Activate subscription
             console.log('[PayHere Webhook] Payment successful, activating subscription');
 
-            // CRITICAL FIX: Cancel any EXISTING active subscriptions to prevent multiple active plans
-            await supabase
+            // CRITICAL FIX: Aggressively Cancel ALL EXISTING subscriptions to prevent multiple active plans
+            // This includes 'active', 'trialing', and even 'cancelled' ones that might have future end dates.
+            // We want the NEW payment to be the ONLY source of truth for access.
+            const { error: cleanupError } = await supabase
                 .from('subscriptions')
-                .update({ status: 'cancelled' })
-                .eq('user_id', userId)
-                .eq('status', 'active');
+                .update({
+                    status: 'cancelled',
+                    cancel_at_period_end: false,
+                    canceled_at: new Date().toISOString(),
+                    current_period_end: new Date().toISOString() // End immediately
+                })
+                .eq('user_id', userId);
+            // We do NOT filter by status here because we want to wipe the slate clean for this user.
+
+            if (cleanupError) {
+                console.error('[PayHere Webhook] Cleanup Error (Non-fatal):', cleanupError);
+            }
 
             // Find existing pending subscription or create new one
             const { data: existingSubscription } = await supabase
@@ -154,7 +166,18 @@ export async function POST(req: NextRequest) {
                     });
             }
 
-            // TODO: Send confirmation email to user
+            // Send confirmation email
+            try {
+                // Get user email
+                const { data: userData } = await supabase.auth.admin.listUsers();
+                const user = userData.users.find(u => u.id === userId);
+
+                if (user?.email) {
+                    await sendSubscriptionActiveEmail(user.email, planId === '2' ? 'Pro' : 'Enterprise');
+                }
+            } catch (emailError) {
+                console.error('[PayHere Webhook] Failed to send email:', emailError);
+            }
 
         } else if (['0'].includes(notification.status_code)) {
             // Pending

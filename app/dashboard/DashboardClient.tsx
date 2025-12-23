@@ -140,8 +140,19 @@ const DashboardClient: React.FC = () => {
 
   // Handle AI insights for dashboard
   const handleAIInsights = () => {
+    // Pass dashboard stats in the format expected by the AI route
     openChat('dashboard', {
-      stats: data,
+      dashboardStats: data ? {
+        totalClicks: data.stats.totalClicks.value,
+        activeSessions: data.stats.activeSessions.value,
+        topPages: data.topPages || [],
+        liveUsers: data.liveUsers || 0,
+        frustration: {
+          rageClicks: data.frustration?.rageClicks || 0,
+          deadClicks: data.frustration?.deadClicks || 0,
+          errors: data.frustration?.errors || 0,
+        },
+      } : undefined,
       timestamp: new Date().toISOString(),
     });
   };

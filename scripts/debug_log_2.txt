@@ -1,0 +1,20 @@
+User Age: 31 days
+
+[Sub ID: f6a95fbf-3a1d-48ae-bd80-2b6752effdc6]
+   - Status: pending
+   - Ends: null
+   - Plan ID: bc40237f-5464-4a5e-aa42-b9c655853d5f
+   - Plan Name: UNKNOWN PLAN
+   - Middleware sees as 'Paid'? true
+[Sub ID: 8fbbb9a8-1b98-4b1e-9348-263d01c29aa2]
+   - Status: canceled
+   - Ends: 2026-01-20T15:42:21.236
+   - Plan ID: 98fdfbea-d093-4a93-990e-0b7b709e093b
+   - Plan Name: UNKNOWN PLAN
+   - Middleware sees as 'Paid'? true
+[Sub ID: 849d276d-f1b6-4c9c-9610-ae6c9d7df119]
+   - Status: active
+   - Ends: 2026-01-22T13:27:25.265
+   - Plan ID: 34db65db-eec8-492a-b4a4-208ec912efa8
+   - Plan Name: UNKNOWN PLAN
+   - Middleware sees as 'Paid'? false

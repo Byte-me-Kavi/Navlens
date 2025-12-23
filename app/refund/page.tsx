@@ -37,94 +37,126 @@ export default function RefundPolicy() {
   const sections = [
     {
       title: "Eligibility for Refund",
-      content: `You are eligible for a refund under the following conditions:
-
-**30-Day Money-Back Guarantee:**
-• All paid subscription plans are covered
-• Request must be made within 30 days of initial purchase
-• Applies to first-time subscribers only
-• Available once per customer
-
-**Pro-Rated Refunds (Annual Plans):**
-• Available after the 30-day guarantee period
-• Calculated based on unused full months remaining
-• Must be requested before the next billing cycle`,
+      content: (
+        <>
+          <p className="mb-3">You are eligible for a refund under the following conditions:</p>
+          <p className="font-semibold mt-4 mb-2">30-Day Money-Back Guarantee:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>All paid subscription plans are covered</li>
+            <li>Request must be made within 30 days of initial purchase</li>
+            <li>Applies to first-time subscribers only</li>
+            <li>Available once per customer</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Pro-Rated Refunds (Annual Plans):</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Available after the 30-day guarantee period</li>
+            <li>Calculated based on unused full months remaining</li>
+            <li>Must be requested before the next billing cycle</li>
+          </ul>
+        </>
+      ),
     },
     {
       title: "Non-Refundable Items",
-      content: `The following are NOT eligible for refunds:
-
-• Renewal charges after the initial 30-day period (for monthly plans)
-• Partial month usage (refunds are based on full months only)
-• Accounts terminated for Terms of Service violations
-• Refund requests made after 30 days (monthly plans)
-• Additional usage charges or overages
-• Custom enterprise agreements (separate terms apply)`,
+      content: (
+        <>
+          <p className="mb-3">The following are NOT eligible for refunds:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Renewal charges after the initial 30-day period (for monthly plans)</li>
+            <li>Partial month usage (refunds are based on full months only)</li>
+            <li>Accounts terminated for Terms of Service violations</li>
+            <li>Refund requests made after 30 days (monthly plans)</li>
+            <li>Additional usage charges or overages</li>
+            <li>Custom enterprise agreements (separate terms apply)</li>
+          </ul>
+        </>
+      ),
     },
     {
       title: "How to Request a Refund",
-      content: `To request a refund, please follow these steps:
-
-**Step 1:** Log into your Navlens dashboard
-
-**Step 2:** Navigate to Settings → Subscription
-
-**Step 3:** Click "Request Refund" or contact our support team
-
-**Alternative:** Email us at billing@navlens.com with:
-• Your account email address
-• Subscription ID (found in your billing settings)
-• Reason for refund (optional, helps us improve)
-
-Our team typically responds within 24 hours.`,
+      content: (
+        <>
+          <p className="mb-3">To request a refund, please follow these steps:</p>
+          <p className="font-semibold mt-4 mb-2">Step 1:</p>
+          <p className="mb-2">Log into your Navlens dashboard</p>
+          <p className="font-semibold mt-4 mb-2">Step 2:</p>
+          <p className="mb-2">Navigate to Settings → Subscription</p>
+          <p className="font-semibold mt-4 mb-2">Step 3:</p>
+          <p className="mb-2">Click &quot;Request Refund&quot; or contact our support team</p>
+          <p className="font-semibold mt-4 mb-2">Alternative:</p>
+          <p className="mb-2">Email us at <a href="mailto:navlensanalytics@gmail.com" className="text-blue-600 hover:underline">navlensanalytics@gmail.com</a> with:</p>
+          <ul className="list-disc pl-6 space-y-1 mt-2">
+            <li>Your account email address</li>
+            <li>Subscription ID (found in your billing settings)</li>
+            <li>Reason for refund (optional, helps us improve)</li>
+          </ul>
+          <p className="mt-4">Our team typically responds within 24 hours.</p>
+        </>
+      ),
     },
     {
       title: "Refund Processing Time",
-      content: `Once your refund request is approved:
-
-**Credit/Debit Cards:**
-• Refunds are processed within 5-7 business days
-• May take additional 3-5 days to appear on your statement
-
-**PayHere Wallet:**
-• Refunds are processed within 2-3 business days
-
-**Bank Transfers:**
-• May take up to 10 business days depending on your bank
-
-You will receive an email confirmation once the refund is initiated.`,
+      content: (
+        <>
+          <p className="mb-3">Once your refund request is approved:</p>
+          <p className="font-semibold mt-4 mb-2">Credit/Debit Cards:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Refunds are processed within 5-7 business days</li>
+            <li>May take additional 3-5 days to appear on your statement</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">PayHere Wallet:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Refunds are processed within 2-3 business days</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Bank Transfers:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>May take up to 10 business days depending on your bank</li>
+          </ul>
+          <p>You will receive an email confirmation once the refund is initiated.</p>
+        </>
+      ),
     },
     {
       title: "Subscription Cancellation vs. Refund",
-      content: `It's important to understand the difference:
-
-**Cancellation:**
-• You retain access until the end of your current billing period
-• No refund is issued for the remaining time
-• Your data is retained for 30 days after expiration
-• You can resubscribe at any time
-
-**Refund:**
-• Access is terminated immediately upon refund approval
-• Full or pro-rated amount is returned to your payment method
-• Your data is scheduled for deletion within 30 days
-
-You can cancel your subscription at any time from your dashboard without requesting a refund.`,
+      content: (
+        <>
+          <p className="mb-3">It&apos;s important to understand the difference:</p>
+          <p className="font-semibold mt-4 mb-2">Cancellation:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>You retain access until the end of your current billing period</li>
+            <li>No refund is issued for the remaining time</li>
+            <li>Your data is retained for 30 days after expiration</li>
+            <li>You can resubscribe at any time</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Refund:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>Access is terminated immediately upon refund approval</li>
+            <li>Full or pro-rated amount is returned to your payment method</li>
+            <li>Your data is scheduled for deletion within 30 days</li>
+          </ul>
+          <p>You can cancel your subscription at any time from your dashboard without requesting a refund.</p>
+        </>
+      ),
     },
     {
       title: "Downgrades & Plan Changes",
-      content: `If you wish to change your plan instead of requesting a refund:
-
-**Upgrading:**
-• Difference is charged immediately
-• New features become available instantly
-
-**Downgrading:**
-• Change takes effect at the end of your billing cycle
-• No refund for the difference in plan price
-• Current features remain until the cycle ends
-
-Consider downgrading if you need fewer features rather than canceling entirely.`,
+      content: (
+        <>
+          <p className="mb-3">If you wish to change your plan instead of requesting a refund:</p>
+          <p className="font-semibold mt-4 mb-2">Upgrading:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Difference is charged immediately</li>
+            <li>New features become available instantly</li>
+          </ul>
+          <p className="font-semibold mt-4 mb-2">Downgrading:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>Change takes effect at the end of your billing cycle</li>
+            <li>No refund for the difference in plan price</li>
+            <li>Current features remain until the cycle ends</li>
+          </ul>
+          <p>Consider downgrading if you need fewer features rather than canceling entirely.</p>
+        </>
+      ),
     },
   ];
 
@@ -234,11 +266,11 @@ Consider downgrading if you need fewer features rather than canceling entirely.`
                     View FAQs
                   </a>
                   <a
-                    href="mailto:billing@navlens.com"
+                    href="mailto:navlensanalytics@gmail.com"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
                   >
                     <EnvelopeIcon className="w-4 h-4" />
-                    billing@navlens.com
+                    navlensanalytics@gmail.com
                   </a>
                 </div>
               </div>

@@ -47,7 +47,7 @@ export default function ContactPage() {
       icon: EnvelopeIcon,
       title: "Email Us",
       description: "Send us an email anytime",
-      value: "support@navlens.com",
+      value: "navlensanalytics@gmail.com",
       color: "blue",
     },
     {

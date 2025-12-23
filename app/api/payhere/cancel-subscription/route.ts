@@ -6,14 +6,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@/lib/supabase/server-admin';
+import { createClient as createUserClient } from '@/lib/supabase/server';
+import { sendSubscriptionCancelledEmail } from '@/lib/email/service';
 
 export async function POST(req: NextRequest) {
     try {
-        const supabase = await createClient();
+        const supabaseUser = await createUserClient();
+        const supabaseAdmin = createAdminClient();
 
-        // Check authentication
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        // Check authentication (User Client)
+        const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
 
         if (authError || !user) {
             return NextResponse.json(
@@ -34,7 +37,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Verify user owns this subscription
-        const { data: subscription, error: fetchError } = await supabase
+        const { data: subscription, error: fetchError } = await supabaseUser
             .from('subscriptions')
             .select('*')
             .eq('id', subscriptionId)
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
         // Update subscription
         if (immediate) {
             // Cancel immediately
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabaseAdmin
                 .from('subscriptions')
                 .update({
                     status: 'cancelled',
@@ -72,14 +75,14 @@ export async function POST(req: NextRequest) {
             }
 
             // Remove from profile
-            await supabase
+            await supabaseAdmin
                 .from('profiles')
                 .update({ subscription_id: null })
                 .eq('user_id', user.id);
 
         } else {
             // Cancel at period end
-            const { error: updateError } = await supabase
+            const { error: updateError } = await supabaseAdmin
                 .from('subscriptions')
                 .update({
                     cancel_at_period_end: true,
@@ -90,6 +93,14 @@ export async function POST(req: NextRequest) {
             if (updateError) {
                 throw updateError;
             }
+        }
+
+        // Send cancellation email
+        if (user.email) {
+            // Run in background to not block response
+            sendSubscriptionCancelledEmail(user.email).catch(err =>
+                console.error('Failed to send cancellation email:', err)
+            );
         }
 
         // TODO: Call PayHere Subscription Manager API to cancel on their end

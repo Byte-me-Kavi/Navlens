@@ -26,7 +26,7 @@ export default function Footer() {
               {/* Social Links */}
               <div className="flex gap-3">
                 <a
-                  href="mailto:contact@navlens.com"
+                  href="mailto:navlensanalytics@gmail.com"
                   className="w-9 h-9 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 flex items-center justify-center text-blue-600 transition-all duration-200 hover:scale-110 backdrop-blur-sm"
                 >
                   <span className="sr-only">Email</span>

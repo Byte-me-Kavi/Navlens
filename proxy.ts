@@ -136,6 +136,73 @@ export default async function middleware(request: NextRequest) {
         return response;
     }
 
+    // ============================================
+    // FREE TIER ENFORCEMENT (30 DAYS)
+    // ============================================
+    if (session && pathname.startsWith('/dashboard') && pathname !== '/dashboard/account') {
+        try {
+            // Check if user is older than 30 days
+            const createdAt = new Date(session.user.created_at);
+            const now = new Date();
+            const daysSinceSignup = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+
+            if (daysSinceSignup > 30) {
+                // Check for ANY paid subscription (active, trialing, OR cancelled-but-still-valid)
+                // Free Plan UUID: 34db65db-eec8-492a-b4a4-208ec912efa8
+                const { data: subscriptions } = await supabase
+                    .from('subscriptions')
+                    .select('status, plan_id, cancel_at_period_end, current_period_end')
+                    .eq('user_id', session.user.id)
+                    .neq('plan_id', '34db65db-eec8-492a-b4a4-208ec912efa8')
+                    .order('current_period_end', { ascending: false });
+
+                let hasActivePaidSub = false;
+
+                if (subscriptions && subscriptions.length > 0) {
+                    // Check if ANY subscription is valid
+                    hasActivePaidSub = subscriptions.some(sub => {
+                        const now = new Date();
+                        // Handle null dates safely
+                        if (!sub.current_period_end) return false;
+
+                        const periodEnd = new Date(sub.current_period_end);
+
+                        // Valid if:
+                        // 1. Status is active/trialing
+                        // 2. OR Status is cancelled but period hasn't ended yet
+                        const isActiveStatus = ['active', 'trialing'].includes(sub.status);
+                        const isWithinPeriod = periodEnd > now;
+
+                        return isActiveStatus || isWithinPeriod;
+                    });
+                }
+
+                // If no active paid sub, BLOCKED
+                if (!hasActivePaidSub) {
+                    const redirectUrl = new URL('/dashboard/account', request.url);
+                    // Add query params
+                    redirectUrl.searchParams.set('tab', 'billing');
+                    if (!request.nextUrl.searchParams.has('error')) {
+                        redirectUrl.searchParams.set('error', 'trial_expired');
+                    }
+
+                    const redirectResponse = NextResponse.redirect(redirectUrl);
+
+                    // Set toast cookie
+                    redirectResponse.cookies.set('x-toast-message', 'Your 30-day Free Trial has ended. Please upgrade to continue.', {
+                        maxAge: 5,
+                        path: '/',
+                    });
+
+                    return redirectResponse;
+                }
+            }
+        } catch (err) {
+            console.error('Middleware/Proxy enforcement error:', err);
+            // Fail open (allow access) on error to prevent total lockout if DB fails
+        }
+    }
+
     // If logged in and accessing home page, redirect to dashboard with success toast
     // Triggered when user clicks sign in button or comes from login flow
     const signInClicked = searchParams.get('signin') === 'true' || request.cookies.get('x-signin-clicked')?.value === 'true';
@@ -172,4 +239,3 @@ export const config = {
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 };
-

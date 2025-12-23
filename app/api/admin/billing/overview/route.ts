@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
         const plans = plansRes.data || [];
         const sites = sitesRes.data || [];
 
+        // Debug: Log plan limits structure
+        console.log('[AdminBilling] Plans from DB:', plans.map(p => ({ name: p.name, limits: p.limits })));
+
         // 2. Map Data
         const planMap = new Map(plans.map(p => [p.id, p]));
         const siteOwnerMap = new Map(sites.map(s => [s.id, s.user_id]));
@@ -44,11 +47,11 @@ export async function GET(request: NextRequest) {
 
         // 3. ClickHouse Usage Query
         // Get usage for all sites in the last 30 days (or since period start)
-        // For simplicity, we query last 30 days for everyone to detect current velocity
+        // Count unique sessions per site for billing purposes
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
         const chQuery = `
-            SELECT site_id, count(*) as count 
+            SELECT site_id, uniq(session_id) as session_count, count(*) as event_count 
             FROM events 
             WHERE timestamp >= toDateTime('${thirtyDaysAgo.slice(0, 19).replace('T', ' ')}')
             GROUP BY site_id
@@ -63,9 +66,12 @@ export async function GET(request: NextRequest) {
             // Non-blocking, continue with 0 usage
         }
 
-        const siteUsageMap = new Map<string, number>();
+        const siteUsageMap = new Map<string, { sessions: number; events: number }>();
         usageData.forEach((row: any) => {
-            siteUsageMap.set(row.site_id, parseInt(row.count));
+            siteUsageMap.set(row.site_id, {
+                sessions: parseInt(row.session_count) || 0,
+                events: parseInt(row.event_count) || 0
+            });
         });
 
         // 4. Aggregate per User
@@ -91,13 +97,20 @@ export async function GET(request: NextRequest) {
             }
 
             const siteIds = userSitesMap.get(user.id) || [];
-            const totalEvents = siteIds.reduce((sum, siteId) => sum + (siteUsageMap.get(siteId) || 0), 0);
+            const usage = siteIds.reduce((sum, siteId) => {
+                const siteUsage = siteUsageMap.get(siteId);
+                return sum + (siteUsage?.sessions || 0);
+            }, 0);
+            const totalEvents = siteIds.reduce((sum, siteId) => {
+                const siteUsage = siteUsageMap.get(siteId);
+                return sum + (siteUsage?.events || 0);
+            }, 0);
 
-            // Parse limits json
+            // Parse limits json - use 'sessions' key which matches our plan config
             let limit = 0;
             if (plan?.limits && typeof plan.limits === 'object') {
-                // @ts-ignore
-                limit = plan.limits.events_per_month || 0;
+                // @ts-ignore - Check for 'sessions' key (from config.ts)
+                limit = plan.limits.sessions || plan.limits.events_per_month || 0;
             }
 
             // Status
@@ -114,9 +127,9 @@ export async function GET(request: NextRequest) {
                 plan_name: plan?.name || 'Unknown',
                 price: plan?.price_usd || 0,
                 status: sub?.status || 'free',
-                usage: totalEvents,
+                usage: usage,
                 limit: limit,
-                usage_percent: limit > 0 ? Math.round((totalEvents / limit) * 100) : 0,
+                usage_percent: limit > 0 ? Math.round((usage / limit) * 100) : 0,
                 is_churned: !!isChurned,
                 churn_date: churnDate
             };

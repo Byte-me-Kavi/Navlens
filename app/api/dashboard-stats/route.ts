@@ -300,7 +300,7 @@ export async function GET() {
     let activeSessions = 0;
     let sessionTrend = { value: 0, isPositive: true };
     let topPages: { path: string; visits: number }[] = [];
-    let weeklyActivity: { date: string; clicks: number }[] = [];
+    const weeklyActivity: { date: string; clicks: number }[] = [];
 
     // Handle ClickHouse (Cached) Response
     if (clickHouseResult[0].status === 'fulfilled') {

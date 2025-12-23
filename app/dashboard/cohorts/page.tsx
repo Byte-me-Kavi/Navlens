@@ -1024,7 +1024,7 @@ export default function CohortsDashboard() {
                     <h3 className="text-lg font-bold text-gray-900">What are Behavioral Cohorts?</h3>
                 </div>
                 <p className="text-gray-600 mb-5 leading-relaxed pl-10">
-                    Cohorts allow you to segment your users based on specific actions or attributes—like "Users from Canada" or "Visitors who rage clicked". 
+                    Cohorts allow you to segment your users based on specific actions or attributes—like &quot;Users from Canada&quot; or &quot;Visitors who rage clicked&quot;. 
                     Creating cohorts helps you understand how different groups behave, convert, and experience your site differently.
                 </p>
                 <div className="flex flex-wrap gap-3 pl-10">

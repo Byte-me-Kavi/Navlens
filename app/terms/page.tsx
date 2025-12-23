@@ -16,73 +16,122 @@ export default function TermsOfService() {
     {
       icon: DocumentTextIcon,
       title: "1. Acceptance of Terms",
-      content: `By accessing or using Navlens ("Service"), you agree to be bound by these Terms of Service ("Terms"). If you disagree with any part of these terms, you may not access the Service.
-
-These Terms apply to all visitors, users, and others who access or use the Service. By using the Service, you represent that you are at least 18 years of age, or the age of majority in your jurisdiction.`,
+      content: (
+        <>
+          <p className="mb-3">
+            By accessing or using Navlens (&quot;Service&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you disagree with any part of these terms, you may not access the Service.
+          </p>
+          <p>
+            These Terms apply to all visitors, users, and others who access or use the Service. By using the Service, you represent that you are at least 18 years of age, or the age of majority in your jurisdiction.
+          </p>
+        </>
+      ),
     },
     {
       icon: UserGroupIcon,
       title: "2. Description of Service",
-      content: `Navlens provides web analytics services including heatmaps, session recordings, form analytics, A/B testing, and user behavior insights. We offer various subscription tiers with different feature sets and usage limits.
-
-The Service is provided "as is" and "as available" without warranties of any kind. We reserve the right to modify, suspend, or discontinue the Service at any time with reasonable notice.`,
+      content: (
+        <>
+          <p className="mb-3">
+            Navlens provides web analytics services including heatmaps, session recordings, form analytics, A/B testing, and user behavior insights. We offer various subscription tiers with different feature sets and usage limits.
+          </p>
+          <p>
+            The Service is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind. We reserve the right to modify, suspend, or discontinue the Service at any time with reasonable notice.
+          </p>
+        </>
+      ),
     },
     {
       icon: ShieldCheckIcon,
       title: "3. User Accounts & Responsibilities",
-      content: `You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You must:
-
-• Provide accurate and complete registration information
-• Notify us immediately of any unauthorized use of your account
-• Ensure your use complies with applicable laws and regulations
-• Obtain necessary consents before tracking users on your websites
-• Not use the Service for any unlawful or prohibited purposes`,
+      content: (
+        <>
+          <p className="mb-3">You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You must:</p>
+          <ul className="list-disc pl-6 space-y-1">
+            <li>Provide accurate and complete registration information</li>
+            <li>Notify us immediately of any unauthorized use of your account</li>
+            <li>Ensure your use complies with applicable laws and regulations</li>
+            <li>Obtain necessary consents before tracking users on your websites</li>
+            <li>Not use the Service for any unlawful or prohibited purposes</li>
+          </ul>
+        </>
+      ),
     },
     {
       icon: ScaleIcon,
       title: "4. Intellectual Property",
-      content: `The Service and its original content, features, and functionality are owned by Navlens and are protected by international copyright, trademark, and other intellectual property laws.
-
-You retain ownership of any data you submit through the Service. By using the Service, you grant us a limited license to process your data solely for providing the Service.
-
-Our tracking scripts, dashboards, and analytics tools remain our proprietary technology and may not be copied, modified, or reverse-engineered.`,
+      content: (
+        <>
+          <p className="mb-3">
+            The Service and its original content, features, and functionality are owned by Navlens and are protected by international copyright, trademark, and other intellectual property laws.
+          </p>
+          <p className="mb-3">
+            You retain ownership of any data you submit through the Service. By using the Service, you grant us a limited license to process your data solely for providing the Service.
+          </p>
+          <p>
+            Our tracking scripts, dashboards, and analytics tools remain our proprietary technology and may not be copied, modified, or reverse-engineered.
+          </p>
+        </>
+      ),
     },
     {
       icon: ExclamationTriangleIcon,
       title: "5. Limitation of Liability",
-      content: `To the maximum extent permitted by law, Navlens shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to:
-
-• Loss of profits, data, or business opportunities
-• Service interruptions or data accuracy issues
-• Third-party actions or content on tracked websites
-• Events beyond our reasonable control
-
-Our total liability shall not exceed the amount paid by you in the 12 months preceding the claim.`,
+      content: (
+        <>
+          <p className="mb-3">To the maximum extent permitted by law, Navlens shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>Loss of profits, data, or business opportunities</li>
+            <li>Service interruptions or data accuracy issues</li>
+            <li>Third-party actions or content on tracked websites</li>
+            <li>Events beyond our reasonable control</li>
+          </ul>
+          <p>Our total liability shall not exceed the amount paid by you in the 12 months preceding the claim.</p>
+        </>
+      ),
     },
     {
       icon: DocumentTextIcon,
       title: "6. Termination",
-      content: `We may terminate or suspend your account immediately, without prior notice, for any breach of these Terms. Upon termination:
-
-• Your right to use the Service will cease immediately
-• We may delete your data after a reasonable retention period
-• Provisions that by their nature should survive will remain in effect
-
-You may cancel your subscription at any time from your account settings. Access continues until the end of your billing period.`,
+      content: (
+        <>
+          <p className="mb-3">We may terminate or suspend your account immediately, without prior notice, for any breach of these Terms. Upon termination:</p>
+          <ul className="list-disc pl-6 space-y-1 mb-4">
+            <li>Your right to use the Service will cease immediately</li>
+            <li>We may delete your data after a reasonable retention period</li>
+            <li>Provisions that by their nature should survive will remain in effect</li>
+          </ul>
+          <p>You may cancel your subscription at any time from your account settings. Access continues until the end of your billing period.</p>
+        </>
+      ),
     },
     {
       icon: ScaleIcon,
       title: "7. Governing Law & Disputes",
-      content: `These Terms shall be governed by the laws of the jurisdiction in which Navlens operates, without regard to conflict of law principles.
-
-Any disputes arising from these Terms or the Service shall be resolved through good-faith negotiation. If negotiation fails, disputes shall be submitted to binding arbitration in accordance with applicable arbitration rules.`,
+      content: (
+        <>
+          <p className="mb-3">
+            These Terms shall be governed by the laws of the jurisdiction in which Navlens operates, without regard to conflict of law principles.
+          </p>
+          <p>
+            Any disputes arising from these Terms or the Service shall be resolved through good-faith negotiation. If negotiation fails, disputes shall be submitted to binding arbitration in accordance with applicable arbitration rules.
+          </p>
+        </>
+      ),
     },
     {
       icon: DocumentTextIcon,
       title: "8. Changes to Terms",
-      content: `We reserve the right to modify these Terms at any time. We will provide notice of material changes by email or through the Service.
-
-Your continued use of the Service after changes constitute acceptance of the new Terms. If you do not agree to the modified Terms, you must stop using the Service.`,
+      content: (
+        <>
+          <p className="mb-3">
+            We reserve the right to modify these Terms at any time. We will provide notice of material changes by email or through the Service.
+          </p>
+          <p>
+            Your continued use of the Service after changes constitute acceptance of the new Terms. If you do not agree to the modified Terms, you must stop using the Service.
+          </p>
+        </>
+      ),
     },
   ];
 

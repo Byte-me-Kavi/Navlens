@@ -91,7 +91,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   const supabase = supabaseRef.current;
 
   useEffect(() => {
-    setIsHydrated(true); // eslint-disable-line react-hooks/set-state-in-effect
+    setIsHydrated(true);  
   }, []);
 
   // Centralized fetch function - called once, used everywhere
@@ -193,7 +193,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
           throw new Error("Failed to fetch pages");
         }
 
-        let data = await response.json();
+        const data = await response.json();
 
 
 

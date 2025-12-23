@@ -2,16 +2,17 @@
  * Unified AI API Endpoint - Optimized
  * 
  * Features: History limiting, message summarization, site awareness
+ * Dashboard stats are passed from the client via contextData.dashboardStats
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { getSystemPrompt, type AIContext, type SiteInfo } from './prompts';
+import { getSystemPrompt, type AIContext, type SiteInfo, type DashboardStats } from './prompts';
 
 // Groq API configuration
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.1-8b-instant';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 // History limits
 const MAX_HISTORY_MESSAGES = 6; // Keep last 6 messages (3 exchanges)
@@ -102,10 +103,13 @@ function buildMessages(
         { role: 'system', content: systemPrompt }
     ];
 
-    // Add context data (compact format)
+    // Add context data (compact format) - exclude dashboardStats as it's already in system prompt
     if (contextData && Object.keys(contextData).length > 0) {
-        const compactData = JSON.stringify(contextData);
-        messages.push({ role: 'system', content: `Data: ${compactData}` });
+        const { dashboardStats, ...restContextData } = contextData;
+        if (Object.keys(restContextData).length > 0) {
+            const compactData = JSON.stringify(restContextData);
+            messages.push({ role: 'system', content: `Data: ${compactData}` });
+        }
     }
 
     // Handle history with limiting
@@ -262,8 +266,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Build messages with site awareness
-        const systemPrompt = getSystemPrompt(context, sites || undefined);
+        // Extract dashboard stats from contextData (passed from client)
+        const dashboardStats = contextData?.dashboardStats as DashboardStats | undefined;
+
+        // Build messages with site awareness and stats
+        const systemPrompt = getSystemPrompt(context, sites || undefined, dashboardStats);
         const messages = buildMessages(systemPrompt, message, contextData, history);
 
         // Handle streaming vs non-streaming
@@ -288,3 +295,4 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+

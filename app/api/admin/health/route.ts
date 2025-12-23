@@ -12,7 +12,7 @@ async function GET_handler() {
     // 1. Check Supabase (Status + Basic Usage Proxy)
     let supabaseStatus = 'unknown';
     let supabaseLatency = 0;
-    let supabaseUsage = { size_bytes: 0, row_estimate: 0 };
+    const supabaseUsage = { size_bytes: 0, row_estimate: 0 };
 
     try {
         const sbStart = performance.now();
@@ -37,7 +37,7 @@ async function GET_handler() {
 
     // 2. Check ClickHouse (Status + Storage Stats)
     const chHealth = await checkClickHouseHealth();
-    let chUsage = { size_bytes: 0, rows: 0, monthly_requests: 0 };
+    const chUsage = { size_bytes: 0, rows: 0, monthly_requests: 0 };
 
     if (chHealth.healthy) {
         try {
