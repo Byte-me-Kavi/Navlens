@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { validators, ValidationError, validateRequestSize } from '@/lib/validation';
+import { validators, validateRequestSize } from '@/lib/validation';
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
 import { parseRequestBody } from '@/lib/decompress';
@@ -95,7 +95,7 @@ interface DebugEventsPayload {
 }
 
 // Create admin Supabase client
-const supabaseAdmin = createClient(
+const _supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
                 values: insertData,
                 format: 'JSONEachRow',
             });
-        } catch (dbError) {
+        } catch (dbError: unknown) {
             console.error('[v1/debug-events] ClickHouse insert error:', dbError);
             return jsonResponse({ error: 'Failed to store debug events' }, 500, origin);
         }
@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
 
         return response;
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[v1/debug-events] Error:', error);
         return jsonResponse({ error: 'Internal server error' }, 500, origin);
     }

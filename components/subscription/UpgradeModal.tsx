@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, CheckIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
@@ -14,7 +14,7 @@ interface UpgradeModalProps {
 }
 
 export function UpgradeModal({ isOpen, onClose, planName = 'Pro', featureName }: UpgradeModalProps) {
-  // @ts-ignore
+  // @ts-expect-error - Dynamic plan lookup uses string key
   const targetPlan = PLANS[planName.toUpperCase()] || PLANS.PRO;
   
   return (

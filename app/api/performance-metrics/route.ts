@@ -13,7 +13,7 @@ interface PerformanceMetric {
     sessions: number;
 }
 
-interface DeviceBreakdown {
+interface _DeviceBreakdown {
     deviceType: string;
     avgLcp: number;
     avgCls: number;
@@ -23,7 +23,7 @@ interface DeviceBreakdown {
     sessions: number;
 }
 
-interface BrowserBreakdown {
+interface _BrowserBreakdown {
     browser: string;
     avgLcp: number;
     avgCls: number;
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
                         browsers,
                         vitals: vitalsMap,
                     };
-                } catch (queryError) {
+                } catch (queryError: unknown) {
                     console.error('[performance-metrics] Query error:', queryError);
                     return { trends: [], devices: [], browsers: [], vitals: {} };
                 }
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
             browserBreakdown: data.browsers,
             overall: overallMetrics,
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[performance-metrics] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

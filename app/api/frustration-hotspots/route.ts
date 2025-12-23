@@ -3,7 +3,7 @@ import { getClickHouseClient } from '@/lib/clickhouse';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { apiCache, generateCacheKey, withCache } from '@/lib/cache';
 
-interface FrustrationHotspot {
+interface _FrustrationHotspot {
     pagePath: string;
     elementSelector: string;
     x: number;
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         };
 
         return NextResponse.json({ hotspots, summary });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[frustration-hotspots] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

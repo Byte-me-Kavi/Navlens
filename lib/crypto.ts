@@ -27,8 +27,9 @@ function getCrypto() {
     }
     // Fallback for older Node.js environments
     try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         return require('node:crypto').webcrypto;
-    } catch (e) {
+    } catch (_e) {
         throw new Error('Web Crypto API not available');
     }
 }
@@ -48,7 +49,7 @@ async function getKey(usage: 'encrypt' | 'decrypt'): Promise<CryptoKey> {
  * Encrypts a JSON-serializable payload using AES-GCM.
  * Returns a string in format "IV_HEX:CIPHERTEXT_HEX"
  */
-export async function encryptData(data: any): Promise<string> {
+export async function encryptData(data: unknown): Promise<string> {
     const crypto = getCrypto();
     const json = JSON.stringify(data);
     const encoded = new TextEncoder().encode(json);
@@ -71,7 +72,7 @@ export async function encryptData(data: any): Promise<string> {
  * Decrypts a string in format "IV_HEX:CIPHERTEXT_HEX".
  * Returns the parsed JSON object.
  */
-export async function decryptData<T = any>(ciphertext: string): Promise<T> {
+export async function decryptData<T = unknown>(ciphertext: string): Promise<T> {
     const crypto = getCrypto();
     const [ivHex, dataHex] = ciphertext.split(':');
 

@@ -58,7 +58,7 @@ export default function FunnelsPage() {
     setSelectedSiteId(siteId);
   };
 
-  const handleViewFunnel = (funnelId: string) => {
+  const _handleViewFunnel = (funnelId: string) => {
     router.push(`/dashboard/funnels/${funnelId}`);
   };
 

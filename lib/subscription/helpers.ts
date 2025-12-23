@@ -61,7 +61,7 @@ export async function hasFeatureAccess(
 
         if (!freePlan) return false;
 
-        const features = freePlan.features as any;
+        const features = freePlan.features as Record<string, unknown>;
         return features[featureName] === true || features[featureName] === 'basic';
     }
 
@@ -70,7 +70,7 @@ export async function hasFeatureAccess(
     const plan = Array.isArray(subPlans) ? subPlans[0] : subPlans;
     if (!plan) return false;
 
-    const features = plan.features as any;
+    const features = plan.features as Record<string, unknown>;
 
     // Check if feature exists and is enabled
     if (typeof features[featureName] === 'boolean') {

@@ -31,6 +31,45 @@ const DISTRIBUTION_COLORS = {
   high: '#ef4444',   // Red
 };
 
+// Tooltip interface for type safety
+interface FrustrationTooltipPayloadItem {
+  name: string;
+  value: number;
+  payload: {
+    name: string;
+    value: number;
+    color: string;
+  };
+}
+
+interface FrustrationTooltipProps {
+  active?: boolean;
+  payload?: FrustrationTooltipPayloadItem[];
+  totalSessions: number;
+}
+
+// Custom tooltip - defined outside component to avoid creating during render
+function FrustrationCustomTooltip({ active, payload, totalSessions }: FrustrationTooltipProps) {
+  if (active && payload && payload.length) {
+    const item = payload[0];
+    return (
+      <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-100">
+        <p className="font-semibold text-gray-900 flex items-center gap-2">
+          <span 
+            className="w-3 h-3 rounded-full" 
+            style={{ backgroundColor: item.payload.color }}
+          ></span>
+          {item.name} Frustration
+        </p>
+        <p className="text-sm text-gray-600 mt-1">
+          {item.value} sessions ({((item.value / totalSessions) * 100).toFixed(1)}%)
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function FrustrationSignalsPanel({
   data,
   onRefresh,
@@ -69,27 +108,6 @@ export function FrustrationSignalsPanel({
 
   const avgColor = getFrustrationColor(avgFrustrationScore);
 
-  // Custom tooltip for pie chart
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0];
-      return (
-        <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-100">
-          <p className="font-semibold text-gray-900 flex items-center gap-2">
-            <span 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: item.payload.color }}
-            ></span>
-            {item.name} Frustration
-          </p>
-          <p className="text-sm text-gray-600 mt-1">
-            {item.value} sessions ({((item.value / data.totalSessions) * 100).toFixed(1)}%)
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${className}`}>
@@ -199,7 +217,7 @@ export function FrustrationSignalsPanel({
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<FrustrationCustomTooltip totalSessions={data.totalSessions} />} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (

@@ -7,6 +7,8 @@ import { getClickHouseClient } from '@/lib/clickhouse';
 
 // --- Type Definitions ---
 // Helper for safe result handling
+// Helper for safe result handling
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const handleResult = (result: PromiseSettledResult<any>, transform: (data: any) => any, fallback: any = undefined) => {
   if (result.status === 'fulfilled') {
     try {
@@ -17,20 +19,6 @@ const handleResult = (result: PromiseSettledResult<any>, transform: (data: any) 
   }
   return fallback;
 };
-
-interface ClickData {
-  total_clicks: number;
-}
-
-interface TrendData {
-  current_clicks: number;
-  prev_clicks: number;
-}
-
-interface SessionData {
-  current_active: number;
-  prev_active: number;
-}
 
 // --- Helper Function ---
 function calculateTrend(current: number, previous: number) {
@@ -55,7 +43,7 @@ const clickHouseClient = getClickHouseClient();
 // Everyone else gets the saved result instantly.
 const getCachedAnalytics = unstable_cache(
   async (siteIds: string[]) => {
-    const start = performance.now();
+    const _start = performance.now();
 
     // Optimized Query using precalculated dashboard_stats_hourly table
     const queryPromise = clickHouseClient.query({
@@ -81,7 +69,7 @@ const getCachedAnalytics = unstable_cache(
 );
 
 export async function GET() {
-  const start = performance.now(); // Metric for logging
+  const _start = performance.now(); // Metric for logging
 
   try {
     // 1. Await cookies (Required for Next.js 15+)
@@ -304,6 +292,7 @@ export async function GET() {
 
     // Handle ClickHouse (Cached) Response
     if (clickHouseResult[0].status === 'fulfilled') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = clickHouseResult[0].value as { data: any[] }; // simplified type
       const megaData = data.data[0];
       const currentClicks = megaData?.current_clicks || 0;
@@ -330,7 +319,9 @@ export async function GET() {
 
     // Handle Top Pages Response
     if (clickHouseResult[2].status === 'fulfilled') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = clickHouseResult[2].value as { data: any[] };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       topPages = data.data.map((row: any) => ({
         path: row.page_path,
         visits: +row.count
@@ -339,8 +330,10 @@ export async function GET() {
 
     // Handle Weekly Activity Response
     if (clickHouseResult[3].status === 'fulfilled') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = clickHouseResult[3].value as { data: any[] };
       // Create a map of existing data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dataMap = new Map(data.data.map((row: any) => [row.day.split(' ')[0], +row.clicks]));
 
       // Fill in last 7 days including today
@@ -354,7 +347,9 @@ export async function GET() {
     }
 
     // Process New Metrics (Live, Frustration, Sessions, Devices, Vitals)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const liveUsers = handleResult(clickHouseResult[4], (d: any) => +d.data[0]?.count || 0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const frustration = handleResult(clickHouseResult[5], (d: any) => {
       // d contains: { data: [...], errors: { data: [...] } }
       const frustData = d.data?.[0] || {};
@@ -366,7 +361,9 @@ export async function GET() {
       };
     }, { rageClicks: 0, deadClicks: 0, errors: 0 });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const recentSessions = handleResult(clickHouseResult[6], (d: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return d.data.map((row: any) => {
         const durationMs = new Date(row.end_time).getTime() - new Date(row.start_time).getTime();
         const minutes = Math.floor(durationMs / 60000);
@@ -388,13 +385,16 @@ export async function GET() {
       });
     }, []);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const deviceStats = handleResult(clickHouseResult[7], (d: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return d.data.map((row: any) => ({
         device: row.device_type || 'Desktop',
         count: +row.count
       }));
     }, []);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const webVitals = handleResult(clickHouseResult[8], (d: any) => ({
       lcp: +(d.data[0]?.lcp || 0).toFixed(2),
       cls: 0 // Placeholder
@@ -423,7 +423,8 @@ export async function GET() {
       }
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

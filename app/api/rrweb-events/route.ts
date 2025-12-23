@@ -259,7 +259,7 @@ export async function POST(req: NextRequest) {
             console.log(`[rrweb-events] Success - ${events.length} events in ${duration}ms`);
             const response = NextResponse.json({ success: true });
             return addTrackerCorsHeaders(response, origin, true);
-        } catch (dbError) {
+        } catch (dbError: unknown) {
             console.error('[rrweb-events] Database operation failed:', dbError);
             const response = NextResponse.json({
                 error: 'Database operation failed',

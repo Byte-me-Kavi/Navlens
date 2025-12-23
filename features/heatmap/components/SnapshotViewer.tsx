@@ -54,7 +54,7 @@ export function SnapshotViewer({
   pagePath,
   deviceType,
   userDevice = "desktop",
-  showElements = true,
+  showElements: _showElements = true,
   showHeatmap = true,
   dataType = "clicks",
   onIframeScroll,

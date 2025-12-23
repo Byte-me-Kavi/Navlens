@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { authenticateAndAuthorize, createUnauthenticatedResponse } from '@/lib/auth';
-import { getClickHouseClient } from '@/lib/clickhouse';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-interface Cohort {
-    id: string;
-    name: string;
-    description: string;
-    site_id: string;
-    rules: CohortRule[];
-    created_at: string;
-    created_by: string;
-}
 
 interface CohortRule {
     field: string;
@@ -58,7 +47,7 @@ export async function GET(request: NextRequest) {
             console.warn('[cohorts] Query failed:', queryError);
             return NextResponse.json({ cohorts: [], tableNotFound: true });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[cohorts] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
@@ -167,7 +156,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ cohort: data }, { status: 201 });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[cohorts] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
@@ -211,7 +200,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[cohorts] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

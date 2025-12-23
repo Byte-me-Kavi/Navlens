@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from '@/shared/services/api/client';
-import { FormAnalyticsResponse, FormSummary, FieldMetrics } from '../types/formAnalytics.types';
+import { FormAnalyticsResponse, FieldMetrics } from '../types/formAnalytics.types';
 
 /**
  * Get list of forms with summary metrics

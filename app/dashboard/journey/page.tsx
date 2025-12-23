@@ -7,7 +7,6 @@ import { secureApi } from "@/lib/secureApi";
 import { useDateRange } from "@/context/DateRangeContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
-import DateRangePicker from "@/components/ui/DateRangePicker";
 import { FeatureLock } from '@/components/subscription/FeatureLock';
 import {
   FiArrowRight,
@@ -89,7 +88,7 @@ const PALETTE = [
   { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', full: 'bg-yellow-50 text-yellow-700 border-yellow-200', hex: '#eab308' },
 ];
 
-const HOMEPAGE_COLOR = PALETTE[0]; // Blue for homepage
+const _HOMEPAGE_COLOR = PALETTE[0]; // Blue for homepage
 
 // Page list component
 const PageList = ({ 
@@ -196,7 +195,7 @@ const PathCard = ({ journey, rank, getPathColor }: { journey: JourneyPath; rank:
 
 export default function JourneyDashboard() {
   const { selectedSiteId, sites, sitesLoading } = useSite();
-  const { dateRange, formatForApi } = useDateRange();
+  const { dateRange: _dateRange, formatForApi: _formatForApi } = useDateRange();
   const [data, setData] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState("24h");

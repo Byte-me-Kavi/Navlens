@@ -78,7 +78,7 @@ export function DeleteFunnelModal({
 
                 <div className="mt-2">
                   <p className="text-sm text-gray-500">
-                    Are you sure you want to delete <span className="font-semibold text-gray-900">"{funnelName}"</span>? This action cannot be undone and all data associated with this funnel will be permanently removed.
+                    Are you sure you want to delete <span className="font-semibold text-gray-900">&quot;{funnelName}&quot;</span>? This action cannot be undone and all data associated with this funnel will be permanently removed.
                   </p>
                 </div>
 

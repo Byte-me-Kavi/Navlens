@@ -16,6 +16,8 @@ interface SankeyDiagramProps {
   getColor?: (name: string) => string;
 }
 
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomNode = ({ x, y, width, height, index, payload, containerWidth, getColor }: any) => {
   if (isNaN(x) || isNaN(y) || isNaN(width) || isNaN(height)) return null;
 
@@ -65,6 +67,7 @@ const CustomNode = ({ x, y, width, height, index, payload, containerWidth, getCo
   );
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload }: any) => {
   if (!active || !payload || !payload.length) return null;
   const data = payload[0];

@@ -5,7 +5,7 @@ import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedRespon
 
 // --- Type Definitions ---
 interface ExcludedPathRow {
-  page_path: string;
+    page_path: string;
 }
 
 // Initialize Supabase admin client
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
 
         const excludedPaths = (data || []).map((d: ExcludedPathRow) => d.page_path);
         return NextResponse.json({ excludedPaths }, { status: 200 });
-    } catch (error: Error | unknown) {
+    } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('[excluded-paths] POST Error:', error);
         return NextResponse.json(
@@ -192,7 +192,7 @@ export async function DELETE(req: NextRequest) {
             { message: 'Path removed from exclusion list', pagePath },
             { status: 200 }
         );
-    } catch (error: Error | unknown) {
+    } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('[excluded-paths] DELETE Error:', error);
         return NextResponse.json(

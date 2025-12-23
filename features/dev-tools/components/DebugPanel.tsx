@@ -16,7 +16,6 @@ import {
   FiGlobe,
   FiActivity,
   FiSearch,
-  FiFilter,
   FiAlertCircle,
   FiAlertTriangle,
   FiInfo,
@@ -560,29 +559,29 @@ const SignalsTab: React.FC<{
               const relativeMs = new Date(signal.timestamp).getTime() - sessionStartTime;
               const isRageClick = signal.type === 'rage_click';
               const isDeadClick = signal.type === 'dead_click';
-              const data = signal.data as any; // Cast for user friendly access
+              const data = signal.data as Record<string, unknown>; // Cast for user friendly access
               
               let icon = <FiZap className="w-4 h-4 text-gray-400" />;
               let title = 'Signal';
               let colorClass = 'text-gray-700';
-              let badgeClass = 'bg-gray-100 text-gray-600';
+              let _badgeClass = 'bg-gray-100 text-gray-600';
 
               if (isRageClick) {
                   icon = <FiZap className="w-4 h-4 text-red-500" />;
                   title = 'Rage Click';
                   colorClass = 'text-red-900';
-                  badgeClass = 'bg-red-50 text-red-700 border border-red-100';
+                  _badgeClass = 'bg-red-50 text-red-700 border border-red-100';
               } else if (isDeadClick) {
                   icon = <FiAlertCircle className="w-4 h-4 text-orange-500" />;
                   title = 'Dead Click';
                   colorClass = 'text-orange-900';
-                  badgeClass = 'bg-orange-50 text-orange-700 border border-orange-100';
+                  _badgeClass = 'bg-orange-50 text-orange-700 border border-orange-100';
               }
 
-              const elementSelector = data?.element_selector ? getCleanSelector(data.element_selector) : null;
-              const elementTag = data?.element_tag ? `<${data.element_tag.toUpperCase()}>` : 'Unknown';
-              const xPos = data?.x ? Math.round(data.x) : '?';
-              const yPos = data?.y ? Math.round(data.y) : '?';
+              const elementSelector = data?.element_selector ? getCleanSelector(String(data.element_selector)) : null;
+              const elementTag = data?.element_tag ? `<${String(data.element_tag).toUpperCase()}>` : 'Unknown';
+              const xPos = data?.x ? Math.round(Number(data.x)) : '?';
+              const yPos = data?.y ? Math.round(Number(data.y)) : '?';
 
               return (
                 <div
@@ -611,7 +610,7 @@ const SignalsTab: React.FC<{
                            {elementSelector && (
                                <div className="flex flex-col">
                                    <span className="text-[9px] uppercase tracking-wider font-bold text-gray-400">Element</span>
-                                   <code className="text-[10px] text-indigo-700 font-mono break-all py-0.5" title={data?.element_selector}>
+                                   <code className="text-[10px] text-indigo-700 font-mono break-all py-0.5" title={data?.element_selector ? String(data.element_selector) : undefined}>
                                        {elementSelector}
                                    </code>
                                </div>
@@ -651,16 +650,34 @@ export default function DebugPanel({
   highlightedEvent, // New prop
   signals = [], // Default to empty array
 }: DebugPanelProps & { highlightedEvent?: { timestamp: number, type: string } | null }) {
-  const [activeTab, setActiveTab] = useState<'console' | 'network' | 'performance' | 'signals'>('console');
-
-  // Auto-switch tab based on highlighted event
-  useEffect(() => {
+  // Derive tab from highlighted event - avoid using effect with setState
+  const derivedTab = useMemo((): 'console' | 'network' | 'performance' | 'signals' => {
     if (highlightedEvent) {
-      if (highlightedEvent.type === 'error') setActiveTab('console');
-      if (highlightedEvent.type === 'network-error') setActiveTab('network');
-      if (highlightedEvent.type === 'rage-click' || highlightedEvent.type === 'dead-click') setActiveTab('signals');
+      if (highlightedEvent.type === 'error') return 'console';
+      if (highlightedEvent.type === 'network-error') return 'network';
+      if (highlightedEvent.type === 'rage-click' || highlightedEvent.type === 'dead-click') return 'signals';
     }
+    return 'console';
   }, [highlightedEvent]);
+  
+  const [activeTabOverride, setActiveTabOverride] = useState<'console' | 'network' | 'performance' | 'signals' | null>(null);
+  
+  // Use derived tab from prop, or user-selected override
+  const activeTab = activeTabOverride ?? derivedTab;
+  
+  // When user manually clicks a tab, set the override
+  const setActiveTab = (tab: 'console' | 'network' | 'performance' | 'signals') => {
+    setActiveTabOverride(tab);
+  };
+  
+  // Reset override when highlightedEvent changes (use state tracking for render-phase update)
+  const [prevHighlightedEvent, setPrevHighlightedEvent] = useState(highlightedEvent);
+  
+  if (highlightedEvent !== prevHighlightedEvent) {
+    setPrevHighlightedEvent(highlightedEvent);
+    // Reset override to allow derived tab to take effect
+    setActiveTabOverride(null);
+  }
 
   const { data, isLoading, error, hasErrors, hasNetworkIssues, hasPoorVitals, refresh } = useDebugData({
     sessionId,

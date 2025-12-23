@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
-import { apiClient } from "@/shared/services/api/client";
 import { secureApi } from "@/lib/secureApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import NoSiteSelected, { NoSitesAvailable } from "@/components/NoSiteSelected";
@@ -24,7 +23,6 @@ import {
   FiChevronUp,
   FiX,
   FiAlertTriangle,
-  FiAlertCircle,
   FiMousePointer,
   FiCornerUpLeft,
   FiTerminal,
@@ -385,6 +383,7 @@ export default function SessionsPage() {
     };
 
     fetchSessions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSiteId, pagination.page]);
 
   const handleLoadMore = () => {

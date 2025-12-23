@@ -151,6 +151,7 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- params already decomposed into individual deps above
   }, [params.siteId, params.pagePath, params.deviceType, paramsHash]);
 
   useEffect(() => {
@@ -167,7 +168,8 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
     return () => {
       cancelled = true;
     };
-  }, [paramsHash]); // Only dependency is paramsHash, not fetchData (prevents re-running)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally only using paramsHash to prevent infinite loops
+  }, [paramsHash]);
 
   return {
     data,

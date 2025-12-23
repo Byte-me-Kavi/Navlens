@@ -9,7 +9,6 @@ import { HeatmapViewer } from "@/features/heatmap";
 import {
   ArrowLeftIcon,
   GlobeAltIcon,
-  SparklesIcon,
   CursorArrowRippleIcon,
   ArrowsPointingOutIcon,
   ViewfinderCircleIcon,

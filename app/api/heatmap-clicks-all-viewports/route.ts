@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ clicks }, { status: 200 });
 
-  } catch (error: Error | unknown) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[HEATMAP-ALL-VIEWPORTS] Error:', error);
     return NextResponse.json(

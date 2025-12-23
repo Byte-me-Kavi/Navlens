@@ -52,7 +52,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
 
-        const { data, error } = await supabase
+        const { data, error: _error } = await supabase
             .from('notifications')
             .select('*')
             .eq('user_id', session.user.id)
@@ -62,7 +62,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         if (data) {
             setNotifications(data as Notification[]);
         }
-    } catch (e) {
+    } catch (_e) {
         // Silent error (table might not exist yet)
     }
   }, [supabase]);

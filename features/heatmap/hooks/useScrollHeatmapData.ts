@@ -22,7 +22,7 @@ interface UseScrollHeatmapDataParams {
 }
 
 // SWR fetcher for scroll heatmap data
-const scrollFetcher = async ([url, params]: [string, UseScrollHeatmapDataParams]): Promise<ScrollHeatmapData> => {
+const scrollFetcher = async ([_url, params]: [string, UseScrollHeatmapDataParams]): Promise<ScrollHeatmapData> => {
   console.log('📜 Fetching scroll heatmap data:', params);
   const result = await apiClient.post<ScrollHeatmapData>('/heatmap-scrolls', params);
   console.log('✓ Scroll data fetched:', { totalSessions: result.totalSessions, dataPoints: result.scrollData?.length });

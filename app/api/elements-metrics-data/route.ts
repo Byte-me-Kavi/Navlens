@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       trends,
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[Elements Metrics API] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;

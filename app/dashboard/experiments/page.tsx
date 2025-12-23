@@ -10,7 +10,6 @@ import {
   CheckCircleIcon,
   ChartBarIcon,
   TrashIcon,
-  ArrowPathIcon,
   PencilSquareIcon,
   ClipboardIcon,
   ArrowTopRightOnSquareIcon,
@@ -20,14 +19,11 @@ import {
   InformationCircleIcon,
   ArrowTrendingUpIcon,
   CursorArrowRaysIcon,
-  DocumentTextIcon,
-  StopIcon,
-  ClockIcon,
   CurrencyDollarIcon,
   QueueListIcon,
   ArrowUpIcon,
-  ArrowDownIcon,
-  UsersIcon
+  UsersIcon,
+  DocumentTextIcon
 } from "@heroicons/react/24/outline";
 import {
   BarChart,
@@ -37,16 +33,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
-  Legend
+  Cell
 } from 'recharts';
 import { useSite } from "@/app/context/SiteContext";
 import { secureApi } from "@/lib/secureApi";
 import { GoalConfig } from "@/features/experiments/components/GoalConfig";
 import type { ExperimentGoal, GoalResults } from "@/lib/experiments/types";
-import { useAI } from "@/context/AIProvider";
 import { FeatureLock } from '@/components/subscription/FeatureLock';
-import { useSubscription } from '@/app/context/SubscriptionContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Types
@@ -111,8 +104,8 @@ function StatusBadge({ status }: { status: Experiment["status"] }) {
   );
 }
 
-// Confidence bar component
-function ConfidenceBar({ level }: { level: number }) {
+// Confidence bar component (may be used in future)
+function _ConfidenceBar({ level }: { level: number }) {
   const getColor = () => {
     if (level >= 95) return "bg-green-500";
     if (level >= 90) return "bg-yellow-500";
@@ -292,7 +285,7 @@ function EditVariantModal({
   onClose,
   experiment,
   siteId,
-  siteDomain,
+  siteDomain: _siteDomain,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -1086,6 +1079,7 @@ function ResultsPanel({ results, experiment }: { results: ExperimentResults | nu
                     cursor={{fill: '#F3F4F6'}}
                     itemStyle={{ color: '#111827', fontWeight: 600 }}
                     contentStyle={{ borderRadius: '12px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(value: any) => [`${Number(value).toFixed(2)}%`, 'Conversion Rate']}
                   />
                   <Bar dataKey="rate" radius={[0, 8, 8, 0]} barSize={32}>
@@ -1146,7 +1140,7 @@ function ResultsPanel({ results, experiment }: { results: ExperimentResults | nu
 export default function ExperimentsPage() {
   const { selectedSiteId, getSiteById } = useSite();
   const selectedSite = selectedSiteId ? getSiteById(selectedSiteId) : null;
-  const searchParams = useSearchParams();
+  const _searchParams = useSearchParams();
 
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [selectedExperiment, setSelectedExperiment] =
@@ -1325,7 +1319,7 @@ export default function ExperimentsPage() {
                     <BeakerIcon className="w-8 h-8 text-indigo-600" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-1">No experiments yet</h3>
-                <p className="text-gray-500 mb-6 max-w-sm mx-auto">Start your first A/B test to optimize your website's conversion rate.</p>
+                <p className="text-gray-500 mb-6 max-w-sm mx-auto">Start your first A/B test to optimize your website&apos;s conversion rate.</p>
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-medium shadow-sm shadow-indigo-200"

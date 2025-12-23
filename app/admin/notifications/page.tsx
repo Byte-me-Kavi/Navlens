@@ -4,7 +4,6 @@
 import { useState, useEffect } from 'react';
 import { 
   PaperAirplaneIcon, 
-  UserGroupIcon, 
   MegaphoneIcon, 
   CheckCircleIcon, 
   ExclamationTriangleIcon, 
@@ -14,7 +13,7 @@ import toast from 'react-hot-toast';
 
 export default function AdminNotificationsPage() {
   const [loading, setLoading] = useState(false);
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<{ id: string; name: string }[]>([]);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -50,8 +49,12 @@ export default function AdminNotificationsPage() {
 
       toast.success(`Sent to ${data.count} users`);
       setFormData({ ...formData, title: '', message: '' });
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('An unknown error occurred');
+      }
     } finally {
       setLoading(false);
     }

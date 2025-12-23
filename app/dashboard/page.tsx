@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
 // Server Component Fetch Logic
-async function getDashboardStats() {
+async function _getDashboardStats() {
   // This assumes your Vercel deployment has access to the internal API route
   // In a real deployed app, you might use an internal fetch URL or bypass the API route and call the logic directly.
   const url =
@@ -40,7 +40,7 @@ async function getDashboardStats() {
     }
 
     return response.json();
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching dashboard stats:", error);
     return {
       totalSites: 0,

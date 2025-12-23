@@ -65,7 +65,7 @@ export function ElementOverlay({
     null
   );
   // State for masking fixed elements
-  const [fixedRects, setFixedRects] = useState<Array<{left: number, top: number, width: number, height: number}>>([]);
+  const [_fixedRects, setFixedRects] = useState<Array<{left: number, top: number, width: number, height: number}>>([]);
   const [iframeReady, setIframeReady] = useState(false);
   const hasNotifiedRef = useRef(false);
 

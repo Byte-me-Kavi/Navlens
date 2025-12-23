@@ -2,14 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClickHouseClient } from './clickhouse';
 
-type ApiHandler = (req: NextRequest, context?: any) => Promise<NextResponse>;
+type ApiHandler = (req: NextRequest, context?: unknown) => Promise<NextResponse>;
 
 /**
  * Middleware to track API metrics in ClickHouse
  * Wraps an API route handler
  */
 export function withMonitoring(handler: ApiHandler): ApiHandler {
-    return async (req: NextRequest, context?: any) => {
+    return async (req: NextRequest, context?: unknown) => {
         const start = performance.now();
         let response: NextResponse;
         let statusCode = 500;

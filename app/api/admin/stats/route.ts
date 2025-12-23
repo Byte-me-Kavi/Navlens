@@ -81,6 +81,7 @@ export async function GET() {
 
         // Process Counts
         // Use Auth Total if available (more accurate for "Signups"), otherwise profiles count
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const recentUsersData = recentUsersRes as any;
         const totalUsers = recentUsersData.data?.total || recentUsersData.total || usersRes.count || 0;
 
@@ -89,6 +90,7 @@ export async function GET() {
         const totalEvents = eventsData[0]?.count ? Number(eventsData[0].count) : 0;
 
         // Process Chart
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const eventsChart = (eventsChartRes as any[]).map(item => ({
             date: item.date,
             count: Number(item.count)
@@ -96,7 +98,9 @@ export async function GET() {
 
         // Process Plan Distribution
         const planCounts: Record<string, number> = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const subs = (subsRes as any).data || [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         subs.forEach((s: any) => {
             const name = s.plan?.name || 'Unknown';
             planCounts[name] = (planCounts[name] || 0) + 1;
@@ -112,6 +116,7 @@ export async function GET() {
         // Cast to any to handle Supabase type mismatches gracefully during debug
         const rawUsers = recentUsersData.data?.users || recentUsersData.users || [];
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const recentSignups = rawUsers.map((user: any) => ({
             id: user.id,
             email: user.email,
@@ -119,6 +124,7 @@ export async function GET() {
             last_sign_in: user.last_sign_in_at,
             status: user.confirmed_at ? 'Active' : 'Unverified'
         }))
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             .slice(0, 5);
 
@@ -141,11 +147,12 @@ export async function GET() {
             systemHealth
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[AdminStats] Error:', error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({
             error: 'Internal Server Error',
-            details: error.message
+            details: message
         }, { status: 500 });
     }
 }

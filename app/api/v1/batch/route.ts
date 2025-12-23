@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validators, validateRequestSize, ValidationError, ValidatedEventData, EventData } from '@/lib/validation';
+import { validators, validateRequestSize, ValidatedEventData, EventData } from '@/lib/validation';
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
 import { parseRequestBody } from '@/lib/decompress';
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
             for (const rawEvent of analyticsEvents) {
                 try {
                     validEvents.push(validators.validateEventData(rawEvent));
-                } catch (e) {
+                } catch (_e: unknown) {
                     results.errors++;
                 }
             }
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
 
                     await clickhouse.insert({ table: 'events', values: insertData, format: 'JSONEachRow' });
                     results.analytics = validEvents.length;
-                } catch (e) {
+                } catch (e: unknown) {
                     console.error('[v1/batch] Analytics insert error:', e);
                     results.errors++;
                 }
@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
 
                 await clickhouse.insert({ table: 'debug_events', values: insertData, format: 'JSONEachRow' });
                 results.debug = debugEvents.length;
-            } catch (e) {
+            } catch (e: unknown) {
                 console.error('[v1/batch] Debug insert error:', e);
                 results.errors++;
             }
@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
 
                     await clickhouse.insert({ table: 'form_interactions', values: insertData, format: 'JSONEachRow' });
                     results.forms = formEvents.length;
-                } catch (e) {
+                } catch (e: unknown) {
                     console.error('[v1/batch] Form insert error:', e);
                     results.errors++;
                 }
@@ -296,7 +296,7 @@ export async function POST(request: NextRequest) {
         Object.entries(rateLimitResult.headers).forEach(([k, v]) => response.headers.set(k, v));
         return response;
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[v1/batch] Error:', error);
         return jsonResponse({ error: 'Internal server error' }, 500, origin);
     }

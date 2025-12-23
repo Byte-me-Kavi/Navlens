@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
                 },
             }
         );
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[feedback-config] Error:', error);
         // Return defaults on error
         return NextResponse.json(
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json({ success: true }, { status: 200 });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[feedback-config] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },

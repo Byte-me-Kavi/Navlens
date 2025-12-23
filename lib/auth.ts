@@ -69,7 +69,7 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
       100
     );
 
-    const { data: { user }, error: authError } = authResult as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const { data: { user }, error: authError } = authResult as { data: { user: User | null }, error: unknown };
 
     if (authError || !user) {
       return {
@@ -80,9 +80,10 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
     }
 
     // Check for User Ban
-    // Cast to any because banned_until might be missing in some SDK types but exists in DB/Auth
-    if ((user as any).banned_until && new Date((user as any).banned_until) > new Date()) {
-      console.warn(`User ${user.email} is banned until ${(user as any).banned_until}`);
+    // Cast to unknown first to safely check custom properties
+    const userWithBan = user as unknown as { banned_until?: string; email?: string };
+    if (userWithBan.banned_until && new Date(userWithBan.banned_until) > new Date()) {
+      console.warn(`User ${userWithBan.email} is banned until ${userWithBan.banned_until}`);
       return {
         user,
         userSites: [], // No access
@@ -101,7 +102,7 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
       100
     );
 
-    const { data: userSites, error: siteError } = siteResult as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const { data: userSites, error: siteError } = siteResult as { data: { id: string; status: string }[] | null, error: unknown };
 
     if (siteError) {
       console.error('Error fetching user sites after retries:', siteError);
@@ -114,8 +115,8 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
 
     // Filter out banned sites - this effectively revokes access to them for all APIs
     const siteIds = userSites
-      ?.filter((site: any) => site.status !== 'banned')
-      .map((site: any) => site.id) || [];
+      ?.filter((site) => site.status !== 'banned')
+      .map((site) => site.id) || [];
 
     return {
       user,

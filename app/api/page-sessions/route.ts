@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
             totalEvents: parseInt(data.total_events, 10)
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[page-sessions] Error:', error);
         return NextResponse.json(
             { error: 'Failed to fetch session count' },

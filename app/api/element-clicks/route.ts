@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(elementClicks, { status: 200 });
 
-  } catch (error: Error | unknown) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const status = errorMessage.includes('Network') || errorMessage.includes('ECONNREFUSED') ? 503 : 500;
     console.error('Error fetching element click data:', error);

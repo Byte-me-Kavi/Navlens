@@ -7,7 +7,6 @@ import {
   PresentationChartBarIcon,
   HomeIcon,
   GlobeAltIcon,
-  Cog6ToothIcon,
   BeakerIcon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
@@ -22,7 +21,6 @@ import {
   FireIcon,
   ChartBarIcon,
   UserGroupIcon,
-  BanknotesIcon,
 } from "@heroicons/react/24/outline";
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useState, useRef } from "react";
@@ -164,6 +162,7 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         setOpenGroups((prev) => new Set([...prev, group.name]));
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   useEffect(() => {

@@ -12,17 +12,13 @@ import {
   Pie,
   Cell,
   ResponsiveContainer,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   AreaChart,
   Area,
   Line,
   CartesianGrid,
-  LineChart,
 } from "recharts";
 import {
   FiActivity,
@@ -187,7 +183,7 @@ const formatLatency = (ms: number): string => {
   return `${(ms / 1000).toFixed(2)}s`;
 };
 
-const formatUrl = (url: string): string => {
+const _formatUrl = (url: string): string => {
   try {
     const parsed = new URL(url, 'http://example.com');
     return parsed.pathname + (parsed.search ? '?...' : '');

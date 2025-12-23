@@ -51,7 +51,7 @@ interface FunnelStep {
 }
 
 // Interface for funnel
-interface Funnel {
+interface _Funnel {
   id: string;
   site_id: string;
   name: string;
@@ -296,7 +296,7 @@ export async function GET(req: NextRequest) {
       funnels: funnels || [],
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in funnels GET:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -389,7 +389,7 @@ export async function POST(req: NextRequest) {
       message: 'Funnel created successfully',
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in funnels POST:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -485,7 +485,7 @@ export async function PUT(req: NextRequest) {
       message: 'Funnel updated successfully',
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in funnels PUT:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -561,7 +561,7 @@ export async function DELETE(req: NextRequest) {
       message: 'Funnel deleted successfully',
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in funnels DELETE:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -78,15 +78,16 @@ async function POST_handler(request: NextRequest) {
                 });
             }
 
-        } catch (fetchError: any) {
+        } catch (fetchError: unknown) {
             clearTimeout(timeout);
+            const message = fetchError instanceof Error ? fetchError.message : 'Unknown error';
             return NextResponse.json({
                 connected: false,
-                details: `Network error: ${fetchError.message}`
+                details: `Network error: ${message}`
             });
         }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Inspector] Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }

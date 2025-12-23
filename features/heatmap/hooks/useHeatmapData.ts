@@ -22,7 +22,7 @@ interface HeatmapDataParams extends HeatmapParams {
 }
 
 // SWR fetcher for heatmap clicks
-const heatmapFetcher = async ([url, params]: [string, HeatmapDataParams]): Promise<HeatmapPoint[]> => {
+const heatmapFetcher = async ([_url, params]: [string, HeatmapDataParams]): Promise<HeatmapPoint[]> => {
   console.log('🔥 Fetching heatmap data:', params);
 
   const result = await heatmapApi.getHeatmapClicks(params);

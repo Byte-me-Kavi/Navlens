@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
                 sessions: sessionPatterns,
                 note: 'Derived from click/scroll patterns - add cursor tracking columns for true cursor paths',
             }, { status: 200 });
-        } catch (queryError) {
+        } catch (queryError: unknown) {
             console.error('[cursor-paths] Query error:', queryError);
             // Return empty data on query error
             return NextResponse.json({
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
                 error: 'Data not available',
             }, { status: 200 });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[cursor-paths] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

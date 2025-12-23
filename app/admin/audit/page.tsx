@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { 
-    ClipboardDocumentListIcon,
     MagnifyingGlassIcon,
     ShieldCheckIcon
 } from '@heroicons/react/24/outline';
@@ -12,7 +11,7 @@ interface AuditLog {
     admin_email: string;
     action: string;
     target_resource: string;
-    details: any;
+    details: Record<string, unknown>;
     ip_address: string;
     created_at: string;
 }
@@ -30,7 +29,7 @@ export default function AuditLogsPage() {
                 if (data.logs) {
                     setLogs(data.logs);
                 }
-            } catch (error) {
+            } catch {
                 console.error('Failed to load logs');
             } finally {
                 setLoading(false);

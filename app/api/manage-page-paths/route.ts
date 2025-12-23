@@ -5,7 +5,7 @@ import { getClickHouseClient } from '@/lib/clickhouse';
 
 // --- Type Definitions ---
 interface CountResult {
-  count: number;
+    count: number;
 }
 
 // Get the singleton ClickHouse client
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
         );
 
         return NextResponse.json({ pagePaths }, { status: 200 });
-    } catch (error: Error | unknown) {
+    } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('[manage-page-paths] POST Error:', error);
         return NextResponse.json(
@@ -196,7 +196,7 @@ export async function DELETE(req: NextRequest) {
             { message: 'Page path deleted successfully', pagePath },
             { status: 200 }
         );
-    } catch (error: Error | unknown) {
+    } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('[manage-page-paths] DELETE Error:', error);
         return NextResponse.json(

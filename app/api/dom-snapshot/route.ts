@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { gzip } from 'zlib';
 import { promisify } from 'util';
-import { validators } from '@/lib/validation';
 import { parseRequestBody } from '@/lib/decompress';
 import { validateSiteAndOrigin, addTrackerCorsHeaders, createPreflightResponse } from '@/lib/trackerCors';
 

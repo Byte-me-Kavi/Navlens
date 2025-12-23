@@ -80,10 +80,10 @@ async function POST_handler(request: NextRequest) {
             .limit(1)
             .single();
 
-        let targetSubId = null;
+        let _targetSubId = null;
         if (newSub) {
             await supabase.from('profiles').update({ subscription_id: newSub.id }).eq('user_id', userId);
-            targetSubId = newSub.id;
+            _targetSubId = newSub.id;
         }
 
 
@@ -165,9 +165,10 @@ async function POST_handler(request: NextRequest) {
 
         return NextResponse.json({ success: true });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[AdminUpdatePlan] Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 

@@ -90,6 +90,7 @@ export default function FrustrationSignalsPage() {
     };
     
     fetchPagePaths();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSiteId]);
 
   // Fetch ALL data together when site/page/date changes
@@ -175,7 +176,7 @@ export default function FrustrationSignalsPage() {
     );
   }
 
-  const { startDate, endDate } = getDateRange();
+  const { startDate: _startDate, endDate: _endDate } = getDateRange();
   const selectedSite = sites.find((s) => s.id === selectedSiteId);
 
   return (

@@ -7,7 +7,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getClickHouseClient } from '@/lib/clickhouse';
-import { getCachedResults } from '@/lib/experiments/cache';
 import {
     analyzeExperiment,
     getStatusMessage,
@@ -184,7 +183,9 @@ async function computeResults(
         variants.forEach(v => variantMap.set(v.id, v.name));
 
         // Get configured goals map
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const goalMap = new Map<string, any>();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const configuredGoals = (experiment.goals as Array<any>) || [];
         configuredGoals.forEach(g => goalMap.set(g.id, g));
 
@@ -206,10 +207,11 @@ async function computeResults(
             // To properly fix user issue, main conversions is key.
 
             // Let's iterate goal_events which collects all goal hits
-            (row.goal_events || []).forEach(([gid, cnt]) => {
+            (row.goal_events || []).forEach(([gid, _cnt]) => {
                 if (gid) goalCounts.set(gid, (goalCounts.get(gid) || 0) + 1);
             });
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const goals: any[] = [];
             configuredGoals.forEach(g => {
                 goals.push({

@@ -1,11 +1,11 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server-admin';
 import { queryWithMetrics } from '@/lib/clickhouse';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
         const cookieStore = await cookies();
         const adminSession = cookieStore.get('admin_session');
@@ -36,7 +36,6 @@ export async function GET(request: NextRequest) {
 
         // 2. Map Data
         const planMap = new Map(plans.map(p => [p.id, p]));
-        const siteOwnerMap = new Map(sites.map(s => [s.id, s.user_id]));
         const userSitesMap = new Map<string, string[]>();
 
         sites.forEach(s => {
@@ -57,9 +56,11 @@ export async function GET(request: NextRequest) {
             GROUP BY site_id
         `;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let usageData: any[] = [];
         try {
             const { data } = await queryWithMetrics(chQuery, {}, 'Billing Usage Scan');
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             usageData = data as any[];
         } catch (e) {
             console.error('ClickHouse Query Failed:', e);
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
         }
 
         const siteUsageMap = new Map<string, { sessions: number; events: number }>();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         usageData.forEach((row: any) => {
             siteUsageMap.set(row.site_id, {
                 sessions: parseInt(row.session_count) || 0,
@@ -101,16 +103,12 @@ export async function GET(request: NextRequest) {
                 const siteUsage = siteUsageMap.get(siteId);
                 return sum + (siteUsage?.sessions || 0);
             }, 0);
-            const totalEvents = siteIds.reduce((sum, siteId) => {
-                const siteUsage = siteUsageMap.get(siteId);
-                return sum + (siteUsage?.events || 0);
-            }, 0);
 
-            // Parse limits json - use 'sessions' key which matches our plan config
+
             let limit = 0;
             if (plan?.limits && typeof plan.limits === 'object') {
-                // @ts-ignore - Check for 'sessions' key (from config.ts)
-                limit = plan.limits.sessions || plan.limits.events_per_month || 0;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                limit = (plan.limits as any).sessions || (plan.limits as any).events_per_month || 0;
             }
 
             // Status
@@ -141,7 +139,6 @@ export async function GET(request: NextRequest) {
         const activeSubsCount = billingData.filter(u => u.status === 'active').length;
 
         // Calculate MRR (Sum of prices for active users)
-        // @ts-ignore
         const mrr = billingData.filter(u => u.status === 'active' && !u.is_churned).reduce((sum, u) => sum + (u.price || 0), 0);
 
         // Calculate Plan Breakdown
@@ -172,8 +169,9 @@ export async function GET(request: NextRequest) {
             }
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[AdminBilling] Aggregate Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

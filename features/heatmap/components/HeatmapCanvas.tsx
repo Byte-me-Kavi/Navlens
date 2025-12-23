@@ -45,7 +45,7 @@ export function HeatmapCanvas({
     return () => {
       currentRenderer.destroy();
     };
-  }, [width, height]);
+  }, [width, height, config]);
 
   // Update heatmap data
   useEffect(() => {

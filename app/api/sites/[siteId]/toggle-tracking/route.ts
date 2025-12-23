@@ -44,7 +44,7 @@ export async function PATCH(
             is_tracking_enabled: data.is_tracking_enabled
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[ToggleTracking] Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }

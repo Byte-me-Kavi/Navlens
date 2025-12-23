@@ -4,7 +4,7 @@ import { validators, ValidationError, validateRequestSize, ValidatedEventData, E
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { checkRateLimits, isRedisAvailable } from '@/lib/ratelimit';
 import { parseRequestBody } from '@/lib/decompress';
-import { validateSiteAndOrigin, addTrackerCorsHeaders, createPreflightResponse, isOriginAllowed } from '@/lib/trackerCors';
+import { validateSiteAndOrigin, addTrackerCorsHeaders, createPreflightResponse } from '@/lib/trackerCors';
 
 // Create admin Supabase client for server-side operations
 const supabaseAdmin = createClient(
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
         console.log('✅ Validated event:', JSON.stringify(validatedEvent, null, 2));
         console.log('✅ Validated event.data:', JSON.stringify(validatedEvent.data, null, 2));
         validEvents.push(validatedEvent);
-      } catch (error) {
+      } catch (error: unknown) {
         const errorMsg = error instanceof ValidationError ? error.message : 'Unknown validation error';
         validationErrors.push(`Event ${i}: ${errorMsg}`);
         console.warn(`Event validation failed for event ${i}:`, errorMsg);
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
           values: [insertData],
           format: 'JSONEachRow',
         });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to insert event:', error);
         // Continue processing other events even if one fails
       }
@@ -235,6 +235,7 @@ export async function POST(request: NextRequest) {
           data: event.data || {}
         });
         return acc;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }, {} as Record<string, any[]>);
 
       // Insert into Postgres (one row per session-batch)
@@ -280,7 +281,7 @@ export async function POST(request: NextRequest) {
     });
     return response;
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[v1/ingest] Error:', error);
     return jsonResponse({ error: 'Internal server error' }, 500, origin);
   }

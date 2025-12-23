@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { PLANS, PlanTier, PlanConfig } from '@/lib/plans/config';
+import { PLANS, PlanConfig } from '@/lib/plans/config';
 
 interface SubscriptionContextType {
   plan: PlanConfig;
@@ -47,6 +47,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
       const profile = profileData?.[0];
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let activeSubscription: any = profile?.subscriptions;
       let planName = 'Free';
 
@@ -85,7 +86,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }
 
       // Default to FREE if plan not found or invalid
-      // @ts-ignore
+      // @ts-expect-error - dynamic key access
       const configPlan = PLANS[planName] || PLANS.FREE;
       setPlan(configPlan);
 
@@ -108,6 +109,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     return () => {
         subscription.unsubscribe();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const hasFeature = (featureKey: string) => {
@@ -119,6 +121,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     isLoading,
     hasFeature,
     refreshSubscription: fetchSubscription
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [plan, isLoading]);
 
   return (

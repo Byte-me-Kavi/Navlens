@@ -2,11 +2,6 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { encryptData, decryptData } from './crypto';
 
 // Types for the secure response structure
-interface SecureResponse<T = any> {
-    data?: T;
-    encryptedData?: string;
-    error?: string;
-}
 
 class SecureApiClient {
     private client: AxiosInstance;
@@ -27,7 +22,7 @@ class SecureApiClient {
      * Encrypts the body payload before sending.
      * By default, expects a normal JSON response, but can be adapted to expect encrypted response.
      */
-    async post<T = any>(url: string, body: any, config?: AxiosRequestConfig): Promise<T> {
+    async post<T = unknown>(url: string, body: unknown, config?: AxiosRequestConfig): Promise<T> {
         try {
             // 1. Encrypt body
             const encryptedPayload = await encryptData(body);
@@ -50,7 +45,7 @@ class SecureApiClient {
                 }
                 throw new Error(response.data?.error || `Request failed with status ${response.status}`);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Secure Client Error:', error);
             throw error;
         }
@@ -63,7 +58,7 @@ class SecureApiClient {
      * We mainly use this for fetching, but if query params need hiding, 
      * we should use POST (Tunneling).
      */
-    async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
         // Check if we should warn about GET
         // For now, standard get
         const response = await this.client.get(url, config);

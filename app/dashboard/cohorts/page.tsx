@@ -12,7 +12,6 @@ import {
   FiPlus,
   FiTrash2,
   FiFilter,
-  FiCalendar,
   FiEye,
   FiBarChart2,
   FiX,
@@ -254,7 +253,7 @@ const ViewCohortModal = ({
 }) => {
   if (!cohortDetails && !loading) return null;
 
-  const getDeviceIcon = (type: string) => {
+  const _getDeviceIcon = (type: string) => {
     switch (type?.toLowerCase()) {
       case "mobile": return <FiSmartphone className="w-4 h-4" />;
       case "tablet": return <FiTablet className="w-4 h-4" />;
@@ -550,7 +549,8 @@ const RulesReference = () => (
                 return (
                     <div key={field.value} className="bg-white border border-indigo-200 rounded-xl p-4 flex gap-4 hover:border-indigo-500 transition-colors">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${config.bg} ${config.text}`}>
-                            {React.cloneElement(config.icon as any, { className: "w-5 h-5" })}
+                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {React.cloneElement(config.icon as any, { className: "w-5 h-5" })}
                         </div>
                         <div>
                             <div className="font-bold text-gray-900 text-sm mb-1">{field.label}</div>
@@ -571,7 +571,7 @@ const CohortCard = ({
   cohort,
   onDelete,
   onView,
-  onSelect,
+  onSelect: _onSelect,
   selected,
 }: {
   cohort: Cohort;
@@ -836,6 +836,7 @@ export default function CohortsDashboard() {
     return () => {
       setOnCohortCreate(null);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSiteId, setOnCohortCreate]);
 
   // Fetch cohorts using secure API
@@ -855,6 +856,7 @@ export default function CohortsDashboard() {
 
   useEffect(() => {
     fetchCohorts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSiteId]);
 
   const handleCreate = async (data: { name: string; description: string; rules: CohortRule[] }) => {
@@ -957,6 +959,7 @@ export default function CohortsDashboard() {
     setCompareLoading(true);
     try {
       const data = await secureApi.cohorts.metrics({ siteId: selectedSiteId, cohortIds });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setComparison((data as any).comparison);
     } catch (error) {
       console.error("Failed to compare cohorts:", error);

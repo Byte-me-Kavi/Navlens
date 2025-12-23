@@ -282,7 +282,7 @@ export function FeedbackSettings({ className = "" }: FeedbackSettingsProps) {
         {/* Allow Dismiss */}
         <label className="flex items-center justify-between p-4 bg-gray-50 rounded-xl cursor-pointer">
           <div>
-            <h4 className="font-semibold text-gray-900">Allow "Don&apos;t Ask Again"</h4>
+            <h4 className="font-semibold text-gray-900">Allow &quot;Don&apos;t Ask Again&quot;</h4>
             <p className="text-sm text-gray-500">Users can permanently dismiss the widget</p>
           </div>
           <input

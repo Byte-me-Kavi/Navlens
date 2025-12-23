@@ -382,7 +382,7 @@ export async function GET(request: NextRequest) {
             { status: 200, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[modifications] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
@@ -526,7 +526,7 @@ export async function POST(request: NextRequest) {
             { status: 200, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[modifications] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },

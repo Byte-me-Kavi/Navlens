@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import { useFunnelAnalysis, FunnelChart } from "@/features/funnels";
@@ -26,13 +26,13 @@ export default function FunnelDetailPage() {
 
   const { selectedSiteId, sitesLoading } = useSite();
 
-  // Date range state
-  const [dateRange, setDateRange] = useState({
+  // Date range state - use lazy initialization to avoid calling Date.now during render
+  const [dateRange, setDateRange] = useState(() => ({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
       .toISOString()
       .split("T")[0],
     endDate: new Date().toISOString().split("T")[0],
-  });
+  }));
 
   // Get funnel analysis
   const {

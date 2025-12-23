@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
-import Link from "next/link";
 import {
   CheckCircleIcon,
   SparklesIcon,
@@ -87,6 +86,7 @@ export default function SubscriptionSuccessPage() {
     let timeoutId: NodeJS.Timeout;
 
     // Helper to log errors safely
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const logError = (msg: string, err: any) => {
         try {
             console.error(msg, err instanceof Error ? err.message : JSON.stringify(err));

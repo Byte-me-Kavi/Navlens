@@ -16,7 +16,6 @@ import {
     getCachedActiveExperiments
 } from '@/lib/experiments/cache';
 import type {
-    Experiment,
     CreateExperimentRequest,
     Variant,
     ExperimentGoal
@@ -133,7 +132,7 @@ async function GET_handler(request: NextRequest) {
             { status: 200, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[experiments] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
@@ -148,7 +147,7 @@ export const GET = withMonitoring(GET_handler);
  * POST /api/experiments
  * Create a new experiment
  */
-async function POST_handler(request: NextRequest) {
+export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin');
 
     try {
@@ -244,7 +243,7 @@ async function POST_handler(request: NextRequest) {
             { status: 201, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[experiments] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },

@@ -25,7 +25,7 @@ export default function AdminUsersPage() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [showBanModal, setShowBanModal] = useState(false);
     const [processing, setProcessing] = useState(false);
-    const [plans, setPlans] = useState<any[]>([]);
+    const [plans, setPlans] = useState<{ id: string; name: string }[]>([]);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -66,7 +66,7 @@ export default function AdminUsersPage() {
                 });
                 setPlans(sorted);
             }
-        } catch (e) {
+        } catch {
             console.error('Failed to fetch plans');
         }
     };
@@ -115,7 +115,7 @@ export default function AdminUsersPage() {
         if (confirmAction.type === 'plan') {
             await updatePlan(confirmAction.targetId!);
         } else if (confirmAction.type === 'ban') {
-            await updateBan(confirmAction.targetId as any);
+            await updateBan(confirmAction.targetId as '24h' | '7d' | 'forever' | 'unban');
         }
         
         setConfirmAction(null);
@@ -144,9 +144,13 @@ export default function AdminUsersPage() {
                 console.error('Update plan failed:', data);
                 toast.error(data.error || 'Failed to update plan. Check console.');
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('Network error:', e);
-            toast.error('Network error: ' + e.message);
+            if (e instanceof Error) {
+                toast.error('Network error: ' + e.message);
+            } else {
+                toast.error('Network error');
+            }
         }
     };
 
@@ -174,7 +178,7 @@ export default function AdminUsersPage() {
             } else {
                 toast.error(data.error || 'Action failed');
             }
-        } catch (e) {
+        } catch {
             toast.error('Network error');
         }
     };

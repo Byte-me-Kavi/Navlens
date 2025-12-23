@@ -47,8 +47,8 @@ function generateMockPathPoints(
   const points: { x: number; y: number }[] = [];
   const numPoints = Math.min(session.pathSegments, 20);
   
-  // Use session characteristics to influence path shape
-  const erraticness = session.pattern === "lost" ? 0.3 : 0.1;
+  // Use session characteristics to influence path shape (prefixed as it may be used for future enhancements)
+  const _erraticness = session.pattern === "lost" ? 0.3 : 0.1;
   
   // Starting position (deterministic)
   let x = random() * (width * 0.8) + width * 0.1;
@@ -57,7 +57,7 @@ function generateMockPathPoints(
   
   // Generate path based on pattern
   for (let i = 1; i < numPoints; i++) {
-    const progress = i / numPoints;
+    const _progress = i / numPoints; // Prefixed as it may be used for future enhancements
     
     if (session.pattern === "focused") {
       // Smooth downward movement with slight horizontal variance
@@ -134,6 +134,28 @@ export function CursorPathsOverlay({
     };
   }, [iframeRef]);
   
+  // Memoize path generation to prevent re-computation on scroll
+  // Must be called before any conditional returns to follow hooks rules
+  const sessionsWithPaths = useMemo(() => {
+    if (!data?.sessions) return [];
+    // Take top 10 sessions for visualization
+    return data.sessions.slice(0, 10).map(session => ({
+      session,
+      points: generateMockPathPoints(session, width, height),
+      color: patternColors[session.pattern],
+      pathD: '',  // Will be computed below
+    }));
+  }, [data, width, height]);
+  
+  // Pre-compute path strings
+  const sessionsToRender = useMemo(() => {
+    return sessionsWithPaths.map(item => ({
+      ...item,
+      pathD: createSmoothPath(item.points),
+    }));
+  }, [sessionsWithPaths]);
+  
+  // Early return for empty data - AFTER all hooks
   if (!data || data.sessions.length === 0) {
     return (
       <div
@@ -151,25 +173,6 @@ export function CursorPathsOverlay({
       </div>
     );
   }
-  // Memoize path generation to prevent re-computation on scroll
-  const sessionsWithPaths = useMemo(() => {
-    if (!data?.sessions) return [];
-    // Take top 10 sessions for visualization
-    return data.sessions.slice(0, 10).map(session => ({
-      session,
-      points: generateMockPathPoints(session, width, height),
-      color: patternColors[session.pattern],
-      pathD: '',  // Will be computed below
-    }));
-  }, [data?.sessions, width, height]);
-  
-  // Pre-compute path strings
-  const sessionsToRender = useMemo(() => {
-    return sessionsWithPaths.map(item => ({
-      ...item,
-      pathD: createSmoothPath(item.points),
-    }));
-  }, [sessionsWithPaths]);
   
   return (
     <div

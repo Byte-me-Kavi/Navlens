@@ -116,7 +116,7 @@ export async function POST(
             { status: 200, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[experiments/[id]/delete] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },

@@ -105,7 +105,7 @@ function buildMessages(
 
     // Add context data (compact format) - exclude dashboardStats as it's already in system prompt
     if (contextData && Object.keys(contextData).length > 0) {
-        const { dashboardStats, ...restContextData } = contextData;
+        const { dashboardStats: _dashboardStats, ...restContextData } = contextData;
         if (Object.keys(restContextData).length > 0) {
             const compactData = JSON.stringify(restContextData);
             messages.push({ role: 'system', content: `Data: ${compactData}` });
@@ -287,10 +287,11 @@ export async function POST(request: NextRequest) {
             const response = await getAIResponse(messages);
             return NextResponse.json({ response });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('AI API error:', error);
+        const message = error instanceof Error ? error.message : 'AI service error';
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'AI service error' },
+            { error: message },
             { status: 500 }
         );
     }

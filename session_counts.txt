@@ -1,6 +1,0 @@
-
-    Global Stats:
-    - Total Sessions: 27
-    - This Month: 7
-    - Old Sessions: 20
-    

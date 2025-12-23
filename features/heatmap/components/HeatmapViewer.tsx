@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSnapshot } from "@/features/dom-snapshot/hooks/useSnapshot";
 import { useHeatmapData } from "@/features/heatmap/hooks/useHeatmapData";
 import { useElementClicks } from "@/features/element-tracking/hooks/useElementClicks";
@@ -20,7 +20,7 @@ import { apiClient } from "@/shared/services/api/client";
 import type { HeatmapPoint } from "@/features/heatmap/types/heatmap.types";
 import type { ElementClick } from "@/features/element-tracking/types/element.types";
 
-import type { SnapshotData } from "@/features/dom-snapshot/types/snapshot.types";
+// SnapshotData type is used internally by useSnapshot hook
 
 export interface HeatmapViewerProps {
   siteId: string;
@@ -53,9 +53,15 @@ export function HeatmapViewer({
   onStatsBarClose,
   onIframeScroll,
 }: HeatmapViewerProps) {
-  const [showAllViewports, setShowAllViewports] = useState(
-    externalShowAllViewports
-  );
+  const [showAllViewports, setShowAllViewports] = useState(externalShowAllViewports);
+  const [prevExternalShowAllViewports, setPrevExternalShowAllViewports] = useState(externalShowAllViewports);
+
+  // Sync state with prop during render
+  if (externalShowAllViewports !== prevExternalShowAllViewports) {
+    setPrevExternalShowAllViewports(externalShowAllViewports);
+    setShowAllViewports(externalShowAllViewports);
+  }
+
   const [allViewportsData, setAllViewportsData] = useState<{
     heatmap: HeatmapPoint[];
     elements: ElementClick[];
@@ -70,56 +76,53 @@ export function HeatmapViewer({
     loading: snapshotLoading,
     error: snapshotError,
   } = useSnapshot({ siteId, pagePath, deviceType });
-
-  // Handler to fetch all viewports data
-  const handleShowAllViewports = useCallback(async () => {
-    // ... (keep existing handleShowAllViewports logic)
-    const newShowAllViewports = !showAllViewports;
-
-    if (!newShowAllViewports) {
-      setShowAllViewports(false);
-      setAllViewportsData(null);
-      onViewportModeChange?.(false);
-      return;
-    }
-
-    try {
-      const [heatmapResponse, elementsResponse] = await Promise.all([
-        apiClient.post<{ clicks: HeatmapPoint[] }>(
-          "/heatmap-clicks-all-viewports",
-          { siteId, pagePath, deviceType }
-        ),
-        apiClient.post<ElementClick[]>("/element-clicks-all-viewports", {
-          siteId, pagePath, deviceType
-        }),
-      ]);
-
-      setAllViewportsData({
-        heatmap: heatmapResponse.clicks || [],
-        elements: elementsResponse || [],
-      });
-      setShowAllViewports(true);
-      onViewportModeChange?.(true);
-    } catch (error) {
-      console.error("Error fetching all viewports data:", error);
-      alert("Failed to load data for all viewports. Please try again.");
-    }
-  }, [
-    showAllViewports,
-    setShowAllViewports,
-    setAllViewportsData,
-    onViewportModeChange,
-    siteId,
-    pagePath,
-    deviceType,
-  ]);
-
-  // Sync external prop changes
+  // Effect to manage data fetching based on viewport mode
   useEffect(() => {
-    if (externalShowAllViewports !== showAllViewports) {
-      handleShowAllViewports();
+    let isMounted = true;
+
+    async function manageViewportData() {
+      // If showing all viewports and data is missing, fetch it
+      if (showAllViewports && !allViewportsData) {
+        try {
+          const [heatmapResponse, elementsResponse] = await Promise.all([
+            apiClient.post<{ clicks: HeatmapPoint[] }>(
+              "/heatmap-clicks-all-viewports",
+              { siteId, pagePath, deviceType }
+            ),
+            apiClient.post<ElementClick[]>("/element-clicks-all-viewports", {
+              siteId, pagePath, deviceType
+            }),
+          ]);
+
+          if (isMounted) {
+            setAllViewportsData({
+              heatmap: heatmapResponse.clicks || [],
+              elements: elementsResponse || [],
+            });
+            // Notify parent if this was an internal change (though currently driven by prop)
+            if (externalShowAllViewports !== showAllViewports) {
+                onViewportModeChange?.(true);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching all viewports data:", error);
+          alert("Failed to load data for all viewports. Please try again.");
+          if (isMounted) setShowAllViewports(false);
+        }
+      } 
+      // If NOT showing all viewports but we have data, clear it
+      else if (!showAllViewports && allViewportsData) {
+        setAllViewportsData(null);
+        if (externalShowAllViewports !== showAllViewports) {
+            onViewportModeChange?.(false);
+        }
+      }
     }
-  }, [externalShowAllViewports, handleShowAllViewports, showAllViewports]);
+
+    manageViewportData();
+
+    return () => { isMounted = false; };
+  }, [showAllViewports, allViewportsData, siteId, pagePath, deviceType, externalShowAllViewports, onViewportModeChange]);
 
   // Fetch unique session count for this page
   useEffect(() => {
@@ -131,7 +134,7 @@ export function HeatmapViewer({
           deviceType
         });
         setUniqueSessions(response.sessions || 0);
-      } catch (error) {
+      } catch (_error) {
         // Fallback: estimate from heatmap data if API fails
         console.log('[HeatmapViewer] Could not fetch session count, using estimate');
         // Will be updated when heatmap data loads

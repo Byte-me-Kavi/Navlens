@@ -63,8 +63,8 @@ export default function SessionPlayer({ events, markers = [], onMarkerClick }: S
 
 
   const playerRef = useRef<HTMLDivElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const playerInstanceRef = useRef<any>(null);
+  const _wrapperRef = useRef<HTMLDivElement>(null);
+  const playerInstanceRef = useRef<rrwebPlayer | null>(null);
 
   // UI State
   const [playerReady, setPlayerReady] = useState(false);
@@ -88,8 +88,9 @@ export default function SessionPlayer({ events, markers = [], onMarkerClick }: S
   useEffect(() => {
     if (!playerRef.current || !events || events.length === 0) return;
 
-    let initTimer: NodeJS.Timeout;
-    let playerInstance: any = null;
+    // Capture ref value at start for safe cleanup
+    const currentPlayerRef = playerRef.current;
+    let playerInstance: rrwebPlayer | null = null;
 
     const initializePlayer = () => {
         // Clear DOM
@@ -170,7 +171,7 @@ export default function SessionPlayer({ events, markers = [], onMarkerClick }: S
     };
 
     // Debounce initialization to handle Strict Mode double-mount
-    initTimer = setTimeout(initializePlayer, 100);
+    const initTimer = setTimeout(initializePlayer, 100);
 
     return () => {
         // CLEANUP
@@ -190,8 +191,9 @@ export default function SessionPlayer({ events, markers = [], onMarkerClick }: S
             playerInstanceRef.current = null;
         }
 
-        if (playerRef.current) {
-            playerRef.current.innerHTML = "";
+        // Use captured ref value for cleanup
+        if (currentPlayerRef) {
+            currentPlayerRef.innerHTML = "";
         }
     };
   }, [events, duration]);
@@ -213,7 +215,7 @@ export default function SessionPlayer({ events, markers = [], onMarkerClick }: S
              // Use a safer play call
              setTimeout(() => {
                  if (playerInstanceRef.current && isPlaying) {
-                   try { playerInstanceRef.current.play(); } catch(e) { console.warn("Auto-resume failed", e); }
+                   try { playerInstanceRef.current.play(); } catch(_e) { console.warn("Auto-resume failed", _e); }
                  }
              }, 50);
           }
@@ -233,7 +235,7 @@ export default function SessionPlayer({ events, markers = [], onMarkerClick }: S
           } else {
               // Fallback: Just pause
               setIsPlaying(false);
-              try { playerInstanceRef.current?.pause(); } catch(e) {}
+              try { playerInstanceRef.current?.pause(); } catch(_e) { /* ignore */ }
           }
       }
   }, [duration, isPlaying]);
@@ -249,7 +251,7 @@ export default function SessionPlayer({ events, markers = [], onMarkerClick }: S
 
     // 2. Pause first
     if (isPlaying) {
-       try { playerInstanceRef.current.pause(); } catch(e) { /* ignore */ }
+       try { playerInstanceRef.current.pause(); } catch(_e) { /* ignore */ }
     }
 
     // 3. Initiate Safe Seek

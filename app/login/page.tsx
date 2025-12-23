@@ -42,7 +42,7 @@ export default function Login() {
     const redirectPath = urlParams.get('redirect');
     const planId = urlParams.get('plan');
     const errorCode = urlParams.get('error_code');
-    const errorDescription = urlParams.get('error_description');
+    const _errorDescription = urlParams.get('error_description');
 
     // Handle Banned User Error
     if (errorCode === 'user_banned' && !hasShownToastRef.current) {

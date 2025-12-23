@@ -166,13 +166,13 @@ export function AIChat({ onClose }: AIChatProps) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (parsed.name && Array.isArray(parsed.rules)) {
             // Validate rules structure
-            const validRules = parsed.rules.every((r: any) => r.field && r.operator && r.value !== undefined);
+            const validRules = parsed.rules.every((r: { field?: string; operator?: string; value?: unknown }) => r.field && r.operator && r.value !== undefined);
             if (validRules) {
               console.log('✅ Parsed valid JSON directly');
               return parsed;
             }
           }
-        } catch (e) {
+        } catch (_e) {
           // JSON parse failed, continue to regex strategy
         }
       }

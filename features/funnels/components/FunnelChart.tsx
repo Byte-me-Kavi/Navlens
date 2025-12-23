@@ -34,9 +34,50 @@ const COLORS = [
   "#d97706", // Amber 600
 ];
 
+// Tooltip interface for type safety
+interface FunnelTooltipPayloadItem {
+  payload: {
+    name: string;
+    value: number;
+    conversion: number;
+    visitors: number;
+    fill: string;
+  };
+}
+
+interface FunnelTooltipProps {
+  active?: boolean;
+  payload?: FunnelTooltipPayloadItem[];
+}
+
+// Custom tooltip - defined outside component to avoid creating during render
+function FunnelCustomTooltip({ active, payload }: FunnelTooltipProps) {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const color = data.fill;
+    return (
+      <div className="bg-white p-4 border border-gray-100 shadow-xl rounded-xl">
+        <p className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></span>
+          {data.name}
+        </p>
+        <div className="space-y-1 text-sm">
+          <p className="text-gray-600">
+            Visitors: <span className="font-semibold text-gray-900">{data.visitors.toLocaleString()}</span>
+          </p>
+          <p className="text-gray-600">
+            Conversion: <span className="font-semibold text-indigo-600">{data.conversion.toFixed(1)}%</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function FunnelChart({
   steps,
-  totalSessions,
+  totalSessions: _totalSessions,
   className = "",
 }: FunnelChartProps) {
   if (!steps || steps.length === 0) {
@@ -49,7 +90,7 @@ export function FunnelChart({
 
   const sortedSteps = [...steps].sort((a, b) => a.order_index - b.order_index);
 
-  const data = sortedSteps.map((step, index) => ({
+  const data = sortedSteps.map((step, _index) => ({
     name: step.step_name,
     value: step.visitors,
     conversion: step.conversion_rate,
@@ -64,36 +105,14 @@ export function FunnelChart({
   const overallRate =
     startCount > 0 ? ((endCount / startCount) * 100).toFixed(1) : "0.0";
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const color = payload[0].payload.fill;
-      return (
-        <div className="bg-white p-4 border border-gray-100 shadow-xl rounded-xl">
-          <p className="font-bold text-gray-900 mb-1 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></span>
-            {data.name}
-          </p>
-          <div className="space-y-1 text-sm">
-            <p className="text-gray-600">
-              Visitors: <span className="font-semibold text-gray-900">{data.visitors.toLocaleString()}</span>
-            </p>
-            <p className="text-gray-600">
-              Conversion: <span className="font-semibold text-indigo-600">{data.conversion.toFixed(1)}%</span>
-            </p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
+
 
   return (
     <div className={`space-y-8 ${className}`}>
       <div className="h-[400px] w-full bg-gray-50/30 rounded-2xl border border-gray-100/50 p-4">
         <ResponsiveContainer width="100%" height="100%">
           <RechartsFunnelChart>
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "transparent" }} />
+            <Tooltip content={<FunnelCustomTooltip />} cursor={{ fill: "transparent" }} />
             <Funnel
               dataKey="value"
               data={data}
@@ -116,7 +135,7 @@ export function FunnelChart({
                 fill="#ffffff"
                 stroke="none"
                 dataKey="value"
-                formatter={(val: any) => val.toLocaleString()}
+                formatter={(val) => typeof val === 'number' ? val.toLocaleString() : (typeof val === 'string' ? val : '')}
                 className="font-bold text-sm drop-shadow-sm"
               />
             </Funnel>

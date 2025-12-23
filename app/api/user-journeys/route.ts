@@ -3,13 +3,13 @@ import { getClickHouseClient } from '@/lib/clickhouse';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { journeyCache, generateCacheKey, withCache } from '@/lib/cache';
 
-interface PathNode {
+interface _PathNode {
     source: string;
     target: string;
     value: number;
 }
 
-interface JourneyPath {
+interface _JourneyPath {
     path: string[];
     count: number;
     avgDuration: number;
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
                         exitPages: topExit,
                         totalSessions: sessionPaths.size,
                     };
-                } catch (queryError) {
+                } catch (queryError: unknown) {
                     console.error('[user-journeys] Query error:', queryError);
                     return {
                         sankeyLinks: [],
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
         );
 
         return NextResponse.json(journeyData);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[user-journeys] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

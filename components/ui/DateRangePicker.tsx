@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { CalendarIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
-import { useDateRange, DateRangePreset, getPresetLabel } from "@/context/DateRangeContext";
+import { useDateRange, DateRangePreset } from "@/context/DateRangeContext";
 
 const PRESET_OPTIONS: { value: DateRangePreset; label: string }[] = [
   { value: "today", label: "Today" },

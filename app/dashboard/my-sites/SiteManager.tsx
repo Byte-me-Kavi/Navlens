@@ -14,7 +14,6 @@ import {
   CalendarIcon,
   LinkIcon,
   EyeIcon,
-  PlayIcon,
   ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import { createSite, deleteSite } from "./action";
@@ -325,7 +324,7 @@ export default function SiteManager({ sites }: SiteManagerProps) {
       } else {
         toast.error('Failed to update tracking status');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Network error');
     } finally {
       setTogglingId(null);

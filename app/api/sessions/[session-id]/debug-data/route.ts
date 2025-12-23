@@ -233,7 +233,7 @@ export async function GET(
 
         return addCorsHeaders(NextResponse.json(response));
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[debug-data] Error:', error);
         return addCorsHeaders(
             NextResponse.json({ error: 'Internal server error' }, { status: 500 })

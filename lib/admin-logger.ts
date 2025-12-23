@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server-admin';
 interface AuditLogEntry {
     action: string;
     targetResource: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
 }
 
 /**
@@ -29,7 +29,7 @@ export async function logAdminAction(req: NextRequest, entry: AuditLogEntry) {
                 // or we could decode if it's a JWT.
                 // Re-using the logic from auth middleware would be best, but let's just peek.
                 adminEmail = sessionCookie.value;
-            } catch (e) { }
+            } catch (_e) { }
         }
 
         const ip = req.headers.get('x-forwarded-for') || 'unknown';

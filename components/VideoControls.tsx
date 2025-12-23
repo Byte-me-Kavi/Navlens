@@ -59,8 +59,8 @@ const MarkerCluster = ({
   };
 
   // Sort cluster by priority
-  const priorityOrder = { 'rage-click': 4, 'error': 3, 'dead-click': 2, 'network-error': 1, 'vital-poor': 0 };
   const sortedCluster = useMemo(() => {
+    const priorityOrder = { 'rage-click': 4, 'error': 3, 'dead-click': 2, 'network-error': 1, 'vital-poor': 0 };
     return [...cluster].sort((a, b) => {
       const pA = priorityOrder[a.type as keyof typeof priorityOrder] || 0;
       const pB = priorityOrder[b.type as keyof typeof priorityOrder] || 0;
@@ -151,16 +151,14 @@ export default function VideoControls({
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
   // Local state for smooth slider interaction without overwhelming the player
-  const [sliderValue, setSliderValue] = useState(currentTime || 0);
+  // Use a computed value based on interaction state to avoid setState in effect
+  const [localSliderValue, setLocalSliderValue] = useState(currentTime || 0);
   const [isInteracting, setIsInteracting] = useState(false);
   const seekDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync slider with player time when not interacting
-  useEffect(() => {
-    if (!isInteracting) {
-      setSliderValue(Number.isNaN(currentTime) ? 0 : currentTime);
-    }
-  }, [currentTime, isInteracting]);
+  // Compute the slider value from either local state (when interacting) or currentTime
+  const sliderValue = isInteracting ? localSliderValue : (Number.isNaN(currentTime) ? 0 : currentTime);
+  const setSliderValue = setLocalSliderValue;
   
   // Clean up debounce on unmount
   useEffect(() => {

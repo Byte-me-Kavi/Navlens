@@ -160,7 +160,7 @@ async function GET_handler(request: NextRequest) {
             headers: corsHeaders(origin)
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[tracker-config] Error:', error);
         // Return minimal valid config on error
         return NextResponse.json({

@@ -69,6 +69,49 @@ const PATTERN_CONFIG: Record<string, {
   },
 };
 
+// Custom tooltip interface for type safety
+interface CursorPathTooltipPayloadItem {
+  payload: {
+    pattern: string;
+    count: number;
+    percentage: number;
+    hexColor: string;
+    label: string;
+    description: string;
+    bgColor: string;
+    textColor: string;
+  };
+}
+
+interface CursorPathTooltipProps {
+  active?: boolean;
+  payload?: CursorPathTooltipPayloadItem[];
+}
+
+// Custom tooltip - defined outside component to avoid creating during render
+function CursorPathCustomTooltip({ active, payload }: CursorPathTooltipProps) {
+  if (active && payload && payload.length) {
+    const item = payload[0].payload;
+    return (
+      <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-100 min-w-[160px]">
+        <p className="font-semibold text-gray-900 flex items-center gap-2 mb-1">
+          <span 
+            className="w-3 h-3 rounded-full" 
+            style={{ backgroundColor: item.hexColor }}
+          ></span>
+          {item.label}
+        </p>
+        <p className="text-xs text-gray-500 mb-2">{item.description}</p>
+        <p className="text-sm text-gray-600">
+          Sessions: <span className="font-semibold text-gray-900">{item.count}</span>
+          <span className="text-gray-400"> ({item.percentage.toFixed(1)}%)</span>
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function CursorPathsPanel({
   data,
   loading,
@@ -133,29 +176,6 @@ export function CursorPathsPanel({
     );
   }
 
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      return (
-        <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-100 min-w-[160px]">
-          <p className="font-semibold text-gray-900 flex items-center gap-2 mb-1">
-            <span 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: item.hexColor }}
-            ></span>
-            {item.label}
-          </p>
-          <p className="text-xs text-gray-500 mb-2">{item.description}</p>
-          <p className="text-sm text-gray-600">
-            Sessions: <span className="font-semibold text-gray-900">{item.count}</span>
-            <span className="text-gray-400"> ({item.percentage.toFixed(1)}%)</span>
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${className}`}>
@@ -218,7 +238,7 @@ export function CursorPathsPanel({
                 hide
                 width={0}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
+              <Tooltip content={<CursorPathCustomTooltip />} cursor={{ fill: 'transparent' }} />
               <Bar 
                 dataKey="count" 
                 radius={[4, 4, 4, 4]}

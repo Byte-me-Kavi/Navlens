@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { CreditCard, TrendingUp, AlertTriangle, Users, ExternalLink, Mail } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { CreditCard, TrendingUp, AlertTriangle, Users, Mail } from 'lucide-react';
+
 
 interface BillingUser {
     user_id: string;

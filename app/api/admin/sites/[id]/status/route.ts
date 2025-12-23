@@ -34,7 +34,7 @@ export async function POST(
 
         return NextResponse.json({ success: true });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[AdminSiteStatus] Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }

@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     // Return encrypted response
     return NextResponse.json(result);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching scroll heatmap data:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ message: 'Failed to fetch scroll heatmap data', error: errorMessage }, { status: 500 });

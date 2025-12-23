@@ -1,7 +1,6 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server-admin';
-import { withMonitoring } from "@/lib/api-middleware";
 
 export const dynamic = 'force-dynamic';
 
@@ -28,11 +27,13 @@ export async function GET() {
 
         console.log(`[AdminPlans] Found ${data?.length || 0} plans`);
         return NextResponse.json(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[AdminPlans] Critical Error:', error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        const stack = error instanceof Error ? error.stack : undefined;
         return NextResponse.json({
-            error: error.message,
-            stack: error.stack
+            error: message,
+            stack: stack
         }, { status: 500 });
     }
 }

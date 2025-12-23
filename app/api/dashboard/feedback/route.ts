@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
                 totalFeedback: stats?.length || 0,
             },
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[dashboard/feedback] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

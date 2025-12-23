@@ -12,8 +12,6 @@ import {
   ExclamationTriangleIcon,
   PlayIcon,
   DevicePhoneMobileIcon,
-  ComputerDesktopIcon,
-  BoltIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import useSWR from "swr";
@@ -442,7 +440,7 @@ const DashboardClient: React.FC = () => {
                         cursor={{ fill: '#f3f4f6', radius: 8 }}
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                         itemStyle={{ color: '#4f46e5', fontWeight: 600 }}
-                        formatter={(value: any) => [`${value} clicks`, '']}
+                        formatter={(value: number | string | undefined) => [`${value} clicks`, '']}
                       />
                       <Bar 
                         dataKey="clicks" 
@@ -531,7 +529,7 @@ const DashboardClient: React.FC = () => {
                           <RechartsTooltip 
                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                              itemStyle={{ color: '#3730a3', fontWeight: 600, fontSize: '12px' }}
-                             formatter={(value: any) => [`${value} visits`, '']}
+                             formatter={(value: number | string | undefined) => [`${value} visits`, '']}
                           />
                         </PieChart>
                       </ResponsiveContainer>

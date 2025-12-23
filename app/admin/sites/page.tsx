@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Globe, Search, Shield, ShieldAlert, CheckCircle, ExternalLink, Filter } from 'lucide-react';
+import { Globe, Search, ShieldAlert, CheckCircle, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Site {
@@ -24,7 +24,7 @@ function SitesContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [processingId, setProcessingId] = useState<string | null>(null);
 
-    const fetchSites = async () => {
+    const fetchSites = useCallback(async () => {
         setLoading(true);
         try {
             let url = '/api/admin/sites?perPage=50';
@@ -35,16 +35,16 @@ function SitesContent() {
             if (data.sites) {
                 setSites(data.sites);
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to load sites');
         } finally {
             setLoading(false);
         }
-    };
+    }, [userIdFilter]);
 
     useEffect(() => {
         fetchSites();
-    }, [userIdFilter]);
+    }, [fetchSites]);
 
     const toggleStatus = async (site: Site) => {
         setProcessingId(site.id);
@@ -63,7 +63,7 @@ function SitesContent() {
             } else {
                 toast.error('Failed to update status');
             }
-        } catch (e) {
+        } catch {
             toast.error('Network error');
         } finally {
             setProcessingId(null);

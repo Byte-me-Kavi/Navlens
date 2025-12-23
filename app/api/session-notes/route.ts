@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({ notes: data || [] });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[session-notes] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ note: data }, { status: 201 });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[session-notes] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
@@ -172,7 +172,7 @@ export async function PATCH(request: NextRequest) {
         }
 
         return NextResponse.json({ note: data });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[session-notes] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
@@ -220,7 +220,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[session-notes] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

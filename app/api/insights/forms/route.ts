@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
         console.log(`[insights/forms] Returning data for site ${siteId}`);
         return addCorsHeaders(NextResponse.json(response));
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[insights/forms] Error:', error);
         return addCorsHeaders(
             NextResponse.json({ error: 'Internal server error' }, { status: 500 })

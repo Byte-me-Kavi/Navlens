@@ -7,7 +7,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateAndAuthorize, createUnauthenticatedResponse } from '@/lib/auth';
-import { hasFeatureAccess } from '@/lib/subscription/helpers';
 
 // Groq API configuration (same as main AI)
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';

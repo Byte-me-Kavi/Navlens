@@ -8,7 +8,6 @@ export function cleanRRWebEvents(events: RRWebEvent[]): RRWebEvent[] {
     const sorted = [...events].sort((a, b) => a.timestamp - b.timestamp);
 
     const uniqueEvents: RRWebEvent[] = [];
-    const hasSeenSnapshot = false;
 
     sorted.forEach((event) => {
         // Handle Full Snapshot (Type 2)
@@ -23,13 +22,12 @@ export function cleanRRWebEvents(events: RRWebEvent[]): RRWebEvent[] {
             try {
                 // Deep-ish clone for the data part we need to touch
                 const newEvent = { ...event, data: { ...event.data } };
-                const data = newEvent.data as any;
+                const data = newEvent.data as { node: { childNodes: { type: number }[] } };
 
                 if (data.node && Array.isArray(data.node.childNodes)) {
                     // Filter out the node with type === 1 (DocumentType)
                     // rrweb node types: 1 = DocumentType, 2 = Element, 3 = Text
-                    const originalLength = data.node.childNodes.length;
-                    data.node.childNodes = data.node.childNodes.filter((child: any) => child.type !== 1);
+                    data.node.childNodes = data.node.childNodes.filter((child: { type: number }) => child.type !== 1);
 
                     // If we removed something, it was likely the Doctype.
                 }

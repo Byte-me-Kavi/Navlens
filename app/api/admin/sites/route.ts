@@ -48,19 +48,21 @@ async function GET_handler(request: NextRequest) {
         }
 
         // 2. Fetch Emails manually using Auth Admin (Profiles table might be incomplete)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const userIds = [...new Set((sitesData || []).map((s: any) => s.user_id))];
 
         const emailMap: Record<string, string> = {};
 
         // Fetch users in parallel (Auth Admin is required to get email reliably if not in profiles)
         await Promise.all(userIds.map(async (uid: string) => {
-            const { data: { user }, error } = await supabase.auth.admin.getUserById(uid);
+            const { data: { user }, error: _error } = await supabase.auth.admin.getUserById(uid);
             if (user && user.email) {
                 emailMap[uid] = user.email;
             }
         }));
 
         // Transform to flat structure
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sites = (sitesData || []).map((site: any) => ({
             id: site.id,
             site_name: site.site_name,
@@ -78,7 +80,7 @@ async function GET_handler(request: NextRequest) {
             perPage
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[AdminSites] Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }

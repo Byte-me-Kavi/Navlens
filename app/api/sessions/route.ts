@@ -69,7 +69,22 @@ async function POST_handler(req: NextRequest) {
     }
 
     // Map view data to API response format
-    const paginatedSessions = (sessionsData || []).map((session: any) => ({
+    const paginatedSessions = (sessionsData || []).map((session: {
+      session_id: string;
+      visitor_id: string;
+      started_at: string;
+      duration: number;
+      page_views: number;
+      pages: string[];
+      country: string;
+      ip_address: string;
+      device_type: string;
+      screen_width: number;
+      screen_height: number;
+      platform: string;
+      user_agent: string;
+      signals: Array<{ type: string }>;
+    }) => ({
       session_id: session.session_id,
       visitor_id: session.visitor_id,
       timestamp: session.started_at, // Map started_at to timestamp for frontend compatibility
@@ -86,10 +101,10 @@ async function POST_handler(req: NextRequest) {
       // Signals are pre-aggregated in the view
       signals: session.signals || [],
       signal_counts: {}, // Calculate if needed or trust pre-calc
-      has_rage_clicks: (session.signals || []).some((s: any) => s.type === 'rage_click'),
-      has_dead_clicks: (session.signals || []).some((s: any) => s.type === 'dead_click'),
-      has_u_turns: (session.signals || []).some((s: any) => s.type === 'u_turn' || s.type === 'quick_exit'),
-      has_errors: (session.signals || []).some((s: any) => ['js_error', 'console_error', 'unhandled_rejection'].includes(s.type)),
+      has_rage_clicks: (session.signals || []).some((s) => s.type === 'rage_click'),
+      has_dead_clicks: (session.signals || []).some((s) => s.type === 'dead_click'),
+      has_u_turns: (session.signals || []).some((s) => s.type === 'u_turn' || s.type === 'quick_exit'),
+      has_errors: (session.signals || []).some((s) => ['js_error', 'console_error', 'unhandled_rejection'].includes(s.type)),
     }));
 
     const totalSessions = count || 0;
@@ -106,7 +121,7 @@ async function POST_handler(req: NextRequest) {
         hasPrevPage: validatedPage > 1
       }
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error in sessions API:", error);
     return NextResponse.json(
       { error: "Internal server error" },

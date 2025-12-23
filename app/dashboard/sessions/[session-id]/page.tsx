@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSite } from "@/app/context/SiteContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -13,10 +13,6 @@ import {
   FiMonitor,
   FiSmartphone,
   FiTablet,
-  FiGlobe,
-  FiUser,
-  FiCalendar,
-  FiMaximize,
   FiAlertTriangle,
 } from "react-icons/fi";
 import { HiOutlineDesktopComputer } from "react-icons/hi";
@@ -24,7 +20,6 @@ import {
   ArrowLeftIcon,
   SparklesIcon,
   CommandLineIcon,
-  InformationCircleIcon,
 } from "@heroicons/react/24/outline";
 import { useDebugData } from "@/features/dev-tools/hooks/useDebugData";
 import { TimelineMarker } from "@/features/dev-tools/types/devtools.types";
@@ -55,7 +50,7 @@ interface SessionMetadata {
   signals?: SessionSignal[];
 }
 
-const getCountryFlag = (countryCode: string) => {
+const _getCountryFlag = (countryCode: string) => {
   if (!countryCode || countryCode.length !== 2) return null;
   return countryCode.toUpperCase();
 };
@@ -103,7 +98,7 @@ export default function SessionReplayPage() {
 
   const [debugPanelOpen, setDebugPanelOpen] = useState(true);
   // Removed infoBarOpen state as per request
-  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+  const [_currentPlaybackTime, _setCurrentPlaybackTime] = useState(0);
   const [highlightedEvent, setHighlightedEvent] = useState<{ timestamp: number; type: string } | null>(null);
 
   const handleMarkerClick = (marker: TimelineMarker) => {
@@ -174,7 +169,7 @@ export default function SessionReplayPage() {
   }, [siteId, sessionId, fetchSessionReplay, router]);
 
   // Fetch debug data first to check for network/console timestamps
-  const { data: debugData, markers } = useDebugData({
+  const { data: debugData, markers: _markers } = useDebugData({
     sessionId: params["session-id"] as string,
     siteId: currentSite?.id || "",
     // We pass 0 initially because we need the data to calculate the TRUE start time
@@ -283,7 +278,7 @@ export default function SessionReplayPage() {
      return [...realMarkers, ...signalMarkers].sort((a, b) => a.timestamp - b.timestamp);
   }, [realMarkers, signalMarkers]);
 
-  const duration = useMemo(() => {
+  const _duration = useMemo(() => {
     if (!metadata) return 0;
     return metadata.duration || 0;
   }, [metadata]);
@@ -296,7 +291,7 @@ export default function SessionReplayPage() {
     };
   };
 
-  const { date, time } = metadata?.timestamp
+  const { date: _date, time: _time } = metadata?.timestamp
     ? formatDateTime(metadata.timestamp)
     : { date: "", time: "" };
 
@@ -495,7 +490,7 @@ export default function SessionReplayPage() {
             <DebugPanel
               sessionId={sessionId}
               siteId={siteId}
-              currentTime={currentPlaybackTime}
+              currentTime={_currentPlaybackTime}
               sessionStartTime={sessionStartTime}
               isOpen={debugPanelOpen}
               onClose={() => setDebugPanelOpen(false)}

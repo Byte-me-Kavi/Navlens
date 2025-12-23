@@ -8,10 +8,7 @@ import NoSiteSelected, { NoSitesAvailable } from '@/components/NoSiteSelected';
 import {
   FiMessageCircle,
   FiAlertCircle,
-  FiThumbsUp,
   FiRefreshCw,
-  FiCalendar,
-  FiFilter,
   FiExternalLink,
   FiStar,
   FiUser,
@@ -126,6 +123,7 @@ export default function FeedbackDashboardPage() {
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSiteId, filterType, dateRange, page]);
 
   useEffect(() => {
@@ -166,7 +164,7 @@ export default function FeedbackDashboardPage() {
     );
   }
 
-  const selectedSite = sites.find((s) => s.id === selectedSiteId);
+  const _selectedSite = sites.find((s) => s.id === selectedSiteId);
 
   return (
     <FeatureLock 
@@ -374,7 +372,7 @@ export default function FeedbackDashboardPage() {
                                 </div>
                                 
                                 <p className="text-gray-800 text-base leading-relaxed mb-3">
-                                    "{item.message}"
+                                    &quot;{item.message}&quot;
                                 </p>
                                 
                                 {/* Tags container */}

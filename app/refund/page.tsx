@@ -192,7 +192,7 @@ export default function RefundPolicy() {
           {/* Subtitle */}
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             We offer a 30-day money-back guarantee on all plans. If Navlens
-            isn't right for you, we'll refund your purchase—no questions asked.
+            isn&apos;t right for you, we&apos;ll refund your purchase—no questions asked.
           </p>
         </div>
       </section>
@@ -284,7 +284,7 @@ export default function RefundPolicy() {
                 Need Help With a Refund?
               </h3>
               <p className="text-gray-600 max-w-xl mx-auto">
-                Our support team is here to help. Contact us and we'll assist
+                Our support team is here to help. Contact us and we&apos;ll assist
                 you with your refund request within 24 hours.
               </p>
               <a

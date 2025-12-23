@@ -47,6 +47,7 @@ export default function AdminLoginForm() {
       if (response.success) {
         router.push(response.redirectUrl || '/admin/dashboard');
       }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error(err);
       const isBlocked = err.response?.data?.blocked || err.message?.includes('blocked');
@@ -83,7 +84,7 @@ export default function AdminLoginForm() {
           } else {
               setError(data.error || 'Unlock failed');
           }
-      } catch (err) {
+      } catch (_err) {
           setError('Failed to process unlock request');
       } finally {
           setLoading(false);

@@ -57,7 +57,7 @@ export function useFeatureGate(
                 const sub = Array.isArray(subData) ? subData[0] : subData;
 
                 if (sub?.status === 'active' || sub?.status === 'trialing') {
-                    // @ts-ignore - Supabase type inference is tricky with nested joins
+                    // @ts-expect-error - Supabase type inference is tricky with nested joins
                     const planName = sub.plan?.name?.toUpperCase();
                     if (planName && planName in PLANS) {
                         currentTier = planName as PlanTier;
@@ -99,7 +99,7 @@ export function useFeatureGate(
     let limit = 0;
 
     if (limitKey) {
-        // @ts-ignore
+
         limit = planConfig.limits[limitKey] ?? 0;
         if (limit !== -1 && usage >= limit) {
             hasLimitRemaining = false;

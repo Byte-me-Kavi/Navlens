@@ -15,14 +15,13 @@ import {
   FiPackage,
   FiInfo,
 } from 'react-icons/fi';
-import { HoverHeatmapData, AttentionZone } from '../types/frustrationSignals.types';
+import { HoverHeatmapData } from '../types/frustrationSignals.types';
 import {
   PieChart,
   Pie,
   Cell,
   ResponsiveContainer,
   Tooltip,
-  Legend,
 } from 'recharts';
 
 interface AttentionZonesChartProps {
@@ -100,6 +99,52 @@ const ZONE_CONFIG: Record<string, {
   },
 };
 
+// Format time helper (moved outside component for CustomTooltip)
+const formatTimeHelper = (ms: number) => {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60000).toFixed(1)}m`;
+};
+
+// Custom tooltip - defined outside component to avoid creating during render
+interface TooltipPayloadItem {
+  payload: {
+    name: string;
+    value: number;
+    totalTimeMs: number;
+    uniqueSessions: number;
+    color: string;
+  };
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+}
+
+function CustomTooltip({ active, payload }: CustomTooltipProps) {
+  if (active && payload && payload.length) {
+    const zoneData = payload[0].payload;
+    return (
+      <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-100 min-w-[160px]">
+        <p className="font-semibold text-gray-900 flex items-center gap-2 mb-2">
+          <span 
+            className="w-3 h-3 rounded-full" 
+            style={{ backgroundColor: zoneData.color }}
+          ></span>
+          {zoneData.name}
+        </p>
+        <div className="space-y-1 text-sm text-gray-600">
+          <p>Attention: <span className="font-semibold text-gray-900">{zoneData.value.toFixed(1)}%</span></p>
+          <p>Time: <span className="font-semibold text-gray-900">{formatTimeHelper(zoneData.totalTimeMs)}</span></p>
+          <p>Sessions: <span className="font-semibold text-gray-900">{zoneData.uniqueSessions}</span></p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function AttentionZonesChart({
   data,
   loading,
@@ -114,9 +159,9 @@ export function AttentionZonesChart({
   };
 
   const sortedZones = useMemo(() => {
-    if (!data?.attentionZones) return [];
+    if (!data || !data.attentionZones) return [];
     return [...data.attentionZones].sort((a, b) => b.totalTimeMs - a.totalTimeMs);
-  }, [data?.attentionZones]);
+  }, [data]);
 
   // Prepare pie chart data
   const chartData = useMemo(() => {
@@ -163,30 +208,6 @@ export function AttentionZonesChart({
       </div>
     );
   }
-
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const zoneData = payload[0].payload;
-      return (
-        <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-100 min-w-[160px]">
-          <p className="font-semibold text-gray-900 flex items-center gap-2 mb-2">
-            <span 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: zoneData.color }}
-            ></span>
-            {zoneData.name}
-          </p>
-          <div className="space-y-1 text-sm text-gray-600">
-            <p>Attention: <span className="font-semibold text-gray-900">{zoneData.value.toFixed(1)}%</span></p>
-            <p>Time: <span className="font-semibold text-gray-900">{formatTime(zoneData.totalTimeMs)}</span></p>
-            <p>Sessions: <span className="font-semibold text-gray-900">{zoneData.uniqueSessions}</span></p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 ${className}`}>

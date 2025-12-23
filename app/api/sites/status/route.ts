@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ statuses });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[SiteStatus] Error:', error);
         return NextResponse.json({ error: 'Failed to check site status' }, { status: 500 });
     }

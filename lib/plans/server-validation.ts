@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { PLANS, PLAN_FEATURES, PlanTier } from './config';
+import { PLANS, PlanTier } from './config';
 
 // Helper to access Supabase Admin logic safely
 // Note: This should ONLY be used in server contexts (API/Server Actions)
@@ -32,7 +32,6 @@ export async function getUserPlan(userId: string): Promise<PlanTier> {
 export async function validateFeatureAccess(userId: string, featureId: string): Promise<boolean> {
     const planTier = await getUserPlan(userId);
 
-    // @ts-ignore
     const planConfig = PLANS[planTier] || PLANS.FREE;
 
     // Check if feature is in the plan's feature list
@@ -41,10 +40,9 @@ export async function validateFeatureAccess(userId: string, featureId: string): 
 
 export async function validateLimit(userId: string, limitKey: string, currentUsage: number): Promise<boolean> {
     const planTier = await getUserPlan(userId);
-    // @ts-ignore
     const planConfig = PLANS[planTier] || PLANS.FREE;
 
-    // @ts-ignore
+    // @ts-expect-error - limitKey is generic string, strict keyof check fails
     const limit = planConfig.limits[limitKey];
 
     if (limit === -1 || limit === null || limit === undefined) {

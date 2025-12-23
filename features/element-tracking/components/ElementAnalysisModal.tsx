@@ -130,7 +130,7 @@ export function ElementAnalysisModal({
         const analysisResult = {
           reality: {
             ctr,
-            ctrTrend: (data.trends as any)?.trends?.clicks_change || 0,
+            ctrTrend: (data.trends as { trends?: { clicks_change?: number } })?.trends?.clicks_change || 0,
             ctrBenchmark: !elementData 
                 ? "Data Pending" 
                 : ctr > (siteAvg?.avg_ctr_by_tag || 1)
@@ -143,7 +143,7 @@ export function ElementAnalysisModal({
               elementData?.avg_scroll_depth ||
               Math.min(100, (element.y / (element.document_height || document.documentElement.scrollHeight || window.innerHeight)) * 100),
             scrollDepthTrend:
-              (data.trends as any)?.trends?.scroll_depth_change || 0,
+              (data.trends as { trends?: { scroll_depth_change?: number } })?.trends?.scroll_depth_change || 0,
             position:
               element.y < 200
                 ? "Hero Section"
@@ -179,7 +179,7 @@ export function ElementAnalysisModal({
           },
           prescription: elementData ? generatePrescription(element, {
             ctr,
-            ctrTrend: (data.trends as any)?.trends?.clicks_change || 0,
+            ctrTrend: (data.trends as { trends?: { clicks_change?: number } })?.trends?.clicks_change || 0,
             deviceBreakdown,
             scrollDepth:
               elementData?.avg_scroll_depth ||
@@ -206,10 +206,11 @@ export function ElementAnalysisModal({
     }
 
     fetchAnalysis();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAIInsights is stable, including it would cause re-fetching
   }, [element, siteId, pagePath, deviceType, hasAIFeature]);
 
   // Fetch AI-generated insights
-  const fetchAIInsights = async (analysisData: ElementAnalysis, elementData: any) => {
+  const fetchAIInsights = async (analysisData: ElementAnalysis, elementData: Record<string, unknown> | undefined) => {
     try {
       setAiLoading(true);
 

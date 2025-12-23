@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         let planError = null;
 
         // Try to find by ID first (for database UUIDs)
-        const { data: planById, error: errorById } = await supabase
+        const { data: planById, error: _errorById } = await supabase
             .from('subscription_plans')
             .select('*')
             .eq('id', planId)

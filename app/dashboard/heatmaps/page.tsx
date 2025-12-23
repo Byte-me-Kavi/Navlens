@@ -221,7 +221,7 @@ export default function HeatmapsPage() {
             {/* Help Text */}
             <div className="text-center text-xs text-gray-400 mt-6">
               <p>
-                Select a heatmap type above or click "View All Heatmaps" to explore all visualization options.
+                Select a heatmap type above or click &quot;View All Heatmaps&quot; to explore all visualization options.
               </p>
             </div>
           </>

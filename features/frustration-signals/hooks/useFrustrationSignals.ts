@@ -40,6 +40,7 @@ export function useFrustrationSignals(params: UseFrustrationSignalsParams): UseF
         } finally {
             setLoading(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [params.siteId, params.pagePath, params.startDate, params.endDate]);
 
     useEffect(() => {

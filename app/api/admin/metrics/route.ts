@@ -40,6 +40,7 @@ async function GET_handler(req: NextRequest) {
       format: 'JSONEachRow',
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rawData = await result.json() as any[];
 
     // Zero-fill for the last 60 minutes
@@ -52,6 +53,7 @@ async function GET_handler(req: NextRequest) {
 
     // Create a map for O(1) lookup
     const dataMap = new Map();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rawData.forEach((d: any) => {
       // d.time_epoch is already seconds (integer)
       dataMap.set(parseInt(d.time_epoch), d);
@@ -116,6 +118,7 @@ async function GET_handler(req: NextRequest) {
     return NextResponse.json({
       chart_data: chart_data,
       summary: summary[0] || { total_reqs: 0, avg_lat: 0, error_rate: 0 },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       paths: (paths as any[]).map(p => p.path)
     });
 

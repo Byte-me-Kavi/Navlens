@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
                 'Access-Control-Allow-Origin': '*',
             },
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[feedback] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, {
             status: 500,

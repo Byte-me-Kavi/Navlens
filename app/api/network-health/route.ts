@@ -330,7 +330,7 @@ export async function POST(request: NextRequest) {
         };
 
         return NextResponse.json(response);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[network-health] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

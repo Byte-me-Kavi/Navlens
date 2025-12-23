@@ -18,7 +18,7 @@ async function POST_handler(request: NextRequest) {
 
         const supabase = createClient();
         let targetUserIds: string[] = [];
-        const logDetails: any = { type, audience };
+        const logDetails: Record<string, unknown> = { type, audience };
 
         // Determine Target Users
         if (audience === 'all') {
@@ -42,7 +42,7 @@ async function POST_handler(request: NextRequest) {
                 // We will assume the Admin Page sends the UUID if possible. If input is email, we have to search.
                 // Let's rely on frontend sending UUID if singular. But if Admin types email...
                 // Let's simplistic approach:
-                const { data, error } = await supabase.from('profiles').select('user_id').eq('email', targetValue).single(); // Assuming profiles has email? Profiles usually doesn't have email in some schemas.
+                const { data: _data, error: _error } = await supabase.from('profiles').select('user_id').eq('email', targetValue).single(); // Assuming profiles has email? Profiles usually doesn't have email in some schemas.
                 // Start with Auth:
                 // Wait, we can't query auth users easily.
                 // Let's assuming we fetch all profiles?
@@ -100,9 +100,10 @@ async function POST_handler(request: NextRequest) {
 
         return NextResponse.json({ success: true, count: targetUserIds.length });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Notification Send Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 

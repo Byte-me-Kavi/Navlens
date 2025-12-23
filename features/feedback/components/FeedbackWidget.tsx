@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { FeedbackModal } from "./FeedbackModal";
 import type { FeedbackWidgetConfig, SurveyTrigger } from "../types/feedback.types";
 import { DEFAULT_FEEDBACK_CONFIG } from "../types/feedback.types";
-import { FiMessageCircle, FiX } from "react-icons/fi";
+import { FiMessageCircle } from "react-icons/fi";
 
 interface FeedbackWidgetProps {
   siteId: string;
@@ -27,15 +27,27 @@ export function FeedbackWidget({
   const config = { ...DEFAULT_FEEDBACK_CONFIG, ...userConfig };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [surveyTrigger, setSurveyTrigger] = useState<SurveyTrigger>("manual");
-  const [dismissed, setDismissed] = useState(false);
-  const [pageLoadTime] = useState(Date.now());
+  const [dismissed, setDismissed] = useState(() => {
+    // Lazy initialization - read from localStorage on first render
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(`navlens_feedback_dismissed_${siteId}`) === "true";
+    }
+    return false;
+  });
+  const pageLoadTimeRef = useRef<number>(0);
   const exitIntentTriggered = useRef(false);
   const frustrationTriggered = useRef(false);
   
+  // Initialize page load time on mount
+  useEffect(() => {
+    pageLoadTimeRef.current = Date.now();
+  }, []);
+  
   // Check if minimum time has passed
   const hasMinTimePassed = useCallback(() => {
-    return (Date.now() - pageLoadTime) >= config.minTimeBeforeSurvey * 1000;
-  }, [pageLoadTime, config.minTimeBeforeSurvey]);
+    if (pageLoadTimeRef.current === 0) return false;
+    return (Date.now() - pageLoadTimeRef.current) >= config.minTimeBeforeSurvey * 1000;
+  }, [config.minTimeBeforeSurvey]);
 
   // Exit intent detection
   useEffect(() => {
@@ -102,13 +114,7 @@ export function FeedbackWidget({
     onFeedbackSubmit?.();
   };
 
-  // Check if previously dismissed
-  useEffect(() => {
-    const wasDismissed = localStorage.getItem(`navlens_feedback_dismissed_${siteId}`);
-    if (wasDismissed === "true") {
-      setDismissed(true);
-    }
-  }, [siteId]);
+
 
   if (!config.enabled) return null;
 

@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
             sitesCount: userSites.length,
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[subscription-usage] Error:', error);
         return NextResponse.json({ error: 'Failed to fetch usage data' }, { status: 500 });
     }

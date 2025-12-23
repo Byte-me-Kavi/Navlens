@@ -18,7 +18,6 @@ import {
   FiRefreshCw,
   FiChevronDown,
   FiInfo,
-  FiHelpCircle,
 } from 'react-icons/fi';
 import { SparklesIcon } from '@heroicons/react/24/outline';
 import { useAI } from '@/context/AIProvider';
@@ -59,6 +58,38 @@ const METRIC_EXPLANATIONS = {
   dropOff: 'Percentage of users who left this field without completing the form. Negative values indicate more users arrived at this field than the previous one.',
   refillRate: 'Percentage of times users deleted and re-entered content in this field. High rates suggest unclear requirements or validation issues.',
   interactions: 'Total number of times users focused on (clicked into) this field.',
+};
+
+// Custom tooltip for funnel - defined outside component to avoid recreation during render
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomFunnelTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white p-4 border border-gray-100 shadow-xl rounded-xl min-w-[200px]">
+        <p className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: payload[0].payload.fill }}></span>
+          {data.name}
+        </p>
+        <div className="space-y-1.5 text-sm">
+          <p className="text-gray-600">
+            Interactions: <span className="font-semibold text-gray-900">{data.value}</span>
+            <span className="text-gray-400"> ({data.retentionPercent}% retained)</span>
+          </p>
+          <p className="text-gray-600">
+            Avg Time: <span className="font-semibold text-indigo-600">{data.avgTime}</span>
+          </p>
+          <p className="text-gray-600">
+            Drop-off: <span className="font-semibold" style={{ color: formAnalyticsApi.getDropoffColor(data.dropOff) }}>{data.dropOff}%</span>
+          </p>
+          <p className="text-gray-600">
+            Refill Rate: <span className="font-semibold" style={{ color: formAnalyticsApi.getRefillColor(data.refillRate) }}>{data.refillRate}%</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
 };
 
 export default function FormAnalyticsPage() {
@@ -134,37 +165,6 @@ export default function FormAnalyticsPage() {
       };
     });
   }, [fields]);
-
-  // Custom tooltip for funnel
-  const CustomFunnelTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white p-4 border border-gray-100 shadow-xl rounded-xl min-w-[200px]">
-          <p className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: payload[0].payload.fill }}></span>
-            {data.name}
-          </p>
-          <div className="space-y-1.5 text-sm">
-            <p className="text-gray-600">
-              Interactions: <span className="font-semibold text-gray-900">{data.value}</span>
-              <span className="text-gray-400"> ({data.retentionPercent}% retained)</span>
-            </p>
-            <p className="text-gray-600">
-              Avg Time: <span className="font-semibold text-indigo-600">{data.avgTime}</span>
-            </p>
-            <p className="text-gray-600">
-              Drop-off: <span className="font-semibold" style={{ color: formAnalyticsApi.getDropoffColor(data.dropOff) }}>{data.dropOff}%</span>
-            </p>
-            <p className="text-gray-600">
-              Refill Rate: <span className="font-semibold" style={{ color: formAnalyticsApi.getRefillColor(data.refillRate) }}>{data.refillRate}%</span>
-            </p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   // No sites or no site selected
   if (sitesLoading) {
@@ -419,6 +419,7 @@ export default function FormAnalyticsPage() {
                           fill="#ffffff"
                           stroke="none"
                           dataKey="retentionPercent"
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           formatter={(val: any) => `${val}%`}
                           className="font-bold text-sm drop-shadow-sm"
                         />

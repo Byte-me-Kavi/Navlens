@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     console.log("[site-details] Success! Returning site data:", siteData);
     return NextResponse.json(siteData);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[site-details] Unexpected error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

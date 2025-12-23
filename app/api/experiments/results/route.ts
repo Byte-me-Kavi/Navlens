@@ -14,8 +14,7 @@ import { getCachedResults } from '@/lib/experiments/cache';
 import {
     analyzeExperiment,
     getStatusMessage,
-    calculateMinimumSampleSize,
-    estimateDaysToSignificance
+    calculateMinimumSampleSize
 } from '@/lib/experiments/stats';
 import type { VariantStats, ExperimentResults } from '@/lib/experiments/types';
 import { getUserFromRequest } from '@/lib/auth';
@@ -113,7 +112,7 @@ export async function GET(request: NextRequest) {
             { status: 200, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[experiments/results] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
@@ -305,7 +304,7 @@ async function computeResults(
             has_enough_data: totalUsers >= minimumSampleSize * 2
         } as ExperimentResults & { status_message: string; minimum_sample_size: number; has_enough_data: boolean };
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[experiments/results] ClickHouse query error:', error);
 
         // Return empty results on query error

@@ -170,7 +170,7 @@ async function POST_handler(req: NextRequest) {
 
     return await processHeatmapClicks(siteId, pagePath, deviceType, documentWidth, documentHeight, dateRangeDays, authResult);
 
-  } catch (error: Error | unknown) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const status = errorMessage.includes('Network') || errorMessage.includes('ECONNREFUSED') ? 503 : 500;
     console.error('Error fetching heatmap data:', error);

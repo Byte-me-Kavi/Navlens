@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   XMarkIcon,
   CursorArrowRaysIcon,
@@ -44,7 +44,6 @@ export function DeviceStatsBar({
   contentHeight,
   viewportWidth,
   isOpen: externalIsOpen,
-  onOpenChange,
   onClose,
   pagePath = "/",
   uniqueSessions = 0,

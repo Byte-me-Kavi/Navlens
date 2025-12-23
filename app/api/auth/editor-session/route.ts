@@ -47,10 +47,10 @@ export async function GET(request: NextRequest) {
                     get(name: string) {
                         return cookieStore.get(name)?.value;
                     },
-                    set(name: string, value: string, options: CookieOptions) {
+                    set(_name: string, _value: string, _options: CookieOptions) {
                         // Not needed for reading
                     },
-                    remove(name: string, options: CookieOptions) {
+                    remove(_name: string, _options: CookieOptions) {
                         // Not needed for reading
                     },
                 },
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
         resp.headers.set('Access-Control-Allow-Credentials', 'true');
         return addTrackerCorsHeaders(resp, origin, isAllowed);
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[editor-session] Error:', error);
         const resp = NextResponse.json({ error: 'Internal server error' }, { status: 500 });
         resp.headers.set('Access-Control-Allow-Credentials', 'true');

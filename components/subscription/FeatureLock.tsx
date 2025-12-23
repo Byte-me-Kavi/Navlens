@@ -15,7 +15,7 @@ interface FeatureLockProps {
 }
 
 export function FeatureLock({ children, feature, fallback, blur = false, title, description }: FeatureLockProps) {
-    const { hasFeature, isLoading, plan } = useSubscription();
+    const { hasFeature, isLoading, plan: _plan } = useSubscription();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Determine the minimum plan required for this feature

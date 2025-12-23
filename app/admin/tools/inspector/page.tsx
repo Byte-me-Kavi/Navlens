@@ -11,7 +11,7 @@ import {
 export default function InspectorPage() {
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState<any>(null);
+    const [result, setResult] = useState<{ connected: boolean; details: string } | null>(null);
 
     async function handleCheck(e: React.FormEvent) {
         e.preventDefault();
@@ -26,7 +26,7 @@ export default function InspectorPage() {
             });
             const data = await res.json();
             setResult(data);
-        } catch (err) {
+        } catch {
             setResult({ connected: false, details: 'Failed to reach API' });
         } finally {
             setLoading(false);

@@ -58,7 +58,7 @@ interface FormEventsPayload {
 }
 
 // Supabase admin client
-const supabaseAdmin = createClient(
+const _supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
                 values: insertData,
                 format: 'JSONEachRow',
             });
-        } catch (dbError) {
+        } catch (dbError: unknown) {
             console.error('[v1/form-events] ClickHouse insert error:', dbError);
             return jsonResponse({ error: 'Failed to store form events' }, 500, origin);
         }
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
             duration_ms: duration,
         }, 200, origin);
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[v1/form-events] Error:', error);
         return jsonResponse({ error: 'Internal server error' }, 500, origin);
     }

@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
             headers: corsHeaders(origin)
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[config] Error:', error);
         return NextResponse.json(
             { experiments: [] },

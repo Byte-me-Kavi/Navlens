@@ -3,14 +3,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, Users, Shield, Server, Globe, MousePointer, Calendar, Search, ShieldCheck } from 'lucide-react';
+import { Activity, Users, Globe, MousePointer, Search, ShieldCheck } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 interface DashboardStats {
     totalUsers: number;
     totalSites: number;
     totalEvents: number;
-    recentSignups: any[];
+    recentSignups: { id: string, email: string, created_at: string, status: string }[];
     eventsChart: { date: string, count: number }[];
     planDistribution: { name: string, value: number }[];
     systemHealth: string;
@@ -228,13 +228,13 @@ export default function AdminDashboard() {
                             <Tooltip 
                                 contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: 'white' }}
                                 itemStyle={{ color: 'white' }}
-                                formatter={(value: any) => [value, 'Users']}
+                                formatter={(value: number | undefined) => [value, 'Users']}
                             />
                             <Legend 
                                 verticalAlign="bottom" 
                                 height={36}
                                 iconType="circle"
-                                formatter={(value, entry: any) => <span className="text-slate-600 font-medium ml-1">{value}</span>}
+                                formatter={(value) => <span className="text-slate-600 font-medium ml-1">{value}</span>}
                             />
                         </PieChart>
                     </ResponsiveContainer>
@@ -254,7 +254,7 @@ export default function AdminDashboard() {
                 {loading ? (
                     <div className="text-slate-400 text-sm text-center">Loading signups...</div>
                 ) : data?.recentSignups && data.recentSignups.length > 0 ? (
-                    data.recentSignups.map((user, i) => (
+                    data.recentSignups.map((user) => (
                         <div key={user.id} className="flex items-center gap-4 text-sm p-4 bg-white/50 rounded-2xl border border-white/50 hover:bg-white hover:border-purple-100 hover:shadow-lg hover:shadow-purple-500/5 transition-all cursor-pointer group">
                             <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white text-xs font-bold">
                                 {user.email?.[0].toUpperCase()}

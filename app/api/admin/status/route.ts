@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { AdminSecurityService } from '@/lib/admin-security';
 import { headers } from 'next/headers';
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
     try {
         const headersList = await headers();
         const forwardedFor = headersList.get('x-forwarded-for');
@@ -18,8 +18,8 @@ export async function GET(req: Request) {
             remainingAttempts: access.remainingAttempts
         });
 
-    } catch (e) {
-        console.error('Status check error:', e);
+    } catch {
+        // console.error('Status check error:', e);
         return NextResponse.json({ error: 'Status check failed' }, { status: 500 });
     }
 }

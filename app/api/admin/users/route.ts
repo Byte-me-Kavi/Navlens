@@ -61,6 +61,7 @@ async function GET_handler(request: NextRequest) {
 
         // Create lookups
         const subMap: Record<string, string> = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         subscriptionsResult.data?.forEach((sub: any) => {
             const plan = sub.subscription_plans;
             // Handle array or object return from join
@@ -69,10 +70,12 @@ async function GET_handler(request: NextRequest) {
         });
 
         const siteCountMap: Record<string, number> = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sitesResult.data?.forEach((site: any) => {
             siteCountMap[site.user_id] = (siteCountMap[site.user_id] || 0) + 1;
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const transformedUsers = users.map((u: any) => ({ // Cast to any to fix missing type defs for banned_until
             id: u.id,
             email: u.email,
@@ -92,7 +95,7 @@ async function GET_handler(request: NextRequest) {
             page,
             perPage
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[AdminUsers] Unexpected error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }

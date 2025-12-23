@@ -28,9 +28,10 @@ const analysisFetcher = async ([, params]: [string, FunnelAnalysisParams]): Prom
 };
 
 export function useFunnelAnalysis(params: FunnelAnalysisParams | null): UseFunnelAnalysisResult {
-  // Create stable cache key
+  // Create stable cache key - use params as single dependency for React Compiler
   const cacheKey = useMemo(() => {
-    if (!params?.funnelId || !params?.siteId) return null;
+    if (!params) return null;
+    if (!params.funnelId || !params.siteId) return null;
     return [
       '/api/funnels/analyze',
       {
@@ -40,7 +41,7 @@ export function useFunnelAnalysis(params: FunnelAnalysisParams | null): UseFunne
         endDate: params.endDate,
       }
     ] as [string, FunnelAnalysisParams];
-  }, [params?.funnelId, params?.siteId, params?.startDate, params?.endDate]);
+  }, [params]);
 
   const { data, error, isLoading, mutate } = useSWR(
     cacheKey,

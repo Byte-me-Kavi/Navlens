@@ -103,7 +103,7 @@ const FileIcon = () => (
   </svg>
 );
 
-const EyeIcon = () => (
+const _EyeIcon = () => (
   <svg
     className="w-6 h-6"
     fill="none"
@@ -125,7 +125,7 @@ const EyeIcon = () => (
   </svg>
 );
 
-const EyeOffIcon = () => (
+const _EyeOffIcon = () => (
   <svg
     className="w-6 h-6"
     fill="none"
@@ -141,7 +141,7 @@ const EyeOffIcon = () => (
   </svg>
 );
 
-const HeatmapIcon = () => (
+const _HeatmapIcon = () => (
   <svg
     className="w-6 h-6"
     fill="none"
@@ -157,7 +157,7 @@ const HeatmapIcon = () => (
   </svg>
 );
 
-const SettingsIcon = () => (
+const _SettingsIcon = () => (
   <svg
     className="w-6 h-6"
     fill="none"
@@ -222,10 +222,10 @@ export function HeatmapSettings({
   onDeviceChange,
   selectedDataType,
   onDataTypeChange,
-  showElements,
-  onShowElementsChange,
-  showHeatmap,
-  onShowHeatmapChange,
+  showElements: _showElements,
+  onShowElementsChange: _onShowElementsChange,
+  showHeatmap: _showHeatmap,
+  onShowHeatmapChange: _onShowHeatmapChange,
   showAllViewports,
   onShowAllViewportsChange,
   siteId,
@@ -235,7 +235,7 @@ export function HeatmapSettings({
   userDevice = "desktop",
 }: HeatmapSettingsProps) {
   const sidebarOpen = isOpen;
-  const handleOpen = onOpenChange || (() => {});
+  const _handleOpen = onOpenChange || (() => {});
   const handleClose = onClose || (() => {});
 
   return (

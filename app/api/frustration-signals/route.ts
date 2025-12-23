@@ -100,7 +100,7 @@ const getCachedFrustrationSignals = unstable_cache(
                     erraticMovements: Number(s.erratic_movements),
                 })),
             };
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('[frustration-signals] Query error:', error);
             // Return empty data on error
             return {
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         const data = await getCachedFrustrationSignals(siteId, pagePath, start, end);
 
         return NextResponse.json(data, { status: 200 });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[frustration-signals] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { Navbar } from "@/components/Navbar";
@@ -28,17 +28,18 @@ const PricingPage: React.FC = () => {
     "monthly"
   );
   const [expandedFaq, setExpandedFaq] = useState<number | null>(0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
+  const [_currentPlanId, setCurrentPlanId] = useState<string | null>(null);
   const [currentPlanName, setCurrentPlanName] = useState<string | null>(null);
   const [showDowngradeModal, setShowDowngradeModal] = useState(false);
   const [downgradeLoading, setDowngradeLoading] = useState(false);
   const [selectedDowngradePlan, setSelectedDowngradePlan] = useState<{id: string, name: string} | null>(null);
 
   // Map Config to UI
-  const getPlansFromConfig = () => {
-    return Object.values(PLANS).map((plan, index, allPlans) => {
+  const getPlansFromConfig = useCallback(() => {
+    return Object.values(PLANS).map((plan) => {
         // Format limits for display
         const limitFeatures = [
             `${plan.limits.sessions === -1 ? 'Unlimited' : plan.limits.sessions.toLocaleString()} Sessions/mo`,
@@ -106,12 +107,12 @@ const PricingPage: React.FC = () => {
             inheritanceText // Pass to component if needed for special styling, but strictly putting in list usually works for simple cards
         };
     }).sort((a, b) => a.price.monthly - b.price.monthly);
-  };
+  }, []);
 
   // Fetch plans from database with localStorage caching
   useEffect(() => {
-    const CACHE_KEY = 'navlens_subscription_plans';
-    const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+    const _CACHE_KEY = 'navlens_subscription_plans';
+    const _CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
     async function fetchPlans() {
       // Use centralized config primarily
@@ -182,6 +183,7 @@ const PricingPage: React.FC = () => {
 
           if (directSub) {
             console.log('✅ Found active subscription directly:', directSub);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             activeSubscription = directSub as any;
           }
         }
@@ -206,7 +208,7 @@ const PricingPage: React.FC = () => {
 
     fetchPlans();
     checkCurrentSubscription();
-  }, [supabase]);
+  }, [supabase, getPlansFromConfig]);
 
   // Auto-trigger payment if returning from login with plan parameter
   useEffect(() => {
@@ -236,6 +238,7 @@ const PricingPage: React.FC = () => {
     if (plans.length > 0 && !loading) {
       checkAutoPayment();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plans, loading]);
 
   // Handle plan selection with PayHere integration
@@ -366,6 +369,7 @@ const PricingPage: React.FC = () => {
 
   // Helper functions
   function getPlanIcon(name: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const icons: any = {
       Free: RocketLaunchIcon,
       Starter: RocketLaunchIcon,
@@ -375,12 +379,12 @@ const PricingPage: React.FC = () => {
     return icons[name] || RocketLaunchIcon;
   }
 
-  function getPlanDescription(name: string) {
+  function _getPlanDescription(_name: string) {
       // Use config first if available
       return '';
   }
 
-  function getPlanFeatures(name: string, sessionLimit: number | null) {
+  function _getPlanFeatures(_name: string, _sessionLimit: number | null) {
       return [];
   }
 
@@ -705,7 +709,7 @@ const PricingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                  {Object.entries(PLANS.FREE.limits).map(([key, limit]) => {
+                  {Object.entries(PLANS.FREE.limits).map(([key, _limit]) => {
                       if (key === 'active_experiments' || key === 'active_surveys') return null;
                       const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                       return (

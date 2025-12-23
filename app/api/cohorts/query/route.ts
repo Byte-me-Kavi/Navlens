@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ cohorts: cohorts || [] });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[cohorts/query] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },

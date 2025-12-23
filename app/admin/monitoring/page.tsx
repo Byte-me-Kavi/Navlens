@@ -1,14 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { 
   ArrowPathIcon, 
-  CheckCircleIcon, 
   ExclamationCircleIcon,
   ServerIcon,
-  CircleStackIcon,
-  ClockIcon
+  CircleStackIcon
 } from "@heroicons/react/24/outline";
+
+// Interfaces for state types
+interface ServiceStatus {
+  status: string;
+  latency_ms: number;
+  error?: string;
+  usage?: {
+    row_estimate?: number;
+    size_bytes?: number;
+    rows?: number;
+    monthly_requests?: number;
+  };
+}
+
+interface HealthData {
+  status: string;
+  services: {
+    supabase: ServiceStatus;
+    clickhouse: ServiceStatus;
+  };
+  uptime: number;
+}
+
+interface ChartDataPoint {
+  time: string;
+  total_requests: number;
+  error_requests: number;
+  avg_latency: number;
+  latency?: number;
+}
+
+interface MetricsData {
+  summary?: { total_reqs: number; avg_lat: number; error_rate: number };
+  paths?: string[];
+  byPath?: Array<{ path: string; reqs: number; avg_lat: number; error_rate: number; chart_data?: ChartDataPoint[] }>;
+  chart_data?: ChartDataPoint[];
+  error?: string;
+}
 
 // Helper to format bytes
 function formatBytes(bytes: number, decimals = 2) {
@@ -21,8 +57,8 @@ function formatBytes(bytes: number, decimals = 2) {
 }
 
 export default function SystemMonitoringPage() {
-  const [health, setHealth] = useState<any>(null);
-  const [metrics, setMetrics] = useState<any>(null);
+  const [health, setHealth] = useState<HealthData | null>(null);
+  const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   
@@ -31,7 +67,7 @@ export default function SystemMonitoringPage() {
   const [availablePaths, setAvailablePaths] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchData = async (pathOverride?: string) => {
+  const fetchData = useCallback(async (pathOverride?: string) => {
     const isInitial = !metrics;
     if (isInitial) setLoading(true);
     else setRefreshing(true);
@@ -60,18 +96,18 @@ export default function SystemMonitoringPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [metrics, selectedPath]);
 
   useEffect(() => {
     fetchData();
     const interval = setInterval(() => fetchData(), 30000); // Poll every 30s
     return () => clearInterval(interval);
-  }, []); // Run once on mount
+  }, [fetchData]); // Run once on mount
 
   // Refetch when path changes
   useEffect(() => {
     fetchData(selectedPath);
-  }, [selectedPath]);
+  }, [selectedPath, fetchData]);
 
   const getStatusColor = (status: string) => {
     return status === 'healthy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
@@ -209,19 +245,19 @@ export default function SystemMonitoringPage() {
            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-sm font-medium text-gray-500">Total Requests</p>
               <p className="text-3xl font-bold text-gray-900 mt-2">
-                 {parseInt(metrics.summary.total_reqs).toLocaleString()}
+                 {Number(summary.total_reqs).toLocaleString()}
               </p>
            </div>
            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-sm font-medium text-gray-500">Avg. Latency</p>
-              <p className={`text-3xl font-bold mt-2 ${getLatencyColor(metrics.summary.avg_lat)}`}>
-                 {Math.round(metrics.summary.avg_lat)}<span className="text-lg text-gray-400 font-normal">ms</span>
+              <p className={`text-3xl font-bold mt-2 ${getLatencyColor(summary.avg_lat)}`}>
+                 {Math.round(summary.avg_lat)}<span className="text-lg text-gray-400 font-normal">ms</span>
               </p>
            </div>
            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-sm font-medium text-gray-500">Error Rate</p>
-              <p className={`text-3xl font-bold mt-2 ${parseFloat(summary.error_rate || '0') > 5 ? 'text-red-600' : 'text-green-600'}`}>
-                 {Number.isNaN(parseFloat(summary.error_rate)) ? '0.00' : parseFloat(summary.error_rate).toFixed(2)}%
+              <p className={`text-3xl font-bold mt-2 ${Number(summary.error_rate || 0) > 5 ? 'text-red-600' : 'text-green-600'}`}>
+                 {Number(summary.error_rate || 0).toFixed(2)}%
               </p>
            </div>
         </div>
@@ -271,11 +307,11 @@ export default function SystemMonitoringPage() {
         </div>
         <div className="p-6">
             <div className="h-64 flex items-end justify-between gap-1">
-                {metrics.chart_data.map((point: any, i: number) => {
+                {(metrics.chart_data || []).map((point: ChartDataPoint, i: number) => {
                     // Simple Bar Chart
                     // Use a minimum height of 4px for 0 values if we want to show the timeline exists, else 0
                     // Actually 0 height is fine for 0 requests, but maybe show a baseline?
-                    const maxReqs = Math.max(...metrics.chart_data.map((d: any) => d.total_requests), 10); // Scale based on max
+                    const maxReqs = Math.max(...(metrics.chart_data || []).map((d) => d.total_requests), 10); // Scale based on max
                     const heightPct = (point.total_requests / maxReqs) * 100;
                     
                     return (

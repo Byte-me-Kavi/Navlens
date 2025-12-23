@@ -110,7 +110,7 @@ export function ProfileTab() {
     }
   };
 
-  const handleChangePassword = async () => {
+  const _handleChangePassword = async () => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/account`,
@@ -233,6 +233,7 @@ export function ProfileTab() {
                                     if (error) throw error;
                                     setMessage({ type: 'success', text: 'Password updated successfully!' });
                                     input.value = '';
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 } catch (e: any) {
                                     setMessage({ type: 'error', text: e.message });
                                 } finally {

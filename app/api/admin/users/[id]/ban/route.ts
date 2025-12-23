@@ -65,6 +65,7 @@ export async function POST(
             details: { ban_duration: banDuration, request_action: action }
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const userWithType = data.user as any;
         return NextResponse.json({
             success: true,
@@ -74,7 +75,7 @@ export async function POST(
             }
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[AdminBan] Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }

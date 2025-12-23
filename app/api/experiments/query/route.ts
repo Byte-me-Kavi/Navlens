@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ experiments: experiments || [] });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[experiments/query] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },

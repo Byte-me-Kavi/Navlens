@@ -69,5 +69,5 @@ export interface SubscriptionPlan {
     price_usd: number;
     price_lkr: number;
     session_limit: number | null;
-    features: Record<string, any>;
+    features: Record<string, unknown>;
 }

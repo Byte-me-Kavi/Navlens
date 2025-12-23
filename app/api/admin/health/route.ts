@@ -31,7 +31,7 @@ async function GET_handler() {
 
         if (count !== null) supabaseUsage.row_estimate = count;
 
-    } catch (e) {
+    } catch {
         supabaseStatus = 'unhealthy';
     }
 

@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         resp.headers.set('Access-Control-Allow-Credentials', 'true');
         return addTrackerCorsHeaders(resp, origin, isAllowed);
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[verify-editor] Error:', error);
         const resp = NextResponse.json({ valid: false, error: 'Internal server error' }, { status: 500 });
         resp.headers.set('Access-Control-Allow-Credentials', 'true');

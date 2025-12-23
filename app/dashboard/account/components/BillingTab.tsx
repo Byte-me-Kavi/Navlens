@@ -2,15 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import Link from "next/link";
 import {
-  CreditCardIcon,
-  CalendarIcon,
   CheckCircleIcon,
   ArrowUpRightIcon,
   BanknotesIcon,
   CloudIcon,
-  SparklesIcon,
   FireIcon,
   ChartBarIcon,
   RocketLaunchIcon,
@@ -18,7 +14,7 @@ import {
   BuildingOffice2Icon,
   PaperAirplaneIcon
 } from "@heroicons/react/24/outline";
-import { PLANS, FEATURE_LABELS } from '@/lib/plans/config';
+import { PLANS } from '@/lib/plans/config';
 import { UpgradeModal } from "@/components/subscription/UpgradeModal";
 import { CancelModal } from "@/components/subscription/CancelModal";
 
@@ -32,6 +28,7 @@ interface PaymentRecord {
     status: string;
     payment_date: string;
     payhere_order_id: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata: any;
 }
 
@@ -223,8 +220,10 @@ const generateInvoice = async (payment: PaymentRecord, planName: string, userNam
 
 export function BillingTab() {
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [subscription, setSubscription] = useState<any>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [usage, setUsage] = useState<any>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -289,6 +288,7 @@ export function BillingTab() {
           .eq('user_id', user.id)
           .single();
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let activeSub: any = profile?.subscriptions;
         
         // Handle array or single object returns
@@ -376,7 +376,7 @@ export function BillingTab() {
 
   // Usage Calcs
   const sessions = usage?.sessions || 0;
-  // @ts-ignore
+  // @ts-expect-error - dynamic key access
   const sessionLimit = PLANS[normPlanName.toUpperCase()]?.limits?.sessions ?? (normPlanName === 'Free' ? 500 : null);
   const sessionPct = sessionLimit ? Math.min((sessions / sessionLimit) * 100, 100) : 0;
 

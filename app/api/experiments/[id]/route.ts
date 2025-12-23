@@ -97,7 +97,7 @@ export async function GET(
             { status: 200, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[experiments/[id]] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
@@ -239,7 +239,7 @@ export async function PATCH(
             { status: 200, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[experiments/[id]] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
@@ -338,7 +338,7 @@ export async function DELETE(
             { status: 200, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[experiments/[id]] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },

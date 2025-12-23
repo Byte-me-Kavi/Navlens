@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
             }
         );
 
-    } catch (error: Error | unknown) {
+    } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error fetching page paths:', error);
         return NextResponse.json(

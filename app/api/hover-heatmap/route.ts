@@ -117,7 +117,7 @@ const getCachedHoverHeatmap = unstable_cache(
                 attentionZones,
                 note: 'Derived from click data - add hover columns for true hover tracking',
             };
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('[hover-heatmap] Query error:', error);
             return {
                 totalHoverTimeMs: 0,
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
                 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
             }
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[hover-heatmap] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

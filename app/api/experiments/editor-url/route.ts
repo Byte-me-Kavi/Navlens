@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
             { status: 200, headers: corsHeaders(origin) }
         );
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[editor-url] Error:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
