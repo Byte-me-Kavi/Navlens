@@ -514,6 +514,7 @@
         <button class="nv-btn nv-btn-danger" id="nv-close">${getIcon('close')}</button>
       </div>
     </div>
+    <div style="height: 3px; background: linear-gradient(90deg, #4f46e5, #06b6d4); margin: -16px -16px 16px -16px; border-radius: 12px 12px 0 0;"></div>
     
     <!-- Mode & Viewport Controls -->
     <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
@@ -541,7 +542,7 @@
       <div class="nv-panel-section">
         <div class="nv-panel-label">Selected Element</div>
         <div id="nv-selected-tag" style="font-weight: 600;"></div>
-        <div id="nv-selected-selector" class="nv-selector-display"></div>
+        <div id="nv-selected-selector" class="nv-selector-display" style="background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe;"></div>
       </div>
       
       <div class="nv-panel-section">
@@ -827,28 +828,28 @@
   // All available modification types with their requirements
   const modificationTypes = {
     // Universal types (work on any element)
-    css: { label: getIcon('css') + ' Change Style (CSS)', hint: 'Modify colors, fonts, spacing', universal: true },
-    text: { label: getIcon('text') + ' Change Text', hint: 'Replace text content', universal: true },
-    hide: { label: getIcon('hide') + ' Hide Element', hint: 'Hide from visitors (CSS)', universal: true },
-    remove: { label: getIcon('remove') + ' Remove Element', hint: 'Delete from DOM', universal: true },
-    clone: { label: getIcon('clone') + ' Clone Element', hint: 'Duplicate this element', universal: true },
-    insertHtml: { label: getIcon('insert') + ' Insert HTML', hint: 'Add HTML before/after', universal: true },
-    replaceHtml: { label: getIcon('replace') + ' Replace HTML', hint: 'Replace with custom HTML', universal: true },
-    resize: { label: getIcon('resize') + ' Resize Element', hint: 'Change width/height', universal: true },
-    reorder: { label: getIcon('reorder') + ' Reorder Element', hint: 'Move among siblings', universal: true },
-    move: { label: getIcon('move') + ' Move Element', hint: 'Offset position', universal: true },
-    attribute: { label: getIcon('attr') + ' Modify Attribute', hint: 'Change any attribute', universal: true },
-    class: { label: getIcon('class') + ' Toggle Classes', hint: 'Add/remove CSS classes', universal: true },
-    tooltip: { label: getIcon('tooltip') + ' Add Tooltip', hint: 'Show text on hover', universal: true },
-    sticky: { label: getIcon('sticky') + ' Make Sticky', hint: 'Stick to viewport', universal: true },
-    animation: { label: getIcon('anim') + ' Add Animation', hint: 'Animate on load', universal: true },
-    clickRedirect: { label: getIcon('click') + ' Click Redirect', hint: 'Navigate on click', universal: true },
+    css: { icon: 'css', label: 'Change Style (CSS)', hint: 'Modify colors, fonts, spacing', universal: true },
+    text: { icon: 'text', label: 'Change Text', hint: 'Replace text content', universal: true },
+    hide: { icon: 'hide', label: 'Hide Element', hint: 'Hide from visitors (CSS)', universal: true },
+    remove: { icon: 'remove', label: 'Remove Element', hint: 'Delete from DOM', universal: true },
+    clone: { icon: 'clone', label: 'Clone Element', hint: 'Duplicate this element', universal: true },
+    insertHtml: { icon: 'insert', label: 'Insert HTML', hint: 'Add HTML before/after', universal: true },
+    replaceHtml: { icon: 'replace', label: 'Replace HTML', hint: 'Replace with custom HTML', universal: true },
+    resize: { icon: 'resize', label: 'Resize Element', hint: 'Change width/height', universal: true },
+    reorder: { icon: 'reorder', label: 'Reorder Element', hint: 'Move among siblings', universal: true },
+    move: { icon: 'move', label: 'Move Element', hint: 'Offset position', universal: true },
+    attribute: { icon: 'attr', label: 'Modify Attribute', hint: 'Change any attribute', universal: true },
+    class: { icon: 'class', label: 'Toggle Classes', hint: 'Add/remove CSS classes', universal: true },
+    tooltip: { icon: 'tooltip', label: 'Add Tooltip', hint: 'Show text on hover', universal: true },
+    sticky: { icon: 'sticky', label: 'Make Sticky', hint: 'Stick to viewport', universal: true },
+    animation: { icon: 'anim', label: 'Add Animation', hint: 'Animate on load', universal: true },
+    clickRedirect: { icon: 'click', label: 'Click Redirect', hint: 'Navigate on click', universal: true },
     
     // Element-specific types
-    image: { label: getIcon('image') + ' Replace Image', hint: 'Swap image source', tags: ['IMG'] },
-    link: { label: getIcon('link') + ' Replace Link', hint: 'Change link URL', tags: ['A'] },
-    placeholder: { label: getIcon('placeholder') + ' Change Placeholder', hint: 'Modify placeholder text', tags: ['INPUT', 'TEXTAREA'] },
-    formAction: { label: getIcon('form') + ' Change Form Action', hint: 'Redirect form submission', tags: ['FORM'] }
+    image: { icon: 'image', label: 'Replace Image', hint: 'Swap image source', tags: ['IMG'] },
+    link: { icon: 'link', label: 'Replace Link', hint: 'Change link URL', tags: ['A'] },
+    placeholder: { icon: 'placeholder', label: 'Change Placeholder', hint: 'Modify placeholder text', tags: ['INPUT', 'TEXTAREA'] },
+    formAction: { icon: 'form', label: 'Change Form Action', hint: 'Redirect form submission', tags: ['FORM'] }
   };
   
   // Populate modification types based on selected element
@@ -1710,28 +1711,10 @@
     const list = document.getElementById('nv-mod-list');
     document.getElementById('nv-mod-count').textContent = modifications.length;
     
-    const typeLabels = {
-      css: getIcon('css') + ' CSS',
-      text: getIcon('text') + ' Text',
-      hide: getIcon('hide') + ' Hide',
-      image: getIcon('image') + ' Image',
-      link: getIcon('link') + ' Link',
-      insertHtml: getIcon('insert') + ' HTML',
-      replaceHtml: getIcon('replace') + ' HTML',
-      resize: getIcon('resize') + ' Resize',
-      clone: getIcon('clone') + ' Clone',
-      reorder: getIcon('reorder') + ' Reorder',
-      move: getIcon('move') + ' Move',
-      attribute: getIcon('attr') + ' Attr',
-      class: getIcon('class') + ' Class',
-      clickRedirect: getIcon('click') + ' Click',
-      tooltip: getIcon('tooltip') + ' Tooltip',
-      sticky: getIcon('sticky') + ' Sticky',
-      placeholder: getIcon('placeholder') + ' Placeholder',
-      formAction: getIcon('form') + ' Action',
-      animation: getIcon('anim') + ' Anim',
-      remove: getIcon('remove') + ' Remove'
-    };
+    const typeLabels = {};
+    Object.entries(modificationTypes).forEach(([key, config]) => {
+      typeLabels[key] = `${getIcon(config.icon)} ${config.label}`;
+    });
     
     list.innerHTML = modifications.map((mod, i) => `
       <div class="nv-mod-item">
