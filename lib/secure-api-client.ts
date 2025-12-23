@@ -7,7 +7,7 @@
  * 3. Provides type-safe API calls
  */
 
-import { decryptResponse, isEncryptedResponse } from '@/lib/encryption';
+
 
 // Enhanced fetcher that handles encryption
 export async function secureFetcher<T>(url: string, options?: RequestInit): Promise<T> {
@@ -27,10 +27,7 @@ export async function secureFetcher<T>(url: string, options?: RequestInit): Prom
 
   const data = await response.json();
 
-  // Check if response is encrypted and decrypt it
-  if (isEncryptedResponse(data)) {
-    return await decryptResponse(data) as T;
-  }
+
 
   return data as T;
 }

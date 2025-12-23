@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { authenticateAndAuthorize, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { unstable_cache } from 'next/cache';
 
 const clickhouse = getClickHouseClient();
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
 
         const data = await getCachedFrustrationSignals(siteId, pagePath, start, end);
 
-        return encryptedJsonResponse(data, { status: 200 });
+        return NextResponse.json(data, { status: 200 });
     } catch (error) {
         console.error('[frustration-signals] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

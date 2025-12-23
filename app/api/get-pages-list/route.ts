@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { unstable_cache } from 'next/cache';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { getClickHouseClient } from '@/lib/clickhouse';
 
 // Get the singleton ClickHouse client
@@ -77,12 +77,12 @@ export async function POST(req: NextRequest) {
         const start = performance.now();
         const pagePaths = await getCachedPagePaths(siteId);
         const elapsed = Math.round(performance.now() - start);
-        
+
         console.log(`[get-pages-list] Fetched ${pagePaths.length} paths in ${elapsed}ms`);
 
-        return encryptedJsonResponse(
+        return NextResponse.json(
             { pagePaths },
-            { 
+            {
                 status: 200,
                 headers: {
                     'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300'

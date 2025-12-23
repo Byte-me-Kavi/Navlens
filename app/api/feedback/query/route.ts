@@ -4,10 +4,10 @@
  * POST endpoint for querying feedback with encrypted responses.
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getUserFromRequest } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { secureCorsHeaders } from '@/lib/security';
 
 const supabaseAdmin = createClient(
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         const { siteId, limit = 50, offset = 0 } = body;
 
         if (!siteId) {
-            return encryptedJsonResponse(
+            return NextResponse.json(
                 { error: 'siteId is required' },
                 { status: 400 }
             );
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         // Authenticate
         const user = await getUserFromRequest(request);
         if (!user) {
-            return encryptedJsonResponse(
+            return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
             );
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (!site || site.user_id !== user.id) {
-            return encryptedJsonResponse(
+            return NextResponse.json(
                 { error: 'Access denied' },
                 { status: 403 }
             );
@@ -71,20 +71,20 @@ export async function POST(request: NextRequest) {
 
         if (error) {
             console.error('[feedback/query] Error:', error);
-            return encryptedJsonResponse(
+            return NextResponse.json(
                 { error: 'Failed to fetch feedback' },
                 { status: 500 }
             );
         }
 
-        return encryptedJsonResponse({
+        return NextResponse.json({
             feedback: feedback || [],
             total: count || 0,
         });
 
     } catch (error) {
         console.error('[feedback/query] Error:', error);
-        return encryptedJsonResponse(
+        return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
         );

@@ -441,7 +441,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                   <div className="p-2 space-y-1">
                     <button
                         onClick={() => {
-                        navigateTo("/dashboard/account");
+                        navigateTo("/dashboard/account?tab=profile");
                         setShowDesktopMenu(false);
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-xl transition-all group"
@@ -454,8 +454,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                     
                     <button
                         onClick={() => {
-                        // We can use query params or just direct to account page
-                        navigateTo("/dashboard/account"); 
+                        navigateTo("/dashboard/account?tab=billing"); 
                         setShowDesktopMenu(false);
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-xl transition-all group"
@@ -468,7 +467,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
 
                     <button
                         onClick={() => {
-                        navigateTo("/dashboard/account");
+                        navigateTo("/dashboard/account?tab=settings");
                         setShowDesktopMenu(false);
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-xl transition-all group"
@@ -541,7 +540,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                   </div>
                   <button
                     onClick={() => {
-                      navigateTo("/dashboard/subscription");
+                      navigateTo("/dashboard/account?tab=billing");
                       setShowMobileMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition-colors"
@@ -551,7 +550,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                   </button>
                   <button
                     onClick={() => {
-                      navigateTo("/dashboard/settings");
+                      navigateTo("/dashboard/account?tab=settings");
                       setShowMobileMenu(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition-colors"

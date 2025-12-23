@@ -11,7 +11,7 @@ import {
   ReactNode,
 } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { isEncryptedResponse, decryptResponse } from "@/lib/encryption";
+
 
 // Full site interface with all details
 export interface Site {
@@ -195,10 +195,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
 
         let data = await response.json();
 
-        // Decrypt if response is encrypted
-        if (isEncryptedResponse(data)) {
-          data = await decryptResponse(data);
-        }
+
 
         const pages = data.pagePaths || [];
 

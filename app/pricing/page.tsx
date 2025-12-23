@@ -290,7 +290,7 @@ const PricingPage: React.FC = () => {
         const errorData = await response.json();
         alert(errorData.message || 'You already have an active subscription.');
         // Redirect to subscription management page
-        router.push('/dashboard/subscription');
+        router.push('/dashboard/account?tab=billing');
         return;
       }
 
@@ -355,7 +355,7 @@ const PricingPage: React.FC = () => {
       alert(data.message);
       setShowDowngradeModal(false);
       // Redirect to subscription page to see the change
-      router.push('/dashboard/subscription');
+      router.push('/dashboard/account?tab=billing');
     } catch (error) {
       console.error('Downgrade error:', error);
       alert(error instanceof Error ? error.message : 'Failed to schedule downgrade');

@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { getClickHouseClient } from '@/lib/clickhouse';
 
 // Get the singleton ClickHouse client
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       clickCount: parseInt(row.click_count),
     }));
 
-    return encryptedJsonResponse(transformedData, { status: 200 });
+    return NextResponse.json(transformedData, { status: 200 });
 
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));

@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { getClickHouseClient } from '@/lib/clickhouse';
 
 // Get the singleton ClickHouse client
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     if (!isAuthorizedForSite(authResult.userSites, siteId)) {
       return createUnauthorizedResponse();
     }
-    
+
     const endDate = rawEndDate ? new Date(rawEndDate) : new Date();
     const startDate = rawStartDate ? new Date(rawStartDate) : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     const result = await getCachedScrollData(siteId, pagePath, deviceType, startDateStr, endDateStr);
 
     // Return encrypted response
-    return encryptedJsonResponse(result);
+    return NextResponse.json(result);
 
   } catch (error) {
     console.error('Error fetching scroll heatmap data:', error);

@@ -1,0 +1,8 @@
+--- SUBSCRIPTION USAGE MV INSPECTION ---
+Total Rows in MV for this month: 2
+Site: 10104f75-c77f-4851-ab22-d9bf99ce2ff2
+  - MV Row Count: 1
+  - Sum of unique_pages (What API returns): 285
+Site: 9edcd4e0-d5be-476f-ba74-dc0c1289fc63
+  - MV Row Count: 1
+  - Sum of unique_pages (What API returns): 71

@@ -4,7 +4,7 @@
  * POST endpoint for querying experiment results with encrypted responses.
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { getCachedResults } from '@/lib/experiments/cache';
@@ -16,7 +16,7 @@ import {
 } from '@/lib/experiments/stats';
 import type { VariantStats } from '@/lib/experiments/types';
 import { getUserFromRequest } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { secureCorsHeaders } from '@/lib/security';
 
 const supabaseAdmin = createClient(
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         const { siteId, experimentId, startDate, endDate } = body;
 
         if (!siteId || !experimentId) {
-            return encryptedJsonResponse(
+            return NextResponse.json(
                 { error: 'siteId and experimentId are required' },
                 { status: 400 }
             );
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         // Authenticate
         const user = await getUserFromRequest(request);
         if (!user) {
-            return encryptedJsonResponse(
+            return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
             );
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (!site || site.user_id !== user.id) {
-            return encryptedJsonResponse(
+            return NextResponse.json(
                 { error: 'Access denied' },
                 { status: 403 }
             );
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (expError || !experiment) {
-            return encryptedJsonResponse(
+            return NextResponse.json(
                 { error: 'Experiment not found' },
                 { status: 404 }
             );
@@ -104,11 +104,11 @@ export async function POST(request: NextRequest) {
         // Compute results directly (cache can be added later with matching types)
         const results = await computeResults(siteId, experimentId, experiment, startDate, endDate);
 
-        return encryptedJsonResponse({ results });
+        return NextResponse.json({ results });
 
     } catch (error) {
         console.error('[experiments/results/query] Error:', error);
-        return encryptedJsonResponse(
+        return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
         );

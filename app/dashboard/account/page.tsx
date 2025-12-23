@@ -12,8 +12,12 @@ import { SettingsTab } from "./components/SettingsTab";
 
 type Tab = 'profile' | 'billing' | 'settings';
 
+import { useSearchParams } from 'next/navigation';
+
 export default function AccountPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('profile');
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get('tab') as Tab) || 'profile';
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
 
   const tabs = [
     { id: 'profile', label: 'Profile & Security', icon: UserCircleIcon },

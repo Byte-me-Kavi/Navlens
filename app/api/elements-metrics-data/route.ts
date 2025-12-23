@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { getClickHouseClient } from '@/lib/clickhouse';
 
 // Get the singleton ClickHouse client
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     // Get historical trends (current vs previous period)
     const trends = await getHistoricalTrends(siteId, pagePath, deviceType, startDate, endDate);
 
-    return encryptedJsonResponse({
+    return NextResponse.json({
       elementMetrics,
       siteAverages,
       trends,

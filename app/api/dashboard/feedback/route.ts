@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateAndAuthorize, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 
 // Use service role to bypass RLS
 const supabaseAdmin = createClient(

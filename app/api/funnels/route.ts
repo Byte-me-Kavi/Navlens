@@ -11,7 +11,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { getClickHouseClient } from '@/lib/clickhouse';
 
 // Get the singleton ClickHouse client
@@ -70,7 +70,7 @@ const getCachedFunnelAnalysis = unstable_cache(
       // Escape single quotes and backslashes
       return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     };
-    
+
     // Validate step conditions
     const validateCondition = (condition: { type: string; value: string }): boolean => {
       const allowedTypes = ['contains', 'equals', 'starts_with', 'ends_with', 'regex'];
@@ -87,7 +87,7 @@ const getCachedFunnelAnalysis = unstable_cache(
       }
       return true;
     };
-    
+
     // Build windowFunnel conditions with sanitized values
     const stepConditions = steps
       .sort((a, b) => a.order_index - b.order_index)
@@ -98,7 +98,7 @@ const getCachedFunnelAnalysis = unstable_cache(
             // Fallback to page_path if all conditions are invalid
             return `page_path = '${sanitizeValue(step.page_path)}'`;
           }
-          
+
           const pathConditions = validConditions.map(condition => {
             const safeValue = sanitizeValue(condition.value);
             switch (condition.type) {
@@ -177,7 +177,7 @@ const getCachedFunnelAnalysis = unstable_cache(
       for (let level = stepNumber; level <= steps.length; level++) {
         visitors += levelCounts[level] || 0;
       }
-      
+
       return {
         step_id: step.id,
         step_name: step.name,
@@ -191,14 +191,14 @@ const getCachedFunnelAnalysis = unstable_cache(
     // Calculate conversion and drop-off rates
     const totalVisitors = stepResults[0]?.visitors || 0;
     stepResults.forEach((step, index) => {
-      step.conversion_rate = totalVisitors > 0 
-        ? Math.round((step.visitors / totalVisitors) * 10000) / 100 
+      step.conversion_rate = totalVisitors > 0
+        ? Math.round((step.visitors / totalVisitors) * 10000) / 100
         : 0;
-      
+
       if (index > 0) {
         const prevVisitors = stepResults[index - 1].visitors;
-        step.drop_off_rate = prevVisitors > 0 
-          ? Math.round(((prevVisitors - step.visitors) / prevVisitors) * 10000) / 100 
+        step.drop_off_rate = prevVisitors > 0
+          ? Math.round(((prevVisitors - step.visitors) / prevVisitors) * 10000) / 100
           : 0;
       }
     });
@@ -222,7 +222,7 @@ const getCachedFunnelAnalysis = unstable_cache(
 export async function GET(req: NextRequest) {
   try {
     const authResult = await authenticateAndAuthorize(req);
-    
+
     if (!authResult.isAuthorized) {
       return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
     }
@@ -271,7 +271,7 @@ export async function GET(req: NextRequest) {
         endDate
       );
 
-      return encryptedJsonResponse({
+      return NextResponse.json({
         funnel,
         analysis,
       });
@@ -292,7 +292,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return encryptedJsonResponse({
+    return NextResponse.json({
       funnels: funnels || [],
     });
 
@@ -311,7 +311,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const authResult = await authenticateAndAuthorize(req);
-    
+
     if (!authResult.isAuthorized) {
       return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
     }
@@ -384,7 +384,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return encryptedJsonResponse({
+    return NextResponse.json({
       funnel,
       message: 'Funnel created successfully',
     });
@@ -404,7 +404,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const authResult = await authenticateAndAuthorize(req);
-    
+
     if (!authResult.isAuthorized) {
       return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
     }
@@ -480,7 +480,7 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    return encryptedJsonResponse({
+    return NextResponse.json({
       funnel,
       message: 'Funnel updated successfully',
     });
@@ -500,7 +500,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const authResult = await authenticateAndAuthorize(req);
-    
+
     if (!authResult.isAuthorized) {
       return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
     }
@@ -557,7 +557,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    return encryptedJsonResponse({
+    return NextResponse.json({
       message: 'Funnel deleted successfully',
     });
 

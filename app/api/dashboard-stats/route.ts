@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { getClickHouseClient } from '@/lib/clickhouse';
 
 // --- Type Definitions ---
@@ -402,7 +402,7 @@ export async function GET() {
 
     // 6. Return Data with Cache Headers (Enterprise Standard)
     // Tell the browser: "Keep this data for 60 seconds. Do not reload page on back button."
-    return encryptedJsonResponse({
+    return NextResponse.json({
       totalSites,
       stats: {
         totalClicks: { value: totalClicks, trend: clickTrend },

@@ -9,7 +9,7 @@
  */
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { isEncryptedResponse, decryptResponse } from '@/lib/encryption';
+
 
 export class ApiError extends Error {
   constructor(
@@ -79,16 +79,16 @@ class ApiClient {
       // Server responded with error status
       const status = error.response.status;
       const data: unknown = error.response.data;
-      
+
       const message = (data as any)?.error || (data as any)?.message || error.message || `HTTP ${status}`; // eslint-disable-line @typescript-eslint/no-explicit-any
-      const code = 
+      const code =
         status === 401 ? 'UNAUTHORIZED' :
-        status === 403 ? 'FORBIDDEN' :
-        status === 404 ? 'NOT_FOUND' :
-        status === 500 ? 'INTERNAL_SERVER_ERROR' : 'API_ERROR';
+          status === 403 ? 'FORBIDDEN' :
+            status === 404 ? 'NOT_FOUND' :
+              status === 500 ? 'INTERNAL_SERVER_ERROR' : 'API_ERROR';
 
       console.error(`❌ API Error [${status}]:`, message);
-      
+
       throw new ApiError(status, message, code, data);
     } else if (error.request) {
       // Request made but no response received
@@ -111,12 +111,9 @@ class ApiClient {
       headers: options?.headers,
       timeout: options?.timeout,
     });
-    
-    // Check if response is encrypted and decrypt it
-    if (isEncryptedResponse(response.data)) {
-      return await decryptResponse(response.data as any) as T;
-    }
-    
+
+
+
     return response.data;
   }
 
@@ -132,12 +129,9 @@ class ApiClient {
       headers: options?.headers,
       timeout: options?.timeout,
     });
-    
-    // Check if response is encrypted and decrypt it
-    if (isEncryptedResponse(response.data)) {
-      return await decryptResponse(response.data as any) as T;
-    }
-    
+
+
+
     return response.data;
   }
 

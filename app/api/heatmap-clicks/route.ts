@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { getClickHouseClient } from '@/lib/clickhouse';
 
 // Get the singleton ClickHouse client
@@ -140,7 +140,7 @@ async function processHeatmapClicks(
   console.log('🔍 [HEATMAP-CLICKS] Returning', clickPoints.length, 'heatmap points');
 
   // Return encrypted response
-  return encryptedJsonResponse({
+  return NextResponse.json({
     clicks: clickPoints
   });
 }

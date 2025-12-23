@@ -134,7 +134,7 @@ ${formInputs}
             recurrence: '1 Month',
             duration: 'Forever',
             customer,
-            returnUrl: `${baseUrl}/dashboard/subscription/success`,
+            returnUrl: `${baseUrl}/dashboard/account/success`,
             cancelUrl: `${baseUrl}/pricing?cancelled=true`,
             notifyUrl: `${baseUrl}/api/payhere/notify`,
             custom1: userId,

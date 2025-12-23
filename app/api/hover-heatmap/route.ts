@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { authenticateAndAuthorize, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 import { unstable_cache } from 'next/cache';
 
 const clickhouse = getClickHouseClient();
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
         const data = await getCachedHoverHeatmap(siteId, pagePath, deviceType, start, end);
         console.log('[hover-heatmap] Result points:', data.heatmapPoints?.length ?? 0);
 
-        return encryptedJsonResponse(data, {
+        return NextResponse.json(data, {
             status: 200,
             headers: {
                 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'

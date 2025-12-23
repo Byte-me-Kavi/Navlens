@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { encryptedJsonResponse } from "@/lib/encryption";
+
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from "@/lib/auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -189,7 +189,7 @@ async function POST_handler(req: NextRequest) {
     const totalPages = Math.ceil(totalSessions / validatedPageSize);
     const paginatedSessions = allSessions.slice(offset, offset + validatedPageSize);
 
-    return encryptedJsonResponse({
+    return NextResponse.json({
       sessions: paginatedSessions,
       pagination: {
         page: validatedPage,

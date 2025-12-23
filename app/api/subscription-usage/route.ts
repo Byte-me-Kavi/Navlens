@@ -61,19 +61,22 @@ export async function GET(request: NextRequest) {
         }
 
         // ========================================
-        // HEATMAPS: Query from precalculated subscription_usage_monthly
-        // (much faster than scanning raw events)
+        // HEATMAPS: Query from raw events table directly
+        // (Avoiding flawed MV summation of unique counts)
         // ========================================
         const clickhouse = getClickHouseClient();
         const currentMonth = now.toISOString().slice(0, 7) + '-01'; // YYYY-MM-01
 
+        // Use count(distinct) or uniq(page_path) on raw events
+        // This is more accurate than summing pre-aggregated uniques which overcounts
         const heatmapsQuery = `
             SELECT 
-                sum(unique_pages) as total_pages,
-                sum(total_clicks) as total_clicks
-            FROM subscription_usage_monthly
+                uniq(page_path) as total_pages
+            FROM events
             WHERE site_id IN ({siteIds:Array(String)})
-              AND month = toDate({currentMonth:String})
+              AND toStartOfMonth(timestamp) = toDate({currentMonth:String})
+              AND page_path != '' 
+              AND page_path IS NOT NULL
         `;
 
         const heatmapsResult = await clickhouse.query({

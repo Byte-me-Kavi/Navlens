@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { authenticateAndAuthorize, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
-import { encryptedJsonResponse } from '@/lib/encryption';
+
 
 const clickhouse = getClickHouseClient();
 
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
                 minimal: sessionPatterns.filter(s => s.pattern === 'minimal').length,
             };
 
-            return encryptedJsonResponse({
+            return NextResponse.json({
                 totalSessions,
                 avgDistance: Math.round(avgEventCount * 100),
                 avgDirectionChanges: Math.round(avgEventCount / 3),
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         } catch (queryError) {
             console.error('[cursor-paths] Query error:', queryError);
             // Return empty data on query error
-            return encryptedJsonResponse({
+            return NextResponse.json({
                 totalSessions: 0,
                 avgDistance: 0,
                 avgDirectionChanges: 0,
