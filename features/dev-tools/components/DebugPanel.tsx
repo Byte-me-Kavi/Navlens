@@ -442,6 +442,15 @@ const PerformanceTab: React.FC<{
   );
 };
 
+// Helper to get last part of selector for cleaner display
+const getCleanSelector = (selector: string) => {
+    if (!selector) return 'Unknown Element';
+    const parts = selector.split('>');
+    const lastPart = parts[parts.length - 1].trim();
+    // Remove complex nth-child if it's too long, or keep it if simple
+    return lastPart.length > 30 ? lastPart.substring(0, 30) + '...' : lastPart;
+};
+
 // Signals Tab Component
 const SignalsTab: React.FC<{
   signals: SessionSignal[];
@@ -450,13 +459,15 @@ const SignalsTab: React.FC<{
   highlightedTimestamp?: number;
 }> = ({ signals, sessionStartTime, onSeek, highlightedTimestamp }) => {
   const [filter, setFilter] = useState('');
+  const [activeType, setActiveType] = useState<'all' | 'rage_click' | 'dead_click'>('all');
 
   const filteredSignals = useMemo(() => {
     return signals.filter((s) => {
+      if (activeType !== 'all' && s.type !== activeType) return false;
       if (filter && !s.type.toLowerCase().includes(filter.toLowerCase())) return false;
       return true;
     });
-  }, [signals, filter]);
+  }, [signals, filter, activeType]);
 
   const handleClick = (signal: SessionSignal) => {
     if (onSeek) {
@@ -501,6 +512,40 @@ const SignalsTab: React.FC<{
             className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
           />
         </div>
+        
+        {/* Type Filters */}
+        <div className="flex gap-1.5 flex-wrap">
+            <button
+                onClick={() => setActiveType('all')}
+                className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-md transition-all border ${
+                    activeType === 'all' 
+                    ? 'bg-gray-100 text-gray-800 border-gray-200' 
+                    : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200 hover:text-gray-600'
+                }`}
+            >
+                All
+            </button>
+            <button
+                onClick={() => setActiveType('rage_click')}
+                className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-md transition-all border ${
+                    activeType === 'rage_click' 
+                    ? 'bg-red-50 text-red-600 border-red-200' 
+                    : 'bg-white text-gray-400 border-gray-100 hover:border-red-100 hover:text-red-500'
+                }`}
+            >
+                Rage Clicks
+            </button>
+            <button
+                onClick={() => setActiveType('dead_click')}
+                className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-md transition-all border ${
+                    activeType === 'dead_click' 
+                    ? 'bg-orange-50 text-orange-600 border-orange-200' 
+                    : 'bg-white text-gray-400 border-gray-100 hover:border-orange-100 hover:text-orange-500'
+                }`}
+            >
+                Dead Clicks
+            </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
@@ -515,20 +560,29 @@ const SignalsTab: React.FC<{
               const relativeMs = new Date(signal.timestamp).getTime() - sessionStartTime;
               const isRageClick = signal.type === 'rage_click';
               const isDeadClick = signal.type === 'dead_click';
+              const data = signal.data as any; // Cast for user friendly access
               
               let icon = <FiZap className="w-4 h-4 text-gray-400" />;
               let title = 'Signal';
               let colorClass = 'text-gray-700';
+              let badgeClass = 'bg-gray-100 text-gray-600';
 
               if (isRageClick) {
                   icon = <FiZap className="w-4 h-4 text-red-500" />;
                   title = 'Rage Click';
-                  colorClass = 'text-red-700';
+                  colorClass = 'text-red-900';
+                  badgeClass = 'bg-red-50 text-red-700 border border-red-100';
               } else if (isDeadClick) {
                   icon = <FiAlertCircle className="w-4 h-4 text-orange-500" />;
                   title = 'Dead Click';
-                  colorClass = 'text-orange-700';
+                  colorClass = 'text-orange-900';
+                  badgeClass = 'bg-orange-50 text-orange-700 border border-orange-100';
               }
+
+              const elementSelector = data?.element_selector ? getCleanSelector(data.element_selector) : null;
+              const elementTag = data?.element_tag ? `<${data.element_tag.toUpperCase()}>` : 'Unknown';
+              const xPos = data?.x ? Math.round(data.x) : '?';
+              const yPos = data?.y ? Math.round(data.y) : '?';
 
               return (
                 <div
@@ -544,13 +598,35 @@ const SignalsTab: React.FC<{
                     <span className="text-[10px] text-gray-400 font-mono whitespace-nowrap mt-0.5 select-none">
                       {formatRelativeTime(signal.timestamp, sessionStartTime)}
                     </span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-bold ${colorClass}`}>
-                        {title}
-                      </p>
-                      <pre className="mt-1 text-[10px] text-gray-500 font-mono overflow-x-auto">
-                        {JSON.stringify(signal.data, null, 2)}
-                      </pre>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center justify-between">
+                          <span className={`text-xs font-bold ${colorClass}`}>
+                            {title}
+                          </span>
+                      </div>
+                      
+                      {/* Element Details */}
+                      <div className="p-2 bg-gray-50/50 rounded-lg border border-gray-100 space-y-1.5">
+                           {/* Selector */}
+                           {elementSelector && (
+                               <div className="flex flex-col">
+                                   <span className="text-[9px] uppercase tracking-wider font-bold text-gray-400">Element</span>
+                                   <code className="text-[10px] text-indigo-700 font-mono break-all py-0.5" title={data?.element_selector}>
+                                       {elementSelector}
+                                   </code>
+                               </div>
+                           )}
+
+                           {/* Position Details */}
+                           <div className="flex items-center gap-3 pt-0.5 border-t border-gray-100/50">
+                                <span className="text-[10px] text-gray-500">
+                                   Tag: <span className="font-mono text-gray-700 font-medium">{elementTag}</span>
+                                </span>
+                                <span className="text-[10px] text-gray-500">
+                                   Pos: <span className="font-mono text-gray-700 font-medium">x:{xPos} y:{yPos}</span>
+                                </span>
+                           </div>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -35,7 +35,7 @@ import { LockClosedIcon } from "@heroicons/react/24/solid";
 interface NavItem {
   name: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon?: React.ComponentType<{ className?: string }>;
   badge?: string;
   featureKey?: string;
   highlight?: boolean;
@@ -89,7 +89,7 @@ const navGroups: NavGroup[] = [
 // Footer items
 const footerItems: NavItem[] = [
   { name: "Experiments", href: "/dashboard/experiments", icon: BeakerIcon, featureKey: 'ab_testing' },
-  { name: "View Pricing", href: "/pricing", icon: BanknotesIcon, highlight: true },
+  { name: "View Pricing", href: "/pricing", highlight: true },
 ];
 
 interface SideNavbarProps {
@@ -248,19 +248,19 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
         disabled={!isAllowed}
         title={!isAllowed ? "Site is banned. Switch sites to access features." : isLocked ? "Requires Upgrade" : ""}
         className={`
-          w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
+          w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm
           ${isNested ? 'pl-9' : ''}
           ${item.highlight 
-            ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/30 hover:shadow-lg hover:bg-indigo-700 font-semibold my-2" 
+            ? "justify-center bg-indigo-600 text-white shadow-md shadow-indigo-500/30 hover:shadow-lg hover:bg-indigo-700 font-semibold my-2" 
             : isActive
-                ? "bg-indigo-50 text-indigo-700 shadow-sm font-medium"
+                ? "text-left bg-indigo-50 text-indigo-700 shadow-sm font-medium"
                 : isAllowed 
-                    ? "text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
-                    : "text-gray-400 cursor-not-allowed opacity-60"
+                    ? "text-left text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
+                    : "text-left text-gray-400 cursor-not-allowed opacity-60"
           }
         `}
       >
-        <Icon className={`w-4 h-4 ${item.highlight ? "text-white" : isActive ? "text-indigo-600" : isAllowed ? "" : "text-gray-300"}`} />
+        {Icon && <Icon className={`w-4 h-4 ${item.highlight ? "text-white" : isActive ? "text-indigo-600" : isAllowed ? "" : "text-gray-300"}`} />}
         <span className={isActive || item.highlight ? "font-semibold" : "font-medium"}>
           {item.name}
         </span>

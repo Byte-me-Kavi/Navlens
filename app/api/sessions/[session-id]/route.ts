@@ -16,14 +16,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing params' }, { status: 400 });
         }
 
-        // Fetch first event chunk for session metadata
+        // Fetch session metadata from sessions_view to get aggregated signals
         const { data, error } = await supabase
-            .from('rrweb_events')
+            .from('sessions_view')
             .select('*')
             .eq('site_id', siteId)
             .eq('session_id', sessionId)
-            .order('timestamp', { ascending: true })
-            .limit(1)
             .single();
 
         if (error || !data) {
@@ -31,11 +29,11 @@ export async function POST(req: NextRequest) {
         }
 
         // Return session metadata
-        return NextResponse.json({ 
+        return NextResponse.json({
             session: {
                 session_id: data.session_id,
                 visitor_id: data.visitor_id,
-                timestamp: data.timestamp,
+                timestamp: data.started_at, // Map started_at to timestamp for frontend compatibility
                 country: data.country,
                 ip_address: data.ip_address,
                 device_type: data.device_type,
@@ -43,9 +41,9 @@ export async function POST(req: NextRequest) {
                 screen_height: data.screen_height,
                 platform: data.platform,
                 user_agent: data.user_agent,
-                page_path: data.page_path,
-                viewport_width: data.viewport_width,
-                viewport_height: data.viewport_height,
+                page_path: typeof data.pages === 'string' ? data.pages : (data.pages?.[0] || '/'), // Handle page path from view
+                signals: data.signals || [], // Include signals
+                duration: data.duration
             }
         }, { status: 200 });
 

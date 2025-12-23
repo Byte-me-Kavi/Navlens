@@ -184,38 +184,33 @@ export default function SessionReplayPage() {
 
   // Determine TRUE session start time
   const sessionStartTime = useMemo(() => {
-    let startTime = Date.now();
-    let hasSetStart = false;
-
-    // 1. Try first rrweb event
+    // 1. Prefer first rrweb event as the source of truth
+    // This ensures synchronization with the player's internal timeline
     if (events.length > 0) {
-      startTime = events[0].timestamp;
-      hasSetStart = true;
+      return events[0].timestamp;
     }
 
-    // 2. Check if metadata is earlier
+    // 2. Fallback to metadata timestamp (Server Time)
+    // Only use this if we have no events
     if (metadata?.timestamp) {
-        const metaTime = new Date(metadata.timestamp).getTime();
-        if (!hasSetStart || metaTime < startTime) {
-            startTime = metaTime;
-            hasSetStart = true;
-        }
-    }
-
-    // 3. Check if any network/console events are earlier (to avoid 00:00.000)
-    if (debugData) {
-        if (debugData.network && debugData.network.length > 0) {
-             // Find earliest network request
-             const earliestNetwork = Math.min(...debugData.network.map(n => new Date(n.timestamp).getTime()));
-             if (earliestNetwork < startTime) startTime = earliestNetwork;
-        }
-        if (debugData.console && debugData.console.length > 0) {
-             const earliestConsole = Math.min(...debugData.console.map(c => new Date(c.timestamp).getTime()));
-             if (earliestConsole < startTime) startTime = earliestConsole;
-        }
+        return new Date(metadata.timestamp).getTime();
     }
     
-    return startTime;
+    // 3. Last resort: specific debug events
+    if (debugData) {
+        let minTime = Infinity;
+        if (debugData.network && debugData.network.length > 0) {
+             const earliest = Math.min(...debugData.network.map(n => new Date(n.timestamp).getTime()));
+             if (earliest < minTime) minTime = earliest;
+        }
+        if (debugData.console && debugData.console.length > 0) {
+             const earliest = Math.min(...debugData.console.map(c => new Date(c.timestamp).getTime()));
+             if (earliest < minTime) minTime = earliest;
+        }
+        if (minTime !== Infinity) return minTime;
+    }
+
+    return Date.now();
   }, [metadata, events, debugData]);
 
   // Re-calculate markers with correct sessionStartTime

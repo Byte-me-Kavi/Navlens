@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 import { TimelineMarker } from "@/features/dev-tools/types/devtools.types";
 import { FiAlertCircle, FiWifiOff, FiZap, FiMousePointer } from "react-icons/fi";
@@ -19,6 +19,120 @@ interface VideoControlsProps {
   onSkipForward: () => void;
   onMarkerClick?: (marker: TimelineMarker) => void;
 }
+
+// Helper component for clustered markers
+const MarkerCluster = ({ 
+  cluster, 
+  duration, 
+  onSeek, 
+  onMarkerClick 
+}: { 
+  cluster: TimelineMarker[]; 
+  duration: number; 
+  onSeek: (time: number) => void;
+  onMarkerClick?: (marker: TimelineMarker) => void;
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 200); // 200ms delay to prevent flickering across gaps
+  };
+
+  // Helper function for formatting time (copied from VideoControls for self-containment)
+  const formatTime = (ms: number) => {
+    if (Number.isNaN(ms) || ms === undefined || ms === null) return "0:00";
+    const seconds = Math.floor(ms / 1000);
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // Sort cluster by priority
+  const priorityOrder = { 'rage-click': 4, 'error': 3, 'dead-click': 2, 'network-error': 1, 'vital-poor': 0 };
+  const sortedCluster = useMemo(() => {
+    return [...cluster].sort((a, b) => {
+      const pA = priorityOrder[a.type as keyof typeof priorityOrder] || 0;
+      const pB = priorityOrder[b.type as keyof typeof priorityOrder] || 0;
+      return pB - pA;
+    });
+  }, [cluster]);
+
+  const avgTimestamp = cluster.reduce((sum, m) => sum + m.timestamp, 0) / cluster.length;
+  const positionPercent = (avgTimestamp / duration) * 100;
+
+  return (
+    <div 
+      className="absolute bottom-5 transform -translate-x-1/2 w-6 h-6 z-20"
+      style={{ left: `${positionPercent}%` }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {sortedCluster.map((marker, idx) => {
+         let Icon = FiAlertCircle;
+         let bgClass = "bg-gray-400";
+         let iconSize = "w-3 h-3"; 
+         
+         if (marker.type === 'error') {
+             Icon = FiAlertCircle;
+             bgClass = "bg-rose-600 shadow-md shadow-rose-900/20";
+         } else if (marker.type === 'network-error') {
+             Icon = FiWifiOff;
+             bgClass = "bg-amber-500 shadow-md shadow-amber-900/20";
+         } else if (marker.type === 'vital-poor') {
+             return null;
+         } else if (marker.type === 'rage-click') {
+             Icon = FiZap;
+             bgClass = "bg-rose-500 animate-pulse shadow-md shadow-rose-900/20";
+         } else if (marker.type === 'dead-click') {
+             Icon = FiMousePointer;
+             bgClass = "bg-gray-500";
+         }
+
+         const transformY = isHovered ? -(idx * 28) : 0;
+         const zIndex = sortedCluster.length - idx;
+
+         return (
+             <button
+                 key={`${marker.timestamp}-${idx}`}
+                 onClick={(e) => {
+                     e.stopPropagation();
+                     onSeek(marker.timestamp);
+                     if (onMarkerClick) onMarkerClick(marker);
+                 }}
+                 className={`absolute bottom-0 left-0 w-6 h-6 flex items-center justify-center rounded-full text-white transition-all duration-300 ease-out cursor-pointer hover:scale-110 hover:z-50 border border-white/20 ${bgClass}`}
+                 style={{
+                     zIndex,
+                     transform: `translateY(${transformY}px)`,
+                 }}
+                 title={`${marker.label} (${formatTime(marker.timestamp)})`}
+             >
+                 <Icon className={iconSize} />
+             </button>
+         );
+      })}
+      
+      {/* Counter Badge if > 1 and collapsed */}
+      {cluster.length > 1 && (
+         <div 
+           className={`absolute -top-2 -right-2 bg-indigo-600 text-[9px] font-bold text-white px-1 rounded-full shadow-sm z-50 transition-opacity duration-200 pointer-events-none border border-white ${isHovered ? 'opacity-0' : 'opacity-100'}`}
+         >
+             {cluster.length}
+         </div>
+      )}
+    </div>
+  );
+};
 
 export default function VideoControls({
   isPlaying,
@@ -172,57 +286,43 @@ export default function VideoControls({
             </div>
 
             {/* Markers */}
-            {/* Markers */}
-            {playerReady && markers.map((marker, idx) => {
-              // Clamp negative timestamps to 0 to ensure pre-session errors are visible at start
-              const effectiveTime = Math.max(0, marker.timestamp);
-              const positionPercent = (effectiveTime / duration) * 100;
-              
-              if (positionPercent < 0 || positionPercent > 100) return null;
-              
-              let Icon = FiAlertCircle;
-              let bgClass = "bg-gray-400";
-              let zIndex = 11;
-              let iconSize = "w-3 h-3"; // Slightly smaller icon to fit in button
-              
-              if (marker.type === 'error') {
-                Icon = FiAlertCircle;
-                bgClass = "bg-rose-600 shadow-md shadow-rose-900/20";
-                zIndex = 20;
-              } else if (marker.type === 'network-error') {
-                Icon = FiWifiOff;
-                bgClass = "bg-amber-500 shadow-md shadow-amber-900/20";
-                zIndex = 15;
-              } else if (marker.type === 'vital-poor') {
-                 return null;
-              } else if (marker.type === 'rage-click') {
-                Icon = FiZap;
-                bgClass = "bg-rose-500 animate-pulse shadow-md shadow-rose-900/20";
-                zIndex = 30; // High priority
-              } else if (marker.type === 'dead-click') {
-                Icon = FiMousePointer;
-                bgClass = "bg-gray-500";
-                zIndex = 25;
-              }
+            {playerReady && (() => {
+                // 1. Sort by timestamp first
+                const sortedMarkers = [...markers].sort((a, b) => a.timestamp - b.timestamp);
+                
+                // 2. Group overlapping markers
+                const clusters: TimelineMarker[][] = [];
+                const THRESHOLD_PERCENT = 3; // 3% overlap threshold
 
-              return (
-                <button
-                  key={idx}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // SEEK to the exact time
-                    onSeek(marker.timestamp);
-                    // Open debug panel
-                    if (onMarkerClick) onMarkerClick(marker);
-                  }}
-                  className={`absolute -top-4 transform -translate-x-1/2 w-6 h-6 flex items-center justify-center rounded-full text-white transition-all hover:scale-125 cursor-pointer hover:z-50 ${bgClass} ${zIndex}`}
-                  style={{ left: `${positionPercent}%`, zIndex }}
-                  title={`${marker.label} (${formatTime(marker.timestamp)})`}
-                >
-                  <Icon className={iconSize} />
-                </button>
-              );
-            })}
+                sortedMarkers.forEach(marker => {
+                    if (marker.timestamp < 0) return; // Skip invalid
+                    
+                    const markerPos = (marker.timestamp / duration) * 100;
+                    if (markerPos < 0 || markerPos > 100) return;
+
+                    const lastCluster = clusters[clusters.length - 1];
+                    if (lastCluster) {
+                        const lastRepresentative = lastCluster[0];
+                        const lastPos = (lastRepresentative.timestamp / duration) * 100;
+                        if (Math.abs(markerPos - lastPos) < THRESHOLD_PERCENT) {
+                            lastCluster.push(marker);
+                            return;
+                        }
+                    }
+                    clusters.push([marker]);
+                });
+
+                // 3. Render Clusters
+                return clusters.map((cluster, clusterIdx) => (
+                    <MarkerCluster 
+                        key={clusterIdx}
+                        cluster={cluster}
+                        duration={duration}
+                        onSeek={onSeek}
+                        onMarkerClick={onMarkerClick}
+                    />
+                ));
+            })()}
 
             <input
               type="range"
