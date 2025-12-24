@@ -37,9 +37,16 @@ const PricingPage: React.FC = () => {
   const [downgradeLoading, setDowngradeLoading] = useState(false);
   const [selectedDowngradePlan, setSelectedDowngradePlan] = useState<{id: string, name: string} | null>(null);
 
+  const [currency, setCurrency] = useState<'USD' | 'LKR'>('USD');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [exchangeRate, setExchangeRate] = useState<number>(300); // Default fallback
+
   // Map Config to UI
-  const getPlansFromConfig = useCallback(() => {
+  const getPlansFromConfig = useCallback((targetCurrency: 'USD' | 'LKR', dbPlans: any[] = []) => {
     return Object.values(PLANS).map((plan) => {
+        // Find DB plan to get live prices
+        const dbPlan = dbPlans.find(p => p.name === plan.name);
+        
         // Format limits for display
         const limitFeatures = [
             `${plan.limits.sessions === -1 ? 'Unlimited' : plan.limits.sessions.toLocaleString()} Sessions/mo`,
@@ -47,14 +54,14 @@ const PricingPage: React.FC = () => {
             `${plan.limits.retention_days} Days Data Retention`
         ];
 
-        // Determine distinctive features (diff from lower tier)
+        // Determine distinctive features
         let displayFeatures: string[] = [];
         let inheritanceText = '';
 
         if (plan.name === 'Free') {
             displayFeatures = plan.features;
         } else {
-             // Find lower tier (assuming sorted by price roughly or fixed order: Free -> Starter -> Pro -> Enterprise)
+             // Find lower tier
              let previousPlanFeatures: string[] = [];
              let previousPlanName = '';
 
@@ -75,28 +82,37 @@ const PricingPage: React.FC = () => {
              }
         }
 
-        // Slice to fit card, prioritize differentiators
         const featureLabels = displayFeatures.slice(0, 8).map(key => FEATURE_LABELS[key] || key);
-
-        // Prepend inheritance text as a special item if it exists
         const cardFeatures = inheritanceText ? [inheritanceText, ...featureLabels] : featureLabels;
 
+        // Calculate Price
+        let monthlyPrice = plan.price;
+        let yearlyPrice = Math.round(plan.price * 12 * 0.85);
+
+        // Override with DB values if available and LKR is selected
+        if (targetCurrency === 'LKR' && dbPlan?.price_lkr) {
+             monthlyPrice = dbPlan.price_lkr;
+             // Calculate yearly LKR with discount
+             yearlyPrice = Math.round(dbPlan.price_lkr * 12 * 0.85);
+             // Round to nearest 100 for cleaner yearly price
+             yearlyPrice = Math.ceil(yearlyPrice / 100) * 100;
+        }
+        
         return {
             id: plan.id,
             name: plan.name,
             description: plan.description,
             price: {
-                monthly: plan.price,
-                yearly: Math.round(plan.price * 12 * 0.85) // 15% discount to match badge
+                monthly: monthlyPrice,
+                yearly: yearlyPrice 
             },
             originalPrice: {
-                monthly: plan.price,
-                yearly: plan.price * 12
+                monthly: monthlyPrice,
+                yearly: monthlyPrice * 12
             },
             popular: plan.name === 'Pro',
             icon: getPlanIcon(plan.name),
             status: plan.status || 'active',
-            // Combine limits + distinct features
             features: [
                 ...limitFeatures,
                 ...cardFeatures
@@ -104,23 +120,28 @@ const PricingPage: React.FC = () => {
             cta: plan.name === 'Free' ? 'Get Started' : plan.name === 'Enterprise' ? 'Contact Sales' : 'Subscribe Now',
             isFree: plan.name === 'Free',
             allFeatures: plan.features,
-            inheritanceText // Pass to component if needed for special styling, but strictly putting in list usually works for simple cards
+            inheritanceText
         };
     }).sort((a, b) => a.price.monthly - b.price.monthly);
   }, []);
 
-  // Fetch plans from database with localStorage caching
+  // Fetch plans from database and user location
   useEffect(() => {
-    const _CACHE_KEY = 'navlens_subscription_plans';
-    const _CACHE_TTL = 60 * 60 * 1000; // 1 hour
+    async function init() {
+      // 1. Detect Location
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        const data = await res.json();
+        if (data.country_code === 'LK') {
+            setCurrency('LKR');
+            console.log('🇱🇰 Sri Lanka detected, switching to LKR');
+        }
+      } catch (error) {
+          console.log('Location detection failed, defaulting to USD', error);
+      }
 
-    async function fetchPlans() {
-      // Use centralized config primarily
-      const uiPlans = getPlansFromConfig();
-      setPlans(uiPlans);
-      setLoading(false);
-      
-      // Optionally fetch from DB purely to cache or verify, but UI uses config
+      // 2. Fetch Live Prices
+      let dbPlans: any[] = [];
       try {
         const { data } = await supabase
           .from('subscription_plans')
@@ -128,14 +149,60 @@ const PricingPage: React.FC = () => {
           .order('price_usd', { ascending: true });
         
          if (data && data.length > 0) {
-             console.log('✅ DB plans fetched (background check ok)');
+             dbPlans = data;
+             // Try to deduce rate from a paid plan
+             const paidPlan = data.find(p => p.price_usd > 0 && p.price_lkr > 0);
+             if (paidPlan) {
+                 setExchangeRate(paidPlan.price_lkr / paidPlan.price_usd);
+             }
          }
       } catch (e) {
           console.warn('DB fetch warning:', e);
       }
-    }
 
-    // Also check user's current subscription
+      // 3. Update UI
+      // We pass the *detected* currency here directly, as state update might not be flushed yet
+      // But actually, we need to depend on the 'currency' state for toggling.
+      // So we'll trigger a re-render or set plans here.
+    
+      // For initial load, we might want to wait for location.
+      // However, to avoid blocking, we render default first (handled by initial state)
+      // We need to re-call getPlansFromConfig whenever currency or dbPlans changes.
+      // Since dbPlans is local here, we should store it in state if we want to toggle currency later.
+    }
+    
+    init();
+  }, [supabase]); // Run once on mount
+
+  // Separate effect to update plans when currency changes (user toggle or auto-detect)
+  // We need to fetch DB plans and store them to usage here.
+  // Let's refactor the data fetching strategy slightly to store dbPlans.
+  const [dbPlans, setDbPlans] = useState<any[]>([]);
+
+  useEffect(() => {
+      async function fetchData() {
+          try {
+            const { data } = await supabase.from('subscription_plans').select('*');
+            if (data) setDbPlans(data);
+          } catch (e) { console.error(e); }
+          
+          try {
+            const res = await fetch('https://ipapi.co/json/');
+            const data = await res.json();
+            if (data.country_code === 'LK') setCurrency('LKR');
+          } catch (e) { console.error(e); }
+          
+          setLoading(false);
+      }
+      fetchData();
+  }, [supabase]);
+
+  useEffect(() => {
+      setPlans(getPlansFromConfig(currency, dbPlans));
+  }, [currency, dbPlans, getPlansFromConfig]);
+
+  // Check user's current subscription
+  useEffect(() => {
     async function checkCurrentSubscription() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -149,11 +216,7 @@ const PricingPage: React.FC = () => {
             subscriptions (
               id,
               status,
-              plan_id,
-              subscription_plans (
-                id,
-                name
-              )
+              plan_id
             )
           `)
           .eq('user_id', user.id)
@@ -163,18 +226,9 @@ const PricingPage: React.FC = () => {
 
         // If no subscription linked to profile, check subscriptions table directly
         if (!activeSubscription || (Array.isArray(activeSubscription) && activeSubscription.length === 0)) {
-          console.log('🔍 No linked subscription in profile, checking subscriptions table directly...');
           const { data: directSub } = await supabase
             .from('subscriptions')
-            .select(`
-              id,
-              status,
-              plan_id,
-              subscription_plans (
-                id,
-                name
-              )
-            `)
+            .select('id, status, plan_id')
             .eq('user_id', user.id)
             .eq('status', 'active')
             .order('created_at', { ascending: false })
@@ -182,33 +236,27 @@ const PricingPage: React.FC = () => {
             .single();
 
           if (directSub) {
-            console.log('✅ Found active subscription directly:', directSub);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            activeSubscription = directSub as any;
+             // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             activeSubscription = directSub as any;
           }
         }
 
         if (activeSubscription) {
-          const sub = Array.isArray(activeSubscription) 
-            ? activeSubscription[0] 
-            : activeSubscription;
-          
-          if (sub?.status === 'active') {
-            setCurrentPlanId(sub.plan_id);
-            const plans = sub?.subscription_plans;
-            const plan = Array.isArray(plans) ? plans[0] : plans;
-            setCurrentPlanName(plan?.name || null);
-            console.log('✅ User has active subscription:', plan?.name, 'Plan ID:', sub.plan_id);
-          }
+           const sub = Array.isArray(activeSubscription) ? activeSubscription[0] : activeSubscription;
+           if (sub?.status === 'active') {
+               setCurrentPlanId(sub.plan_id);
+               // Find name from plan ID in static config
+               const planName = Object.values(PLANS).find(p => p.id === sub.plan_id)?.name;
+               setCurrentPlanName(planName || null);
+           }
         }
       } catch (error) {
         console.error('Error checking subscription:', error);
       }
     }
 
-    fetchPlans();
     checkCurrentSubscription();
-  }, [supabase, getPlansFromConfig]);
+  }, [supabase]);
 
   // Auto-trigger payment if returning from login with plan parameter
   useEffect(() => {
@@ -553,7 +601,7 @@ const PricingPage: React.FC = () => {
                         <>
                           <div className="flex items-baseline gap-1 mb-1">
                             <span className="text-4xl font-bold text-gray-900">
-                              ${plan.price[billingCycle]}
+                              {currency === 'USD' ? '$' : 'Rs '}{plan.price[billingCycle].toLocaleString()}
                             </span>
                             <span className="text-gray-600 text-sm">
                               /{billingCycle === "monthly" ? "month" : "year"}
@@ -561,9 +609,9 @@ const PricingPage: React.FC = () => {
                           </div>
                           {billingCycle === "yearly" && plan.originalPrice && (
                             <div className="text-xs text-blue-600 font-semibold">
-                              Save $
-                              {plan.originalPrice[billingCycle] -
-                                plan.price[billingCycle]}{" "}
+                              Save {currency === 'USD' ? '$' : 'Rs '}
+                              {(plan.originalPrice[billingCycle] -
+                                plan.price[billingCycle]).toLocaleString()}{" "}
                               annually
                             </div>
                           )}
