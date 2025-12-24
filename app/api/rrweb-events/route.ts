@@ -125,8 +125,8 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            /* SESSION LIMIT ENFORCEMENT - TEMPORARILY DISABLED (Incorrect counting logic causes false 429s)
-            
+            // --- SESSION LIMIT ENFORCEMENT ---
+
             // Check if this is a NEW session (not an update to existing session)
             const { count: existingSession } = await supabase
                 .from('rrweb_events')
@@ -141,30 +141,35 @@ export async function POST(req: NextRequest) {
                 startOfMonth.setDate(1);
                 startOfMonth.setHours(0, 0, 0, 0);
 
-                const { count: currentSessionCount } = await supabase
-                    .from('rrweb_events')
+                // FIX: Use sessions_view for accurate unique session count
+                const { count: currentSessionCount, error: countError } = await supabase
+                    .from('sessions_view')
                     .select('session_id', { count: 'exact', head: true })
                     .eq('site_id', site_id)
-                    .gte('timestamp', startOfMonth.toISOString());
+                    .gte('started_at', startOfMonth.toISOString());
 
-                // Use distinct session counting (approximate with count for performance)
-                const currentSessions = currentSessionCount || 0;
+                if (!countError) {
+                    // Use accurate count from view
+                    const currentSessions = currentSessionCount || 0;
 
-                if (currentSessions >= sessionLimit) {
-                    console.warn(`[rrweb-events] Session limit exceeded for user ${siteData.user_id}: ${currentSessions}/${sessionLimit}`);
-                    const response = NextResponse.json(
-                        {
-                            error: 'Session limit exceeded',
-                            message: 'Your subscription session limit has been reached. Please upgrade your plan.',
-                            current: currentSessions,
-                            limit: sessionLimit
-                        },
-                        { status: 429 }
-                    );
-                    return addTrackerCorsHeaders(response, origin, true);
+                    if (currentSessions >= sessionLimit) {
+                        console.warn(`[rrweb-events] Session limit exceeded for user ${siteData.user_id}: ${currentSessions}/${sessionLimit}`);
+                        const response = NextResponse.json(
+                            {
+                                error: 'Session limit exceeded',
+                                message: 'Your subscription session limit has been reached. Please upgrade your plan.',
+                                current: currentSessions,
+                                limit: sessionLimit
+                            },
+                            { status: 429 }
+                        );
+                        return addTrackerCorsHeaders(response, origin, true);
+                    }
+                } else {
+                    console.warn('[rrweb-events] Failed to check session limits via view:', countError.message);
+                    // Fail open (allow request) if view check fails
                 }
             }
-            */
         }
 
         console.log(`[rrweb-events] Authenticated request for site ${site_id}, events: ${events.length}`);
