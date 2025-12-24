@@ -17,7 +17,7 @@ export default function Footer() {
                   height={60}
                   className="drop-shadow-sm"
                 />
-                <h3 className="text-2xl font-bold text-gray-900">Navlens</h3>
+                <h3 className="text-2xl font-bold text-gray-900">Navlens Analytics</h3>
               </div>
               <p className="text-gray-600 text-sm leading-relaxed mb-6">
                 Transform user behavior into actionable insights with AI-powered

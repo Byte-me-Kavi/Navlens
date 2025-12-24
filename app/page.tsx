@@ -104,10 +104,10 @@ export default function Home() {
               <div className="space-y-5">
                 {/* Main Heading */}
                 <h1 className="text-5xl md:text-6xl font-bold leading-tight">
-                  <span className="text-gray-900">Track User Behavior</span>
+                  <span className="text-gray-900">Navlens Analytics</span>
                   <br />
                   <span className="bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    On Your Website
+                    Track User Behavior
                   </span>
                 </h1>
 
@@ -418,7 +418,7 @@ export default function Home() {
                   Ready to Get Started?
                 </h2>
                 <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                  Join thousands of businesses using Navlens to understand their
+                  Join thousands of businesses using Navlens Analytics to understand their
                   users better and boost conversions.
                 </p>
                 <div className="flex flex-wrap justify-center gap-4">
