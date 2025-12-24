@@ -37,6 +37,7 @@
   const navlensScript = document.querySelector('script[data-site-id]');
   const siteId = navlensScript?.dataset.siteId;
   const apiHost = navlensScript?.dataset.apiHost || navlensScript?.src.replace(/\/tracker\.js.*/, '');
+  const assetsHost = apiHost; // Use for loading assets if needed
   
   if (!siteId || !apiHost) {
     console.error('[navlens-editor] Missing site ID or API host');
@@ -422,6 +423,28 @@
       color: #4f46e5;
       box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
+
+    /* Custom Dropdown Styles */
+    .nv-dropdown { position: relative; width: 100%; margin-bottom: 4px; }
+    .nv-dropdown-btn { width: 100%; padding: 10px 12px; background: white; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #374151; transition: all 0.2s; text-align: left; }
+    .nv-dropdown-btn:hover { border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1); }
+    .nv-dropdown-content { display: flex; align-items: center; gap: 8px; overflow: hidden; }
+    .nv-dropdown-menu { position: absolute; top: 100%; left: 0; width: 100%; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 4px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 100100; display: none; }
+    .nv-dropdown-menu.open { display: block; animation: nv-slide-down 0.15s ease-out; }
+    @keyframes nv-slide-down { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    .nv-dropdown-group-label { padding: 8px 12px; font-size: 11px; font-weight: 600; color: #6b7280; background: #f9fafb; letter-spacing: 0.05em; text-transform: uppercase; }
+    .nv-dropdown-item { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #374151; transition: background 0.15s; }
+    .nv-dropdown-item:hover { background: #f3f4f6; color: #4f46e5; }
+    .nv-dropdown-item.selected { background: #e0e7ff; color: #4f46e5; }
+    .nv-dropdown-arrow { font-size: 10px; color: #9ca3af; }
+
+    /* Modern Polish Overrides */
+    .nv-toolbar { background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.6); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
+    .nv-btn { border-radius: 8px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .nv-btn:active { transform: scale(0.96); }
+    .nv-input { border-radius: 8px; }
+    .nv-panel { animation: nv-fade-in 0.2s ease; }
+    @keyframes nv-fade-in { from { opacity: 0; } to { opacity: 1; } }
   `;
   document.head.appendChild(styles);
 
@@ -481,7 +504,8 @@
     form: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
     warning: '<svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
     save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
-    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    chevronDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>'
   };
 
   function getIcon(name, className = '') {
@@ -547,9 +571,20 @@
       
       <div class="nv-panel-section">
         <div class="nv-panel-label">Modification Type</div>
-        <select id="nv-mod-type" class="nv-input">
-          <!-- Options populated dynamically based on selected element -->
-        </select>
+        <!-- Custom Dropdown -->
+        <div class="nv-dropdown" id="nv-mod-type-dropdown">
+          <button type="button" class="nv-dropdown-btn" id="nv-mod-trigger">
+            <div class="nv-dropdown-content" id="nv-mod-selected-content">
+              <span>Select action...</span>
+            </div>
+            <span class="nv-dropdown-arrow">${getIcon('chevronDown')}</span>
+          </button>
+          <div class="nv-dropdown-menu" id="nv-mod-menu">
+            <!-- Items populated dynamically -->
+          </div>
+        </div>
+        <input type="hidden" id="nv-mod-type" value="">
+
         <div id="nv-type-hint" style="font-size: 10px; color: #6b7280; margin-top: 4px;"></div>
       </div>
       
@@ -852,71 +887,96 @@
     formAction: { icon: 'form', label: 'Change Form Action', hint: 'Redirect form submission', tags: ['FORM'] }
   };
   
-  // Populate modification types based on selected element
+  // Populate modification types based on selected element (Custom Dropdown)
   function populateModTypes(element) {
-    const select = document.getElementById('nv-mod-type');
+    const menu = document.getElementById('nv-mod-menu');
+    const trigger = document.getElementById('nv-mod-trigger');
+    const selectedContent = document.getElementById('nv-mod-selected-content');
+    const hiddenInput = document.getElementById('nv-mod-type');
     const hint = document.getElementById('nv-type-hint');
-    const tagName = element.tagName.toUpperCase();
     
-    select.innerHTML = '';
+    menu.innerHTML = '';
+    consttagName = element.tagName.toUpperCase();
     
-    // Add universal types
-    const universalGroup = document.createElement('optgroup');
-    universalGroup.label = 'All Elements';
+    // Helper to create item
+    const createItem = (value, config) => {
+      const item = document.createElement('div');
+      item.className = 'nv-dropdown-item';
+      item.dataset.value = value;
+      item.innerHTML = `${getIcon(config.icon)} <span>${config.label}</span>`;
+      
+      item.addEventListener('click', (e) => {
+        // Update selection
+        e.stopPropagation();
+        selectedContent.innerHTML = `${getIcon(config.icon)} <span>${config.label}</span>`;
+        hiddenInput.value = value;
+        menu.classList.remove('open');
+        
+        // Update UI
+        hint.textContent = config.hint;
+        showPanel(`nv-${value}-panel`);
+        
+        // Handle class hint specific logic
+        if (value === 'class' && selectedElement) {
+            const classes = Array.from(selectedElement.classList).filter(c => !c.startsWith('nv-'));
+            document.getElementById('nv-current-classes').textContent = 
+                classes.length ? `Current: ${classes.join(', ')}` : 'No classes';
+        }
+        
+        // Handle animation logic trigger
+        if (value === 'animation') {
+           const animSelect = document.getElementById('nv-animation-name');
+           if (animSelect) {
+             const customContainer = document.getElementById('nv-animation-custom-container');
+             if (customContainer) customContainer.style.display = animSelect.value === 'custom' ? 'block' : 'none';
+           }
+        }
+      });
+      
+      return item;
+    };
     
+    // Group: All Elements
+    const group1 = document.createElement('div');
+    group1.innerHTML = '<div class="nv-dropdown-group-label">All Elements</div>';
     Object.entries(modificationTypes).forEach(([value, config]) => {
       if (config.universal) {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = config.label;
-        universalGroup.appendChild(option);
+        group1.appendChild(createItem(value, config));
       }
     });
-    select.appendChild(universalGroup);
+    menu.appendChild(group1);
     
-    // Check for nested elements (handles Next.js Image wrappers, etc.)
+    // Group: Specific
     const nestedTypes = [];
+    if (tagName === 'IMG' || element.querySelector('img')) nestedTypes.push(['image', modificationTypes.image]);
+    if (tagName === 'A' || element.querySelector('a')) nestedTypes.push(['link', modificationTypes.link]);
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || element.querySelector('input, textarea')) nestedTypes.push(['placeholder', modificationTypes.placeholder]);
+    if (tagName === 'FORM' || element.querySelector('form')) nestedTypes.push(['formAction', modificationTypes.formAction]);
     
-    // Check if this element or its children contain special elements
-    if (tagName === 'IMG' || element.querySelector('img')) {
-      nestedTypes.push(['image', modificationTypes.image]);
-    }
-    if (tagName === 'A' || element.querySelector('a')) {
-      nestedTypes.push(['link', modificationTypes.link]);
-    }
-    if (tagName === 'INPUT' || tagName === 'TEXTAREA' || element.querySelector('input, textarea')) {
-      nestedTypes.push(['placeholder', modificationTypes.placeholder]);
-    }
-    if (tagName === 'FORM' || element.querySelector('form')) {
-      nestedTypes.push(['formAction', modificationTypes.formAction]);
-    }
-    
-    // Add element-specific types (including nested)
     if (nestedTypes.length > 0) {
-      const specificGroup = document.createElement('optgroup');
-      const label = tagName === 'IMG' ? 'IMG Specific' : 
-                    tagName === 'A' ? 'Link Specific' :
-                    'Contains Special Elements';
-      specificGroup.label = label;
-      
+      const group2 = document.createElement('div');
+      group2.innerHTML = `<div class="nv-dropdown-group-label">Specific Actions</div>`;
       nestedTypes.forEach(([value, config]) => {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = config.label;
-        specificGroup.appendChild(option);
+        group2.appendChild(createItem(value, config));
       });
-      select.appendChild(specificGroup);
+      menu.appendChild(group2);
       
-      // Default to element-specific type
-      select.value = nestedTypes[0][0];
+      // Default to first specific type
+      const [firstVal, firstConfig] = nestedTypes[0];
+      hiddenInput.value = firstVal;
+      selectedContent.innerHTML = `${getIcon(firstConfig.icon)} <span>${firstConfig.label}</span>`;
+      hint.textContent = firstConfig.hint;
+      showPanel(`nv-${firstVal}-panel`);
+    } else {
+        // Default to Text or CSS
+        // If it has text, default to text, otherwise css
+        const defaultType = element.textContent.trim() ? 'text' : 'css';
+        const config = modificationTypes[defaultType];
+        hiddenInput.value = defaultType;
+        selectedContent.innerHTML = `${getIcon(config.icon)} <span>${config.label}</span>`;
+        hint.textContent = config.hint;
+        showPanel(`nv-${defaultType}-panel`);
     }
-    
-    // Show hint
-    const selected = modificationTypes[select.value];
-    hint.textContent = selected ? selected.hint : '';
-    
-    // Show appropriate panel
-    showPanel(`nv-${select.value}-panel`);
   }
   
   // Store original state for undo
@@ -1008,21 +1068,19 @@
     });
   }
 
-  // Show appropriate panel when modification type changes
-  document.getElementById('nv-mod-type').addEventListener('change', (e) => {
-    const type = e.target.value;
-    showPanel(`nv-${type}-panel`);
-    
-    // Update hint
-    const hint = document.getElementById('nv-type-hint');
-    const config = modificationTypes[type];
-    hint.textContent = config ? config.hint : '';
-    
-    // Show current classes for class modification
-    if (type === 'class' && selectedElement) {
-      const classes = Array.from(selectedElement.classList).filter(c => !c.startsWith('nv-'));
-      document.getElementById('nv-current-classes').textContent = 
-        classes.length ? `Current: ${classes.join(', ')}` : 'No classes';
+  // Dropdown toggle logic
+  document.getElementById('nv-mod-trigger').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById('nv-mod-menu');
+    menu.classList.toggle('open');
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('nv-mod-menu');
+    const trigger = document.getElementById('nv-mod-trigger');
+    if (menu && menu.classList.contains('open') && !menu.contains(e.target) && !trigger.contains(e.target)) {
+      menu.classList.remove('open');
     }
   });
 

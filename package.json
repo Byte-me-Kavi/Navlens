@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "minify:tracker": "terser public/dev-tracker.js -o public/tracker.js --compress --mangle --toplevel"
+    "minify:tracker": "terser public/dev-tracker.js -o public/tracker.js --compress --mangle --toplevel",
+    "minify:editor": "terser public/dev-ab-editor.js -o public/ab-editor.js --compress --mangle --toplevel"
   },
   "dependencies": {
     "@clickhouse/client": "^1.13.0",
