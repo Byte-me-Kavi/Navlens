@@ -6,6 +6,7 @@ export interface PlanLimit {
     retention_days: number;
     active_experiments?: number; // undefined = 0 or unlimited if feature enabled? logic needed
     active_surveys?: number;
+    heatmaps?: number;
 }
 
 export interface PlanConfig {
@@ -69,11 +70,12 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
         price: 0,
         description: 'Prove the value. For students & hobbyists.',
         limits: {
-            sessions: 1000,
-            recordings: 100,
+            sessions: 500,
+            recordings: 50,
             retention_days: 3,
             active_experiments: 0,
-            active_surveys: 0
+            active_surveys: 0,
+            heatmaps: 10
         },
         features: [
             'click_heatmaps',
@@ -94,7 +96,8 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
             recordings: 1000,
             retention_days: 30,
             active_experiments: 1,
-            active_surveys: 1
+            active_surveys: 1,
+            heatmaps: -1
         },
         features: [
             // All Free Features
@@ -118,7 +121,8 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
             recordings: 5000,
             retention_days: 90,
             active_experiments: -1, // Unlimited
-            active_surveys: -1
+            active_surveys: -1,
+            heatmaps: -1
         },
         features: [
             // All Starter +
@@ -157,7 +161,8 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
             recordings: 25000,
             retention_days: 365,
             active_experiments: -1,
-            active_surveys: -1
+            active_surveys: -1,
+            heatmaps: -1
         },
         features: [
             // All Pro +

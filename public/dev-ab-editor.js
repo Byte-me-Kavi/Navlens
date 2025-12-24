@@ -896,7 +896,8 @@
     const hint = document.getElementById('nv-type-hint');
     
     menu.innerHTML = '';
-    consttagName = element.tagName.toUpperCase();
+    menu.innerHTML = '';
+    const tagName = element.tagName.toUpperCase();
     
     // Helper to create item
     const createItem = (value, config) => {
@@ -1878,7 +1879,7 @@
       const btn = document.getElementById(`nv-mode-${mode}`);
       if (btn) {
         if (mode === activeMode) {
-          btn.style.background = '#3b82f6';
+          btn.style.background = '#4f46e5';
           btn.style.color = 'white';
         } else {
           btn.style.background = 'transparent';
@@ -2225,7 +2226,7 @@
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    background: #3b82f6;
+    background: #4f46e5;
     color: white;
     border: none;
     font-size: 24px;
