@@ -3368,7 +3368,7 @@
   // Send hover events when user dwells on elements
   // ============================================
   // Hover tracking state
-  // hoverCheckInterval was unused
+  let hoverCheckInterval = null;
   // lastHoverFlushTime was unused
   
 
