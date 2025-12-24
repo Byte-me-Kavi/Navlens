@@ -125,6 +125,8 @@ export async function POST(req: NextRequest) {
                 }
             }
 
+            /* SESSION LIMIT ENFORCEMENT - TEMPORARILY DISABLED (Incorrect counting logic causes false 429s)
+            
             // Check if this is a NEW session (not an update to existing session)
             const { count: existingSession } = await supabase
                 .from('rrweb_events')
@@ -162,6 +164,7 @@ export async function POST(req: NextRequest) {
                     return addTrackerCorsHeaders(response, origin, true);
                 }
             }
+            */
         }
 
         console.log(`[rrweb-events] Authenticated request for site ${site_id}, events: ${events.length}`);
