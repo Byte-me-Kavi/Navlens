@@ -95,7 +95,7 @@ export default function Home() {
       <Navbar />
 
       {/* Main Content */}
-      <div>
+      <main>
         {/* Hero Section */}
         <section className="min-h-screen flex items-center justify-center pt-32 pb-20 px-4 md:px-6">
           <div className="container mx-auto max-w-7xl">
@@ -445,7 +445,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-      </div>
+      </main>
 
       {/* Footer - Above Background */}
       <div className="relative z-10">

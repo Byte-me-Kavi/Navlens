@@ -23,6 +23,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { BreadcrumbJsonLd } from "@/components/BreadcrumbJsonLd";
 
 export default function DocumentationPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -346,6 +347,12 @@ export default function DocumentationPage() {
 
   return (
     <div className="min-h-screen text-gray-900 overflow-x-hidden">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", item: "/" },
+          { name: "Documentation", item: "/docs" },
+        ]}
+      />
       <Navbar />
 
       {/* Hero Section */}

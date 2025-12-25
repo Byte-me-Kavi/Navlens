@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { BreadcrumbJsonLd } from "@/components/BreadcrumbJsonLd";
 import {
   CursorArrowRaysIcon,
   ChartBarIcon,
@@ -177,6 +178,12 @@ export default function FeaturesPage() {
 
   return (
     <div className="min-h-screen text-gray-900 overflow-x-hidden">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", item: "/" },
+          { name: "Features", item: "/features" },
+        ]}
+      />
       {/* Navbar */}
       <Navbar />
 

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import ClientLayout from "./ClientLayout";
+import JsonLd from "../components/JsonLd";
 import "./globals.css";
 
 export const metadata: Metadata = {
+
   metadataBase: new URL('https://navlensanalytics.com'),
   title: {
     default: 'Navlens Analytics | Advanced Web Heatmaps & Session Replays',
@@ -47,7 +49,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <ClientLayout>{children}</ClientLayout>
+      <body suppressHydrationWarning>
+        <JsonLd />
+        <ClientLayout>{children}</ClientLayout>
+      </body>
     </html>
   );
 }

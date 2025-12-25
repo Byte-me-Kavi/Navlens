@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import FaqJsonLd from "@/components/FaqJsonLd";
+import { BreadcrumbJsonLd } from "@/components/BreadcrumbJsonLd";
 import {
   CheckIcon,
   ArrowRightIcon,
@@ -466,7 +468,14 @@ const PricingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen text-gray-900 overflow-x-hidden">
+      <FaqJsonLd />
       {/* Navbar */}
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", item: "/" },
+          { name: "Pricing", item: "/pricing" },
+        ]}
+      />
       <Navbar />
 
       {/* Hero Section */}
