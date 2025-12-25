@@ -596,6 +596,7 @@ export default function HeatmapViewerPage() {
           onStatsBarOpenChange={handleToggleStats}
           onStatsBarClose={handleCloseStats}
           onIframeScroll={handleIframeScroll}
+          days={dateRangeDays}
         />
       </div>
     </div>

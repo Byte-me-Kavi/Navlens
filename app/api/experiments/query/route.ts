@@ -8,7 +8,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCachedActiveExperiments } from '@/lib/experiments/cache';
-import { getUserFromRequest } from '@/lib/auth';
 
 import { secureCorsHeaders } from '@/lib/security';
 
@@ -41,27 +40,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Authenticate user
-        const user = await getUserFromRequest(request);
-        if (!user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        // Authenticate and authorize using the proper pattern
+        const { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } = await import('@/lib/auth');
+        const authResult = await authenticateAndAuthorize(request);
+
+        if (!authResult.isAuthorized || !authResult.user) {
+            return createUnauthenticatedResponse();
         }
 
-        // Verify access
-        const { data: site } = await supabaseAdmin
-            .from('sites')
-            .select('id, user_id')
-            .eq('id', siteId)
-            .single();
-
-        if (!site || site.user_id !== user.id) {
-            return NextResponse.json(
-                { error: 'Access denied' },
-                { status: 403 }
-            );
+        // Verify access using the userSites list
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
         }
 
         // Fetch experiments

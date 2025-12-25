@@ -37,6 +37,8 @@ export interface HeatmapViewerProps {
   onStatsBarClose?: () => void;
   onIframeScroll?: (scrollY: number) => void;
   showExportButton?: boolean;
+  isStaticHeight?: boolean; // For report generation
+  days?: number; // For date filtering
 }
 
 export function HeatmapViewer({
@@ -54,6 +56,8 @@ export function HeatmapViewer({
   onStatsBarClose,
   onIframeScroll,
   showExportButton = true,
+  isStaticHeight = false,
+  days = 30, // Default to 30 days
 }: HeatmapViewerProps) {
   const [showAllViewports, setShowAllViewports] = useState(externalShowAllViewports);
   const [prevExternalShowAllViewports, setPrevExternalShowAllViewports] = useState(externalShowAllViewports);
@@ -132,13 +136,24 @@ Use your system's screenshot tool to capture the heatmap area.`;
       // If showing all viewports and data is missing, fetch it
       if (showAllViewports && !allViewportsData) {
         try {
+          // Calculate dates for "All Viewports" fetches if needed (apiClient manual calls)
+          const endDate = new Date();
+          const startDate = new Date();
+          startDate.setDate(startDate.getDate() - days);
+
+          const dateParams = { 
+            startDate: startDate.toISOString(), 
+            endDate: endDate.toISOString(),
+            dateRangeDays: days // Pass this too just in case
+          };
+
           const [heatmapResponse, elementsResponse] = await Promise.all([
             apiClient.post<{ clicks: HeatmapPoint[] }>(
               "/heatmap-clicks-all-viewports",
-              { siteId, pagePath, deviceType }
+              { siteId, pagePath, deviceType, ...dateParams }
             ),
             apiClient.post<ElementClick[]>("/element-clicks-all-viewports", {
-              siteId, pagePath, deviceType
+              siteId, pagePath, deviceType, ...dateParams
             }),
           ]);
 
@@ -170,16 +185,22 @@ Use your system's screenshot tool to capture the heatmap area.`;
     manageViewportData();
 
     return () => { isMounted = false; };
-  }, [showAllViewports, allViewportsData, siteId, pagePath, deviceType, externalShowAllViewports, onViewportModeChange]);
+  }, [showAllViewports, allViewportsData, siteId, pagePath, deviceType, externalShowAllViewports, onViewportModeChange, days]);
 
   // Fetch unique session count for this page
   useEffect(() => {
     const fetchSessionCount = async () => {
       try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+
         const response = await apiClient.post<{ sessions: number }>('/page-sessions', {
           siteId,
           pagePath,
-          deviceType
+          deviceType,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
         });
         setUniqueSessions(response.sessions || 0);
       } catch (_error) {
@@ -192,7 +213,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
     if (siteId && pagePath) {
       fetchSessionCount();
     }
-  }, [siteId, pagePath, deviceType]);
+  }, [siteId, pagePath, deviceType, days]);
 
   // Extract viewport dimensions from snapshot
   // The snapshot HTML contains viewport dimensions from when it was captured
@@ -231,6 +252,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
       deviceType,
       documentWidth: shouldFetchFiltered ? documentWidth : 1920,
       documentHeight: shouldFetchFiltered ? documentHeight : 1080,
+      dateRangeDays: days // Pass days to hook
     }),
     [
       siteId,
@@ -239,6 +261,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
       shouldFetchFiltered,
       documentWidth,
       documentHeight,
+      days,
     ]
   );
 
@@ -253,6 +276,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
       deviceType,
       documentWidth: shouldFetchFiltered ? documentWidth : 1920,
       documentHeight: shouldFetchFiltered ? documentHeight : 1080,
+      days: days, // Pass days
     }),
     [
       siteId,
@@ -261,6 +285,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
       shouldFetchFiltered,
       documentWidth,
       documentHeight,
+      days,
     ]
   );
 
@@ -273,8 +298,9 @@ Use your system's screenshot tool to capture the heatmap area.`;
       siteId,
       pagePath,
       deviceType,
+      days: days, // Pass days
     }),
-    [siteId, pagePath, deviceType]
+    [siteId, pagePath, deviceType, days]
   );
 
   const { data: scrollData, loading: scrollLoading } =
@@ -286,8 +312,9 @@ Use your system's screenshot tool to capture the heatmap area.`;
       siteId,
       pagePath,
       deviceType,
+      days: days, // Pass days
     }),
-    [siteId, pagePath, deviceType]
+    [siteId, pagePath, deviceType, days]
   );
 
   const { data: hoverData, loading: hoverLoading } =
@@ -299,8 +326,9 @@ Use your system's screenshot tool to capture the heatmap area.`;
       siteId,
       pagePath,
       limit: 50,
+      days: days, // Pass days
     }),
-    [siteId, pagePath]
+    [siteId, pagePath, days]
   );
 
   const { data: cursorPathsData, loading: cursorPathsLoading } =
@@ -435,7 +463,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
   );
 
   return (
-    <div className="w-full h-full relative">
+    <div className={`w-full relative ${isStaticHeight ? 'h-auto min-h-[800px] overflow-hidden' : 'h-full'}`}>
       {/* Export Button */}
       {showExportButton && (
         <button
@@ -478,6 +506,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
         showHeatmap={showHeatmap}
         dataType={dataType}
         onIframeScroll={onIframeScroll}
+        isStaticHeight={isStaticHeight}
       />
 
       {/* Device Stats Sidebar for mobile/tablet */}

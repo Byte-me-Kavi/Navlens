@@ -22,6 +22,7 @@ export function ScrollHeatmapOverlay({
   onOverlaysRendered,
 }: ScrollHeatmapOverlayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const interactiveLayerRef = useRef<HTMLDivElement>(null);
   const [hoveredPosition, setHoveredPosition] = useState<number | null>(null);
   const [hoveredPercentage, setHoveredPercentage] = useState<number | null>(
     null
@@ -31,6 +32,33 @@ export function ScrollHeatmapOverlay({
   useEffect(() => {
     if (onOverlaysRendered) onOverlaysRendered();
   }, [onOverlaysRendered]);
+
+  // Add native wheel event listener with passive: false to prevent parent scroll
+  useEffect(() => {
+    const interactiveLayer = interactiveLayerRef.current;
+    if (!interactiveLayer) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Pass scroll to iframe
+      if (iframeRef?.current?.contentWindow) {
+        iframeRef.current.contentWindow.scrollBy({
+          top: e.deltaY * 2,
+          left: e.deltaX * 2,
+          behavior: "instant" as ScrollBehavior,
+        });
+      }
+    };
+
+    // Using passive: false is CRITICAL - it allows preventDefault to work
+    interactiveLayer.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      interactiveLayer.removeEventListener('wheel', handleWheel);
+    };
+  }, [iframeRef]);
 
   // --- 1. Clean Data & Determine "Real" Total ---
   const { cleanData, maxSessions, shouldRender } = useMemo(() => {
@@ -184,20 +212,12 @@ export function ScrollHeatmapOverlay({
 
       {/* 2. Interactive Layer (Captures Mouse) */}
       <div
+        ref={interactiveLayerRef}
         className="absolute inset-0 cursor-crosshair"
         style={{ pointerEvents: "auto" }}
         onMouseMove={handleMouseMove}
-        onWheel={(e) => {
-          e.preventDefault(); // Prevent default to avoid double-scrolling
-          // Pass scroll to iframe - multiply for better scroll feel
-          if (iframeRef?.current?.contentWindow) {
-            iframeRef.current.contentWindow.scrollBy({
-              top: e.deltaY * 2,
-              left: e.deltaX * 2,
-              behavior: "instant",
-            });
-          }
-        }}
+        // Note: Wheel event is handled via native listener (useEffect) with passive: false
+        // This is required to properly preventDefault and stop parent page scrolling
       />
 
       {/* 3. Retention Markers (75%, 50%, 25%) */}

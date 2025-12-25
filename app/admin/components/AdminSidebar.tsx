@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MagnifyingGlassIcon, ShieldCheckIcon, CreditCardIcon, MegaphoneIcon } from '@heroicons/react/24/outline'; // Re-import icons
+import { MagnifyingGlassIcon, ShieldCheckIcon, CreditCardIcon, MegaphoneIcon, DocumentChartBarIcon } from '@heroicons/react/24/outline'; // Re-import icons
 
 // Define navigation
 const navigation = [
@@ -14,6 +14,7 @@ const navigation = [
   { name: 'Sites', href: '/admin/sites', icon: (props: React.ComponentProps<'svg'>) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg> },
   { name: 'Audit Logs', href: '/admin/audit', icon: ShieldCheckIcon },
   { name: 'Notifications', href: '/admin/notifications', icon: MegaphoneIcon },
+  { name: 'Reports', href: '/admin/reports', icon: DocumentChartBarIcon },
   { name: 'Inspector', href: '/admin/tools/inspector', icon: MagnifyingGlassIcon },
 ];
 

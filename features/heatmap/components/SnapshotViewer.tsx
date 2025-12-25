@@ -41,6 +41,7 @@ interface SnapshotViewerProps {
   showHeatmap?: boolean;
   dataType?: "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements";
   onIframeScroll?: (scrollY: number) => void;
+  isStaticHeight?: boolean;
 }
 
 export function SnapshotViewer({
@@ -58,6 +59,7 @@ export function SnapshotViewer({
   showHeatmap = true,
   dataType = "clicks",
   onIframeScroll,
+  isStaticHeight = false,
 }: SnapshotViewerProps) {
   console.log("🎯 SnapshotViewer received:", {
     dataType,
@@ -73,6 +75,7 @@ export function SnapshotViewer({
       patternBreakdown: cursorPathsData.patternBreakdown,
     } : null,
     showHeatmap,
+    isStaticHeight,
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -162,6 +165,21 @@ export function SnapshotViewer({
 
   const deviceConfig = getDeviceConfig();
 
+  // Create a style object for the container
+  const containerStyle: React.CSSProperties = {
+     width: deviceConfig.width,
+     maxWidth: "100%",
+  };
+
+  // If NOT static height, use screen height constraint (dashboard behavior)
+  // If static height, let it grow to content height
+  if (!isStaticHeight) {
+    containerStyle.height = "calc(100vh - 2rem)";
+  } else if (contentDimensions.height > 0) {
+     // Optional: set explicit height match content for static reports
+     containerStyle.height = `${contentDimensions.height}px`;
+  }
+
   // Build DOM when snapshot changes
   useEffect(() => {
     if (!snapshot || !iframeRef.current || !containerRef.current) return;
@@ -237,36 +255,45 @@ export function SnapshotViewer({
 
   // Setup scroll sync when ready AND after overlays are rendered
   useEffect(() => {
+    // Disable scroll sync for static height (reports)
+    if (isStaticHeight) return;
+
     const scrollSync = scrollSyncRef.current;
-    if (!isReady || !iframeRef.current) {
+    if (!isReady || !iframeRef.current || !containerRef.current) {
       console.log(
         "⏳ ScrollSync waiting - isReady:",
         isReady,
         "iframe:",
-        !!iframeRef.current
+        !!iframeRef.current,
+        "container:",
+        !!containerRef.current
       );
       return;
     }
 
     // Add delay to ensure overlay DOM elements are in the document
-    // Increase from 100ms to 250ms to ensure React has time to render components
     const timeoutId = setTimeout(() => {
       console.log("🔄 Setting up ScrollSync...");
 
       const scrollSync = scrollSyncRef.current;
+      const container = containerRef.current;
+      
+      if (!container) return;
 
-      const canvasContainer = document.getElementById(
-        "heatmap-canvas-container"
-      );
-      const overlayContainer = document.getElementById(
-        "element-overlay-container"
-      );
-      const scrollOverlayContainer = document.getElementById(
-        "scroll-heatmap-overlay"
-      );
+      // Use querySelector within the container to find overlays specific to THIS instance
+      // This avoids ID conflicts when multiple HeatmapViewers exist on the same page
+      const canvasContainer = container.querySelector(
+        "#heatmap-canvas-container"
+      ) as HTMLElement | null;
+      const overlayContainer = container.querySelector(
+        "#element-overlay-container"
+      ) as HTMLElement | null;
+      const scrollOverlayContainer = container.querySelector(
+        "#scroll-heatmap-overlay"
+      ) as HTMLElement | null;
 
       console.log(
-        "📦 Container check - canvas:",
+        "📦 Container check (scoped) - canvas:",
         !!canvasContainer,
         "overlay:",
         !!overlayContainer,
@@ -291,15 +318,17 @@ export function SnapshotViewer({
         console.warn("⚠️ No overlay containers found for ScrollSync");
         // Retry after another delay if containers not found
         setTimeout(() => {
-          const retryCanvas = document.getElementById(
-            "heatmap-canvas-container"
-          );
-          const retryOverlay = document.getElementById(
-            "element-overlay-container"
-          );
-          const retryScrollOverlay = document.getElementById(
-            "scroll-heatmap-overlay"
-          );
+          if (!containerRef.current) return;
+          
+          const retryCanvas = containerRef.current.querySelector(
+            "#heatmap-canvas-container"
+          ) as HTMLElement | null;
+          const retryOverlay = containerRef.current.querySelector(
+            "#element-overlay-container"
+          ) as HTMLElement | null;
+          const retryScrollOverlay = containerRef.current.querySelector(
+            "#scroll-heatmap-overlay"
+          ) as HTMLElement | null;
           const retryOverlays = [
             retryCanvas,
             retryOverlay,
@@ -318,18 +347,22 @@ export function SnapshotViewer({
       clearTimeout(timeoutId);
       scrollSync.cleanup();
     };
-  }, [isReady, overlaysRendered, dataType]);
+  }, [isReady, overlaysRendered, dataType, isStaticHeight]);
+
+  // For static height, ensure iframe height matches content
+  useEffect(() => {
+      if (isStaticHeight && isReady && contentDimensions.height > 0 && iframeRef.current) {
+         iframeRef.current.style.height = `${contentDimensions.height}px`;
+      }
+  }, [isStaticHeight, isReady, contentDimensions.height]);
+
 
   return (
-    <div className="w-full h-full flex items-start justify-center bg-blue-100 p-4 overflow-auto">
+    <div className={`w-full h-full flex items-start justify-center p-4 ${isStaticHeight ? '' : 'overflow-auto bg-blue-100'}`}>
       <div
         ref={containerRef}
-        className="bg-white border border-gray-300 shadow-2xl rounded-lg relative overflow-hidden"
-        style={{
-          width: deviceConfig.width,
-          height: "calc(100vh - 2rem)",
-          maxWidth: "100%",
-        }}
+        className={`bg-white border border-gray-300 shadow-2xl rounded-lg relative overflow-hidden`}
+        style={containerStyle}
       >
         {/* Loading indicator while iframe is being built */}
         {!isReady && (

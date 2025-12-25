@@ -150,14 +150,21 @@ export const secureApi = {
     /**
      * Forms/Insights API
      */
+    /**
+     * Forms/Insights API
+     */
     forms: {
         insights: (siteId: string, options?: { formId?: string; days?: number }) =>
-            requestQueue.add(() =>
-                apiClient.post<unknown>('/insights/forms/query', {
+            requestQueue.add(() => {
+                const queryParams = new URLSearchParams({
                     siteId,
-                    ...options,
-                })
-            ),
+                    ...(options?.formId && { formId: options.formId }),
+                    ...(options?.days && { days: options.days.toString() }),
+                    // Default to including fields if not specified, or expose as option
+                    fields: 'true'
+                });
+                return apiClient.get<unknown>(`/insights/forms?${queryParams}`);
+            }),
     },
 
     /**
@@ -165,22 +172,22 @@ export const secureApi = {
      */
     funnels: {
         list: (siteId: string) =>
-            requestQueue.add(() =>
-                apiClient.post<{ funnels: unknown[] }>('/funnels/query', {
-                    siteId,
-                    action: 'list',
-                })
-            ),
+            requestQueue.add(() => {
+                const queryParams = new URLSearchParams({ siteId });
+                return apiClient.get<{ funnels: unknown[] }>(`/funnels?${queryParams}`);
+            }),
 
         analyze: (siteId: string, funnelId: string, options?: { startDate?: string; endDate?: string }) =>
-            requestQueue.add(() =>
-                apiClient.post<unknown>('/funnels/query', {
+            requestQueue.add(() => {
+                const queryParams = new URLSearchParams({
                     siteId,
                     funnelId,
                     action: 'analyze',
-                    ...options,
-                })
-            ),
+                    ...(options?.startDate && { startDate: options.startDate }),
+                    ...(options?.endDate && { endDate: options.endDate }),
+                });
+                return apiClient.get<unknown>(`/funnels?${queryParams}`);
+            }),
 
         create: (data: unknown) =>
             requestQueue.add(() =>

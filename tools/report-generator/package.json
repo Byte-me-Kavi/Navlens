@@ -1,0 +1,12 @@
+{
+    "name": "navlens-report-generator",
+    "version": "1.0.0",
+    "description": "Local PDF generation tool for Navlens Analytics",
+    "main": "generate.js",
+    "scripts": {
+        "start": "node generate.js"
+    },
+    "dependencies": {
+        "puppeteer": "^21.0.0"
+    }
+}

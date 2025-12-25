@@ -34,12 +34,13 @@ export interface HoverHeatmapData {
     error?: string;
 }
 
-interface HoverHeatmapParams {
+export interface HoverHeatmapParams {
     siteId: string;
     pagePath: string;
     deviceType: string;
     startDate?: string;
     endDate?: string;
+    days?: number;
 }
 
 interface UseHoverHeatmapDataResult {
@@ -53,7 +54,18 @@ interface UseHoverHeatmapDataResult {
 const hoverHeatmapFetcher = async ([, params]: [string, HoverHeatmapParams]): Promise<HoverHeatmapData> => {
     console.log('👁️ Fetching hover heatmap data:', params);
 
-    const result = await apiClient.post<HoverHeatmapData>('/hover-heatmap', params);
+    // Prepare payload
+    const payload = { ...params };
+    if (params.days) {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(start.getDate() - params.days);
+        payload.startDate = start.toISOString();
+        payload.endDate = end.toISOString();
+        delete payload.days;
+    }
+
+    const result = await apiClient.post<HoverHeatmapData>('/hover-heatmap', payload);
 
     console.log('✓ Hover heatmap data fetched:', {
         pointCount: result.heatmapPoints?.length || 0,
@@ -73,9 +85,12 @@ export function useHoverHeatmapData(params: HoverHeatmapParams): UseHoverHeatmap
                 siteId: params.siteId,
                 pagePath: params.pagePath,
                 deviceType: params.deviceType,
+                startDate: params.startDate,
+                endDate: params.endDate,
+                days: params.days
             }
         ] as [string, HoverHeatmapParams];
-    }, [params.siteId, params.pagePath, params.deviceType]);
+    }, [params.siteId, params.pagePath, params.deviceType, params.startDate, params.endDate, params.days]);
 
     const { data, error, isLoading, mutate } = useSWR(
         cacheKey,

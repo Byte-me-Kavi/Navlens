@@ -15,14 +15,33 @@ interface UseElementClicksResult {
   refetch: () => Promise<void>;
 }
 
-export function useElementClicks(params: ElementClickParams): UseElementClicksResult {
+// Extended params to include days
+interface ExtendedElementClickParams extends ElementClickParams {
+  days?: number;
+}
+
+export function useElementClicks(params: ExtendedElementClickParams): UseElementClicksResult {
   const [data, setData] = useState<ElementClick[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [lastRequestHash, setLastRequestHash] = useState<string | null>(null);
 
-  // Memoize params to prevent unnecessary re-renders
-  const memoizedParams = useMemo(() => params, [params]);
+  // Memoize params including days
+  const memoizedParams = useMemo(() => {
+    // If days is provided, calculate start/end date overrides
+    if (params.days) {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - params.days);
+
+      return {
+        ...params,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      };
+    }
+    return params;
+  }, [params]);
 
   // Create a hash of the request to detect duplicates
   const paramsHash = JSON.stringify(memoizedParams);
@@ -32,7 +51,7 @@ export function useElementClicks(params: ElementClickParams): UseElementClicksRe
       setLoading(true);
       setError(null);
 
-      console.log('🔴 Fetching element clicks:', params);
+      console.log('🔴 Fetching element clicks:', memoizedParams);
 
       // Skip if we've already fetched this exact request
       if (lastRequestHash === paramsHash) {
@@ -53,7 +72,7 @@ export function useElementClicks(params: ElementClickParams): UseElementClicksRe
     } finally {
       setLoading(false);
     }
-  }, [memoizedParams, lastRequestHash, paramsHash, params]);
+  }, [memoizedParams, lastRequestHash, paramsHash]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,7 +88,7 @@ export function useElementClicks(params: ElementClickParams): UseElementClicksRe
     return () => {
       cancelled = true;
     };
-  }, [paramsHash, lastRequestHash, fetchData]); // Include fetchData to satisfy exhaustive-deps
+  }, [paramsHash, lastRequestHash, fetchData]);
 
   return {
     data,

@@ -43,6 +43,7 @@ interface CursorPathsParams {
     startDate?: string;
     endDate?: string;
     limit?: number;
+    days?: number;
 }
 
 interface UseCursorPathsDataResult {
@@ -56,7 +57,18 @@ interface UseCursorPathsDataResult {
 const cursorPathsFetcher = async ([, params]: [string, CursorPathsParams]): Promise<CursorPathsData> => {
     console.log('🖱️ Fetching cursor paths data:', params);
 
-    const result = await apiClient.post<CursorPathsData>('/cursor-paths', params);
+    // Prepare payload
+    const payload = { ...params };
+    if (params.days) {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(start.getDate() - params.days);
+        payload.startDate = start.toISOString();
+        payload.endDate = end.toISOString();
+        delete payload.days;
+    }
+
+    const result = await apiClient.post<CursorPathsData>('/cursor-paths', payload);
 
     console.log('✓ Cursor paths data fetched:', {
         totalSessions: result.totalSessions,
@@ -76,9 +88,12 @@ export function useCursorPathsData(params: CursorPathsParams): UseCursorPathsDat
                 siteId: params.siteId,
                 pagePath: params.pagePath,
                 limit: params.limit || 50,
+                startDate: params.startDate,
+                endDate: params.endDate,
+                days: params.days
             }
         ] as [string, CursorPathsParams];
-    }, [params.siteId, params.pagePath, params.limit]);
+    }, [params.siteId, params.pagePath, params.limit, params.startDate, params.endDate, params.days]);
 
     const { data, error, isLoading, mutate } = useSWR(
         cacheKey,

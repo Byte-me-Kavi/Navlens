@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import domtoimage from 'dom-to-image-more';
+
 import toast from 'react-hot-toast';
 
 interface UseChartExportResult {
@@ -23,9 +23,16 @@ export const useChartExport = (): UseChartExportResult => {
             // Delay to ensure rendering and font loading
             await new Promise(resolve => setTimeout(resolve, 500));
 
+            const domtoimage = (await import('dom-to-image-more')).default;
+
             const dataUrl = await domtoimage.toPng(element, {
                 bgcolor: '#ffffff',
-                scale: 2, // Higher resolution
+                style: {
+                    transform: 'scale(2)',
+                    transformOrigin: 'top left',
+                },
+                width: element.offsetWidth * 2,
+                height: element.offsetHeight * 2,
                 quality: 1.0,
                 cacheBust: true,
                 filter: (node: Node) => {
