@@ -15,8 +15,10 @@ import {
   FiMap,
   FiTrendingUp,
   FiGitMerge,
-  FiClock
+  FiClock,
+  FiDownload,
 } from "react-icons/fi";
+import { useChartExport } from "@/hooks/useChartExport";
 
 // Dynamic import for Sankey to avoid SSR issues with D3/Recharts
 const SankeyDiagram = dynamic(
@@ -199,6 +201,8 @@ export default function JourneyDashboard() {
   const [data, setData] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState("24h");
+  const { exportToPng, isExporting } = useChartExport();
+  const sankeyRef = React.useRef<HTMLDivElement>(null);
 
   // Unique color generation for the current dataset
   const getPathColor = useMemo(() => {
@@ -429,13 +433,30 @@ export default function JourneyDashboard() {
             {/* Sankey Flow Diagram */}
             {data?.sankeyLinks && data.sankeyLinks.length > 0 && (
               <div className="mb-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-purple-50 rounded-xl">
-                    <FiGitMerge className="w-5 h-5 text-purple-600" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-50 rounded-xl">
+                      <FiGitMerge className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <h2 className="text-lg font-bold text-gray-900">User Flow Visualization</h2>
                   </div>
-                  <h2 className="text-lg font-bold text-gray-900">User Flow Visualization</h2>
+                  <button
+                    onClick={() => exportToPng(sankeyRef.current, 'user-journey-sankey')}
+                    disabled={isExporting}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
+                  >
+                   {isExporting ? (
+                        <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                        <FiDownload className="w-4 h-4" />
+                    )}
+                    Export PNG
+                  </button>
                 </div>
-                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm overflow-x-auto min-h-[500px]">
+                <div 
+                    ref={sankeyRef}
+                    className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm overflow-x-auto min-h-[500px]"
+                >
                   <SankeyDiagram 
                     links={data.sankeyLinks} 
                     width={1000} 

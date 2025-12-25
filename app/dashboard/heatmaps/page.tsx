@@ -14,6 +14,7 @@ import {
   GlobeAltIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
+import { ReportGenerator } from "@/components/reports/ReportGenerator";
 
 // Heatmap type cards data - using consistent indigo theme
 const heatmapTypes = [
@@ -151,14 +152,18 @@ export default function HeatmapsPage() {
                     <p className="text-sm text-indigo-600 font-medium">{currentSite?.domain}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => openViewer()}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
-                >
-                  <PresentationChartBarIcon className="w-5 h-5" />
-                  View All Heatmaps
-                  <ArrowRightIcon className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <ReportGenerator siteId={currentSite?.id || ""} />
+                  
+                  <button
+                    onClick={() => openViewer()}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                  >
+                    <PresentationChartBarIcon className="w-5 h-5" />
+                    View All Heatmaps
+                    <ArrowRightIcon className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 

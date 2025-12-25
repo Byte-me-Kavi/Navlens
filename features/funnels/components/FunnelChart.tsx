@@ -16,6 +16,9 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { FiDownload } from "react-icons/fi";
+import { useChartExport } from "@/hooks/useChartExport";
+import { useRef } from "react";
 import { FunnelStepResult } from "../types/funnel.types";
 
 interface FunnelChartProps {
@@ -104,19 +107,39 @@ export function FunnelChart({
   const endCount = sortedSteps[sortedSteps.length - 1]?.visitors || 0;
   const overallRate =
     startCount > 0 ? ((endCount / startCount) * 100).toFixed(1) : "0.0";
+  
+  const { exportToPng, isExporting } = useChartExport();
+  const chartRef = useRef<HTMLDivElement>(null);
 
 
 
   return (
     <div className={`space-y-8 ${className}`}>
-      <div className="h-[400px] w-full bg-gray-50/30 rounded-2xl border border-gray-100/50 p-4">
+        <div className="flex justify-end">
+            <button
+                onClick={() => exportToPng(chartRef.current, 'funnel-chart')}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
+            >
+                {isExporting ? (
+                    <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                    <FiDownload className="w-4 h-4" />
+                )}
+                Export PNG
+            </button>
+        </div>
+      <div 
+        ref={chartRef}
+        className="h-[400px] w-full bg-gray-50/30 rounded-2xl border border-gray-100/50 p-4"
+      >
         <ResponsiveContainer width="100%" height="100%">
           <RechartsFunnelChart>
             <Tooltip content={<FunnelCustomTooltip />} cursor={{ fill: "transparent" }} />
             <Funnel
               dataKey="value"
               data={data}
-              isAnimationActive
+              isAnimationActive={false}
               stroke="#ffffff"
               strokeWidth={3}
             >
@@ -128,15 +151,15 @@ export function FunnelChart({
                 fill="#4b5563"
                 stroke="none"
                 dataKey="name"
-                className="font-medium text-sm"
+                style={{ fontSize: '14px', fontWeight: 500 }}
               />
                <LabelList
                 position="center"
                 fill="#ffffff"
                 stroke="none"
                 dataKey="value"
-                formatter={(val) => typeof val === 'number' ? val.toLocaleString() : (typeof val === 'string' ? val : '')}
-                className="font-bold text-sm drop-shadow-sm"
+                formatter={(val: any) => typeof val === 'number' ? val.toLocaleString() : (typeof val === 'string' ? val : '')}
+                style={{ fontSize: '14px', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
               />
             </Funnel>
           </RechartsFunnelChart>

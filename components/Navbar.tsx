@@ -34,7 +34,7 @@ export function Navbar() {
               height={60}
               className="drop-shadow-sm"
             />
-            <h2 className="text-gray-900 text-2xl font-bold">Navlens</h2>
+            <h2 className="text-gray-900 text-2xl font-bold">Navlens Analytics</h2>
           </div>
 
           {/* Desktop Navigation */}
