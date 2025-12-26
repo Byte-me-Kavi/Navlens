@@ -24,7 +24,7 @@ function buildCohortFilter(rules: CohortRule[]): string {
     // Define supported fields and their ClickHouse column mappings
     const fieldConfig: Record<string, { column: string; type: 'string' | 'number' | 'boolean' }> = {
         'device_type': { column: 'device_type', type: 'string' },
-        'country': { column: 'user_language', type: 'string' },
+        'country': { column: 'country', type: 'string' },
         'referrer': { column: 'referrer', type: 'string' },
         'browser': { column: 'user_agent', type: 'string' },
         'page_path': { column: 'page_path', type: 'string' },
@@ -73,10 +73,10 @@ function buildCohortFilter(rules: CohortRule[]): string {
 
             switch (operator) {
                 case 'equals':
-                    conditions.push(`${column} = '${escapedValue}'`);
+                    conditions.push(`lower(${column}) = lower('${escapedValue}')`);
                     break;
                 case 'contains':
-                    conditions.push(`${column} LIKE '%${escapedValue}%'`);
+                    conditions.push(`lower(${column}) LIKE lower('%${escapedValue}%')`);
                     break;
                 default:
                     // Skip unknown operators

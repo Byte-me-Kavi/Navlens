@@ -182,27 +182,43 @@ export default function Footer() {
       <div className="border-t border-gray-200/30 py-6 px-6 bg-transparent backdrop-blur-sm">
         <div className="container mx-auto max-w-7xl">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-gray-600 text-sm">
-              © 2025 Navlens Analytics. All rights reserved.
-            </p>
-            <div className="flex gap-6 text-sm">
-              <a
-                href="/privacy"
-                className="text-gray-600 hover:text-blue-600 transition-colors"
+            {/* Left Side: Copyright + Branding */}
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <p className="text-gray-500 text-sm font-medium">
+                © {new Date().getFullYear()} Navlens Analytics.
+              </p>
+              
+              {/* Desktop Divider */}
+              <span className="hidden md:block text-gray-300 h-4 w-px bg-gray-300"></span>
+              
+              {/* Branding Badge */}
+              <a 
+                href="https://synapsedigital.dev" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center gap-3 pl-1 pr-4 py-1 rounded-full bg-white/50 border border-gray-200/50 hover:border-indigo-200 hover:bg-indigo-50/30 hover:shadow-sm transition-all duration-300 group"
               >
-                Privacy Policy
+                 <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/images/synapse.png" alt="S" className="w-4 h-4 object-contain opacity-80 group-hover:opacity-100" />
+                 </div>
+                 <div className="flex flex-col leading-none">
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 group-hover:text-indigo-400">Powered by</span>
+                    <span className="text-xs font-semibold text-gray-600 group-hover:text-indigo-700">Synapse Digital</span>
+                 </div>
               </a>
-              <a
-                href="/terms"
-                className="text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Terms of Service
+            </div>
+
+            {/* Right Side: Legal Links */}
+            <div className="flex items-center gap-8">
+              <a href="/privacy" className="text-sm font-medium text-gray-500 hover:text-indigo-600 transition-colors">
+                Privacy
               </a>
-              <a
-                href="/refund"
-                className="text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Refund Policy
+              <a href="/terms" className="text-sm font-medium text-gray-500 hover:text-indigo-600 transition-colors">
+                Terms
+              </a>
+              <a href="/refund" className="text-sm font-medium text-gray-500 hover:text-indigo-600 transition-colors">
+                Refunds
               </a>
             </div>
           </div>

@@ -12,10 +12,18 @@ import {
   ExclamationTriangleIcon,
   PlayIcon,
   DevicePhoneMobileIcon,
+  GlobeAltIcon,
+  PresentationChartBarIcon,
+  FunnelIcon,
+  DocumentChartBarIcon,
+  UserGroupIcon,
+  BeakerIcon,
+  HomeIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import useSWR from "swr";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
+import { motion } from "framer-motion";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { secureApi } from "@/lib/secureApi";
 import { useAI } from "@/context/AIProvider";
@@ -161,7 +169,7 @@ const DashboardClient: React.FC = () => {
   return (
     <div className="space-y-6">
       {isLoading ? (
-        <LoadingSpinner message="Loading dashboard..." />
+        <LoadingSpinner message="Getting Your Info..." />
       ) : (
         <>
           {/* Welcome Section with Refresh Button */}
@@ -665,6 +673,147 @@ const DashboardClient: React.FC = () => {
               >
                 View Docs
               </Link>
+            </div>
+          </div>
+          
+          
+          {/* Feature Guide Section - Modern & Animated */}
+          <div className="mt-12 pt-8 border-t border-gray-100">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mb-8"
+            >
+              <h2 className="text-2xl font-bold text-gray-900">Explore Navlens Capabilities</h2>
+              <p className="text-gray-500 mt-2">Everything you need to analyze, optimize, and grow.</p>
+            </motion.div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+              {/* Essentials Group */}
+              <motion.div 
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                variants={{
+                  hidden: { opacity: 0 },
+                  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+                }}
+                className="space-y-6"
+              >
+                <h3 className="text-xs font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-2 mb-4">
+                  <span className="w-8 h-px bg-indigo-200"></span> Essentials
+                </h3>
+                
+                {[
+                  { icon: HomeIcon, title: "Overview", desc: "Your command center for key metrics and real-time insights." },
+                  { icon: GlobeAltIcon, title: "My Sites", desc: "Manage all your web properties and tracking configurations." }
+                ].map((item, idx) => (
+                  <motion.div 
+                    key={idx}
+                    variants={{
+                      hidden: { opacity: 0, x: -10 },
+                      show: { opacity: 1, x: 0 }
+                    }}
+                    className="group flex items-start gap-4 p-4 rounded-2xl hover:bg-white/60 hover:backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/5 ring-1 ring-transparent hover:ring-indigo-50 cursor-default"
+                  >
+                    <div className="shrink-0 p-3 bg-white rounded-xl shadow-sm group-hover:bg-indigo-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 text-indigo-600 ring-1 ring-gray-100 group-hover:ring-indigo-600">
+                      <item.icon className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{item.title}</h4>
+                      <p className="text-sm text-gray-500 mt-1 leading-relaxed group-hover:text-gray-700 transition-colors">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+
+              {/* Analytics Group */}
+              <motion.div 
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                variants={{
+                  hidden: { opacity: 0 },
+                  show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
+                }}
+                className="space-y-6"
+              >
+                <h3 className="text-xs font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-2 mb-4">
+                  <span className="w-8 h-px bg-indigo-200"></span> Analytics
+                </h3>
+                
+                {[
+                  { icon: PresentationChartBarIcon, title: "Heatmaps", desc: "Visualize user clicks, moves, and scrolls to find hotspots." },
+                  { icon: EyeIcon, title: "Session Replay", desc: "Watch real user journeys to identify UX issues and barriers." },
+                  { icon: FunnelIcon, title: "Conversion Funnels", desc: "Track drop-off points in your key user flows." },
+                  { icon: DocumentChartBarIcon, title: "Form Analytics", desc: "Optimize form fields to boost completion rates." }
+                ].map((item, idx) => (
+                  <motion.div 
+                    key={idx}
+                    variants={{
+                      hidden: { opacity: 0, x: -10 },
+                      show: { opacity: 1, x: 0 }
+                    }}
+                    className="group flex items-start gap-4 p-4 rounded-2xl hover:bg-white/60 hover:backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/5 ring-1 ring-transparent hover:ring-indigo-50 cursor-default"
+                  >
+                     <div className="shrink-0 p-3 bg-white rounded-xl shadow-sm group-hover:bg-indigo-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 text-indigo-600 ring-1 ring-gray-100 group-hover:ring-indigo-600">
+                      <item.icon className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{item.title}</h4>
+                      <p className="text-sm text-gray-500 mt-1 leading-relaxed group-hover:text-gray-700 transition-colors">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+
+              {/* Insights & Tools Group */}
+              <motion.div 
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
+                variants={{
+                  hidden: { opacity: 0 },
+                  show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.4 } }
+                }}
+                className="space-y-6"
+              >
+                <h3 className="text-xs font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-2 mb-4">
+                  <span className="w-8 h-px bg-indigo-200"></span> Insights
+                </h3>
+                
+                {[
+                  { icon: ExclamationTriangleIcon, title: "Frustration Signals", desc: "Auto-detect rage clicks and dead clicks causing friction." },
+                  { icon: PresentationChartBarIcon, title: "Performance", desc: "Monitor Core Web Vitals and site speed health." },
+                  { icon: UserGroupIcon, title: "Cohorts", desc: "Segment users to analyze behavior patterns over time." },
+                  { icon: DocumentChartBarIcon, title: "User Feedback", desc: "Collect direct feedback and sentiment from visitors." },
+                  { icon: BeakerIcon, title: "Experiments", desc: "Run A/B tests to validate changes and improve UX." }
+                ].map((item, idx) => (
+                  <motion.div 
+                    key={idx}
+                    variants={{
+                      hidden: { opacity: 0, x: -10 },
+                      show: { opacity: 1, x: 0 }
+                    }}
+                    className="group flex items-start gap-4 p-4 rounded-2xl hover:bg-white/60 hover:backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/5 ring-1 ring-transparent hover:ring-indigo-50 cursor-default"
+                  >
+                     <div className="shrink-0 p-3 bg-white rounded-xl shadow-sm group-hover:bg-indigo-600 group-hover:text-white group-hover:scale-110 transition-all duration-300 text-indigo-600 ring-1 ring-gray-100 group-hover:ring-indigo-600">
+                      <item.icon className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{item.title}</h4>
+                      <p className="text-sm text-gray-500 mt-1 leading-relaxed group-hover:text-gray-700 transition-colors">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </motion.div>
             </div>
           </div>
         </>

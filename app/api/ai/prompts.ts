@@ -66,8 +66,7 @@ allowed_fields:
 - "first_seen" (value: YYYY-MM-DD) [operators: "greater_than", "less_than"]
 
 RESPONSE FORMAT:
-1. Briefly explain the cohort in plain English.
-2. Provide the JSON on a new line.
+You MUST return ONLY the JSON object. Do not include markdown formatting, code blocks, or explanations.
 
 Example JSON Structure (Strictly follow this):
 {"name": "Cohort Name", "description": "Description", "rules": [{"field": "device_type", "operator": "equals", "value": "mobile"}]}
@@ -79,11 +78,9 @@ CRITICAL JSON RULES:
 - Ensure all brackets {} and [] are closed.
 
 Example Response:
-"I'll create a cohort for frustrated mobile users.
+{"name": "Frustrated Mobile Users", "description": "Mobile users with rage clicks", "rules": [{"field": "device_type", "operator": "equals", "value": "mobile"}, {"field": "has_rage_clicks", "operator": "equals", "value": "true"}]}`,
 
-{"name": "Frustrated Mobile Users", "description": "Mobile users with rage clicks", "rules": [{"field": "device_type", "operator": "equals", "value": "mobile"}, {"field": "has_rage_clicks", "operator": "equals", "value": "true"}]}"`,
-
-    general: `${BASE} Help users understand their analytics data.`,
+    general: `${BASE}\n\nHelp users understand their analytics data.`,
 };
 
 export interface DashboardStats {

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   CalendarIcon,
   CheckCircleIcon,
+  ClockIcon,
   ArrowTopRightOnSquareIcon,
   PresentationChartBarIcon,
   SignalIcon,
@@ -32,6 +33,7 @@ interface AdminReportGeneratorProps {
 export default function AdminReportGenerator({ sites }: AdminReportGeneratorProps) {
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
   const [dateRange, setDateRange] = useState<"7" | "15" | "30">("30");
+  const [expirationDays, setExpirationDays] = useState<number | null>(7);
   const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
     new Set([
       "summary",
@@ -72,7 +74,10 @@ export default function AdminReportGenerator({ sites }: AdminReportGeneratorProp
 
     // Build query params
     const featuresList = Array.from(selectedFeatures).join(",");
-    const url = `/report-preview/${selectedSiteId}?days=${dateRange}&include=${featuresList}`;
+    let url = `/report-preview/${selectedSiteId}?days=${dateRange}&include=${featuresList}`;
+    if (expirationDays) {
+        url += `&expiresInDays=${expirationDays}`;
+    }
 
     // Open in new tab
     window.open(url, "_blank");
@@ -138,6 +143,36 @@ export default function AdminReportGenerator({ sites }: AdminReportGeneratorProp
                 </div>
                 <p className="text-xs text-gray-500 mt-3 text-center">
                    Data will be fetched from the last {dateRange} days relative to generation time.
+                </p>
+              </div>
+
+               {/* 1.5 Link Expiration */}
+               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <ClockIcon className="w-5 h-5 text-indigo-600" />
+                  Link Expiration
+                </h2>
+                <div className="grid grid-cols-3 gap-3">
+                  {([7, 30, null] as const).map((days) => (
+                    <button
+                      key={days || 'never'}
+                      onClick={() => setExpirationDays(days)}
+                      className={`
+                        flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all
+                        ${
+                          expirationDays === days
+                            ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                            : "border-gray-100 bg-white text-gray-600 hover:border-indigo-200"
+                        }
+                      `}
+                    >
+                      <span className="text-xl font-bold">{days ? `${days}` : '∞'}</span>
+                      <span className="text-xs font-medium uppercase tracking-wide">{days ? 'Days' : 'Never'}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-3 text-center">
+                   {expirationDays ? `Share link will expire after ${expirationDays} days.` : 'Share link will never expire.'}
                 </p>
               </div>
 

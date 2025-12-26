@@ -6,9 +6,10 @@ import { ShareIcon, CheckIcon, LinkIcon } from "@heroicons/react/24/outline";
 interface ShareReportButtonProps {
   siteId: string;
   days: number;
+  expiresInDays?: number;
 }
 
-export function ShareReportButton({ siteId, days }: ShareReportButtonProps) {
+export function ShareReportButton({ siteId, days, expiresInDays }: ShareReportButtonProps) {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -23,7 +24,8 @@ export function ShareReportButton({ siteId, days }: ShareReportButtonProps) {
         body: JSON.stringify({
           siteId,
           days,
-          include: 'all'
+          include: 'all',
+          expiresInDays
         })
       });
 

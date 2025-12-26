@@ -162,6 +162,7 @@ export async function POST(request: NextRequest) {
           client_id: event.client_id || '',
           load_time: event.load_time || 0,
           ip_address: clientIP,
+          country: request.headers.get('x-vercel-ip-country') || 'Unknown',
           // Flatten event.data fields
           x: event.data?.x ?? 0,
           y: event.data?.y ?? 0,

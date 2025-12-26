@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { apiClient } from '@/shared/services/api/client';
 import { ReportControls } from './ReportControls';
 import { ShareReportButton } from './ShareReportButton';
+import NextLink from 'next/link';
 
 interface ReportLayoutProps {
   children: React.ReactNode;
@@ -12,9 +13,11 @@ interface ReportLayoutProps {
   days?: number;
   siteId?: string; // Added for share functionality
   shareToken?: string; // Added for public access
+  expiresInDays?: number; // Added for link expiration
+  expiresAt?: string | null; // Added for displaying precise expiration on viewing
 }
 
-export function ReportLayout({ children, title, dateRange, days, siteId, shareToken }: ReportLayoutProps) {
+export function ReportLayout({ children, title, dateRange, days, siteId, shareToken, expiresInDays, expiresAt }: ReportLayoutProps) {
   useEffect(() => {
     if (shareToken) {
       console.log('Using public share token:', shareToken);
@@ -23,7 +26,7 @@ export function ReportLayout({ children, title, dateRange, days, siteId, shareTo
     return () => apiClient.setShareToken(null);
   }, [shareToken]);
   return (
-    <div className="min-h-screen bg-white text-gray-900 p-8 print:p-0 font-sans">
+    <div className="min-h-screen bg-gray-50 text-gray-900 p-8 print:p-0 font-sans">
       {/* Print-only CSS to enforce layout */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
@@ -33,49 +36,84 @@ export function ReportLayout({ children, title, dateRange, days, siteId, shareTo
           }
           body {
             -webkit-print-color-adjust: exact;
+            background-color: white !important;
           }
           .no-print, [class*="cookie"] {
             display: none !important;
           }
+          .shadow-lg {
+            box-shadow: none !important;
+          }
+          .max-w-5xl {
+            max-width: none !important;
+            margin: 0 !important;
+          }
         }
       `}} />
 
-      {/* Header */}
-      <header className="flex justify-between items-center mb-12 border-b border-gray-200 pb-6 break-inside-avoid">
-        <div className="flex items-center gap-4">
-          {/* Logo */}
-          <div className="w-12 h-12 flex-shrink-0">
-             {/* eslint-disable-next-line @next/next/no-img-element */}
-             <img src="/images/logo.png" alt="Navlens Logo" className="w-full h-full object-contain" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight leading-none">Navlens Analytics</h1>
-            <p className="text-sm text-indigo-600 font-medium mt-1">navlensanalytics.com</p>
-          </div>
-        </div>
-        <div className="text-right flex flex-col items-end gap-2">
-          <div className="text-2xl font-bold text-gray-900">{title.replace('Performance Report: ', '')}</div>
-          <div className="flex items-center gap-3">
-            {typeof days === 'number' && <ReportControls currentDays={days} />}
-            <p className={`text-gray-500 font-medium ${typeof days === 'number' ? 'print:block hidden' : ''}`}>{dateRange}</p>
-          </div>
-          {/* Share button (only shown when siteId is available, hidden in print) */}
-          {siteId && typeof days === 'number' && (
-            <ShareReportButton siteId={siteId} days={days} />
-          )}
-        </div>
-      </header>
+      <div className="max-w-8xl mx-auto bg-white shadow-lg print:shadow-none print:w-full min-h-[29.7cm] p-12 print:p-0 rounded-none md:rounded-xl">
+          {/* Header */}
+          <header className="flex justify-between items-center mb-12 border-b border-gray-200 pb-6 break-inside-avoid">
+            <div className="flex items-center gap-4">
+              {/* Logo */}
+              <div className="w-12 h-12 flex-shrink-0">
+                 {/* eslint-disable-next-line @next/next/no-img-element */}
+                 <img src="/images/logo.png" alt="Navlens Logo" className="w-full h-full object-contain" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight leading-none">Navlens Analytics</h1>
+                <p className="text-sm text-indigo-600 font-medium mt-1">navlensanalytics.com</p>
+              </div>
+            </div>
+            <div className="text-right flex flex-col items-end gap-2">
+              <div className="text-2xl font-bold text-gray-900">{title.replace('Performance Report: ', '')}</div>
+              <div className="flex items-center gap-3">
+                {typeof days === 'number' && <ReportControls currentDays={days} />}
+                <p className={`text-gray-500 font-medium ${typeof days === 'number' ? 'print:block hidden' : ''}`}>{dateRange}</p>
+              </div>
+              
+              {/* Expiration and Share */}
+              {(siteId || expiresAt) && (
+                <div className="flex flex-col items-end gap-1">
+                    {siteId && typeof days === 'number' && (
+                         <ShareReportButton siteId={siteId} days={days} expiresInDays={expiresInDays} />
+                    )}
+                    
+                    {expiresInDays !== undefined && !expiresAt && (
+                        <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded">
+                            Link expires in {expiresInDays} days
+                        </span>
+                    )}
 
-      {/* Report Content */}
-      <main className="space-y-8">
-        {children}
-      </main>
+                    {expiresAt && (
+                        <span className="text-xs text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-100 flex items-center gap-1">
+                            Link expires: {new Date(expiresAt).toLocaleDateString()}
+                        </span>
+                    )}
+                </div>
+              )}
+            </div>
+          </header>
 
-      {/* Report Footer */}
-      <footer className="mt-12 pt-6 border-t border-gray-200 flex justify-between items-center text-sm text-gray-500">
-        <div>Generated by Navlens Analytics</div>
-        <div>{new Date().toLocaleDateString()}</div>
-      </footer>
+          {/* Report Content */}
+          <main className="space-y-8">
+            {children}
+          </main>
+
+          {/* Report Footer */}
+          <footer className="mt-16 pt-8 border-t border-gray-100 flex justify-between items-end text-sm text-gray-400">
+            <div>
+                 <p className="font-medium text-gray-500">Generated by Navlens Analytics</p>
+                 <p>{new Date().toLocaleDateString()} • {new Date().toLocaleTimeString()}</p>
+            </div>
+            <div className="flex flex-col items-end gap-2 opacity-100 transition-opacity">
+                 <span className="text-xs font-medium uppercase tracking-wider text-gray-600">Powered by</span>
+                 {/* eslint-disable-next-line @next/next/no-img-element */}
+                 <img src="/images/synapse.png" alt="Synapse Digital" className="h-12 object-contain" />
+                 <NextLink href='https://synapsedigital.dev' target='_blank' className='text-indigo-500 block'>synapsedigital.dev</NextLink>
+            </div>
+          </footer>
+      </div>
     </div>
   );
 }

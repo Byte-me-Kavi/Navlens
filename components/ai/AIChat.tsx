@@ -159,7 +159,30 @@ export function AIChat({ onClose }: AIChatProps) {
   // Extract cohort data from AI response using regex - more robust than JSON parsing
   const parseCohortJSON = (content: string): { name: string; description: string; rules: { field: string; operator: string; value: string | number }[] } | null => {
     try {
+      // Strategy 0: Check for explicit markdown JSON block (Best for Llama 3)
+      const codeBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        try {
+          const parsed = JSON.parse(codeBlockMatch[1]);
+          if (parsed.name && Array.isArray(parsed.rules)) {
+             return parsed;
+          }
+        } catch (_e) {
+          // Continue if parse fails
+        }
+      }
+
       // Strategy 1: Attempt to find and parse valid JSON object
+      // With strict JSON mode, the entire content might be just the JSON string
+      try {
+          const parsed = JSON.parse(content);
+          if (parsed.name && Array.isArray(parsed.rules)) {
+             return parsed;
+          }
+      } catch (_e) {
+          // Not pure JSON, continue to other strategies
+      }
+
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {

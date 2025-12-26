@@ -137,7 +137,7 @@ function buildMessages(
 }
 
 // Non-streaming response
-async function getAIResponse(messages: ChatMessage[]): Promise<string> {
+async function getAIResponse(messages: ChatMessage[], context: AIContext = 'general'): Promise<string> {
     const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -147,9 +147,10 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string> {
         body: JSON.stringify({
             model: GROQ_MODEL,
             messages,
-            temperature: 0.7,
+            temperature: context === 'cohort' ? 0.2 : 0.7,
             max_tokens: 1024, // Reduced for faster responses
             stream: false,
+            response_format: context === 'cohort' ? { type: "json_object" } : undefined,
         }),
     });
 
@@ -164,7 +165,7 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string> {
 }
 
 // Streaming response
-async function streamAIResponse(messages: ChatMessage[]): Promise<ReadableStream> {
+async function streamAIResponse(messages: ChatMessage[], context: AIContext = 'general'): Promise<ReadableStream> {
     const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -174,9 +175,10 @@ async function streamAIResponse(messages: ChatMessage[]): Promise<ReadableStream
         body: JSON.stringify({
             model: GROQ_MODEL,
             messages,
-            temperature: 0.7,
+            temperature: context === 'cohort' ? 0.2 : 0.7,
             max_tokens: 1024,
             stream: true,
+            response_format: context === 'cohort' ? { type: "json_object" } : undefined,
         }),
     });
 
@@ -275,7 +277,7 @@ export async function POST(request: NextRequest) {
 
         // Handle streaming vs non-streaming
         if (stream) {
-            const streamResponse = await streamAIResponse(messages);
+            const streamResponse = await streamAIResponse(messages, context);
             return new Response(streamResponse, {
                 headers: {
                     'Content-Type': 'text/event-stream',
@@ -284,7 +286,7 @@ export async function POST(request: NextRequest) {
                 },
             });
         } else {
-            const response = await getAIResponse(messages);
+            const response = await getAIResponse(messages, context);
             return NextResponse.json({ response });
         }
     } catch (error: unknown) {

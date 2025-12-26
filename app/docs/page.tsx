@@ -8,18 +8,17 @@ import {
   SparklesIcon,
   RocketLaunchIcon,
   BoltIcon,
-  CheckCircleIcon,
   ArrowRightIcon,
   BookOpenIcon,
   QuestionMarkCircleIcon,
-  PlayCircleIcon,
   EnvelopeIcon,
   StarIcon,
   LockClosedIcon,
   UserGroupIcon,
   TagIcon,
   ArrowTrendingUpIcon,
-  Cog8ToothIcon,
+  BeakerIcon,
+  SignalIcon,
 } from "@heroicons/react/24/outline";
 import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -34,13 +33,13 @@ export default function DocumentationPage() {
         title: "Installation Guide",
         description: "Set up Navlens in your project in just a few minutes",
         icon: RocketLaunchIcon,
-        steps: 3,
+        steps: 2,
       },
       {
-        title: "First Heatmap Setup",
-        description: "Create and configure your first heatmap visualization",
+        title: "Understanding Heatmaps",
+        description: "Learn about automatic heatmap generation",
         icon: CursorArrowRaysIcon,
-        steps: 4,
+        steps: 2,
       },
       {
         title: "Dashboard Overview",
@@ -48,30 +47,7 @@ export default function DocumentationPage() {
         icon: ChartBarIcon,
         steps: 5,
       },
-      {
-        title: "Installation Guide",
-        description: "Set up Navlens in your project in just a few minutes",
-        icon: RocketLaunchIcon,
-        steps: 3,
-      },
-      {
-        title: "First Heatmap Setup",
-        description: "Create and configure your first heatmap visualization",
-        icon: CursorArrowRaysIcon,
-        steps: 4,
-      },
-      {
-        title: "Dashboard Overview",
-        description: "Navigate and utilize the Navlens dashboard features",
-        icon: ChartBarIcon,
-        steps: 5,
-      },
-      {
-        title: "Tracking Configuration",
-        description: "Configure tracking parameters and event collection",
-        icon: Cog8ToothIcon,
-        steps: 4,
-      },
+
       {
         title: "Data Analysis Basics",
         description: "Learn fundamental data analysis and interpretation",
@@ -82,37 +58,27 @@ export default function DocumentationPage() {
     []
   );
 
-  // Integration guides
-  const integrations = useMemo(
+  // Advanced Features
+  const advancedFeatures = useMemo(
     () => [
       {
-        name: "React",
-        description: "Seamless integration with React applications",
-        logo: "âš›ï¸",
-        code: `import { initNavlens } from 'navlens';\n\ninitNavlens({\n  apiKey: 'your-api-key',\n  trackingId: 'site-id'\n});`,
+        title: "A/B Testing Experiments",
+        description: "Create and manage experiments to optimize user experience",
+        icon: BeakerIcon,
+        steps: 8,
       },
+
       {
-        name: "Next.js",
-        description: "Full Next.js framework support with SSR",
-        logo: "â–²",
-        code: `// app/layout.tsx\nimport { NavlensProvider } from 'navlens/next';\n\nexport default function Layout() {\n  return (\n    <NavlensProvider>\n      <YourApp />\n    </NavlensProvider>\n  );\n}`,
-      },
-      {
-        name: "Vue",
-        description: "Vue 3 composition API integration",
-        logo: "ðŸ’š",
-        code: `import { useNavlens } from 'navlens/vue';\n\nexport default {\n  setup() {\n    const navlens = useNavlens({\n      apiKey: 'your-api-key'\n    });\n    return { navlens };\n  }\n}`,
-      },
-      {
-        name: "Vanilla JS",
-        description: "Plain JavaScript integration",
-        logo: "ðŸ“¦",
-        code: `<script src="https://cdn.navlens.io/tracker.js"><\/script>\n<script>\n  window.Navlens.init({\n    apiKey: 'your-api-key'\n  });\n<\/script>`,
+        title: "Network Performance",
+        description: "Monitor API latency and resource loading health",
+        icon: SignalIcon,
+        steps: 6,
       },
     ],
     []
   );
 
+  /*
   // API Reference
   const apiReference = useMemo(
     () => [
@@ -150,6 +116,18 @@ export default function DocumentationPage() {
         ],
       },
       {
+        title: "Experiments API",
+        description: "Manage A/B tests and feature flags",
+        icon: BeakerIcon,
+        details: [
+          "startExperiment(id)",
+          "stopExperiment(id)",
+          "getExperimentResults(id)",
+          "setVariant(id, variant)",
+        ],
+      },
+
+      {
         title: "Analytics API",
         description: "Access analytics data and reports",
         icon: ChartBarIcon,
@@ -163,6 +141,7 @@ export default function DocumentationPage() {
     ],
     []
   );
+  */
 
   // Best Practices
   const bestPractices = useMemo(
@@ -201,6 +180,17 @@ export default function DocumentationPage() {
         ],
       },
       {
+        title: "Effective A/B Testing",
+        description: "Run statistically significant experiments",
+        icon: BeakerIcon,
+        tips: [
+          "Test one variable at a time",
+          "Ensure sufficient sample size",
+          "Run for at least one full week",
+          "Define clear success metrics",
+        ],
+      },
+      {
         title: "Analyze Patterns",
         description: "Discover insights from user behavior patterns",
         icon: SparklesIcon,
@@ -222,17 +212,6 @@ export default function DocumentationPage() {
           "Offer opt-out",
         ],
       },
-      {
-        title: "Performance Tuning",
-        description: "Optimize application and tracking performance",
-        icon: Cog8ToothIcon,
-        tips: [
-          "Enable compression",
-          "Use CDN",
-          "Cache data",
-          "Monitor latency",
-        ],
-      },
     ],
     []
   );
@@ -245,6 +224,12 @@ export default function DocumentationPage() {
         answer:
           "Start by signing up for an account, then install the tracking script on your website. Configure your first heatmap, and you'll begin collecting data immediately. Check our Installation Guide for step-by-step instructions.",
       },
+
+      {
+        question: "How does A/B testing work?",
+        answer:
+          "Our visual A/B editor lets you make changes to your live site without code. You can create variants, set traffic distribution, and track conversion goals. Results are updated in real-time in your dashboard.",
+      },
       {
         question: "Is Navlens GDPR compliant?",
         answer:
@@ -256,6 +241,11 @@ export default function DocumentationPage() {
           "Our tracking script is only 20KB gzipped and has minimal performance impact. It's loaded asynchronously and uses event batching to reduce network overhead. Most sites see less than 1ms impact on page load.",
       },
       {
+        question: "Can I export heatmap data?",
+        answer:
+          "Yes, you can export heatmaps as high-resolution PNG images directly from the Heatmap Viewer. This is perfect for including visual data in your presentations and reports.",
+      },
+      {
         question: "Can I track session recordings?",
         answer:
           "Yes, Navlens supports session recording and replay. You can watch actual user sessions to understand behavior patterns. All recordings respect privacy settings and GDPR requirements.",
@@ -265,11 +255,7 @@ export default function DocumentationPage() {
         answer:
           "Free plans retain data for 30 days, while Pro and Enterprise plans offer 90 days and custom retention periods. You can download and archive data at any time.",
       },
-      {
-        question: "What formats can I export reports in?",
-        answer:
-          "You can export reports as PDF, CSV, JSON, or PNG. Use our API or dashboard to schedule automated report delivery to your team.",
-      },
+
       {
         question: "Do you offer API access?",
         answer:
@@ -279,6 +265,7 @@ export default function DocumentationPage() {
     []
   );
 
+  /*
   // Video Tutorials
   const videoTutorials = [
     {
@@ -306,6 +293,7 @@ export default function DocumentationPage() {
       thumbnail: BookOpenIcon,
     },
   ];
+  */
 
   // Filtered search results
   const searchResults = useMemo(() => {
@@ -317,8 +305,8 @@ export default function DocumentationPage() {
         ...g,
         category: "Getting Started",
       })),
-      ...integrations.map((i) => ({ ...i, category: "Integrations" })),
-      ...apiReference.map((a) => ({ ...a, category: "API Reference" })),
+      ...advancedFeatures.map((a) => ({ ...a, category: "Advanced Features" })),
+      // ...apiReference.map((a) => ({ ...a, category: "API Reference" })),
       ...bestPractices.map((p) => ({ ...p, category: "Best Practices" })),
       ...faqs.map((f) => ({ ...f, category: "FAQ" })),
     ];
@@ -338,8 +326,8 @@ export default function DocumentationPage() {
   }, [
     searchQuery,
     gettingStartedGuides,
-    integrations,
-    apiReference,
+    advancedFeatures,
+    // apiReference,
     bestPractices,
     faqs,
   ]);
@@ -465,7 +453,7 @@ export default function DocumentationPage() {
                   const Icon = guide.icon;
                   const guideSlug = guide.title
                     .toLowerCase()
-                    .replace(/\s+/g, "-");
+                    .replace(/[\s\/]+/g, "-");
                   return (
                     <a
                       key={idx}
@@ -496,50 +484,54 @@ export default function DocumentationPage() {
             </div>
           </section>
 
-          {/* Integration Guides Section */}
-          {/* <section className="px-4 md:px-6 py-20 bg-white/50">
+          {/* Advanced Features Section */}
+          <section className="px-4 md:px-6 py-20 bg-white/50">
             <div className="container mx-auto max-w-6xl">
               <div className="mb-12">
-                <h2 className="text-4xl font-bold mb-3">Integration Guides</h2>
+                <h2 className="text-4xl font-bold mb-3">Advanced Features</h2>
                 <p className="text-lg text-gray-600">
-                  Integrate Navlens with your favorite framework
+                  Master the full power of Navlens with these advanced guides
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                {integrations.map((integration, idx) => (
-                  <div
-                    key={idx}
-                    className="group bg-white/70 backdrop-blur-md border border-gray-200 rounded-xl overflow-hidden hover:border-blue-300 hover:shadow-xl transition-all duration-300"
-                  >
-                    <div className="p-6 border-b border-gray-200">
-                      <div className="flex items-center gap-4 mb-3">
-                        <div className="text-4xl">{integration.logo}</div>
-                        <div>
-                          <h3 className="text-xl font-semibold text-gray-900">
-                            {integration.name}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            {integration.description}
-                          </p>
+              <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
+                {advancedFeatures.map((feature, idx) => {
+                  const Icon = feature.icon;
+                  const featureSlug = feature.title
+                    .toLowerCase()
+                    .replace(/[\s\/]+/g, "-");
+                  return (
+                    <a
+                      key={idx}
+                      href={`/docs/guides/${featureSlug}`}
+                      className="group bg-white/70 backdrop-blur-md border border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer block"
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="p-3 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg group-hover:from-purple-200 group-hover:to-pink-200 transition-colors">
+                          <Icon className="w-6 h-6 text-purple-600" />
                         </div>
+                        <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                          {feature.steps} min read
+                        </span>
                       </div>
-                    </div>
-                    <div className="p-6 bg-gray-50/50">
-                      <p className="text-xs font-semibold text-gray-500 mb-3">
-                        CODE EXAMPLE
+                      <h3 className="text-lg font-semibold mb-2 text-gray-900">
+                        {feature.title}
+                      </h3>
+                      <p className="text-gray-600 text-sm mb-4">
+                        {feature.description}
                       </p>
-                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs overflow-x-auto font-mono leading-relaxed">
-                        <code>{integration.code}</code>
-                      </pre>
-                    </div>
-                  </div>
-                ))}
+                      <div className="flex items-center text-purple-600 text-sm font-semibold group-hover:gap-2 transition-all">
+                        Explore Feature <ArrowRightIcon className="w-4 h-4" />
+                      </div>
+                    </a>
+                  );
+                })}
               </div>
             </div>
-          </section> */}
+          </section>
 
           {/* API Reference Section */}
+          {/* 
           <section className="px-4 md:px-6 py-20">
             <div className="container mx-auto max-w-6xl">
               <div className="mb-12">
@@ -587,6 +579,7 @@ export default function DocumentationPage() {
               </div>
             </div>
           </section>
+          */}
 
           {/* Best Practices Section */}
           <section className="px-4 md:px-6 py-20 bg-white/50">
@@ -669,6 +662,7 @@ export default function DocumentationPage() {
           </section>
 
           {/* Video Tutorials Section */}
+          {/*
           <section className="px-4 md:px-6 py-20 bg-white/50">
             <div className="container mx-auto max-w-6xl">
               <div className="mb-12">
@@ -706,6 +700,7 @@ export default function DocumentationPage() {
               </div>
             </div>
           </section>
+          */}
 
           {/* Need Help Section */}
           <section className="px-4 md:px-6 py-20 relative overflow-hidden">

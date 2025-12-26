@@ -152,14 +152,15 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
     // In a production environment, you should verify this session token against a DB or secure store.
     const adminSession = cookieStore.get('admin_session');
     const adminEmail = process.env.ADMIN_EMAIL;
-    // Allow admin bypass in development OR if a specific ADMIN_EMAIL is configured in production
-    if (adminSession?.value && (process.env.NODE_ENV === 'development' || adminEmail)) {
+
+    // Strict Admin Check: Must have session cookie AND ADMIN_EMAIL env var configured
+    if (adminSession?.value && adminEmail) {
       console.log('🔐 Admin Session Detected - Bypassing standard auth for Report Generator');
       // Grant universal access
       return {
         user: {
           id: 'admin-bypass',
-          email: adminEmail || 'kaveeshatmdss@gmail.com',
+          email: adminEmail,
           aud: 'authenticated',
           role: 'admin'
         } as User,

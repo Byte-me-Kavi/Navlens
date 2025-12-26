@@ -213,6 +213,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
       title={`Performance Report: ${site.domain}`} 
       dateRange={`Last ${days} Days`}
       shareToken={token}
+      expiresAt={share.expires_at}
     >
       {/* 1. Executive Summary */}
       {showFeature('summary') && (
@@ -304,6 +305,12 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                   &quot;I analyzed your site&apos;s technical foundation. Your Largest Contentful Paint (LCP) is <strong>{stats.lcp}s</strong>. 
                   Google recommends typically under 2.5s. Fast loading sites directly correlate with lower bounce rates.&quot;
               </p>
+              <div className="mt-4 pt-4 border-t border-indigo-200/50">
+                  <p className="text-indigo-900 font-medium text-sm">
+                      <span className="bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded text-xs font-bold mr-2">RECOMMENDATION</span>
+                      Optimize the hero image size (compress to WebP) and check console for blocking scripts to improve LCP.
+                  </p>
+              </div>
            </div>
 
            <ReportPerformanceWrapper siteId={siteId} days={days} shareToken={token} />
@@ -336,6 +343,12 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                   This often happens when users think an element (like an image or icon) is clickable but it isn&apos;t. 
                   This breaks their flow and causes abandonment.&quot;
               </p>
+              <div className="mt-4 pt-4 border-t border-rose-200/50">
+                  <p className="text-rose-900 font-medium text-sm">
+                      <span className="bg-rose-200 text-rose-800 px-2 py-0.5 rounded text-xs font-bold mr-2">RECOMMENDATION</span>
+                      Identify the top rage-clicked elements (likely icons or non-linked headers) and either make them clickable or remove interactive styling (cursor: pointer, hover effects).
+                  </p>
+              </div>
            </div>
 
            <div className="grid grid-cols-2 gap-6 mb-8">
@@ -370,6 +383,14 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                   </div>
               </div>
 
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-8">
+                  <h4 className="font-bold text-blue-900 mb-2">Conversion Drop-off Insight</h4>
+                  <p className="text-blue-800 text-sm italic">
+                      &quot;Analyzing your Conversion Funnels and Forms reveals exactly where users abandon the process.
+                      A high drop-off at a specific form field or funnel step indicates a barrier—technical error, confusion, or request for too much info.&quot;
+                  </p>
+              </div>
+
               <h3 className="text-xl font-bold text-gray-900 mb-4">Conversion Funnels</h3>
               <div className="mb-12">
                    <ReportFunnelsWrapper siteId={siteId} days={days} shareToken={token} />
@@ -400,6 +421,15 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                      <h2 className="text-3xl font-bold text-gray-900">Mobile vs. Desktop & Traffic</h2>
                      <p className="text-gray-500 text-lg mt-1">Device Breakdown & Audience Overview</p>
                   </div>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-6 mb-8">
+                  <h4 className="font-bold text-emerald-900 mb-2">Mobile Optimization Insight</h4>
+                  <p className="text-emerald-800 text-sm italic">
+                      &quot;A significant portion of web traffic is mobile. 
+                      If your mobile bounce rate is higher than desktop, or if the heatmap shows cold zones on key mobile buttons, 
+                      prioritize responsive design improvements immediately.&quot;
+                  </p>
               </div>
 
               <div className="grid grid-cols-4 gap-6 mb-8">
@@ -434,6 +464,13 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                 </div>
             </div>
 
+             <div className="bg-violet-50 border border-violet-100 rounded-xl p-6 mb-8">
+                <h4 className="font-bold text-violet-900 mb-2">📱 Why Mobile Matters</h4>
+                <p className="text-violet-800 text-sm italic">
+                    Mobile users have less patience and smaller tap targets. If your mobile metrics underperform desktop, you&apos;re losing conversions from an increasingly dominant traffic source.
+                </p>
+             </div>
+
             <ReportMobileAuditWrapper siteId={siteId} days={days} sessionsData={sessionsData || []} shareToken={token} />
         </section>
       )}
@@ -448,6 +485,13 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                    <p className="text-gray-500 text-lg mt-1">Performance Comparison of Design Variants</p>
                 </div>
             </div>
+
+            <div className="bg-cyan-50 border border-cyan-100 rounded-xl p-6 mb-8">
+                <h4 className="font-bold text-cyan-900 mb-2">🧪 Data-Driven Decisions</h4>
+                <p className="text-cyan-800 text-sm italic">
+                    A/B testing removes guesswork from design changes. The experiment results below show conversion rate impacts with statistical significance.
+                </p>
+             </div>
 
             <ReportExperimentsWrapper siteId={siteId} days={days} shareToken={token} />
         </section>
@@ -464,9 +508,63 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                 </div>
             </div>
 
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 mb-8">
+               <h4 className="font-bold text-amber-900 mb-2">🎬 Stories Sell</h4>
+               <p className="text-amber-800 text-sm italic">
+                   Data visualizations show trends, but session replays prove them. These curated sessions highlight specific user struggles, bugs, and successful conversion paths.
+               </p>
+            </div>
+
             <ReportSessionSpotlightsWrapper siteId={siteId} days={days} sessionsData={sessionsData || []} shareToken={token} />
         </section>
       )}
+
+      {/* 10. ROI Roadmap & Recommendations */}
+       <section className="mb-16 break-before-page">
+            <div className="flex items-center gap-4 mb-6 border-b border-gray-100 pb-4">
+                <span className="flex items-center justify-center w-10 h-10 rounded-full bg-green-600 text-white font-bold text-lg shadow-sm">10</span>
+                <div>
+                   <h2 className="text-3xl font-bold text-gray-900">ROI Roadmap & Recommendations</h2>
+                   <p className="text-gray-500 text-lg mt-1">Immediate steps to improve revenue & UX</p>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+                    <h4 className="font-bold text-gray-900">Developer Checklist (High Impact)</h4>
+                </div>
+                <div className="p-6 space-y-4">
+                     <div className="flex items-start gap-3">
+                        <input type="checkbox" className="mt-1.5 w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" readOnly />
+                        <div>
+                             <span className="font-medium text-gray-900 block">Fix Content Layout Shift (CLS)</span>
+                             <span className="text-sm text-gray-500">Add explicit width/height to all images and video elements to prevent layout jumping.</span>
+                        </div>
+                     </div>
+                      <div className="flex items-start gap-3">
+                        <input type="checkbox" className="mt-1.5 w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" readOnly />
+                        <div>
+                             <span className="font-medium text-gray-900 block">Resolve Console Errors on Checkout</span>
+                             <span className="text-sm text-gray-500">Investigate and fix the JS errors flagged in the Health Audit to ensure smooth transactions.</span>
+                        </div>
+                     </div>
+                      <div className="flex items-start gap-3">
+                        <input type="checkbox" className="mt-1.5 w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" readOnly />
+                        <div>
+                             <span className="font-medium text-gray-900 block">Optimize Mobile Tap Targets</span>
+                             <span className="text-sm text-gray-500">Increase padding on menu buttons and primary CTAs to be at least 44x44px.</span>
+                        </div>
+                     </div>
+                </div>
+            </div>
+             <div className="mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 text-white text-center shadow-lg">
+                <h3 className="text-2xl font-bold mb-2">Ready to Boost Your Conversions?</h3>
+                <p className="text-indigo-100 max-w-2xl mx-auto">
+                    Implementing these &quot;Quick Wins&quot; typically results in a 10-15% lift in immediate engagement. 
+                    Monitor these metrics using Navlens over the next 30 days to track improvement.
+                </p>
+            </div>
+       </section>
 
        {/* Appendices */}
        {(showFeature('cohorts') || showFeature('feedback')) && (

@@ -2,8 +2,9 @@ import {
   RocketLaunchIcon,
   CursorArrowRaysIcon,
   ChartBarIcon,
-  Cog8ToothIcon,
   ArrowTrendingUpIcon,
+  BeakerIcon,
+  SignalIcon,
 } from "@heroicons/react/24/outline";
 
 export const guidesData = {
@@ -24,68 +25,43 @@ export const guidesData = {
       },
       {
         id: "step-2",
-        title: "Step 2: Install the Package",
-        description: "Install Navlens using npm or yarn in your project",
+        title: "Step 2: Add Tracking Script",
+        description: "Add the script to your application",
         content:
-          "Choose your package manager and run the installation command.",
+          "Insert the following code snippet into the <head> of your website's HTML.",
         codeBlock:
-          "npm install @navlens/core\n# or\nyarn add @navlens/core\n# or\npnpm add @navlens/core",
-      },
-      {
-        id: "step-3",
-        title: "Step 3: Initialize Navlens",
-        description: "Add the initialization code to your main application file",
-        content:
-          "Initialize Navlens early in your application lifecycle for web applications.",
-        codeBlock:
-          "<script>\n  window.navlensConfig = {\n    apiKey: 'YOUR_API_KEY',\n    trackingId: 'YOUR_SITE_ID'\n  };\n</script>\n<script src=\"https://cdn.navlens.io/tracker.js\"><\\/script>",
+          "<script \n  async \n  src=\"https://navlensanalytics.com/tracker.js\" \n  data-site-id=\"YOUR_SITE_ID\"\n  data-api-key=\"YOUR_API_KEY\"\n  data-api-host=\"https://navlensanalytics.com\"\n><\\/script>",
       },
     ],
-    nextSteps: ["first-heatmap-setup", "tracking-configuration"],
+    nextSteps: ["first-heatmap-setup"],
     relatedGuides: ["first-heatmap-setup", "dashboard-overview"],
   },
   "first-heatmap-setup": {
-    title: "First Heatmap Setup",
-    description: "Create and configure your first heatmap visualization",
+    title: "Understanding Heatmaps",
+    description: "Learn how heatmaps are automatically generated for your pages",
     icon: CursorArrowRaysIcon,
-    estimatedTime: "10-15 minutes",
+    estimatedTime: "2-5 minutes",
     difficulty: "Beginner",
     sections: [
       {
         id: "step-1",
-        title: "Step 1: Navigate to Heatmaps",
-        description: "Access the heatmap section from your dashboard",
+        title: "Automatic Data Collection",
+        description: "Zero configuration needed",
         content:
-          "Click on Heatmaps in the left sidebar. This will show you all heatmaps for your current project.",
+          "Once you install the tracking script, Navlens automatically begins capturing click data, scroll depth, and mouse movements for every page visited by your users. No manual configuration is required.",
         codeBlock: null,
       },
       {
         id: "step-2",
-        title: "Step 2: Create a New Heatmap",
-        description: "Click the Create Heatmap button to start",
+        title: "Viewing Your Heatmaps",
+        description: "Accessing visualization data",
         content:
-          "Click the blue Create New Heatmap button. A form will appear to configure your heatmap settings.",
-        codeBlock: null,
-      },
-      {
-        id: "step-3",
-        title: "Step 3: Configure Heatmap Settings",
-        description: "Set up your heatmap parameters",
-        content:
-          "Fill in the heatmap details: Name, Page URL, Heatmap Type (Click/Scroll/Movement), and Update Frequency.",
-        codeBlock: null,
-      },
-      {
-        id: "step-4",
-        title: "Step 4: Start Tracking",
-        description: "Enable tracking and view real-time data",
-        content:
-          "Click Create Heatmap to start collecting data. Your heatmap will begin displaying data within minutes.",
+          "Simply navigate to the Heatmaps section in your dashboard. You will see a list of pages where user activity has been detected. Click on any page to view the generated heatmap overlay.",
         codeBlock: null,
       },
     ],
     nextSteps: ["dashboard-overview", "data-analysis-basics"],
-    relatedGuides: ["installation-guide", "tracking-configuration"],
+    relatedGuides: ["installation-guide"],
   },
   "dashboard-overview": {
     title: "Dashboard Overview",
@@ -120,63 +96,17 @@ export const guidesData = {
       },
       {
         id: "step-4",
-        title: "Using Reports & Exports",
-        description: "Generate and export reports",
+        title: "Network Performance",
+        description: "Monitor API latency",
         content:
-          "Create custom reports with scheduled generation, multiple export formats, email delivery, and custom date ranges.",
+          "Check the Network Health dashboard for real-time API latency and uptime status.",
         codeBlock: null,
       },
     ],
-    nextSteps: ["data-analysis-basics", "tracking-configuration"],
+    nextSteps: ["data-analysis-basics"],
     relatedGuides: ["first-heatmap-setup", "installation-guide"],
   },
-  "tracking-configuration": {
-    title: "Tracking Configuration",
-    description: "Configure tracking parameters and event collection",
-    icon: Cog8ToothIcon,
-    estimatedTime: "12-15 minutes",
-    difficulty: "Intermediate",
-    sections: [
-      {
-        id: "step-1",
-        title: "Basic Event Tracking Setup",
-        description: "Configure core tracking parameters",
-        content:
-          "Set up basic event tracking for your website via Settings > Tracking Configuration.",
-        codeBlock:
-          "navlens.track('page_view', {\n  page: '/dashboard',\n  referrer: document.referrer\n});\n\nnavlens.track('button_click', {\n  buttonText: 'Sign Up',\n  location: 'hero'\n});",
-      },
-      {
-        id: "step-2",
-        title: "Custom Event Tracking",
-        description: "Track custom user interactions",
-        content:
-          "Create custom events to track specific user actions relevant to your business.",
-        codeBlock:
-          "navlens.trackEvent('form_submit', {\n  formName: 'contact-form'\n});\n\nnavlens.trackEvent('purchase', {\n  productId: '12345',\n  amount: 99.99\n});",
-      },
-      {
-        id: "step-3",
-        title: "User Identification",
-        description: "Set up user identification for better analytics",
-        content:
-          "Identify users to track their journey across sessions and understand long-term behavior patterns.",
-        codeBlock:
-          "navlens.identify(userId, {\n  email: user.email,\n  plan: user.plan\n});\n\nnavlens.setUserProperties({\n  premium: true,\n  region: 'US'\n});",
-      },
-      {
-        id: "step-4",
-        title: "Excluding Sensitive Data",
-        description: "Protect sensitive information from tracking",
-        content:
-          "Configure Navlens to ignore passwords, credit cards, and personal data for GDPR compliance.",
-        codeBlock:
-          "navlens.configure({\n  excludeSelectors: [\n    'input[type=\"password\"]',\n    '[data-sensitive]'\n  ],\n  maskInputs: ['credit_card']\n});",
-      },
-    ],
-    nextSteps: ["data-analysis-basics"],
-    relatedGuides: ["installation-guide", "dashboard-overview"],
-  },
+
   "data-analysis-basics": {
     title: "Data Analysis Basics",
     description: "Learn fundamental data analysis and interpretation",
@@ -218,8 +148,88 @@ export const guidesData = {
       },
     ],
     nextSteps: [],
-    relatedGuides: ["tracking-configuration", "dashboard-overview"],
+    relatedGuides: ["dashboard-overview"],
   },
+  "a-b-testing-experiments": {
+    title: "A/B Testing Experiments",
+    description: "Create and manage experiments to optimize user experience",
+    icon: BeakerIcon,
+    estimatedTime: "15-20 minutes",
+    difficulty: "Advanced",
+    sections: [
+      {
+        id: "step-1",
+        title: "Initialize the AB Editor",
+        description: "Launch the visual editor",
+        content:
+          "From your dashboard, navigate to Experiments and click 'Open Editor'. This will launch the visual editor over your live site.",
+        codeBlock: null,
+      },
+      {
+        id: "step-2",
+        title: "Create Variants",
+        description: "Define your test variants",
+        content:
+          "Select the element you want to test and create variations. You can change text, colors, visibility, and more.",
+        codeBlock: null,
+      },
+      {
+        id: "step-3",
+        title: "Set Traffic Distribution",
+        description: "Control user exposure",
+        content:
+          "Choose what percentage of traffic sees each variant. We recommend a 50/50 split for simple A/B tests.",
+        codeBlock: null,
+      },
+      {
+        id: "step-4",
+        title: "Define Goals",
+        description: "Measure success",
+        content:
+          "Select the metric you want to improve (e.g., Clicks, Form Submissions, Page Views).",
+        codeBlock: null,
+      },
+    ],
+    nextSteps: ["data-analysis-basics"],
+    relatedGuides: ["dashboard-overview"],
+  },
+
+  "network-performance": {
+    title: "Network Performance",
+    description: "Monitor API latency and resource loading health",
+    icon: SignalIcon,
+    estimatedTime: "10-15 minutes",
+    difficulty: "Advanced",
+    sections: [
+      {
+        id: "step-1",
+        title: "View Network Health",
+        description: "Check global status",
+        content:
+          "The Network Health dashboard shows real-time API latency and uptime status across different regions.",
+        codeBlock: null,
+      },
+      {
+        id: "step-2",
+        title: "Analyze Latency",
+        description: "Drill down into response times",
+        content:
+          "View detailed breakdown of request times (DNS, SSL, TTFB, Download) to identify bottlenecks.",
+        codeBlock: null,
+      },
+      {
+        id: "step-3",
+        title: "Set Alerts",
+        description: "Get notified of issues",
+        content:
+          "Configure alerts to be notified via email or Slack when latency exceeds your defined thresholds.",
+        codeBlock: null,
+      },
+    ],
+    nextSteps: ["dashboard-overview"],
+    relatedGuides: ["dashboard-overview", "data-analysis-basics"],
+  },
+
 };
 
 export const allGuideSlugs = Object.keys(guidesData);

@@ -31,11 +31,12 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
   const days = typeof sp.days === 'string' ? parseInt(sp.days) || 30 : 30;
   const includeStr = typeof sp.include === 'string' ? sp.include : 'all';
   const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_elements', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit'] : includeStr.split(','));
+  const expiresInDays = typeof sp.expiresInDays === 'string' ? parseInt(sp.expiresInDays) : undefined;
 
   const showFeature = (key: string) => include.has(key);
   const showAnyHeatmap = showFeature('heatmaps_clicks') || showFeature('heatmaps_scrolls') || showFeature('heatmaps_elements');
 
-  console.log(`[Report Params] ID: ${id}, Days: ${days}, Include: ${includeStr}`);
+  console.log(`[Report Params] ID: ${id}, Days: ${days}, Include: ${includeStr}, ExpiresIn: ${expiresInDays}`);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -209,6 +210,7 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
       dateRange={`Last ${days} Days`}
       days={days}
       siteId={id}
+      expiresInDays={expiresInDays}
     >
       {/* 1. Executive Summary */}
       {showFeature('summary') && (
