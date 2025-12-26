@@ -18,8 +18,13 @@ export async function POST(req: NextRequest) {
         }
 
         // Prevent public viewers from creating shares
+        // and restrict generation to Admins only (as requested)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((authResult.user as any)?.role === 'public_viewer') {
+        const isPublic = (authResult.user as any)?.role === 'public_viewer';
+        const isAdmin = (authResult.user as any)?.role === 'admin' || (process.env.ADMIN_EMAIL && authResult.user?.email === process.env.ADMIN_EMAIL);
+
+        if (isPublic || !isAdmin) {
+            console.warn(`[Reports] Blocked non-admin generation attempt by ${authResult.user?.email}`);
             return createUnauthorizedResponse();
         }
 
