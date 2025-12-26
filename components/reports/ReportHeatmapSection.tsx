@@ -9,7 +9,10 @@ import {
   ArrowsPointingOutIcon, 
   ViewfinderCircleIcon,
   ChevronDownIcon,
-  FireIcon
+  FireIcon,
+  ComputerDesktopIcon,
+  DeviceTabletIcon,
+  DevicePhoneMobileIcon
 } from "@heroicons/react/24/outline";
 
 // Data type configuration for the dropdown
@@ -21,21 +24,34 @@ const DATA_TYPES = [
   { value: "elements", label: "Smart Elements", icon: ViewfinderCircleIcon },
 ] as const;
 
+const DEVICE_TYPES = [
+  { value: "desktop", label: "Desktop", icon: ComputerDesktopIcon },
+  { value: "tablet", label: "Tablet", icon: DeviceTabletIcon },
+  { value: "mobile", label: "Mobile", icon: DevicePhoneMobileIcon },
+] as const;
+
 interface ReportHeatmapSectionProps {
   siteId: string;
   uniquePaths: string[];
   days: number;
   shareToken?: string;
   allowedTypes?: string[];
+  allowedDevices?: string[];
 }
 
 // Sub-component for individual heatmap sections to manage independent state
-function ReportHeatmapItem({ path, index, siteId, days, shareToken, allowedTypes }: { path: string, index: number, siteId: string, days: number, shareToken?: string, allowedTypes?: string[] }) {
+function ReportHeatmapItem({ path, index, siteId, days, shareToken, allowedTypes, allowedDevices }: { path: string, index: number, siteId: string, days: number, shareToken?: string, allowedTypes?: string[], allowedDevices?: string[] }) {
   // Filter available data types
   const availableDataTypes = React.useMemo(() => {
     if (!allowedTypes || allowedTypes.length === 0) return DATA_TYPES;
     return DATA_TYPES.filter(type => allowedTypes.includes(type.value));
   }, [allowedTypes]);
+
+  // Filter available devices
+  const availableDeviceTypes = React.useMemo(() => {
+    if (!allowedDevices || allowedDevices.length === 0) return DEVICE_TYPES;
+    return DEVICE_TYPES.filter(type => allowedDevices.includes(type.value));
+  }, [allowedDevices]);
 
   const [selectedDataType, setSelectedDataType] = useState<
     "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements"
@@ -43,11 +59,22 @@ function ReportHeatmapItem({ path, index, siteId, days, shareToken, allowedTypes
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const [selectedDeviceType, setSelectedDeviceType] = useState<"desktop" | "tablet" | "mobile">(
+    (availableDeviceTypes[0]?.value as any) || "desktop"
+  );
+  const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false);
+  const deviceDropdownRef = useRef<HTMLDivElement>(null);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Data type dropdown
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
+      }
+      // Device type dropdown
+      if (deviceDropdownRef.current && !deviceDropdownRef.current.contains(event.target as Node)) {
+        setDeviceDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -56,6 +83,11 @@ function ReportHeatmapItem({ path, index, siteId, days, shareToken, allowedTypes
 
   const currentDataType = availableDataTypes.find(dt => dt.value === selectedDataType) || availableDataTypes[0] || DATA_TYPES[0];
   const DataTypeIcon = currentDataType?.icon || CursorArrowRippleIcon;
+
+
+
+  const currentDeviceType = availableDeviceTypes.find(dt => dt.value === selectedDeviceType) || availableDeviceTypes[0] || DEVICE_TYPES[0];
+  const DeviceTypeIcon = currentDeviceType.icon;
 
   return (
         <section className="mb-16 break-before-page">
@@ -106,7 +138,45 @@ function ReportHeatmapItem({ path, index, siteId, days, shareToken, allowedTypes
                       </div>
                     )}
                 </div>
+
+                {/* Device Type Selector */}
+                <div className="relative break-inside-avoid print:hidden" ref={deviceDropdownRef}>
+                    <button
+                      onClick={() => setDeviceDropdownOpen(!deviceDropdownOpen)}
+                      className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      <DeviceTypeIcon className="w-5 h-5 text-gray-600" />
+                      <span className="font-semibold text-gray-700">{currentDeviceType?.label}</span>
+                      <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${deviceDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {deviceDropdownOpen && (
+                      <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-[50] min-w-[200px]">
+                        {availableDeviceTypes.map((type) => {
+                          const Icon = type.icon;
+                          const isSelected = selectedDeviceType === type.value;
+                          return (
+                            <button
+                              key={type.value}
+                              onClick={() => {
+                                setSelectedDeviceType(type.value as any);
+                                setDeviceDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors ${
+                                isSelected
+                                  ? 'bg-gray-50 text-indigo-700 font-semibold'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <Icon className="w-5 h-5" />
+                              {type.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                </div>
             </div>
+
 
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 mb-8 break-inside-avoid">
                  <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
@@ -125,6 +195,7 @@ function ReportHeatmapItem({ path, index, siteId, days, shareToken, allowedTypes
                     siteId={siteId} 
                     pagePath={path} 
                     dataType={selectedDataType}
+                    deviceType={selectedDeviceType}
                     days={days}
                     shareToken={shareToken} // Pass share token
                 />
@@ -148,6 +219,7 @@ export function ReportHeatmapSection(props: ReportHeatmapSectionProps) {
           days={days}
           shareToken={shareToken}
           allowedTypes={props.allowedTypes}
+          allowedDevices={props.allowedDevices}
         />
       ))}
     </>

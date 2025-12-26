@@ -7,11 +7,12 @@ interface ReportHeatmapWrapperProps {
   siteId: string;
   pagePath: string;
   dataType?: "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements";
+  deviceType?: "desktop" | "tablet" | "mobile";
   days: number;
   shareToken?: string;
 }
 
-export function ReportHeatmapWrapper({ siteId, pagePath, dataType = "clicks", days, shareToken }: ReportHeatmapWrapperProps) {
+export function ReportHeatmapWrapper({ siteId, pagePath, dataType = "clicks", deviceType = "desktop", days, shareToken }: ReportHeatmapWrapperProps) {
   // Determine display flags based on type
   const showElements = dataType === "elements";
   // Always show heatmap unless we are in elements mode (where we show only elements)
@@ -27,7 +28,7 @@ export function ReportHeatmapWrapper({ siteId, pagePath, dataType = "clicks", da
         <HeatmapViewer 
           siteId={siteId}
           pagePath={pagePath} 
-          deviceType="desktop"
+          deviceType={deviceType}
           dataType={dataType}
           showElements={showElements}
           showHeatmap={showHeatmap}

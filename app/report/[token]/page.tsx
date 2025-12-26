@@ -65,7 +65,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
   const siteId = share.site_id;
   const days = share.days || 30;
   const includeStr = share.include || 'all';
-  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_hover', 'heatmaps_cursor', 'heatmaps_elements', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit', 'funnels'] : includeStr.split(','));
+  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_hover', 'heatmaps_cursor', 'heatmaps_elements', 'device_desktop', 'device_tablet', 'device_mobile', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit', 'funnels'] : includeStr.split(','));
 
   const showFeature = (key: string) => include.has(key);
   const showAnyHeatmap = showFeature('heatmaps_clicks') || showFeature('heatmaps_scrolls') || showFeature('heatmaps_hover') || showFeature('heatmaps_cursor') || showFeature('heatmaps_elements');
@@ -329,6 +329,11 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                 ...(showFeature('heatmaps_hover') ? ['hover'] : []),
                 ...(showFeature('heatmaps_cursor') ? ['cursor-paths'] : []),
                 ...(showFeature('heatmaps_elements') ? ['elements'] : [])
+            ]}
+            allowedDevices={[
+                ...(showFeature('device_desktop') ? ['desktop'] : []),
+                ...(showFeature('device_tablet') ? ['tablet'] : []),
+                ...(showFeature('device_mobile') ? ['mobile'] : [])
             ]}
         />
       )}

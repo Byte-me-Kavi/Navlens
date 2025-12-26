@@ -30,7 +30,7 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
   // Parse Configuration
   const days = typeof sp.days === 'string' ? parseInt(sp.days) || 30 : 30;
   const includeStr = typeof sp.include === 'string' ? sp.include : 'all';
-  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_hover', 'heatmaps_cursor', 'heatmaps_elements', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit'] : includeStr.split(','));
+  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_hover', 'heatmaps_cursor', 'heatmaps_elements', 'device_desktop', 'device_tablet', 'device_mobile', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit', 'funnels'] : includeStr.split(','));
   const expiresInDays = typeof sp.expiresInDays === 'string' ? parseInt(sp.expiresInDays) : undefined;
 
   const showFeature = (key: string) => include.has(key);
@@ -210,6 +210,7 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
       dateRange={`Last ${days} Days`}
       days={days}
       siteId={id}
+      include={includeStr}
       expiresInDays={expiresInDays}
     >
       {/* 1. Executive Summary */}
@@ -331,6 +332,11 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
                 ...(showFeature('heatmaps_hover') ? ['hover'] : []),
                 ...(showFeature('heatmaps_cursor') ? ['cursor-paths'] : []),
                 ...(showFeature('heatmaps_elements') ? ['elements'] : [])
+            ]}
+            allowedDevices={[
+                ...(showFeature('device_desktop') ? ['desktop'] : []),
+                ...(showFeature('device_tablet') ? ['tablet'] : []),
+                ...(showFeature('device_mobile') ? ['mobile'] : [])
             ]}
         />
       )}

@@ -13,11 +13,12 @@ interface ReportLayoutProps {
   days?: number;
   siteId?: string; // Added for share functionality
   shareToken?: string; // Added for public access
+  include?: string; // Added for share functionality
   expiresInDays?: number; // Added for link expiration
   expiresAt?: string | null; // Added for displaying precise expiration on viewing
 }
 
-export function ReportLayout({ children, title, dateRange, days, siteId, shareToken, expiresInDays, expiresAt }: ReportLayoutProps) {
+export function ReportLayout({ children, title, dateRange, days, siteId, shareToken, include, expiresInDays, expiresAt }: ReportLayoutProps) {
   useEffect(() => {
     if (shareToken) {
       console.log('Using public share token:', shareToken);
@@ -76,7 +77,7 @@ export function ReportLayout({ children, title, dateRange, days, siteId, shareTo
               {(siteId || expiresAt) && (
                 <div className="flex flex-col items-end gap-1">
                     {siteId && typeof days === 'number' && (
-                         <ShareReportButton siteId={siteId} days={days} expiresInDays={expiresInDays} />
+                         <ShareReportButton siteId={siteId} days={days} include={include} expiresInDays={expiresInDays} />
                     )}
                     
                     {expiresInDays !== undefined && !expiresAt && (

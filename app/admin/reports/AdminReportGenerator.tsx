@@ -13,6 +13,8 @@ import {
   FunnelIcon,
   QueueListIcon,
   CursorArrowRaysIcon,
+  ComputerDesktopIcon,
+  DeviceTabletIcon,
   GlobeAltIcon,
   DevicePhoneMobileIcon,
   PlayCircleIcon,
@@ -60,7 +62,11 @@ export default function AdminReportGenerator({ sites }: AdminReportGeneratorProp
       "heatmaps_scrolls",
       "heatmaps_hover",
       "heatmaps_cursor",
+      "heatmaps_cursor",
       "heatmaps_elements", 
+      "device_desktop",
+      "device_tablet",
+      "device_mobile",
       "network",
       "journey",
       "forms",
@@ -421,7 +427,37 @@ export default function AdminReportGenerator({ sites }: AdminReportGeneratorProp
                           icon={CheckCircleIcon}
                           small
                         />
-                      </div>
+                     </div>
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-4 mt-4">
+                     <h3 className="text-sm font-medium text-gray-900 mb-3">Device Availability</h3>
+                     <div className="pl-4 space-y-3 border-l-2 border-gray-100">
+                        <FeatureCheckbox
+                          id="device_desktop"
+                          label="Include Desktop Data"
+                          checked={selectedFeatures.has("device_desktop")}
+                          onChange={() => toggleFeature("device_desktop")}
+                          icon={ComputerDesktopIcon}
+                          small
+                        />
+                         <FeatureCheckbox
+                          id="device_tablet"
+                          label="Include Tablet Data"
+                          checked={selectedFeatures.has("device_tablet")}
+                          onChange={() => toggleFeature("device_tablet")}
+                          icon={DeviceTabletIcon}
+                          small
+                        />
+                         <FeatureCheckbox
+                          id="device_mobile"
+                          label="Include Mobile Data"
+                          checked={selectedFeatures.has("device_mobile")}
+                          onChange={() => toggleFeature("device_mobile")}
+                          icon={DevicePhoneMobileIcon}
+                          small
+                        />
+                     </div>
                   </div>
                 </div>
               </div>
