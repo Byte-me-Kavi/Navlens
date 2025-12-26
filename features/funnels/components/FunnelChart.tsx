@@ -16,8 +16,8 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { FiDownload } from "react-icons/fi";
-import { useChartExport } from "@/hooks/useChartExport";
+
+
 import { useRef } from "react";
 import { FunnelStepResult } from "../types/funnel.types";
 
@@ -83,7 +83,7 @@ export function FunnelChart({
   totalSessions: _totalSessions,
   className = "",
 }: FunnelChartProps) {
-  const { exportToPng, isExporting } = useChartExport();
+
   const chartRef = useRef<HTMLDivElement>(null);
 
   if (!steps || steps.length === 0) {
@@ -118,18 +118,7 @@ export function FunnelChart({
   return (
     <div className={`space-y-8 ${className}`}>
         <div className="flex justify-end">
-            <button
-                onClick={() => exportToPng(chartRef.current, 'funnel-chart')}
-                disabled={isExporting}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
-            >
-                {isExporting ? (
-                    <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                    <FiDownload className="w-4 h-4" />
-                )}
-                Export PNG
-            </button>
+
         </div>
       <div 
         ref={chartRef}

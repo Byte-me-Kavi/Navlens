@@ -18,7 +18,7 @@ import {
   FiClock,
   FiDownload,
 } from "react-icons/fi";
-import { useChartExport } from "@/hooks/useChartExport";
+
 
 // Dynamic import for Sankey to avoid SSR issues with D3/Recharts
 const SankeyDiagram = dynamic(
@@ -201,7 +201,7 @@ export default function JourneyDashboard() {
   const [data, setData] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState("24h");
-  const { exportToPng, isExporting } = useChartExport();
+
   const sankeyRef = React.useRef<HTMLDivElement>(null);
 
   // Unique color generation for the current dataset
@@ -440,18 +440,7 @@ export default function JourneyDashboard() {
                     </div>
                     <h2 className="text-lg font-bold text-gray-900">User Flow Visualization</h2>
                   </div>
-                  <button
-                    onClick={() => exportToPng(sankeyRef.current, 'user-journey-sankey')}
-                    disabled={isExporting}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
-                  >
-                   {isExporting ? (
-                        <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                        <FiDownload className="w-4 h-4" />
-                    )}
-                    Export PNG
-                  </button>
+
                 </div>
                 <div 
                     ref={sankeyRef}

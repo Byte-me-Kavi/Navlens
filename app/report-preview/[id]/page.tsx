@@ -30,11 +30,11 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
   // Parse Configuration
   const days = typeof sp.days === 'string' ? parseInt(sp.days) || 30 : 30;
   const includeStr = typeof sp.include === 'string' ? sp.include : 'all';
-  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_elements', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit'] : includeStr.split(','));
+  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_hover', 'heatmaps_cursor', 'heatmaps_elements', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit'] : includeStr.split(','));
   const expiresInDays = typeof sp.expiresInDays === 'string' ? parseInt(sp.expiresInDays) : undefined;
 
   const showFeature = (key: string) => include.has(key);
-  const showAnyHeatmap = showFeature('heatmaps_clicks') || showFeature('heatmaps_scrolls') || showFeature('heatmaps_elements');
+  const showAnyHeatmap = showFeature('heatmaps_clicks') || showFeature('heatmaps_scrolls') || showFeature('heatmaps_hover') || showFeature('heatmaps_cursor') || showFeature('heatmaps_elements');
 
   console.log(`[Report Params] ID: ${id}, Days: ${days}, Include: ${includeStr}, ExpiresIn: ${expiresInDays}`);
 
@@ -321,7 +321,18 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
 
       {/* 3. The "Fold" & Engagement Analysis */}
       {showAnyHeatmap && (
-        <ReportHeatmapSection siteId={id} uniquePaths={uniquePaths} days={days} />
+        <ReportHeatmapSection 
+            siteId={id} 
+            uniquePaths={uniquePaths} 
+            days={days} 
+            allowedTypes={[
+                ...(showFeature('heatmaps_clicks') ? ['clicks'] : []),
+                ...(showFeature('heatmaps_scrolls') ? ['scrolls'] : []),
+                ...(showFeature('heatmaps_hover') ? ['hover'] : []),
+                ...(showFeature('heatmaps_cursor') ? ['cursor-paths'] : []),
+                ...(showFeature('heatmaps_elements') ? ['elements'] : [])
+            ]}
+        />
       )}
 
       {/* 4. Friction & Frustration Hunt */}

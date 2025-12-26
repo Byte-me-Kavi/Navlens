@@ -16,7 +16,10 @@ import {
   GlobeAltIcon,
   DevicePhoneMobileIcon,
   PlayCircleIcon,
-  DocumentTextIcon
+
+  DocumentTextIcon,
+  ChevronDownIcon,
+  CheckIcon
 } from "@heroicons/react/24/outline";
 
 interface Site {
@@ -32,6 +35,19 @@ interface AdminReportGeneratorProps {
 
 export default function AdminReportGenerator({ sites }: AdminReportGeneratorProps) {
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
+  const [siteSelectorOpen, setSiteSelectorOpen] = useState(false);
+  const siteSelectorRef = React.useRef<HTMLDivElement>(null);
+
+  // Close site selector when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (siteSelectorRef.current && !siteSelectorRef.current.contains(event.target as Node)) {
+        setSiteSelectorOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [dateRange, setDateRange] = useState<"7" | "15" | "30">("30");
   const [expirationDays, setExpirationDays] = useState<number | null>(7);
   const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
@@ -40,6 +56,10 @@ export default function AdminReportGenerator({ sites }: AdminReportGeneratorProp
       "traffic",
       "heatmaps_clicks",
       "heatmaps_scrolls",
+      "heatmaps_clicks",
+      "heatmaps_scrolls",
+      "heatmaps_hover",
+      "heatmaps_cursor",
       "heatmaps_elements", 
       "network",
       "journey",
@@ -92,21 +112,78 @@ export default function AdminReportGenerator({ sites }: AdminReportGeneratorProp
             <GlobeAltIcon className="w-5 h-5 text-indigo-600" />
             Select Client Site
         </label>
-        <select
-            value={selectedSiteId}
-            onChange={(e) => setSelectedSiteId(e.target.value)}
-            className="w-full mt-2 p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-        >
-            <option value="" disabled>-- Choose a site --</option>
-            {sites.map((site) => (
-                <option key={site.id} value={site.id}>
-                    {site.domain} {site.site_name ? `(${site.site_name})` : ''}
-                </option>
-            ))}
-        </select>
+        <div className="relative mt-2" ref={siteSelectorRef}>
+            <button
+                type="button"
+                className={`
+                    relative w-full cursor-pointer rounded-xl bg-white p-4 text-left border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20
+                    ${siteSelectorOpen ? 'border-indigo-500 ring-4 ring-indigo-500/10' : 'border-gray-200 hover:border-indigo-300'}
+                `}
+                onClick={() => setSiteSelectorOpen(!siteSelectorOpen)}
+            >
+                <span className="block truncate text-gray-900 font-medium">
+                    {currentSite ? (
+                        <span>
+                            {currentSite.domain} 
+                            {currentSite.site_name && <span className="text-gray-500 font-normal ml-2">({currentSite.site_name})</span>}
+                        </span>
+                    ) : (
+                        <span className="text-gray-400">-- Choose a site --</span>
+                    )}
+                </span>
+                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
+                    <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${siteSelectorOpen ? 'rotate-180 text-indigo-500' : ''}`} aria-hidden="true" />
+                </span>
+            </button>
+
+            {/* Dropdown Menu */}
+            {siteSelectorOpen && (
+                <div className="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 text-base shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm animate-in fade-in zoom-in-95 duration-100">
+                    {sites.length === 0 ? (
+                        <div className="relative cursor-default select-none py-3 px-4 text-gray-500 italic">
+                            No sites available
+                        </div>
+                    ) : (
+                        sites.map((site) => {
+                            const isSelected = selectedSiteId === site.id;
+                            return (
+                                <div
+                                    key={site.id}
+                                    className={`
+                                        relative cursor-pointer select-none py-3 pl-4 pr-9 transition-colors
+                                        ${isSelected ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900 hover:bg-gray-50'}
+                                    `}
+                                    onClick={() => {
+                                        setSelectedSiteId(site.id);
+                                        setSiteSelectorOpen(false);
+                                    }}
+                                >
+                                    <div className="flex items-center">
+                                        <span className={`block truncate ${isSelected ? 'font-semibold' : 'font-normal'}`}>
+                                            {site.domain}
+                                        </span>
+                                        {site.site_name && (
+                                            <span className={`ml-2 truncate text-xs ${isSelected ? 'text-indigo-500' : 'text-gray-400'}`}>
+                                                ({site.site_name})
+                                            </span>
+                                        )}
+                                    </div>
+                                    {isSelected && (
+                                        <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-indigo-600">
+                                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
+        </div>
         {selectedSiteId && (
-            <p className="text-sm text-gray-500 mt-2">
-                Selected ID: <span className="font-mono bg-gray-100 px-1 rounded">{selectedSiteId}</span>
+            <p className="text-sm text-gray-500 mt-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                Selected ID: <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-xs text-gray-600">{selectedSiteId}</span>
             </p>
         )}
       </div>
@@ -219,6 +296,22 @@ export default function AdminReportGenerator({ sites }: AdminReportGeneratorProp
                           checked={selectedFeatures.has("heatmaps_scrolls")}
                           onChange={() => toggleFeature("heatmaps_scrolls")}
                           icon={ArrowTopRightOnSquareIcon}
+                          small
+                        />
+                         <FeatureCheckbox
+                          id="heatmaps_hover"
+                          label="Hover Heatmaps"
+                          checked={selectedFeatures.has("heatmaps_hover")}
+                          onChange={() => toggleFeature("heatmaps_hover")}
+                          icon={CursorArrowRaysIcon}
+                          small
+                        />
+                         <FeatureCheckbox
+                          id="heatmaps_cursor"
+                          label="Cursor Paths"
+                          checked={selectedFeatures.has("heatmaps_cursor")}
+                          onChange={() => toggleFeature("heatmaps_cursor")}
+                          icon={CursorArrowRaysIcon}
                           small
                         />
                          <FeatureCheckbox

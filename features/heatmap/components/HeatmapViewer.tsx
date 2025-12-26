@@ -14,6 +14,11 @@ import { useScrollHeatmapData } from "@/features/heatmap/hooks/useScrollHeatmapD
 import { useHoverHeatmapData } from "@/features/heatmap/hooks/useHoverHeatmapData";
 import { useCursorPathsData } from "@/features/heatmap/hooks/useCursorPathsData";
 import { SnapshotViewer } from "./SnapshotViewer";
+import { 
+  PhotoIcon, 
+  ArrowPathIcon, 
+  LightBulbIcon
+} from "@heroicons/react/24/outline";
 import { DeviceStatsBar } from "./DeviceStatsBar";
 import { LoadingSpinner } from "@/shared/components/feedback/LoadingSpinner";
 import { apiClient } from "@/shared/services/api/client";
@@ -63,7 +68,7 @@ export function HeatmapViewer({
 }: HeatmapViewerProps) {
   const [showAllViewports, setShowAllViewports] = useState(externalShowAllViewports);
   const [prevExternalShowAllViewports, setPrevExternalShowAllViewports] = useState(externalShowAllViewports);
-  const [isExporting, setIsExporting] = useState(false);
+
 
   // Sync state with prop during render
   if (externalShowAllViewports !== prevExternalShowAllViewports) {
@@ -79,47 +84,6 @@ export function HeatmapViewer({
   // Session count for stats bar
   const [uniqueSessions, setUniqueSessions] = useState(0);
 
-  // Export heatmap as PNG
-  const handleExportPng = useCallback(async () => {
-    if (isExporting) return;
-    
-    setIsExporting(true);
-    
-    // The most reliable method is browser screenshot
-    // Show clear instructions and copy shortcut to clipboard
-    const isWindows = navigator.platform.toLowerCase().includes('win');
-    const isMac = navigator.platform.toLowerCase().includes('mac');
-    
-    let instructions = '';
-    
-    if (isWindows) {
-      instructions = `📸 Screenshot Instructions (Windows):
-
-1. Press Win + Shift + S
-2. Click and drag to select the heatmap area
-3. The screenshot is copied to clipboard
-4. Paste (Ctrl+V) into your report
-
-💡 Tip: After taking the screenshot, it's automatically copied. Just Ctrl+V to paste!`;
-    } else if (isMac) {
-      instructions = `📸 Screenshot Instructions (Mac):
-
-1. Press Cmd + Shift + 4
-2. Click and drag to select the heatmap area
-3. Screenshot is saved to Desktop
-4. Add to your report
-
-💡 Tip: Add Ctrl to copy to clipboard instead of saving!`;
-    } else {
-      instructions = `📸 Screenshot Instructions:
-
-Use your system's screenshot tool to capture the heatmap area.`;
-    }
-    
-    
-    alert(instructions);
-    setIsExporting(false);
-  }, [isExporting]);
 
   // Fetch snapshot data internally
   const {
@@ -387,37 +351,59 @@ Use your system's screenshot tool to capture the heatmap area.`;
       errorMessage.includes("visitors need to stay");
 
     return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-50">
-        <div className="text-center p-6 max-w-md">
-          <div className="text-blue-500 text-5xl mb-4">📄</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+
+      <div className="w-full h-full flex items-center justify-center bg-gray-50/50">
+        <div className="text-center p-8 max-w-md bg-white rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center ring-8 ring-gray-50/50">
+               <PhotoIcon className="w-8 h-8 text-gray-400" />
+            </div>
+          </div>
+          
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
             {isSnapshotNotFound
               ? "No Snapshot Captured Yet"
               : "Failed to Load Snapshot"}
           </h3>
-          <p className="text-gray-600 mb-4">
+          
+          <p className="text-gray-500 mb-8 leading-relaxed">
             {isSnapshotNotFound
               ? `No visitors have stayed on this page (${deviceType}) long enough for a snapshot to be captured. Visitors need to stay for at least 5 seconds.`
               : errorMessage || "Snapshot data not available for this page"}
           </p>
+
           {isSnapshotNotFound ? (
-            <div className="text-sm text-gray-500 mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="font-medium text-blue-800 mb-2">
-                💡 How snapshots work:
-              </p>
-              <ul className="text-left list-disc list-inside space-y-1 text-blue-700">
-                <li>Snapshots are captured after 5 seconds of page load</li>
-                <li>This ensures the page has fully rendered</li>
-                <li>Quick visitors who leave immediately won&apos;t trigger captures</li>
-                <li>Once captured, the snapshot is cached for this device type</li>
+            <div className="text-left bg-indigo-50/50 border border-indigo-100 rounded-xl p-5 mb-6">
+              <div className="flex items-center gap-2 mb-3 text-indigo-900 font-semibold text-sm">
+                <LightBulbIcon className="w-4 h-4 text-indigo-600" />
+                How snapshots work
+              </div>
+              <ul className="space-y-2 text-sm text-indigo-800/80">
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                  Snapshots capture after 5 seconds of activity
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                  Ensures full page rendering & data accuracy
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                  Bounced visitors won't trigger captures
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                  Cached automatically per device type
+                </li>
               </ul>
             </div>
           ) : (
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
             >
-              Retry
+              <ArrowPathIcon className="w-4 h-4" />
+              Retry Connection
             </button>
           )}
         </div>
@@ -476,31 +462,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
   return (
     <div className={`w-full relative ${isStaticHeight ? 'h-auto min-h-[800px] overflow-hidden' : 'h-full'}`}>
       {/* Export Button */}
-      {showExportButton && (
-        <button
-          onClick={handleExportPng}
-          disabled={isExporting}
-          className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg shadow-lg transition-colors"
-          title="Export heatmap as PNG"
-        >
-          {isExporting ? (
-            <>
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Exporting...
-            </>
-          ) : (
-            <>
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Export PNG
-            </>
-          )}
-        </button>
-      )}
+
 
       <SnapshotViewer
         snapshot={snapshotData!}

@@ -26,13 +26,20 @@ interface ReportHeatmapSectionProps {
   uniquePaths: string[];
   days: number;
   shareToken?: string;
+  allowedTypes?: string[];
 }
 
 // Sub-component for individual heatmap sections to manage independent state
-function ReportHeatmapItem({ path, index, siteId, days, shareToken }: { path: string, index: number, siteId: string, days: number, shareToken?: string }) {
+function ReportHeatmapItem({ path, index, siteId, days, shareToken, allowedTypes }: { path: string, index: number, siteId: string, days: number, shareToken?: string, allowedTypes?: string[] }) {
+  // Filter available data types
+  const availableDataTypes = React.useMemo(() => {
+    if (!allowedTypes || allowedTypes.length === 0) return DATA_TYPES;
+    return DATA_TYPES.filter(type => allowedTypes.includes(type.value));
+  }, [allowedTypes]);
+
   const [selectedDataType, setSelectedDataType] = useState<
     "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements"
-  >("clicks");
+  >((availableDataTypes[0]?.value as any) || "clicks");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +54,7 @@ function ReportHeatmapItem({ path, index, siteId, days, shareToken }: { path: st
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const currentDataType = DATA_TYPES.find(dt => dt.value === selectedDataType);
+  const currentDataType = availableDataTypes.find(dt => dt.value === selectedDataType) || availableDataTypes[0] || DATA_TYPES[0];
   const DataTypeIcon = currentDataType?.icon || CursorArrowRippleIcon;
 
   return (
@@ -75,7 +82,7 @@ function ReportHeatmapItem({ path, index, siteId, days, shareToken }: { path: st
                     </button>
                     {dropdownOpen && (
                       <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-[50] min-w-[220px]">
-                        {DATA_TYPES.map((type) => {
+                        {availableDataTypes.map((type) => {
                           const Icon = type.icon;
                           const isSelected = selectedDataType === type.value;
                           return (
@@ -126,7 +133,8 @@ function ReportHeatmapItem({ path, index, siteId, days, shareToken }: { path: st
   );
 }
 
-export function ReportHeatmapSection({ siteId, uniquePaths, days, shareToken }: ReportHeatmapSectionProps) {
+export function ReportHeatmapSection(props: ReportHeatmapSectionProps) {
+  const { siteId, uniquePaths, days, shareToken } = props;
   if (uniquePaths.length === 0) return null;
 
   return (
@@ -139,6 +147,7 @@ export function ReportHeatmapSection({ siteId, uniquePaths, days, shareToken }: 
           siteId={siteId} 
           days={days}
           shareToken={shareToken}
+          allowedTypes={props.allowedTypes}
         />
       ))}
     </>

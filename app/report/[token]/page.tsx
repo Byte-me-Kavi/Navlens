@@ -65,10 +65,10 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
   const siteId = share.site_id;
   const days = share.days || 30;
   const includeStr = share.include || 'all';
-  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_elements', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit', 'funnels'] : includeStr.split(','));
+  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_hover', 'heatmaps_cursor', 'heatmaps_elements', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit', 'funnels'] : includeStr.split(','));
 
   const showFeature = (key: string) => include.has(key);
-  const showAnyHeatmap = showFeature('heatmaps_clicks') || showFeature('heatmaps_scrolls') || showFeature('heatmaps_elements');
+  const showAnyHeatmap = showFeature('heatmaps_clicks') || showFeature('heatmaps_scrolls') || showFeature('heatmaps_hover') || showFeature('heatmaps_cursor') || showFeature('heatmaps_elements');
 
   // Fetch Site Data
   const { data: site, error: siteError } = await supabase
@@ -317,9 +317,20 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
         </section>
       )}
 
-      {/* 3. Heatmaps */}
       {showAnyHeatmap && (
-        <ReportHeatmapSection siteId={siteId} uniquePaths={uniquePaths} days={days} shareToken={token} />
+        <ReportHeatmapSection 
+            siteId={siteId} 
+            uniquePaths={uniquePaths} 
+            days={days} 
+            shareToken={token}
+            allowedTypes={[
+                ...(showFeature('heatmaps_clicks') ? ['clicks'] : []),
+                ...(showFeature('heatmaps_scrolls') ? ['scrolls'] : []),
+                ...(showFeature('heatmaps_hover') ? ['hover'] : []),
+                ...(showFeature('heatmaps_cursor') ? ['cursor-paths'] : []),
+                ...(showFeature('heatmaps_elements') ? ['elements'] : [])
+            ]}
+        />
       )}
 
       {/* 4. Friction & Frustration Hunt */}

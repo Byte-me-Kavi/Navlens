@@ -14,7 +14,7 @@ import {
   GlobeAltIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
-import { ReportGenerator } from "@/components/reports/ReportGenerator";
+
 
 // Heatmap type cards data - using consistent indigo theme
 const heatmapTypes = [
@@ -153,7 +153,6 @@ export default function HeatmapsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <ReportGenerator siteId={currentSite?.id || ""} />
                   
                   <button
                     onClick={() => openViewer()}
