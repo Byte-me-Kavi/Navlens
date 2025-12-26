@@ -445,7 +445,7 @@ const PricingPage: React.FC = () => {
     {
       question: "Is there a free trial?",
       answer:
-        "Absolutely! We offer a 14-day free trial for all plans. No credit card required to get started. Full access to all features during your trial.",
+        "Absolutely! We offer a 15-day free trial for all plans. No credit card required to get started. Full access to all features during your trial.",
     },
     {
       question: "What happens if I exceed my pageview limit?",

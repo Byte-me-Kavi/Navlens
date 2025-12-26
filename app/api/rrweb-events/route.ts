@@ -96,79 +96,36 @@ export async function POST(req: NextRequest) {
             .single();
 
         if (siteData?.user_id) {
-            // Get user's subscription and plan limits
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select(`
-                    subscription_id,
-                    subscriptions (
-                        status,
-                        subscription_plans (
-                            session_limit
-                        )
-                    )
-                `)
-                .eq('user_id', siteData.user_id)
-                .single();
-
-            // Determine session limit
-            let sessionLimit = 1000; // Default Free plan limit
-            if (profile?.subscriptions) {
-                const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
-                if (sub?.status === 'active' && sub?.subscription_plans) {
-                    const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
-                    if (plan?.session_limit === null) {
-                        sessionLimit = Infinity; // Unlimited for Enterprise
-                    } else {
-                        sessionLimit = plan?.session_limit || 1000;
-                    }
-                }
-            }
-
-            // --- SESSION LIMIT ENFORCEMENT ---
-
-            // Check if this is a NEW session (not an update to existing session)
+            // Check if this is a NEW session recording
             const { count: existingSession } = await supabase
                 .from('rrweb_events')
                 .select('session_id', { count: 'exact', head: true })
                 .eq('session_id', session_id);
 
-            const isNewSession = existingSession === 0;
+            const isNewRecording = existingSession === 0;
 
-            if (isNewSession && sessionLimit !== Infinity) {
-                // Count sessions for this user this month
-                const startOfMonth = new Date();
-                startOfMonth.setDate(1);
-                startOfMonth.setHours(0, 0, 0, 0);
+            if (isNewRecording) {
+                // Use the new usage tracker to check recording limits
+                const { canCreateRecording, incrementRecordingCount } = await import('@/lib/usage-tracker/counter');
+                const limitCheck = await canCreateRecording(siteData.user_id);
 
-                // FIX: Use sessions_view for accurate unique session count
-                const { count: currentSessionCount, error: countError } = await supabase
-                    .from('sessions_view')
-                    .select('session_id', { count: 'exact', head: true })
-                    .eq('site_id', site_id)
-                    .gte('started_at', startOfMonth.toISOString());
-
-                if (!countError) {
-                    // Use accurate count from view
-                    const currentSessions = currentSessionCount || 0;
-
-                    if (currentSessions >= sessionLimit) {
-                        console.warn(`[rrweb-events] Session limit exceeded for user ${siteData.user_id}: ${currentSessions}/${sessionLimit}`);
-                        const response = NextResponse.json(
-                            {
-                                error: 'Session limit exceeded',
-                                message: 'Your subscription session limit has been reached. Please upgrade your plan.',
-                                current: currentSessions,
-                                limit: sessionLimit
-                            },
-                            { status: 429 }
-                        );
-                        return addTrackerCorsHeaders(response, origin, true);
-                    }
-                } else {
-                    console.warn('[rrweb-events] Failed to check session limits via view:', countError.message);
-                    // Fail open (allow request) if view check fails
+                if (!limitCheck.allowed) {
+                    console.warn(`[rrweb-events] Recording limit reached for user ${siteData.user_id}`);
+                    const response = NextResponse.json(
+                        {
+                            error: limitCheck.error || 'Recording limit reached',
+                            current: limitCheck.current,
+                            limit: limitCheck.limit,
+                            message: 'Your subscription recording limit has been reached. Please upgrade your plan.'
+                        },
+                        { status: 403 }
+                    );
+                    return addTrackerCorsHeaders(response, origin, true);
                 }
+
+                // Increment recording counter
+                await incrementRecordingCount(siteData.user_id);
+                console.log(`[rrweb-events] New recording tracked for user ${siteData.user_id}`);
             }
         }
 

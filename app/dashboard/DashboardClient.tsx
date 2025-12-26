@@ -388,9 +388,9 @@ const DashboardClient: React.FC = () => {
                 </Link>
               </div>
               <div className="space-y-3">
-                {data.recentSessions.map((session) => (
+                {data.recentSessions.map((session, index) => (
                   <div 
-                    key={session.id} 
+                    key={`${session.id}-${index}`} 
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-indigo-50 transition-colors group"
                   >
                     <div className="flex items-center gap-3">

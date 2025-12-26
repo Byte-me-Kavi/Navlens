@@ -5,9 +5,9 @@ Goal: Prove tracking works, no intelligence, minimal storage.
 
 Traffic & Storage
 
-Sessions: 1,000 / month
+Sessions: 500 / month
 
-Session Recordings: 100 / month
+Session Recordings: 50 / month
 
 Data Retention: 3 Days (strict)
 

@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server-admin';
-import { queryWithMetrics } from '@/lib/clickhouse';
 
 export const dynamic = 'force-dynamic';
+
+interface UserUsageStats {
+    user_id: string;
+    sessions_this_month: number;
+    recordings_count: number;
+    period_start: string;
+}
+
+interface PlanLimits {
+    sessions?: number;
+    recordings?: number;
+    retention_days?: number;
+    active_experiments?: number;
+    active_surveys?: number;
+    heatmap_pages?: number;
+    max_sites?: number;
+}
 
 export async function GET() {
     try {
@@ -16,12 +32,15 @@ export async function GET() {
 
         const supabase = createClient();
 
-        // 1. Fetch Key Data
-        const [usersRes, subsRes, plansRes, sitesRes] = await Promise.all([
+        // 1. Fetch Key Data from Supabase
+        const [usersRes, subsRes, plansRes, sitesRes, usageStatsRes, experimentsRes, surveysRes] = await Promise.all([
             supabase.auth.admin.listUsers({ perPage: 1000 }),
             supabase.from('subscriptions').select('*'),
             supabase.from('subscription_plans').select('*'),
-            supabase.from('sites').select('id, user_id, domain')
+            supabase.from('sites').select('id, user_id, domain'),
+            supabase.from('user_usage_stats').select('*'),
+            supabase.from('experiments').select('id, site_id, status'),
+            supabase.from('surveys').select('id, site_id, is_active')
         ]);
 
         if (usersRes.error) throw usersRes.error;
@@ -30,13 +49,53 @@ export async function GET() {
         const subscriptions = subsRes.data || [];
         const plans = plansRes.data || [];
         const sites = sitesRes.data || [];
+        const usageStats = (usageStatsRes.data || []) as UserUsageStats[];
+        const experiments = experimentsRes.data || [];
+        const surveys = surveysRes.data || [];
+
+        // Get recordings count per site using RPC function (accurate DISTINCT count for current month)
+        const siteRecordingsMap = new Map<string, number>();
+        const siteIds = sites.map(s => s.id);
+
+        if (siteIds.length > 0) {
+            // Call RPC function for each site to get accurate recordings count
+            for (const siteId of siteIds) {
+                const { data: count, error: rpcErr } = await supabase
+                    .rpc('get_site_recordings_count', { p_site_id: siteId });
+
+                if (rpcErr) {
+                    console.error('[AdminBilling] RPC error for site', siteId, ':', rpcErr);
+                    // Fallback to simple query if RPC doesn't exist yet
+                    const { data: sessions } = await supabase
+                        .from('rrweb_events')
+                        .select('session_id')
+                        .eq('site_id', siteId)
+                        .gte('timestamp', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+                        .limit(10000);
+
+                    if (sessions) {
+                        const uniqueSessions = new Set(sessions.map(s => s.session_id));
+                        siteRecordingsMap.set(siteId, uniqueSessions.size);
+                    }
+                } else {
+                    siteRecordingsMap.set(siteId, count || 0);
+                }
+            }
+        }
+
+        console.log('[AdminBilling] Sessions/Recordings per site (current month from Supabase):', Object.fromEntries(siteRecordingsMap));
+
+        // NOTE: Sessions = Recordings in this context
+        // Each row in sessions_view represents a unique recorded session
+        // We use Supabase as single source of truth (ClickHouse removed)
 
         // Debug: Log plan limits structure
         console.log('[AdminBilling] Plans from DB:', plans.map(p => ({ name: p.name, limits: p.limits })));
 
-        // 2. Map Data
+        // 3. Map Data
         const planMap = new Map(plans.map(p => [p.id, p]));
         const userSitesMap = new Map<string, string[]>();
+        const usageStatsMap = new Map<string, UserUsageStats>();
 
         sites.forEach(s => {
             const list = userSitesMap.get(s.user_id) || [];
@@ -44,39 +103,31 @@ export async function GET() {
             userSitesMap.set(s.user_id, list);
         });
 
-        // 3. ClickHouse Usage Query
-        // Get usage for all sites in the last 30 days (or since period start)
-        // Count unique sessions per site for billing purposes
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-        const chQuery = `
-            SELECT site_id, uniq(session_id) as session_count, count(*) as event_count 
-            FROM events 
-            WHERE timestamp >= toDateTime('${thirtyDaysAgo.slice(0, 19).replace('T', ' ')}')
-            GROUP BY site_id
-        `;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let usageData: any[] = [];
-        try {
-            const { data } = await queryWithMetrics(chQuery, {}, 'Billing Usage Scan');
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            usageData = data as any[];
-        } catch (e) {
-            console.error('ClickHouse Query Failed:', e);
-            // Non-blocking, continue with 0 usage
-        }
-
-        const siteUsageMap = new Map<string, { sessions: number; events: number }>();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        usageData.forEach((row: any) => {
-            siteUsageMap.set(row.site_id, {
-                sessions: parseInt(row.session_count) || 0,
-                events: parseInt(row.event_count) || 0
-            });
+        usageStats.forEach(stat => {
+            usageStatsMap.set(stat.user_id, stat);
         });
 
-        // 4. Aggregate per User
+        // 3. Count active experiments and surveys per user
+        const userExperimentsMap = new Map<string, number>();
+        const userSurveysMap = new Map<string, number>();
+
+        experiments.filter(e => e.status === 'running').forEach(exp => {
+            const site = sites.find(s => s.id === exp.site_id);
+            if (site) {
+                const count = userExperimentsMap.get(site.user_id) || 0;
+                userExperimentsMap.set(site.user_id, count + 1);
+            }
+        });
+
+        surveys.filter(s => s.is_active).forEach(survey => {
+            const site = sites.find(s => s.id === survey.site_id);
+            if (site) {
+                const count = userSurveysMap.get(site.user_id) || 0;
+                userSurveysMap.set(site.user_id, count + 1);
+            }
+        });
+
+        // 4. Aggregate per User with ALL usage data
         const billingData = users.map(user => {
             // Find all subs for user, sort by created_at desc
             const userSubs = subscriptions
@@ -89,45 +140,76 @@ export async function GET() {
 
             // Default to Free plan if no sub
             const planId = sub?.plan_id;
-            // Determine plan details. If no sub, assume Free but we need to find "Free" plan ID or defaults
             let plan = planMap.get(planId);
 
-            // Fallback logic for Free plan (assuming cheapest/first is free if not found)
+            // Fallback logic for Free plan
             if (!plan && !sub) {
-                // Try to find a plan named 'Free' or 'Starter' or take the lowest price
                 plan = plans.find(p => p.name.toLowerCase().includes('free')) || plans[0];
             }
 
+            // Get usage from Supabase sessions_view (single source of truth)
             const siteIds = userSitesMap.get(user.id) || [];
-            const usage = siteIds.reduce((sum, siteId) => {
-                const siteUsage = siteUsageMap.get(siteId);
-                return sum + (siteUsage?.sessions || 0);
+            const sitesCount = siteIds.length;
+
+            // Aggregate sessions/recordings from Supabase across all user's sites
+            // In our case, sessions = recordings since each sessions_view row is a recorded session
+            const supabaseSessions = siteIds.reduce((sum, siteId) => {
+                return sum + (siteRecordingsMap.get(siteId) || 0);
             }, 0);
 
+            // Sessions and Recordings are the same value from sessions_view
+            const userStats = usageStatsMap.get(user.id);
+            const sessionsUsed = supabaseSessions > 0 ? supabaseSessions : (userStats?.sessions_this_month || 0);
+            const recordingsUsed = supabaseSessions > 0 ? supabaseSessions : (userStats?.recordings_count || 0);
 
-            let limit = 0;
-            if (plan?.limits && typeof plan.limits === 'object') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                limit = (plan.limits as any).sessions || (plan.limits as any).events_per_month || 0;
-            }
+            // Get active experiments and surveys
+            const activeExperiments = userExperimentsMap.get(user.id) || 0;
+            const activeSurveys = userSurveysMap.get(user.id) || 0;
+
+            // Get limits from plan
+            const limits: PlanLimits = plan?.limits || {};
+            const sessionLimit = limits.sessions || 500;
+            const recordingsLimit = limits.recordings || 50;
+            const maxSites = limits.max_sites || 1;
+            const maxExperiments = limits.active_experiments ?? 0;
+            const maxSurveys = limits.active_surveys ?? 0;
+            const heatmapPagesLimit = limits.heatmap_pages || 3;
+            const retentionDays = limits.retention_days || 3;
 
             // Status
-            // Active: sub.status === 'active'
-            // Churned: sub.status === 'canceled' && canceled_at > 30 days ago? 
-            // "Churn Watch" = cancelled in last 30 days.
-
             const isChurned = sub?.status === 'canceled' || sub?.cancel_at_period_end;
             const churnDate = sub?.canceled_at;
+
+            // Calculate primary usage percentage (based on sessions)
+            const usagePercent = sessionLimit > 0 && sessionLimit !== -1
+                ? Math.round((sessionsUsed / sessionLimit) * 100)
+                : 0;
 
             return {
                 user_id: user.id,
                 email: user.email,
-                plan_name: plan?.name || 'Unknown',
+                plan_name: plan?.name || 'Free',
                 price: plan?.price_usd || 0,
                 status: sub?.status || 'free',
-                usage: usage,
-                limit: limit,
-                usage_percent: limit > 0 ? Math.round((usage / limit) * 100) : 0,
+                // Primary usage (sessions)
+                usage: sessionsUsed,
+                limit: sessionLimit === -1 ? 0 : sessionLimit, // 0 means unlimited for display
+                usage_percent: usagePercent,
+                // Detailed usage breakdown
+                sessions_used: sessionsUsed,
+                sessions_limit: sessionLimit,
+                recordings_used: recordingsUsed,
+                recordings_limit: recordingsLimit,
+                sites_count: sitesCount,
+                sites_limit: maxSites,
+                active_experiments: activeExperiments,
+                experiments_limit: maxExperiments,
+                active_surveys: activeSurveys,
+                surveys_limit: maxSurveys,
+                heatmap_pages_limit: heatmapPagesLimit,
+                retention_days: retentionDays,
+                // Period info
+                period_start: userStats?.period_start || null,
                 is_churned: !!isChurned,
                 churn_date: churnDate
             };

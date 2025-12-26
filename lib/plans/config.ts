@@ -6,7 +6,9 @@ export interface PlanLimit {
     retention_days: number;
     active_experiments?: number; // undefined = 0 or unlimited if feature enabled? logic needed
     active_surveys?: number;
-    heatmaps?: number;
+    heatmaps?: number; // Legacy? Replaced by heatmap_pages
+    heatmap_pages?: number; // Number of distinct pages allowed for heatmaps
+    max_sites?: number; // Number of sites allowed
 }
 
 export interface PlanConfig {
@@ -75,7 +77,9 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
             retention_days: 3,
             active_experiments: 0,
             active_surveys: 0,
-            heatmaps: 10
+            heatmaps: 10, // Keeping for backward compat
+            heatmap_pages: 3,
+            max_sites: 1
         },
         features: [
             'click_heatmaps',
@@ -97,7 +101,9 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
             retention_days: 30,
             active_experiments: 1,
             active_surveys: 1,
-            heatmaps: -1
+            heatmaps: -1,
+            heatmap_pages: 8,
+            max_sites: 3
         },
         features: [
             // All Free Features
@@ -122,7 +128,9 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
             retention_days: 90,
             active_experiments: -1, // Unlimited
             active_surveys: -1,
-            heatmaps: -1
+            heatmaps: -1,
+            heatmap_pages: 15,
+            max_sites: 5
         },
         features: [
             // All Starter +
@@ -162,7 +170,9 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
             retention_days: 365,
             active_experiments: -1,
             active_surveys: -1,
-            heatmaps: -1
+            heatmaps: -1,
+            heatmap_pages: -1,
+            max_sites: -1
         },
         features: [
             // All Pro +

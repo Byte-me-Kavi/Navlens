@@ -38,7 +38,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         .select(`
           subscription_id,
           subscriptions (
-            id, status,
+            id, status, current_period_end,
             subscription_plans (name)
           )
         `)
@@ -56,7 +56,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const { data: directSub } = await supabase
           .from('subscriptions')
           .select(`
-            id, status,
+            id, status, current_period_end,
             subscription_plans (name)
           `)
           .eq('user_id', user.id)
@@ -74,8 +74,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         // Handle array or single object response
         const sub = Array.isArray(activeSubscription) ? activeSubscription[0] : activeSubscription;
         
-        // Check if status is active or trialing
-        if (sub.status === 'active' || sub.status === 'trialing') {
+        // Check if status is active or trialing AND not expired
+        // Note: We respect the server-side status, but also check date for trial expiry
+        const now = new Date();
+        const endDate = sub.current_period_end ? new Date(sub.current_period_end) : null;
+        const isExpired = endDate && endDate < now;
+
+        if ((sub.status === 'active' || sub.status === 'trialing') && !isExpired) {
             const plans = sub.subscription_plans;
             // Handle if plans is array or object
             const planData = Array.isArray(plans) ? plans[0] : plans;

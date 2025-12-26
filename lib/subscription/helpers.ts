@@ -8,39 +8,35 @@ import { createClient } from '@/lib/supabase/server';
 export async function getUserSubscription(userId: string) {
     const supabase = await createClient();
 
-    const { data: profile, error } = await supabase
-        .from('profiles')
+    // Query subscriptions table directly by user_id (fixed from profiles lookup)
+    const { data: subscription, error } = await supabase
+        .from('subscriptions')
         .select(`
-      subscription_id,
-      subscriptions (
-        id,
-        status,
-        start_date,
-        end_date,
-        current_period_end,
-        cancel_at_period_end,
-        subscription_plans (
-          name,
-          price_usd,
-          price_lkr,
-          session_limit,
-          features
-        )
-      )
-    `)
+            id,
+            status,
+            start_date,
+            end_date,
+            current_period_end,
+            cancel_at_period_end,
+            subscription_plans (
+                name,
+                price_usd,
+                price_lkr,
+                session_limit,
+                features,
+                limits
+            )
+        `)
         .eq('user_id', userId)
-        .single();
+        .eq('status', 'active')
+        .maybeSingle();
 
-    if (error || !profile) {
+    if (error) {
+        console.error('[getUserSubscription] Error:', error);
         return null;
     }
 
-    // Supabase returns relationships as arrays - get first subscription or null
-    const subscriptions = profile.subscriptions;
-    if (Array.isArray(subscriptions)) {
-        return subscriptions[0] || null;
-    }
-    return subscriptions || null;
+    return subscription || null;
 }
 
 export async function hasFeatureAccess(
@@ -90,6 +86,10 @@ export async function hasFeatureAccess(
     return false;
 }
 
+// Re-use logic from usage-tracker to ensure consistency
+// We use the exported functions from counter.ts which treat 'user_usage_stats' as SSOT
+import { getUserPlanLimits, getUsageStats } from '@/lib/usage-tracker/counter';
+
 export async function checkSessionLimit(userId: string): Promise<{
     allowed: boolean;
     current: number;
@@ -97,40 +97,27 @@ export async function checkSessionLimit(userId: string): Promise<{
     percentage: number;
     planName: string;
 }> {
-    const subscription = await getUserSubscription(userId);
-    const supabase = await createClient();
+    const limits = await getUserPlanLimits(userId);
+    const stats = await getUsageStats(userId);
 
-    // Default to Free plan if no subscription
-    let limit = 1000;
+    const limit = limits.sessions;
+    const current = stats?.sessions_this_month || 0;
+
+    // Plan Name for display
     let planName = 'Free';
-
-    if (subscription && subscription.status === 'active') {
-        // subscription_plans might be array from Supabase relation
-        const subPlans = subscription.subscription_plans;
-        const plan = Array.isArray(subPlans) ? subPlans[0] : subPlans;
-        if (plan) {
-            limit = plan.session_limit;
-            planName = plan.name;
-        }
+    // We still use the local helper for subscription details as counter doesn't return plan name
+    const subscription = await getUserSubscription(userId);
+    if (subscription?.status === 'active') {
+        const p = Array.isArray(subscription.subscription_plans) ? subscription.subscription_plans[0] : subscription.subscription_plans;
+        planName = p?.name || 'Free'; // Fallback
     }
 
-    // If unlimited (null limit), always allow
-    if (limit === null) {
-        return { allowed: true, current: 0, limit: null, percentage: 0, planName };
+    // Unlimited check
+    if (limit === -1) {
+        return { allowed: true, current, limit: null, percentage: 0, planName };
     }
 
-    // Get current month's usage
-    const month = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
-
-    const { data: usage } = await supabase
-        .from('usage_tracking')
-        .select('sessions_count')
-        .eq('user_id', userId)
-        .eq('month', month)
-        .single();
-
-    const current = usage?.sessions_count || 0;
-    const percentage = (current / limit) * 100;
+    const percentage = limit > 0 ? (current / limit) * 100 : 100;
 
     return {
         allowed: current < limit,
@@ -141,6 +128,7 @@ export async function checkSessionLimit(userId: string): Promise<{
     };
 }
 
+
 export async function trackSessionUsage(
     userId: string,
     siteId: string
@@ -150,31 +138,44 @@ export async function trackSessionUsage(
     current?: number;
     limit?: number | null;
 }> {
-    const supabase = await createClient();
-    const month = new Date().toISOString().slice(0, 7);
-
-    // Increment session count atomically
-    const { error } = await supabase.rpc('increment_session_usage', {
-        p_user_id: userId,
-        p_site_id: siteId,
-        p_month: month,
-    });
-
-    if (error) {
+    // Increment usage using robust logic from counter.ts (Source of truth: user_usage_stats)
+    // Note: incrementSessionCount handles RPC or direct update internally
+    const { incrementSessionCount } = await import('@/lib/usage-tracker/counter');
+    try {
+        await incrementSessionCount(userId);
+    } catch (error) {
         console.error('Failed to track session usage:', error);
-        return { success: false, limitExceeded: false };
+        // Don't fail the request, just log error
     }
 
-    // Check if limit exceeded
+    // Check if limit exceeded (using new logic)
     const { allowed, current, limit, percentage } = await checkSessionLimit(userId);
 
-    // TODO: Send email warnings at 80%, 90%, 100%
-    if (percentage >= 80 && percentage < 90) {
-        // Send 80% warning email
-    } else if (percentage >= 90 && percentage < 100) {
-        // Send 90% warning email
-    } else if (!allowed) {
-        // Send limit exceeded email
+    // Send email warnings at 80%, 90%, 100%
+    // Only send if we just crossed the threshold (previous < threshold <= current)
+    if (limit && current) {
+        const prevPercentage = ((current - 1) / limit) * 100;
+
+        // Get user email for sending notifications
+        const supabase = await createClient();
+        const { data: userData } = await supabase.auth.admin.getUserById(userId);
+        const userEmail = userData?.user?.email;
+
+        if (userEmail) {
+            const { sendUsageWarning80Email, sendUsageWarning90Email, sendUsageLimitReachedEmail } = await import('@/lib/email/service');
+            const { planName } = await checkSessionLimit(userId);
+
+            if (percentage >= 80 && percentage < 90 && prevPercentage < 80) {
+                // Just crossed 80% - send warning
+                sendUsageWarning80Email(userEmail, 'sessions', current, limit, planName);
+            } else if (percentage >= 90 && percentage < 100 && prevPercentage < 90) {
+                // Just crossed 90% - send critical warning
+                sendUsageWarning90Email(userEmail, 'sessions', current, limit, planName);
+            } else if (!allowed && prevPercentage < 100) {
+                // Just hit limit - send limit reached
+                sendUsageLimitReachedEmail(userEmail, 'sessions', limit, planName);
+            }
+        }
     }
 
     return {

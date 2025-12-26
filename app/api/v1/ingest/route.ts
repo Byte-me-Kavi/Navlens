@@ -139,6 +139,61 @@ export async function POST(request: NextRequest) {
       return jsonResponse({ error: 'No valid events to process after validation' }, 400, origin);
     }
 
+    // --- SESSION LIMIT ENFORCEMENT START ---
+    // Check if this is a new session (we track unique session_ids)
+    // Get userId from site for session tracking
+    const { data: siteData } = await supabaseAdmin
+      .from('sites')
+      .select('user_id')
+      .eq('id', siteId)
+      .single();
+
+    if (siteData?.user_id && validEvents.length > 0) {
+      const sessionId = validEvents[0].session_id;
+
+      // Check if this is a new session by querying ClickHouse
+      const sessionCheckQuery = `
+        SELECT COUNT(*) as count
+        FROM events
+        WHERE site_id = {siteId:String}
+          AND session_id = {sessionId:String}
+        LIMIT 1
+      `;
+
+      const sessionCheckResult = await clickhouse.query({
+        query: sessionCheckQuery,
+        query_params: { siteId, sessionId },
+        format: 'JSON'
+      });
+
+      const sessionCheckData = await sessionCheckResult.json();
+      const isNewSession = (sessionCheckData.data?.[0] as { count: number })?.count === 0;
+
+      if (isNewSession) {
+        // Check session limit for this user
+        const { canStartSession, incrementSessionCount } = await import('@/lib/usage-tracker/counter');
+        const limitCheck = await canStartSession(siteData.user_id);
+
+        if (!limitCheck.allowed) {
+          console.warn(`[v1/ingest] Session limit reached for user ${siteData.user_id}`);
+          return jsonResponse(
+            {
+              error: limitCheck.error || 'Session limit reached',
+              current: limitCheck.current,
+              limit: limitCheck.limit
+            },
+            403,
+            origin
+          );
+        }
+
+        // Increment session counter
+        await incrementSessionCount(siteData.user_id);
+        console.log(`[v1/ingest] New session tracked for user ${siteData.user_id}`);
+      }
+    }
+    // --- SESSION LIMIT ENFORCEMENT END ---
+
     // Insert events into ClickHouse
     const insertPromises = validEvents.map(async (event: ValidatedEventData) => {
       try {

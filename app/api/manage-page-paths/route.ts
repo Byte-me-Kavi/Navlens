@@ -55,6 +55,94 @@ export async function POST(req: NextRequest) {
                 );
             }
 
+            // --- LIMIT ENFORCEMENT START ---
+            // Get user's subscription limits for heatmap pages
+            // Reuse existing authResult instead of calling authenticateAndAuthorize again
+            if (authResult.user) {
+                const { createClient } = await import('@supabase/supabase-js');
+                const supabaseAdmin = createClient(
+                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                    process.env.SUPABASE_SERVICE_ROLE_KEY!
+                );
+
+                // Get the site's user_id
+                const { data: siteData } = await supabaseAdmin
+                    .from('sites')
+                    .select('user_id')
+                    .eq('id', siteId)
+                    .single();
+
+                if (siteData?.user_id) {
+
+                    const { data: profile } = await supabaseAdmin
+                        .from('profiles')
+                        .select(`
+                        subscriptions (
+                            status,
+                            subscription_plans (
+                                name,
+                                limits
+                            )
+                        )
+                    `)
+                        .eq('user_id', siteData.user_id)
+                        .single();
+
+                    // Default limit (Free plan) -> 3 heatmap pages
+                    let maxHeatmapPages = 3;
+
+                    if (profile?.subscriptions) {
+                        const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
+                        if (sub?.status === 'active' && sub?.subscription_plans) {
+                            const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
+                            const limits = plan.limits as any;
+
+                            if (limits?.heatmap_pages !== undefined) {
+                                maxHeatmapPages = limits.heatmap_pages;
+                            } else {
+                                // Fallback logic based on plan name
+                                const planName = plan.name?.toLowerCase() || '';
+                                if (planName.includes('starter')) maxHeatmapPages = 8;
+                                else if (planName.includes('pro')) maxHeatmapPages = 15;
+                                else if (planName.includes('enterprise')) maxHeatmapPages = -1; // Unlimited
+                            }
+                        }
+                    }
+
+                    // Count existing distinct page paths for this site
+                    if (maxHeatmapPages !== -1) {
+                        const countQuery = `
+                        SELECT COUNT(DISTINCT page_path) as count
+                        FROM events
+                        WHERE site_id = {siteId:String}
+                          AND page_path IS NOT NULL
+                          AND page_path != ''
+                    `;
+
+                        const countResult = await clickhouseClient.query({
+                            query: countQuery,
+                            query_params: { siteId },
+                            format: 'JSON',
+                        });
+
+                        const countData = await countResult.json();
+                        const currentPageCount = (countData.data?.[0] as CountResult)?.count || 0;
+
+                        if (currentPageCount >= maxHeatmapPages) {
+                            return NextResponse.json(
+                                {
+                                    message: `Plan limit reached. You can have ${maxHeatmapPages} heatmap page${maxHeatmapPages === 1 ? '' : 's'}. Delete an existing page or upgrade your plan.`,
+                                    limit: maxHeatmapPages,
+                                    current: currentPageCount
+                                },
+                                { status: 403 }
+                            );
+                        }
+                    }
+                }
+            }
+            // --- LIMIT ENFORCEMENT END ---
+
             // Check if path already exists
             const checkQuery = `
                 SELECT COUNT() as count

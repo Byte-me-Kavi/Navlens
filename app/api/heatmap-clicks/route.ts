@@ -101,9 +101,89 @@ async function processHeatmapClicks(
   }
 
   // Check if user is authorized for this site
-  if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+  if (!isAuthorizedForSite(authResult.userSites, siteId) || !authResult.user) {
     return createUnauthorizedResponse();
   }
+
+  // --- LIMIT ENFORCEMENT START (Heatmap Pages) ---
+  const { data: profile } = await (await import('@/lib/supabase/server-admin')).createClient() // Use dynamic import to avoid circular dep if needed, or better, reuse auth user context if it had sub info.
+    // Actually, authenticationAndAuthorize returns 'user' but not full profile with sub. 
+    // We need to fetch it.
+    .from('profiles')
+    .select(`
+          subscriptions (
+              status,
+              subscription_plans (
+                  name,
+                  limits
+              )
+          )
+      `)
+    .eq('user_id', authResult.user.id)
+    .single();
+
+  let maxPages = 3; // Default Free
+  if (profile?.subscriptions) {
+    const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
+    if (sub?.status === 'active' && sub?.subscription_plans) {
+      const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
+      const limits = plan.limits as any;
+      if (limits?.heatmap_pages !== undefined) {
+        maxPages = limits.heatmap_pages;
+      } else {
+        // Fallback
+        const planName = plan.name?.toLowerCase() || '';
+        if (planName.includes('starter')) maxPages = 8;
+        else if (planName.includes('pro')) maxPages = 15;
+        else if (planName.includes('enterprise')) maxPages = -1;
+      }
+    }
+  }
+
+  if (maxPages !== -1) {
+    // Check if this page is in the Top N allowed pages
+    // Query ClickHouse for Top N pages by event count
+    const topPagesQuery = `
+        SELECT page_path 
+        FROM events 
+        WHERE site_id = {siteId:String} 
+        GROUP BY page_path 
+        ORDER BY count(*) DESC 
+        LIMIT {limit:UInt32}
+      `;
+
+    const topPagesResult = await clickhouse.query({
+      query: topPagesQuery,
+      query_params: { siteId, limit: maxPages },
+      format: 'JSONEachRow'
+    });
+
+    const topPages = await topPagesResult.json<{ page_path: string }>();
+    const allowedPaths = topPages.map(p => p.page_path);
+
+    // Normalize paths (handle trailing slashes just in case, though usually exact match in CH)
+    const isAllowed = allowedPaths.includes(pagePath);
+
+    if (!isAllowed && allowedPaths.length >= maxPages) {
+      // It's blocked ONLY if we already hit the limit AND this page isn't in it.
+      // If we haven't hit limit (e.g. allowed 3, only have 2), then any new page is "allowed" (it becomes #3).
+      // The query `LIMIT maxPages` returns at most maxPages. 
+      // If `allowedPaths.length < maxPages`, then we haven't filled the quota, so implicitly this new page "could" be one of them.
+      // But wait, if it's not in the result, it means it has 0 events OR it has fewer events than the top N.
+      // If `topPages` has `maxPages` items, and `pagePath` is not in it, then it's outside the quota.
+      // If `topPages` has `< maxPages` items, then `pagePath` MIGHT be one of them (if it was included) or it's a new page that WILL be included.
+
+      // Correct Logic:
+      // If `topPages.length` equals `maxPages` AND `!topPages.includes(pagePath)`, then REJECT.
+      // Else, ALLOW.
+
+      return NextResponse.json(
+        { message: `Plan limit reached. You can only view heatmaps for your top ${maxPages} pages. Upgrade to view more.` },
+        { status: 403 }
+      );
+    }
+  }
+  // --- LIMIT ENFORCEMENT END ---
 
   // Validate pagePath format
   if (!validators.isValidPagePath(pagePath)) {

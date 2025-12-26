@@ -206,6 +206,65 @@ export async function POST(request: NextRequest) {
             processedGoals = goalValidation.goals;
         }
 
+        // --- LIMIT ENFORCEMENT START ---
+        // Get user's subscription limits
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select(`
+                subscriptions (
+                    status,
+                    subscription_plans (
+                        name,
+                        limits
+                    )
+                )
+            `)
+            .eq('user_id', user.id)
+            .single();
+
+        // Default limit (Free plan) -> 0 experiments
+        let maxExperiments = 0;
+
+        if (profile?.subscriptions) {
+            const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
+            if (sub?.status === 'active' && sub?.subscription_plans) {
+                const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
+                const limits = plan.limits as any;
+
+                if (limits?.active_experiments !== undefined) {
+                    maxExperiments = limits.active_experiments;
+                } else {
+                    // Fallback logic
+                    const planName = plan.name?.toLowerCase() || '';
+                    if (planName.includes('starter')) maxExperiments = 1;
+                    else if (planName.includes('pro') || planName.includes('enterprise')) maxExperiments = -1; // Unlimited
+                }
+            }
+        }
+
+        // Count ACTIVE experiments for this site
+        // (Free tier 0 means NO experiments allowed at all, or no *concurrent* ones? Usually means 0.)
+
+        if (maxExperiments !== -1) {
+            const { count: activeCount, error: countError } = await supabaseAdmin
+                .from('experiments')
+                .select('id', { count: 'exact', head: true })
+                .eq('site_id', siteId)
+                .eq('status', 'running');
+
+            if (countError) {
+                console.error('[experiments] Count error:', countError);
+            } else {
+                if ((activeCount || 0) >= maxExperiments) {
+                    return NextResponse.json(
+                        { error: `Plan limit reached. You can have ${maxExperiments} active experiment${maxExperiments === 1 ? '' : 's'}. Stop an existing experiment or upgrade.` },
+                        { status: 403, headers: corsHeaders(origin) }
+                    );
+                }
+            }
+        }
+        // --- LIMIT ENFORCEMENT END ---
+
         // Create experiment
         const experimentData = {
             site_id: siteId,

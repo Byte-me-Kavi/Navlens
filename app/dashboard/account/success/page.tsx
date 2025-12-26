@@ -136,8 +136,30 @@ export default function SubscriptionSuccessPage() {
             if (sub?.status === 'active') {
                 const p = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
                 confirmedPlanName = p?.name || "";
-                console.log("✅ Found active subscription:", confirmedPlanName);
+                console.log("✅ Found active subscription (via profile):", confirmedPlanName);
             }
+        }
+
+        // FALLBACK: If not found via profile, check subscriptions table directly
+        if (!confirmedPlanName) {
+             const { data: directSub } = await supabase
+                .from('subscriptions')
+                .select(`
+                    id,
+                    status,
+                    subscription_plans (name)
+                `)
+                .eq('user_id', session.user.id)
+                .eq('status', 'active')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+             if (directSub) {
+                 const p = Array.isArray(directSub.subscription_plans) ? directSub.subscription_plans[0] : directSub.subscription_plans;
+                 confirmedPlanName = p?.name || "";
+                 console.log("✅ Found active subscription (direct query):", confirmedPlanName);
+             }
         }
 
         // 2. If no active subscription found, try the confirm endpoint (force sync with PayHere)

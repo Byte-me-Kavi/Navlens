@@ -227,21 +227,22 @@ export async function GET(req: NextRequest) {
         errors: errors
       })),
 
-      // Task G: Recent Sessions (Feed) - Uses session_analytics MV
+      // Task G: Recent Sessions (Feed) - Uses session_analytics MV (deduplicated)
       clickHouseClient.query({
         query: `
           SELECT 
             session_id,
-            device_type as device,
-            start_time,
-            end_time,
-            rage_clicks as rage_count,
-            event_count
+            argMax(device_type, end_time) as device,
+            argMax(start_time, end_time) as start_time,
+            max(end_time) as end_time,
+            sum(rage_clicks) as rage_count,
+            sum(event_count) as event_count
           FROM session_analytics
           WHERE site_id IN ({siteIds:Array(String)})
             AND end_time >= now() - INTERVAL 24 HOUR
+          GROUP BY session_id
           ORDER BY end_time DESC
-          LIMIT 3
+          LIMIT 5
         `,
         query_params: { siteIds: siteIds },
         format: 'JSON'

@@ -15,8 +15,14 @@ export async function getUserPlan(userId: string): Promise<PlanTier> {
 
     // Fetch user's subscription
     const { data: subData, error } = await supabase
-        .from('user_subscriptions')
-        .select('*, subscription_plans(name)')
+        .from('subscriptions')
+        .select(`
+            *,
+            subscription_plans (
+                name,
+                limits
+            )
+        `)
         .eq('user_id', userId)
         .eq('status', 'active')
         .single();
@@ -25,7 +31,12 @@ export async function getUserPlan(userId: string): Promise<PlanTier> {
         return 'FREE'; // Default to Free if no active sub
     }
 
-    const planName = subData.subscription_plans?.name?.toUpperCase() || 'FREE';
+    // Handle array or object response from Supabase relations
+    const plan = Array.isArray(subData.subscription_plans)
+        ? subData.subscription_plans[0]
+        : subData.subscription_plans;
+
+    const planName = plan?.name?.toUpperCase() || 'FREE';
     return planName as PlanTier;
 }
 

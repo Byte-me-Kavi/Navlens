@@ -1,5 +1,13 @@
 {
-  "regions": ["bom1"],
+  "regions": [
+    "bom1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "env": {
     "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true"
   },

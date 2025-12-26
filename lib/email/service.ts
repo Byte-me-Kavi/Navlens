@@ -153,3 +153,109 @@ export async function sendPasswordResetEmail(email: string, resetLink: string) {
         `
     });
 }
+
+// --- Usage Warning Emails ---
+
+export async function sendUsageWarning80Email(email: string, usageType: 'sessions' | 'recordings', current: number, limit: number, planName: string) {
+    const percentage = Math.round((current / limit) * 100);
+    const usageLabel = usageType === 'sessions' ? 'Sessions' : 'Recordings';
+
+    return sendEmail({
+        to: email,
+        subject: `⚠️ You've used 80% of your ${usageLabel.toLowerCase()} quota`,
+        html: `
+            <h2 style="color: #4F46E5;">Usage Alert</h2>
+            <p>Hi there,</p>
+            <p>You've used <strong>${percentage}%</strong> of your monthly ${usageLabel.toLowerCase()} limit on your <strong>${planName}</strong> plan.</p>
+            
+            <div style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%); border-radius: 12px; padding: 24px; margin: 24px 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="color: #4338CA; font-weight: 600;">${usageLabel} Used</span>
+                    <span style="color: #4338CA; font-weight: 700;">${current.toLocaleString()} / ${limit.toLocaleString()}</span>
+                </div>
+                <div style="background: #C7D2FE; border-radius: 8px; height: 12px; overflow: hidden;">
+                    <div style="background: linear-gradient(90deg, #6366F1 0%, #4F46E5 100%); height: 100%; width: ${percentage}%; border-radius: 8px;"></div>
+                </div>
+            </div>
+            
+            <p>To avoid interruption to your analytics tracking, consider upgrading your plan.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/pricing" style="background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">Upgrade Plan</a>
+            </div>
+        `
+    });
+}
+
+export async function sendUsageWarning90Email(email: string, usageType: 'sessions' | 'recordings', current: number, limit: number, planName: string) {
+    const percentage = Math.round((current / limit) * 100);
+    const usageLabel = usageType === 'sessions' ? 'Sessions' : 'Recordings';
+
+    return sendEmail({
+        to: email,
+        subject: `🔶 Critical: 90% of ${usageLabel.toLowerCase()} limit reached`,
+        html: `
+            <h2 style="color: #D97706;">Almost at Limit!</h2>
+            <p>Hi there,</p>
+            <p>You've used <strong>${percentage}%</strong> of your monthly ${usageLabel.toLowerCase()} quota. Your tracking will stop when you hit the limit.</p>
+            
+            <div style="background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%); border: 2px solid #F59E0B; border-radius: 12px; padding: 24px; margin: 24px 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="color: #92400E; font-weight: 600;">${usageLabel} Used</span>
+                    <span style="color: #92400E; font-weight: 700;">${current.toLocaleString()} / ${limit.toLocaleString()}</span>
+                </div>
+                <div style="background: #FDE68A; border-radius: 8px; height: 12px; overflow: hidden;">
+                    <div style="background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%); height: 100%; width: ${percentage}%; border-radius: 8px;"></div>
+                </div>
+                <p style="color: #92400E; font-size: 14px; margin: 12px 0 0 0;">⏰ Only ${limit - current} ${usageLabel.toLowerCase()} remaining this month</p>
+            </div>
+            
+            <p><strong>Upgrade now</strong> to continue tracking without interruption.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/pricing" style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">Upgrade Immediately</a>
+            </div>
+        `
+    });
+}
+
+export async function sendUsageLimitReachedEmail(email: string, usageType: 'sessions' | 'recordings', limit: number, planName: string) {
+    const usageLabel = usageType === 'sessions' ? 'Sessions' : 'Recordings';
+
+    return sendEmail({
+        to: email,
+        subject: `🚫 ${usageLabel} limit reached - Action required`,
+        html: `
+            <h2 style="color: #DC2626;">Limit Reached</h2>
+            <p>Hi there,</p>
+            <p>You've reached your monthly <strong>${usageLabel.toLowerCase()}</strong> limit of <strong>${limit.toLocaleString()}</strong> on your <strong>${planName}</strong> plan.</p>
+            
+            <div style="background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%); border: 2px solid #EF4444; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center;">
+                <div style="background: #EF4444; color: white; display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: 600; margin-bottom: 12px;">
+                    100% - Limit Reached
+                </div>
+                <p style="color: #991B1B; font-weight: 600; margin: 0;">
+                    New ${usageLabel.toLowerCase()} will not be tracked until your quota resets or you upgrade.
+                </p>
+            </div>
+            
+            <div style="background: #F3F4F6; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                <p style="margin: 0; color: #374151;"><strong>What happens now?</strong></p>
+                <ul style="color: #6B7280; margin: 8px 0;">
+                    <li>Your existing data is safe and accessible</li>
+                    <li>New ${usageLabel.toLowerCase()} won't be tracked</li>
+                    <li>Limits reset at the start of next month</li>
+                </ul>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/pricing" style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">Upgrade Now</a>
+            </div>
+            
+            <p style="text-align: center; font-size: 14px; color: #6B7280;">
+                Or wait until your billing cycle resets.
+            </p>
+        `
+    });
+}
+
