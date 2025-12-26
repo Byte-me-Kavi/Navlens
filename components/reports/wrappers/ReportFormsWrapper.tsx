@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { secureApi } from "@/lib/secureApi";
+import React from "react";
+// secureApi unused
 import { useFormList, useFormMetrics, formAnalyticsApi } from "@/features/form-analytics";
-import { FiFileText, FiCheckCircle, FiClock, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
+import { FiFileText } from 'react-icons/fi';
 import {
   FunnelChart as RechartsFunnelChart,
   Funnel,
@@ -18,12 +18,13 @@ const FUNNEL_COLORS = [
 ];
 
 // Top Form Detail Component
-function FormDetailItem({ formId, siteId, formName, days }: { formId: string, siteId: string, formName: string, days: number }) {
+function FormDetailItem({ formId, siteId, formName, days, shareToken }: { formId: string, siteId: string, formName: string, days: number, shareToken?: string }) {
     const { fields, overallDropoff, avgTimeMs, isLoading } = useFormMetrics({
         siteId,
         formId,
         days: days,
         enabled: true,
+        shareToken,
     });
 
     if (isLoading) return <div className="h-64 bg-gray-50 animate-pulse rounded-xl mb-6"></div>;
@@ -91,6 +92,7 @@ function FormDetailItem({ formId, siteId, formName, days }: { formId: string, si
                           <Cell key={`cell-${index}`} fill={FUNNEL_COLORS[index % FUNNEL_COLORS.length]} />
                         ))}
                         <LabelList position="right" fill="#4b5563" stroke="none" dataKey="name" />
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         <LabelList position="center" fill="#fff" stroke="none" dataKey="retentionPercent" formatter={(val:any) => `${val}%`} />
                       </Funnel>
                     </RechartsFunnelChart>
@@ -100,18 +102,20 @@ function FormDetailItem({ formId, siteId, formName, days }: { formId: string, si
     );
 }
 
-export default function ReportFormsWrapper({ siteId, days }: { siteId: string, days: number }) {
+export default function ReportFormsWrapper({ siteId, days, shareToken }: { siteId: string, days: number, shareToken?: string }) {
   const { forms, isLoading } = useFormList({
     siteId,
     days: days,
     enabled: !!siteId,
+    shareToken,
   });
 
   if (isLoading) return <div className="text-gray-500 text-center py-8">Loading Forms...</div>;
   if (!forms || forms.length === 0) return <div className="text-gray-500 italic">No form data detected.</div>;
 
   // Show details for the top form (most submissions)
-  const topForm = forms.reduce((prev, current) => (prev.total_submissions > current.total_submissions) ? prev : current);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const topForm = forms.reduce((prev: any, current: any) => (prev.total_submissions > current.total_submissions) ? prev : current);
 
   return (
     <div className="space-y-6">
@@ -128,7 +132,8 @@ export default function ReportFormsWrapper({ siteId, days }: { siteId: string, d
                      </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-50">
-                     {forms.slice(0, 5).map(form => (
+                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                     {forms.slice(0, 5).map((form: any) => (
                          <tr key={form.form_id}>
                              <td className="px-6 py-3 font-medium text-gray-900 truncate max-w-[200px]" title={form.form_id}>
                                  {form.form_id}
@@ -143,7 +148,7 @@ export default function ReportFormsWrapper({ siteId, days }: { siteId: string, d
         </div>
 
         {/* Detailed Analysis for Top Form */}
-        <FormDetailItem formId={topForm.form_id} siteId={siteId} formName={topForm.form_id} days={days} />
+        <FormDetailItem formId={topForm.form_id} siteId={siteId} formName={topForm.form_id} days={days} shareToken={shareToken} />
     </div>
   );
 }

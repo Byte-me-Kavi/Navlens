@@ -50,8 +50,8 @@ export function useSnapshot(params: SnapshotParams): UseSnapshotResult {
 
   // Create stable cache key from params
   const paramsHash = useMemo(() =>
-    `${params.siteId}:${params.pagePath}:${params.deviceType}`,
-    [params.siteId, params.pagePath, params.deviceType]
+    `${params.siteId}:${params.pagePath}:${params.deviceType}:${params.shareToken || ''}`,
+    [params.siteId, params.pagePath, params.deviceType, params.shareToken]
   );
 
   const fetchData = useCallback(async (forceRefresh = false) => {

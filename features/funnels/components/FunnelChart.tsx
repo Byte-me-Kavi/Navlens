@@ -83,6 +83,9 @@ export function FunnelChart({
   totalSessions: _totalSessions,
   className = "",
 }: FunnelChartProps) {
+  const { exportToPng, isExporting } = useChartExport();
+  const chartRef = useRef<HTMLDivElement>(null);
+
   if (!steps || steps.length === 0) {
     return (
       <div className={`bg-gray-50 rounded-2xl p-8 text-center border border-gray-100 ${className}`}>
@@ -108,8 +111,7 @@ export function FunnelChart({
   const overallRate =
     startCount > 0 ? ((endCount / startCount) * 100).toFixed(1) : "0.0";
   
-  const { exportToPng, isExporting } = useChartExport();
-  const chartRef = useRef<HTMLDivElement>(null);
+
 
 
 
@@ -158,7 +160,10 @@ export function FunnelChart({
                 fill="#ffffff"
                 stroke="none"
                 dataKey="value"
-                formatter={(val: any) => typeof val === 'number' ? val.toLocaleString() : (typeof val === 'string' ? val : '')}
+                formatter={
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (val: any) => typeof val === 'number' ? val.toLocaleString() : (typeof val === 'string' ? val : '')
+                }
                 style={{ fontSize: '14px', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
               />
             </Funnel>

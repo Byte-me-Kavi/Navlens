@@ -50,8 +50,3 @@ USING (
   )
 );
 
--- Policy: PUBLIC Access for viewing details by token (REQUIRED for public report page)
-CREATE POLICY "Public can view report shares by token"
-ON public.report_shares FOR SELECT
-To anon
-USING (true);

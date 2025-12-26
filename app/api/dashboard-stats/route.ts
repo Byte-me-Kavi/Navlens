@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 
 import { getClickHouseClient } from '@/lib/clickhouse';
+import { authenticateAndAuthorize } from '@/lib/auth';
+import { NextRequest } from 'next/server';
 
 // --- Type Definitions ---
 // Helper for safe result handling
@@ -68,7 +70,7 @@ const getCachedAnalytics = unstable_cache(
   { revalidate: 60 } // Update data at most once every 60 seconds
 );
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const _start = performance.now(); // Metric for logging
 
   try {
@@ -100,33 +102,28 @@ export async function GET() {
       }
     );
 
-    // 3. Get authenticated user first to distinguish between auth failure and no sites
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // 3. Authenticate with shared token support
+    const authResult = await authenticateAndAuthorize(req);
+    // authenticateAndAuthorize doesn't take 'cookieStore' directly but reads cookies() internally. 
+    // Wait, the imported version takes (request?) or nothing.
+    // Checking lib/auth.ts: export async function authenticateAndAuthorize(request?: NextRequest)
+    // In a GET route, usually we have 'request'. But here GET() signature is usually GET(request: NextRequest).
+    // The current signature is export async function GET().
+    // I need to update signature to GET(request: NextRequest) to check headers.
 
-    if (authError || !user) {
-      console.log('[dashboard-stats] Auth failed:', authError?.message || 'No user session');
+    if (!authResult.isAuthorized) {
+      console.log('[dashboard-stats] Auth failed');
       return NextResponse.json({
         message: 'Authentication required',
         error: 'Please log in to access dashboard stats'
       }, { status: 401 });
     }
 
+    const { userSites } = authResult;
+
+
     // 4. Query sites with explicit user filter (RLS backup)
-    const { data: userSites, error: siteError } = await supabase
-      .from('sites')
-      .select('id')
-      .eq('user_id', user.id);
-
-    // If RLS fails or query error
-    if (siteError) {
-      console.log('[dashboard-stats] Site query error:', siteError.message);
-      return NextResponse.json({
-        message: 'Failed to fetch sites',
-        error: siteError.message
-      }, { status: 500 });
-    }
-
-    // Handle case where user has no sites yet (Early exit saves resources)
+    // Redundant: authenticateAndAuthorize already returns authorized sites
     if (!userSites || userSites.length === 0) {
       return NextResponse.json({
         totalSites: 0,
@@ -138,7 +135,7 @@ export async function GET() {
       }, { status: 200 });
     }
 
-    const siteIds = userSites.map(s => s.id);
+    const siteIds = userSites;
     const totalSites = siteIds.length;
 
     // 4. PARALLEL EXECUTION (Now with Caching!)

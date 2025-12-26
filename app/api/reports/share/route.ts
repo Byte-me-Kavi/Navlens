@@ -17,6 +17,12 @@ export async function POST(req: NextRequest) {
             return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
         }
 
+        // Prevent public viewers from creating shares
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((authResult.user as any)?.role === 'public_viewer') {
+            return createUnauthorizedResponse();
+        }
+
         const body = await req.json();
         const { siteId, days = 30, include = 'all', expiresInDays } = body;
 
@@ -85,6 +91,12 @@ export async function GET(req: NextRequest) {
             return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
         }
 
+        // Prevent public viewers from listing shares
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((authResult.user as any)?.role === 'public_viewer') {
+            return createUnauthorizedResponse();
+        }
+
         const { searchParams } = new URL(req.url);
         const siteId = searchParams.get('siteId');
 
@@ -120,6 +132,12 @@ export async function DELETE(req: NextRequest) {
         const authResult = await authenticateAndAuthorize(req);
         if (!authResult.isAuthorized) {
             return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
+        // Prevent public viewers from deleting shares
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((authResult.user as any)?.role === 'public_viewer') {
+            return createUnauthorizedResponse();
         }
 
         const body = await req.json();

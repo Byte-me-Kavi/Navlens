@@ -3,9 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { secureApi } from "@/lib/secureApi";
 import {
-  FiMessageCircle,
   FiStar,
-  FiUser,
   FiGlobe,
   FiSmartphone,
 } from 'react-icons/fi';
@@ -51,7 +49,7 @@ const getTypeLabel = (type: string) => {
     }
 };
 
-export default function ReportFeedbackWrapper({ siteId, days }: { siteId: string, days: number }) {
+export default function ReportFeedbackWrapper({ siteId, days, shareToken }: { siteId: string, days: number, shareToken?: string }) {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,7 +69,7 @@ export default function ReportFeedbackWrapper({ siteId, days }: { siteId: string
           feedbackType: 'all',
           page: 1,
           limit: 10, // Top 10 for report
-        });
+        }, shareToken);
         
         setFeedback((data.feedback as Feedback[]) || []);
         setStats(data.stats as FeedbackStats);
@@ -81,8 +79,9 @@ export default function ReportFeedbackWrapper({ siteId, days }: { siteId: string
         setLoading(false);
       }
     };
+
     fetchData();
-  }, [siteId]);
+  }, [siteId, days, shareToken]);
 
   if (loading) return <div className="text-gray-500 text-center py-4">Loading Feedback...</div>;
   if (!stats || feedback.length === 0) return <div className="text-gray-500 italic">No feedback recorded in this period.</div>;

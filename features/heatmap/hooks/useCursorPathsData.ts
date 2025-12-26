@@ -1,9 +1,4 @@
-/**
- * useCursorPathsData Hook
- * 
- * Custom hook for fetching cursor movement path data with SWR caching
- */
-
+// features/heatmap/hooks/useCursorPathsData.ts
 import useSWR from 'swr';
 import { useMemo } from 'react';
 import { apiClient } from '@/shared/services/api/client';
@@ -44,6 +39,7 @@ interface CursorPathsParams {
     endDate?: string;
     limit?: number;
     days?: number;
+    shareToken?: string;
 }
 
 interface UseCursorPathsDataResult {
@@ -59,6 +55,8 @@ const cursorPathsFetcher = async ([, params]: [string, CursorPathsParams]): Prom
 
     // Prepare payload
     const payload = { ...params };
+    const config = params.shareToken ? { headers: { 'x-share-token': params.shareToken } } : {};
+
     if (params.days) {
         const end = new Date();
         const start = new Date();
@@ -68,7 +66,7 @@ const cursorPathsFetcher = async ([, params]: [string, CursorPathsParams]): Prom
         delete payload.days;
     }
 
-    const result = await apiClient.post<CursorPathsData>('/cursor-paths', payload);
+    const result = await apiClient.post<CursorPathsData>('/cursor-paths', payload, config);
 
     console.log('✓ Cursor paths data fetched:', {
         totalSessions: result.totalSessions,
@@ -90,10 +88,11 @@ export function useCursorPathsData(params: CursorPathsParams): UseCursorPathsDat
                 limit: params.limit || 50,
                 startDate: params.startDate,
                 endDate: params.endDate,
-                days: params.days
+                days: params.days,
+                shareToken: params.shareToken
             }
         ] as [string, CursorPathsParams];
-    }, [params.siteId, params.pagePath, params.limit, params.startDate, params.endDate, params.days]);
+    }, [params.siteId, params.pagePath, params.limit, params.startDate, params.endDate, params.days, params.shareToken]);
 
     const { data, error, isLoading, mutate } = useSWR(
         cacheKey,

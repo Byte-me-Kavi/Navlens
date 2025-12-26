@@ -6,8 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getUserFromRequest } from '@/lib/auth';
-
+import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { secureCorsHeaders } from '@/lib/security';
 
 const supabaseAdmin = createClient(
@@ -28,6 +27,12 @@ export async function OPTIONS() {
  */
 export async function POST(request: NextRequest) {
     try {
+        const authResult = await authenticateAndAuthorize(request);
+
+        if (!authResult.isAuthorized) {
+            return authResult.user ? createUnauthorizedResponse() : createUnauthenticatedResponse();
+        }
+
         const body = await request.json();
         const { siteId } = body;
 
@@ -38,30 +43,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Authenticate
-        const user = await getUserFromRequest(request);
-        if (!user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
         }
 
-        // Verify access
-        const { data: site } = await supabaseAdmin
-            .from('sites')
-            .select('user_id')
-            .eq('id', siteId)
-            .single();
-
-        if (!site || (site.user_id !== user.id && user.id !== 'admin-bypass')) {
-            return NextResponse.json(
-                { error: 'Access denied' },
-                { status: 403 }
-            );
-        }
-
-        // Fetch cohorts
+        // Fetch cohorts (using admin client since RLS might block if user is purely virtual/public)
+        // If the user is a real user, RLS would work with a user client, but for consistency and since we verified authZ above:
         const { data: cohorts, error } = await supabaseAdmin
             .from('cohorts')
             .select('*')

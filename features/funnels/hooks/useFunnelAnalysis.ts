@@ -39,6 +39,7 @@ export function useFunnelAnalysis(params: FunnelAnalysisParams | null): UseFunne
         siteId: params.siteId,
         startDate: params.startDate,
         endDate: params.endDate,
+        shareToken: params.shareToken,
       }
     ] as [string, FunnelAnalysisParams];
   }, [params]);

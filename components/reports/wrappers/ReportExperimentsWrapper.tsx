@@ -64,7 +64,7 @@ const StatusBadge = ({ status }: { status: Experiment["status"] }) => {
   );
 };
 
-function ExperimentResultsCard({ experiment, siteId, days }: { experiment: Experiment; siteId: string; days: number }) {
+function ExperimentResultsCard({ experiment, siteId, days, shareToken }: { experiment: Experiment; siteId: string; days: number; shareToken?: string }) {
   const [results, setResults] = useState<ExperimentResults | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,11 +87,12 @@ function ExperimentResultsCard({ experiment, siteId, days }: { experiment: Exper
         const data = await secureApi.experiments.results(siteId, experiment.id, {
           startDate,
           endDate
-        });
+        }, shareToken);
         
         console.log(`[ExperimentResults] Response:`, data);
         
-        // @ts-ignore - API returns wrapped object
+        // @ts-expect-error - API returns wrapped object
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const resultsData = (data as any)?.results || data as ExperimentResults;
         setResults(resultsData);
       } catch (err) {
@@ -101,8 +102,9 @@ function ExperimentResultsCard({ experiment, siteId, days }: { experiment: Exper
         setLoading(false);
       }
     };
+
     fetchResults();
-  }, [siteId, experiment?.id, days]);
+  }, [siteId, experiment?.id, days, shareToken]);
 
   if (loading) {
     return <div className="animate-pulse h-24 bg-gray-100 rounded-lg"></div>;
@@ -191,7 +193,7 @@ function ExperimentResultsCard({ experiment, siteId, days }: { experiment: Exper
   );
 }
 
-export default function ReportExperimentsWrapper({ siteId, days }: { siteId: string; days: number }) {
+export default function ReportExperimentsWrapper({ siteId, days, shareToken }: { siteId: string; days: number; shareToken?: string }) {
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -200,8 +202,9 @@ export default function ReportExperimentsWrapper({ siteId, days }: { siteId: str
       if (!siteId) return;
       setLoading(true);
       try {
-        const data = await secureApi.experiments.list(siteId);
-        // @ts-ignore - API returns { experiments: [...] }
+        const data = await secureApi.experiments.list(siteId, undefined, shareToken);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const experimentsList = (data as any)?.experiments || data;
         // Filter to show running, paused, or recently completed
         const relevantExperiments = (experimentsList as Experiment[]).filter(
@@ -214,8 +217,9 @@ export default function ReportExperimentsWrapper({ siteId, days }: { siteId: str
         setLoading(false);
       }
     };
+
     fetchExperiments();
-  }, [siteId]);
+  }, [siteId, shareToken]);
 
   if (loading) return <div className="text-gray-500 text-center py-8">Loading Experiments...</div>;
   if (!experiments || experiments.length === 0) {
@@ -265,7 +269,7 @@ export default function ReportExperimentsWrapper({ siteId, days }: { siteId: str
           </div>
 
           {/* Results */}
-          <ExperimentResultsCard experiment={experiment} siteId={siteId} days={days} />
+          <ExperimentResultsCard experiment={experiment} siteId={siteId} days={days} shareToken={shareToken} />
         </div>
       ))}
     </div>

@@ -8,7 +8,7 @@ interface ReportGeneratorProps {
 }
 
 export function ReportGenerator({ siteId }: ReportGeneratorProps) {
-  const { selectedSiteId } = useSite();
+  const { selectedSiteId: _selectedSiteId } = useSite();
 
   const handleGenerateReport = () => {
     // Open the report preview in a new tab

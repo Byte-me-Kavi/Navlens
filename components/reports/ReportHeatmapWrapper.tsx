@@ -8,9 +8,10 @@ interface ReportHeatmapWrapperProps {
   pagePath: string;
   dataType?: "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements";
   days: number;
+  shareToken?: string;
 }
 
-export function ReportHeatmapWrapper({ siteId, pagePath, dataType = "clicks", days }: ReportHeatmapWrapperProps) {
+export function ReportHeatmapWrapper({ siteId, pagePath, dataType = "clicks", days, shareToken }: ReportHeatmapWrapperProps) {
   // Determine display flags based on type
   const showElements = dataType === "elements";
   // Always show heatmap unless we are in elements mode (where we show only elements)
@@ -34,6 +35,7 @@ export function ReportHeatmapWrapper({ siteId, pagePath, dataType = "clicks", da
           userDevice="desktop"
           showExportButton={false}
           days={days}
+          shareToken={shareToken}
         />
       </div>
     </div>

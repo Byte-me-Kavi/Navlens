@@ -20,6 +20,7 @@ interface UseScrollHeatmapDataParams {
   startDate?: string;
   endDate?: string;
   days?: number;
+  shareToken?: string;
 }
 
 // SWR fetcher for scroll heatmap data
@@ -28,6 +29,8 @@ const scrollFetcher = async ([_url, params]: [string, UseScrollHeatmapDataParams
 
   // Prepare payload with explicit dates if days provided
   const payload = { ...params };
+  const config = params.shareToken ? { headers: { 'x-share-token': params.shareToken } } : {};
+
   if (params.days) {
     const end = new Date();
     const start = new Date();
@@ -37,7 +40,12 @@ const scrollFetcher = async ([_url, params]: [string, UseScrollHeatmapDataParams
     delete payload.days; // Clean up
   }
 
-  const result = await apiClient.post<ScrollHeatmapData>('/heatmap-scrolls', payload);
+  // Ensure shareToken is passed in the payload or headers?
+  // Our API client handles headers via config argument usually, but for POST, we often pass body then config.
+  // Wait, apiClient.post signature: <T>(url: string, data?: any, config?: AxiosRequestConfig) 
+  // But this `apiClient` is likely a wrapper. Let's assume axios-like: url, data, config.
+
+  const result = await apiClient.post<ScrollHeatmapData>('/heatmap-scrolls', payload, config);
   console.log('✓ Scroll data fetched:', { totalSessions: result.totalSessions, dataPoints: result.scrollData?.length });
   return result;
 };
@@ -54,10 +62,11 @@ export function useScrollHeatmapData(params: UseScrollHeatmapDataParams) {
         deviceType: params.deviceType,
         startDate: params.startDate,
         endDate: params.endDate,
-        days: params.days // Include days in cache key
+        days: params.days, // Include days in cache key
+        shareToken: params.shareToken
       }
     ] as [string, UseScrollHeatmapDataParams];
-  }, [params.siteId, params.pagePath, params.deviceType, params.startDate, params.endDate, params.days]);
+  }, [params.siteId, params.pagePath, params.deviceType, params.startDate, params.endDate, params.days, params.shareToken]);
 
   const { data, error, isLoading, mutate } = useSWR(
     cacheKey,

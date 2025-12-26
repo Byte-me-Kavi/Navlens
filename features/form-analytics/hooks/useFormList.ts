@@ -9,14 +9,15 @@ import useSWR from 'swr';
 import { formAnalyticsApi } from '../services/formAnalyticsApi';
 import { FormAnalyticsResponse, UseFormListOptions } from '../types/formAnalytics.types';
 
-export function useFormList({
+function useFormList({
     siteId,
     days = 7,
     enabled = true,
+    shareToken,
 }: UseFormListOptions) {
     const { data, error, isLoading, mutate } = useSWR<FormAnalyticsResponse>(
-        enabled && siteId ? ['form-list', siteId, days] : null,
-        () => formAnalyticsApi.getFormList(siteId, days),
+        enabled && siteId ? ['form-list', siteId, days, shareToken] : null,
+        () => formAnalyticsApi.getFormList(siteId, days, shareToken),
         {
             revalidateOnFocus: false,
             dedupingInterval: 60000, // 1 minute
@@ -32,4 +33,4 @@ export function useFormList({
     };
 }
 
-export default useFormList;
+export { useFormList };

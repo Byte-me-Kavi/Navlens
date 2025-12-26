@@ -11,4 +11,5 @@ export interface SnapshotParams {
   siteId: string;
   pagePath: string;
   deviceType: 'desktop' | 'tablet' | 'mobile';
+  shareToken?: string;
 }

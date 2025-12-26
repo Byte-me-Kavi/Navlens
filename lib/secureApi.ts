@@ -15,6 +15,20 @@ import { apiClient, ApiError } from '@/shared/services/api/client';
 // Import directly from requestQueue to avoid loading server-only cors.ts
 import { requestQueue } from '@/lib/security/requestQueue';
 
+// Add share token support to apiClient
+
+
+// Helper to inject token
+const withToken = (shareToken?: string) => {
+    if (!shareToken) return {};
+    return {
+        headers: {
+            'x-share-token': shareToken
+        }
+    };
+};
+
+
 // Re-export ApiError for convenience
 export { ApiError };
 
@@ -26,12 +40,12 @@ export const secureApi = {
      * Experiments API
      */
     experiments: {
-        list: (siteId: string, options?: { status?: string; activeOnly?: boolean }) =>
+        list: (siteId: string, options?: { status?: string; activeOnly?: boolean }, shareToken?: string) =>
             requestQueue.add(() =>
                 apiClient.post<{ experiments: unknown[] }>('/experiments/query', {
                     siteId,
                     ...options,
-                })
+                }, withToken(shareToken))
             ),
 
         get: (experimentId: string, siteId: string) =>
@@ -57,13 +71,13 @@ export const secureApi = {
                 apiClient.post<{ success: boolean }>(`/experiments/${experimentId}/delete`, { siteId })
             ),
 
-        results: (siteId: string, experimentId: string, options?: { startDate?: string; endDate?: string }) =>
+        results: (siteId: string, experimentId: string, options?: { startDate?: string; endDate?: string }, shareToken?: string) =>
             requestQueue.add(() =>
                 apiClient.post<{ results: unknown }>('/experiments/results/query', {
                     siteId,
                     experimentId,
                     ...options,
-                })
+                }, withToken(shareToken))
             ),
 
         modifications: {
@@ -91,9 +105,9 @@ export const secureApi = {
      * Cohorts API
      */
     cohorts: {
-        list: (siteId: string) =>
+        list: (siteId: string, shareToken?: string) =>
             requestQueue.add(() =>
-                apiClient.post<{ cohorts: unknown[] }>('/cohorts/query', { siteId })
+                apiClient.post<{ cohorts: unknown[] }>('/cohorts/query', { siteId }, withToken(shareToken))
             ),
 
         create: (data: unknown) =>
@@ -106,9 +120,9 @@ export const secureApi = {
                 apiClient.delete<{ success: boolean }>('/cohorts', { id: cohortId })
             ),
 
-        metrics: (data: unknown) =>
+        metrics: (data: unknown, shareToken?: string) =>
             requestQueue.add(() =>
-                apiClient.post<unknown>('/cohort-metrics', data)
+                apiClient.post<unknown>('/cohort-metrics', data, withToken(shareToken))
             ),
     },
 
@@ -116,12 +130,12 @@ export const secureApi = {
      * Feedback API
      */
     feedback: {
-        list: (siteId: string, options?: { limit?: number; offset?: number }) =>
+        list: (siteId: string, options?: { limit?: number; offset?: number }, shareToken?: string) =>
             requestQueue.add(() =>
                 apiClient.post<{ feedback: unknown[] }>('/feedback/query', {
                     siteId,
                     ...options,
-                })
+                }, withToken(shareToken))
             ),
 
         config: (siteId: string) =>
@@ -136,14 +150,14 @@ export const secureApi = {
             feedbackType: string;
             page: number;
             limit: number;
-        }) =>
+        }, shareToken?: string) =>
             requestQueue.add(() =>
                 apiClient.post<{
                     feedback: unknown[];
                     totalCount: number;
                     totalPages: number;
                     stats: unknown
-                }>('/dashboard/feedback', data)
+                }>('/dashboard/feedback', data, withToken(shareToken))
             ),
     },
 
@@ -154,7 +168,7 @@ export const secureApi = {
      * Forms/Insights API
      */
     forms: {
-        insights: (siteId: string, options?: { formId?: string; days?: number }) =>
+        insights: (siteId: string, options?: { formId?: string; days?: number }, shareToken?: string) =>
             requestQueue.add(() => {
                 const queryParams = new URLSearchParams({
                     siteId,
@@ -163,7 +177,7 @@ export const secureApi = {
                     // Default to including fields if not specified, or expose as option
                     fields: 'true'
                 });
-                return apiClient.get<unknown>(`/insights/forms?${queryParams}`);
+                return apiClient.get<unknown>(`/insights/forms?${queryParams}`, undefined, withToken(shareToken));
             }),
     },
 
@@ -171,13 +185,13 @@ export const secureApi = {
      * Funnels API
      */
     funnels: {
-        list: (siteId: string) =>
+        list: (siteId: string, shareToken?: string) =>
             requestQueue.add(() => {
                 const queryParams = new URLSearchParams({ siteId });
-                return apiClient.get<{ funnels: unknown[] }>(`/funnels?${queryParams}`);
+                return apiClient.get<{ funnels: unknown[] }>(`/funnels?${queryParams}`, undefined, withToken(shareToken));
             }),
 
-        analyze: (siteId: string, funnelId: string, options?: { startDate?: string; endDate?: string }) =>
+        analyze: (siteId: string, funnelId: string, options?: { startDate?: string; endDate?: string }, shareToken?: string) =>
             requestQueue.add(() => {
                 const queryParams = new URLSearchParams({
                     siteId,
@@ -186,7 +200,7 @@ export const secureApi = {
                     ...(options?.startDate && { startDate: options.startDate }),
                     ...(options?.endDate && { endDate: options.endDate }),
                 });
-                return apiClient.get<unknown>(`/funnels?${queryParams}`);
+                return apiClient.get<unknown>(`/funnels?${queryParams}`, undefined, withToken(shareToken));
             }),
 
         create: (data: unknown) =>
@@ -208,27 +222,27 @@ export const secureApi = {
             page?: number;
             pageSize?: number;
             filters?: Record<string, unknown>;
-        }) =>
+        }, shareToken?: string) =>
             requestQueue.add(() =>
                 apiClient.post<{ sessions: unknown[]; pagination: unknown }>('/sessions', {
                     siteId,
                     ...options,
-                })
+                }, withToken(shareToken))
             ),
 
-        get: (sessionId: string, siteId: string) =>
+        get: (sessionId: string, siteId: string, shareToken?: string) =>
             requestQueue.add(() =>
                 apiClient.post<{ session: unknown }>(`/sessions/${sessionId}`, {
                     siteId,
-                })
+                }, withToken(shareToken))
             ),
 
-        replayEvents: (sessionId: string, siteId: string) =>
+        replayEvents: (sessionId: string, siteId: string, shareToken?: string) =>
             requestQueue.add(() =>
                 apiClient.post<{ events: unknown[]; meta?: { totalEvents: number; startTime: number; duration: number } }>('/sessions/replay', {
                     sessionId,
                     siteId,
-                })
+                }, withToken(shareToken))
             ),
 
         notes: {
@@ -264,22 +278,22 @@ export const secureApi = {
      * Heatmaps API
      */
     heatmaps: {
-        clicks: (siteId: string, pagePath: string, options?: { deviceType?: string }) =>
+        clicks: (siteId: string, pagePath: string, options?: { deviceType?: string }, shareToken?: string) =>
             requestQueue.add(() =>
-                apiClient.post<unknown>('/heatmap-clicks/query', {
+                apiClient.post<unknown>('/heatmap-clicks', {
                     siteId,
                     pagePath,
                     ...options,
-                })
+                }, withToken(shareToken))
             ),
 
-        snapshot: (siteId: string, pagePath: string, deviceType?: string) =>
+        snapshot: (siteId: string, pagePath: string, deviceType?: string, shareToken?: string) =>
             requestQueue.add(() =>
                 apiClient.post<unknown>('/get-snapshot/query', {
                     siteId,
                     pagePath,
                     deviceType,
-                })
+                }, withToken(shareToken))
             ),
     },
 
@@ -287,14 +301,14 @@ export const secureApi = {
      * Performance API
      */
     performance: {
-        metrics: (data: unknown) =>
+        metrics: (data: unknown, shareToken?: string) =>
             requestQueue.add(() =>
-                apiClient.post<unknown>('/performance-metrics', data)
+                apiClient.post<unknown>('/performance-metrics', data, withToken(shareToken))
             ),
 
-        networkHealth: (data: { siteId: string; startDate?: string; endDate?: string; pagePath?: string }) =>
+        networkHealth: (data: { siteId: string; startDate?: string; endDate?: string; pagePath?: string }, shareToken?: string) =>
             requestQueue.add(() =>
-                apiClient.post<unknown>('/network-health', data)
+                apiClient.post<unknown>('/network-health', data, withToken(shareToken))
             ),
     },
 
@@ -302,9 +316,9 @@ export const secureApi = {
      * User Journeys API
      */
     journeys: {
-        get: (data: unknown) =>
+        get: (data: unknown, shareToken?: string) =>
             requestQueue.add(() =>
-                apiClient.post<unknown>('/user-journeys', data)
+                apiClient.post<unknown>('/user-journeys', data, withToken(shareToken))
             ),
     },
 

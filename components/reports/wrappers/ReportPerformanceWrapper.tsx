@@ -14,15 +14,10 @@ import {
   FiSmartphone,
   FiTablet,
   FiCheckCircle,
-  FiAlertCircle,
   FiAlertTriangle,
   FiXCircle,
   FiWifi,
-  FiClock,
-  FiArrowDown,
-  FiArrowUp,
   FiServer,
-  FiGlobe,
   FiZap,
 } from "react-icons/fi";
 
@@ -163,12 +158,6 @@ const getMethodColor = (method: string): string => {
   }
 };
 
-const getStatusColor = (status: number): string => {
-  if (status >= 200 && status < 300) return 'text-green-600 bg-green-50';
-  if (status >= 300 && status < 400) return 'text-blue-600 bg-blue-50';
-  if (status >= 400 && status < 500) return 'text-amber-600 bg-amber-50';
-  return 'text-red-600 bg-red-50';
-};
 
 // =============================================================================
 // Shared Components
@@ -372,9 +361,10 @@ const FailingEndpointsList = ({ data }: { data: NetworkHealthData['topFailingEnd
 interface ReportPerformanceWrapperProps {
   siteId: string;
   days?: number; // Optional, defaults to 30
+  shareToken?: string;
 }
 
-export function ReportPerformanceWrapper({ siteId, days = 30 }: ReportPerformanceWrapperProps) {
+export function ReportPerformanceWrapper({ siteId, days = 30, shareToken }: ReportPerformanceWrapperProps) {
   const [data, setData] = useState<PerformanceData | null>(null);
   const [networkData, setNetworkData] = useState<NetworkHealthData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -387,7 +377,7 @@ export function ReportPerformanceWrapper({ siteId, days = 30 }: ReportPerformanc
         const perfPromise = secureApi.performance.metrics({
           siteId,
           days: days, // Use dynamic days
-        });
+        }, shareToken);
 
         // Fetch Network Data
         // Dashboard typically defaults to 7 days, but Report covers 30.
@@ -400,7 +390,7 @@ export function ReportPerformanceWrapper({ siteId, days = 30 }: ReportPerformanc
           siteId,
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
-        });
+        }, shareToken);
 
         const [perf, net] = await Promise.all([perfPromise, netPromise]);
         setData(perf as PerformanceData);
@@ -415,7 +405,7 @@ export function ReportPerformanceWrapper({ siteId, days = 30 }: ReportPerformanc
     if (siteId) {
       fetchData();
     }
-  }, [siteId, days]);
+  }, [siteId, days, shareToken]);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading Performance Metrics...</div>;
   if (!data || !networkData) return null;

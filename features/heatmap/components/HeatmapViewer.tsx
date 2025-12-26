@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSnapshot } from "@/features/dom-snapshot/hooks/useSnapshot";
 import { useHeatmapData } from "@/features/heatmap/hooks/useHeatmapData";
 import { useElementClicks } from "@/features/element-tracking/hooks/useElementClicks";
@@ -39,6 +39,7 @@ export interface HeatmapViewerProps {
   showExportButton?: boolean;
   isStaticHeight?: boolean; // For report generation
   days?: number; // For date filtering
+  shareToken?: string;
 }
 
 export function HeatmapViewer({
@@ -58,11 +59,11 @@ export function HeatmapViewer({
   showExportButton = true,
   isStaticHeight = false,
   days = 30, // Default to 30 days
+  shareToken,
 }: HeatmapViewerProps) {
   const [showAllViewports, setShowAllViewports] = useState(externalShowAllViewports);
   const [prevExternalShowAllViewports, setPrevExternalShowAllViewports] = useState(externalShowAllViewports);
   const [isExporting, setIsExporting] = useState(false);
-  const exportContainerRef = useRef<HTMLDivElement>(null);
 
   // Sync state with prop during render
   if (externalShowAllViewports !== prevExternalShowAllViewports) {
@@ -90,10 +91,8 @@ export function HeatmapViewer({
     const isMac = navigator.platform.toLowerCase().includes('mac');
     
     let instructions = '';
-    let shortcut = '';
     
     if (isWindows) {
-      shortcut = 'Win + Shift + S';
       instructions = `📸 Screenshot Instructions (Windows):
 
 1. Press Win + Shift + S
@@ -103,7 +102,6 @@ export function HeatmapViewer({
 
 💡 Tip: After taking the screenshot, it's automatically copied. Just Ctrl+V to paste!`;
     } else if (isMac) {
-      shortcut = 'Cmd + Shift + 4';
       instructions = `📸 Screenshot Instructions (Mac):
 
 1. Press Cmd + Shift + 4
@@ -118,16 +116,17 @@ export function HeatmapViewer({
 Use your system's screenshot tool to capture the heatmap area.`;
     }
     
+    
     alert(instructions);
     setIsExporting(false);
-  }, []);
+  }, [isExporting]);
 
   // Fetch snapshot data internally
   const {
     data: snapshotData,
     loading: snapshotLoading,
     error: snapshotError,
-  } = useSnapshot({ siteId, pagePath, deviceType });
+  } = useSnapshot({ siteId, pagePath, deviceType, shareToken });
   // Effect to manage data fetching based on viewport mode
   useEffect(() => {
     let isMounted = true;
@@ -147,14 +146,17 @@ Use your system's screenshot tool to capture the heatmap area.`;
             dateRangeDays: days // Pass this too just in case
           };
 
+          const config = shareToken ? { headers: { 'x-share-token': shareToken } } : {};
+
           const [heatmapResponse, elementsResponse] = await Promise.all([
             apiClient.post<{ clicks: HeatmapPoint[] }>(
               "/heatmap-clicks-all-viewports",
-              { siteId, pagePath, deviceType, ...dateParams }
+              { siteId, pagePath, deviceType, ...dateParams },
+              config
             ),
             apiClient.post<ElementClick[]>("/element-clicks-all-viewports", {
               siteId, pagePath, deviceType, ...dateParams
-            }),
+            }, config),
           ]);
 
           if (isMounted) {
@@ -185,7 +187,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
     manageViewportData();
 
     return () => { isMounted = false; };
-  }, [showAllViewports, allViewportsData, siteId, pagePath, deviceType, externalShowAllViewports, onViewportModeChange, days]);
+  }, [showAllViewports, allViewportsData, siteId, pagePath, deviceType, externalShowAllViewports, onViewportModeChange, days, shareToken]);
 
   // Fetch unique session count for this page
   useEffect(() => {
@@ -195,13 +197,15 @@ Use your system's screenshot tool to capture the heatmap area.`;
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
 
+        const config = shareToken ? { headers: { 'x-share-token': shareToken } } : {};
+
         const response = await apiClient.post<{ sessions: number }>('/page-sessions', {
           siteId,
           pagePath,
           deviceType,
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString()
-        });
+        }, config);
         setUniqueSessions(response.sessions || 0);
       } catch (_error) {
         // Fallback: estimate from heatmap data if API fails
@@ -213,7 +217,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
     if (siteId && pagePath) {
       fetchSessionCount();
     }
-  }, [siteId, pagePath, deviceType, days]);
+  }, [siteId, pagePath, deviceType, days, shareToken]);
 
   // Extract viewport dimensions from snapshot
   // The snapshot HTML contains viewport dimensions from when it was captured
@@ -252,7 +256,8 @@ Use your system's screenshot tool to capture the heatmap area.`;
       deviceType,
       documentWidth: shouldFetchFiltered ? documentWidth : 1920,
       documentHeight: shouldFetchFiltered ? documentHeight : 1080,
-      dateRangeDays: days // Pass days to hook
+      dateRangeDays: days, // Pass days to hook
+      shareToken // Pass share token
     }),
     [
       siteId,
@@ -262,6 +267,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
       documentWidth,
       documentHeight,
       days,
+      shareToken,
     ]
   );
 
@@ -277,6 +283,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
       documentWidth: shouldFetchFiltered ? documentWidth : 1920,
       documentHeight: shouldFetchFiltered ? documentHeight : 1080,
       days: days, // Pass days
+      shareToken, // Pass share token
     }),
     [
       siteId,
@@ -286,6 +293,7 @@ Use your system's screenshot tool to capture the heatmap area.`;
       documentWidth,
       documentHeight,
       days,
+      shareToken,
     ]
   );
 
@@ -299,8 +307,9 @@ Use your system's screenshot tool to capture the heatmap area.`;
       pagePath,
       deviceType,
       days: days, // Pass days
+      shareToken, // Pass share token
     }),
-    [siteId, pagePath, deviceType, days]
+    [siteId, pagePath, deviceType, days, shareToken]
   );
 
   const { data: scrollData, loading: scrollLoading } =
@@ -313,8 +322,9 @@ Use your system's screenshot tool to capture the heatmap area.`;
       pagePath,
       deviceType,
       days: days, // Pass days
+      shareToken, // Pass share token
     }),
-    [siteId, pagePath, deviceType, days]
+    [siteId, pagePath, deviceType, days, shareToken]
   );
 
   const { data: hoverData, loading: hoverLoading } =
@@ -327,8 +337,9 @@ Use your system's screenshot tool to capture the heatmap area.`;
       pagePath,
       limit: 50,
       days: days, // Pass days
+      shareToken, // Pass share token
     }),
-    [siteId, pagePath, days]
+    [siteId, pagePath, days, shareToken]
   );
 
   const { data: cursorPathsData, loading: cursorPathsLoading } =

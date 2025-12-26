@@ -28,6 +28,7 @@ export interface ElementClickParams {
   documentHeight?: number;
   startDate?: string;
   endDate?: string;
+  shareToken?: string;
 }
 
 export interface ElementAnalysis {

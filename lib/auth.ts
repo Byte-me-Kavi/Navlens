@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
@@ -39,25 +40,10 @@ async function withRetry<T>(
  * Authenticates user and returns their authorized site IDs
  * This ensures users can only access data from sites they own
  */
-export async function authenticateAndAuthorize(request?: NextRequest): Promise<AuthResult> { // eslint-disable-line @typescript-eslint/no-unused-vars
+export async function authenticateAndAuthorize(request?: NextRequest): Promise<AuthResult> {
   try {
     // Get cookies
     const cookieStore = await cookies();
-
-    // Check for Admin Bypass
-    // The Report Generator uses a custom 'admin_session' cookie.
-    // If present and valid, we grant full access (as a super admin).
-    // In a production environment, you should verify this session token against a DB or secure store.
-    const adminSession = cookieStore.get('admin_session');
-    if (adminSession?.value) {
-      console.log('🔐 Admin Session Detected - Bypassing standard auth for Report Generator');
-      // Grant universal access
-      return {
-        user: { id: 'admin-bypass', email: 'kaveeshatmdss@gmail.com', aud: 'authenticated', role: 'admin' } as User,
-        userSites: ['ADMIN_ACCESS'], // Special flag for isAuthorizedForSite
-        isAuthorized: true
-      };
-    }
 
     // Initialize Supabase client
     const supabase = createServerClient(
@@ -77,6 +63,33 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
       }
     );
 
+    // Check for Share Token (Public Access)
+    const shareToken = request?.headers.get('x-share-token');
+    if (shareToken) {
+      // Use Admin Client for secure lookup (bypassing RLS safely on server)
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const { data: share } = await supabaseAdmin
+        .from('report_shares')
+        .select('site_id, expires_at')
+        .eq('share_token', shareToken)
+        .single();
+
+      if (share) {
+        // Check expiration
+        if (!share.expires_at || new Date(share.expires_at) > new Date()) {
+          return {
+            user: { id: 'share-viewer', email: 'viewer@share', role: 'public_viewer', aud: 'authenticated' } as User,
+            userSites: [share.site_id],
+            isAuthorized: true
+          };
+        }
+      }
+    }
+
     // Authenticate user with retry
     const authResult = await withRetry(
       async () => supabase.auth.getUser(),
@@ -86,57 +99,80 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
 
     const { data: { user }, error: authError } = authResult as { data: { user: User | null }, error: unknown };
 
-    if (authError || !user) {
-      return {
-        user: null,
-        userSites: [],
-        isAuthorized: false
-      };
-    }
+    if (!authError && user) {
+      // Check for User Ban
+      // Cast to unknown first to safely check custom properties
+      const userWithBan = user as unknown as { banned_until?: string; email?: string };
+      if (userWithBan.banned_until && new Date(userWithBan.banned_until) > new Date()) {
+        console.warn(`User ${userWithBan.email} is banned until ${userWithBan.banned_until}`);
+        return {
+          user,
+          userSites: [], // No access
+          isAuthorized: false
+        };
+      }
 
-    // Check for User Ban
-    // Cast to unknown first to safely check custom properties
-    const userWithBan = user as unknown as { banned_until?: string; email?: string };
-    if (userWithBan.banned_until && new Date(userWithBan.banned_until) > new Date()) {
-      console.warn(`User ${userWithBan.email} is banned until ${userWithBan.banned_until}`);
+      // Get sites owned by user with retry
+      // Also fetch status to filter out banned sites
+      const siteResult = await withRetry(
+        async () => supabase
+          .from('sites')
+          .select('id, status')
+          .eq('user_id', user.id),
+        3,
+        100
+      );
+
+      const { data: userSites, error: siteError } = siteResult as { data: { id: string; status: string }[] | null, error: unknown };
+
+      if (siteError) {
+        console.error('Error fetching user sites after retries:', siteError);
+        return {
+          user,
+          userSites: [],
+          isAuthorized: false
+        };
+      }
+
+      // Filter out banned sites - this effectively revokes access to them for all APIs
+      const siteIds = userSites
+        ?.filter((site) => site.status !== 'banned')
+        .map((site) => site.id) || [];
+
       return {
         user,
-        userSites: [], // No access
-        isAuthorized: false
+        userSites: siteIds,
+        isAuthorized: true
       };
     }
 
-    // Get sites owned by user with retry
-    // Also fetch status to filter out banned sites
-    const siteResult = await withRetry(
-      async () => supabase
-        .from('sites')
-        .select('id, status')
-        .eq('user_id', user.id),
-      3,
-      100
-    );
-
-    const { data: userSites, error: siteError } = siteResult as { data: { id: string; status: string }[] | null, error: unknown };
-
-    if (siteError) {
-      console.error('Error fetching user sites after retries:', siteError);
+    // Check for Admin Bypass (Fallback if no standard user)
+    // The Report Generator uses a custom 'admin_session' cookie.
+    // If present and valid, we grant full access (as a super admin).
+    // In a production environment, you should verify this session token against a DB or secure store.
+    const adminSession = cookieStore.get('admin_session');
+    const adminEmail = process.env.ADMIN_EMAIL;
+    // Allow admin bypass in development OR if a specific ADMIN_EMAIL is configured in production
+    if (adminSession?.value && (process.env.NODE_ENV === 'development' || adminEmail)) {
+      console.log('🔐 Admin Session Detected - Bypassing standard auth for Report Generator');
+      // Grant universal access
       return {
-        user,
-        userSites: [],
-        isAuthorized: false
+        user: {
+          id: 'admin-bypass',
+          email: adminEmail || 'kaveeshatmdss@gmail.com',
+          aud: 'authenticated',
+          role: 'admin'
+        } as User,
+        userSites: ['ADMIN_ACCESS'], // Special flag for isAuthorizedForSite
+        isAuthorized: true
       };
     }
 
-    // Filter out banned sites - this effectively revokes access to them for all APIs
-    const siteIds = userSites
-      ?.filter((site) => site.status !== 'banned')
-      .map((site) => site.id) || [];
-
+    // If both Standard Auth and Admin Bypass failed
     return {
-      user,
-      userSites: siteIds,
-      isAuthorized: true
+      user: null,
+      userSites: [],
+      isAuthorized: false
     };
   } catch (error) {
     console.error('Authentication error:', error);

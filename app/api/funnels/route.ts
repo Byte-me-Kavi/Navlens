@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
@@ -245,7 +246,16 @@ export async function GET(req: NextRequest) {
       return createUnauthorizedResponse();
     }
 
-    const supabase = await createSupabaseClient();
+    let supabase;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((authResult.user as any)?.role === 'public_viewer') {
+      supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+    } else {
+      supabase = await createSupabaseClient();
+    }
 
     if (action === 'analyze' && funnelId) {
       // Get funnel details

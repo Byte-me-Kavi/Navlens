@@ -82,9 +82,10 @@ interface ReportSessionSpotlightsWrapperProps {
   siteId: string;
   days: number;
   sessionsData: ServerSessionData[];
+  shareToken?: string;
 }
 
-export default function ReportSessionSpotlightsWrapper({ siteId, days, sessionsData }: ReportSessionSpotlightsWrapperProps) {
+export default function ReportSessionSpotlightsWrapper({ siteId, days: _days, sessionsData, shareToken: _shareToken }: ReportSessionSpotlightsWrapperProps) {
   // Modal state for embedded session player
   const [activeSession, setActiveSession] = useState<string | null>(null);
 

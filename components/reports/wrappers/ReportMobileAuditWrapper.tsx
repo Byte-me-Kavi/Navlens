@@ -79,9 +79,10 @@ interface ReportMobileAuditWrapperProps {
   siteId: string;
   days: number;
   sessionsData: SessionData[];
+  shareToken?: string;
 }
 
-export default function ReportMobileAuditWrapper({ siteId, days, sessionsData }: ReportMobileAuditWrapperProps) {
+export default function ReportMobileAuditWrapper({ siteId: _siteId, days: _days, sessionsData, shareToken: _shareToken }: ReportMobileAuditWrapperProps) {
   // Process server-provided sessionsData directly (no client-side fetch needed)
   const deviceMetrics = React.useMemo(() => {
     // Aggregate metrics by device type

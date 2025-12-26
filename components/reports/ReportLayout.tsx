@@ -1,4 +1,7 @@
-import React from 'react';
+"use client";
+
+import React, { useEffect } from 'react';
+import { apiClient } from '@/shared/services/api/client';
 import { ReportControls } from './ReportControls';
 import { ShareReportButton } from './ShareReportButton';
 
@@ -8,9 +11,17 @@ interface ReportLayoutProps {
   dateRange: string;
   days?: number;
   siteId?: string; // Added for share functionality
+  shareToken?: string; // Added for public access
 }
 
-export function ReportLayout({ children, title, dateRange, days, siteId }: ReportLayoutProps) {
+export function ReportLayout({ children, title, dateRange, days, siteId, shareToken }: ReportLayoutProps) {
+  useEffect(() => {
+    if (shareToken) {
+      console.log('Using public share token:', shareToken);
+      apiClient.setShareToken(shareToken);
+    }
+    return () => apiClient.setShareToken(null);
+  }, [shareToken]);
   return (
     <div className="min-h-screen bg-white text-gray-900 p-8 print:p-0 font-sans">
       {/* Print-only CSS to enforce layout */}

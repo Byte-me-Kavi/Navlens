@@ -42,6 +42,7 @@ const PricingPage: React.FC = () => {
   const [exchangeRate, setExchangeRate] = useState<number>(300); // Default fallback
 
   // Map Config to UI
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getPlansFromConfig = useCallback((targetCurrency: 'USD' | 'LKR', dbPlans: any[] = []) => {
     return Object.values(PLANS).map((plan) => {
         // Find DB plan to get live prices
@@ -141,7 +142,6 @@ const PricingPage: React.FC = () => {
       }
 
       // 2. Fetch Live Prices
-      let dbPlans: any[] = [];
       try {
         const { data } = await supabase
           .from('subscription_plans')
@@ -149,7 +149,6 @@ const PricingPage: React.FC = () => {
           .order('price_usd', { ascending: true });
         
          if (data && data.length > 0) {
-             dbPlans = data;
              // Try to deduce rate from a paid plan
              const paidPlan = data.find(p => p.price_usd > 0 && p.price_lkr > 0);
              if (paidPlan) {
@@ -177,6 +176,7 @@ const PricingPage: React.FC = () => {
   // Separate effect to update plans when currency changes (user toggle or auto-detect)
   // We need to fetch DB plans and store them to usage here.
   // Let's refactor the data fetching strategy slightly to store dbPlans.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [dbPlans, setDbPlans] = useState<any[]>([]);
 
   useEffect(() => {

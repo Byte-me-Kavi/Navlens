@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { secureApi } from "@/lib/secureApi";
 import {
@@ -8,7 +8,6 @@ import {
   FiLogIn,
   FiLogOut,
   FiMap,
-  FiClock,
 } from "react-icons/fi";
 
 // Dynamic import for Sankey
@@ -67,7 +66,7 @@ const PALETTE = [
   { bg: 'bg-orange-50', text: 'text-orange-700', full: 'bg-orange-50 text-orange-700 border-orange-200', hex: '#f97316' },
 ];
 
-export default function ReportJourneyWrapper({ siteId, days }: { siteId: string, days: number }) {
+export default function ReportJourneyWrapper({ siteId, days, shareToken }: { siteId: string, days: number, shareToken?: string }) {
   const [data, setData] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -77,7 +76,7 @@ export default function ReportJourneyWrapper({ siteId, days }: { siteId: string,
     colorMap.set('/', PALETTE[0]);
     colorMap.set('', PALETTE[0]);
 
-    if (!data) return (p: string) => PALETTE[0];
+    if (!data) return (_p: string) => PALETTE[0];
 
     // Simple assignment for report
     const allPaths = new Set<string>();
@@ -115,7 +114,7 @@ export default function ReportJourneyWrapper({ siteId, days }: { siteId: string,
           siteId,
           startDate: start.toISOString(),
           endDate: end.toISOString(),
-        });
+        }, shareToken);
         setData(result as JourneyData);
       } catch (error) {
         console.error("Failed to fetch journey data", error);
@@ -124,7 +123,7 @@ export default function ReportJourneyWrapper({ siteId, days }: { siteId: string,
       }
     };
     fetchData();
-  }, [siteId]);
+  }, [siteId, days, shareToken]);
 
   if (loading) return <div className="text-gray-500 text-center py-8">Loading Journeys...</div>;
   if (!data) return null;

@@ -46,8 +46,10 @@ export default function AdminReportGenerator({ sites }: AdminReportGeneratorProp
       "mobile_audit",
       "experiments",
       "sessions",
+      "sessions",
       "cohorts",
-      "feedback"
+      "feedback",
+      "funnels"
     ])
   );
 
@@ -194,6 +196,15 @@ export default function AdminReportGenerator({ sites }: AdminReportGeneratorProp
                         />
                      </div>
                   </div>
+
+                  <FeatureCheckbox
+                    id="funnels"
+                    label="Conversion Funnels"
+                    description="Step-by-step conversion analysis and drop-off rates"
+                    checked={selectedFeatures.has("funnels")}
+                    onChange={() => toggleFeature("funnels")}
+                    icon={FunnelIcon}
+                  />
 
                   <FeatureCheckbox
                     id="journey"

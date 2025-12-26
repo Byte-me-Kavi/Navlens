@@ -25,10 +25,11 @@ interface ReportHeatmapSectionProps {
   siteId: string;
   uniquePaths: string[];
   days: number;
+  shareToken?: string;
 }
 
 // Sub-component for individual heatmap sections to manage independent state
-function ReportHeatmapItem({ path, index, siteId, days }: { path: string, index: number, siteId: string, days: number }) {
+function ReportHeatmapItem({ path, index, siteId, days, shareToken }: { path: string, index: number, siteId: string, days: number, shareToken?: string }) {
   const [selectedDataType, setSelectedDataType] = useState<
     "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements"
   >("clicks");
@@ -56,7 +57,7 @@ function ReportHeatmapItem({ path, index, siteId, days }: { path: string, index:
                      <span className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-600 text-white font-bold text-lg shadow-sm">3.{index + 1}</span>
                     <div>
                         <h3 className="text-3xl font-bold text-gray-900">
-                           The "Fold" & Engagement: {path === '/' ? 'Homepage' : path}
+                           The &quot;Fold&quot; & Engagement: {path === '/' ? 'Homepage' : path}
                         </h3>
                         <p className="text-gray-500 text-lg mt-1">Scroll Depth & Attention Analysis</p>
                     </div>
@@ -105,13 +106,11 @@ function ReportHeatmapItem({ path, index, siteId, days }: { path: string, index:
                     <FireIcon className="w-5 h-5" />
                     Engagement Insight: {currentDataType?.label}
                 </h4>
-                <p className="text-amber-800 text-sm italic">
                     {selectedDataType === 'clicks' && "Visualizing high-intent interactions. Red zones indicate fierce engagement, while cold zones suggest ignored content."}
                     {selectedDataType === 'scrolls' && "Tracking how far users travel down the page. The gradient shift shows exactly where you lose your audience (The 'Fold')."}
                     {selectedDataType === 'hover' && "Revealing user attention and reading patterns. Mouse movement often correlates with eye tracking."}
                     {selectedDataType === 'elements' && "Analyzing interactive elements directly. Identifying broken links, rage clicks, and dead elements."}
                     {selectedDataType === 'cursor-paths' && "Tracing individual user journeys across the screen to understand navigation flow."}
-                </p>
             </div>
             
             <div className="bg-slate-50 p-4 rounded-xl border border-gray-200 overflow-hidden shadow-sm min-h-[600px]">
@@ -120,13 +119,14 @@ function ReportHeatmapItem({ path, index, siteId, days }: { path: string, index:
                     pagePath={path} 
                     dataType={selectedDataType}
                     days={days}
+                    shareToken={shareToken} // Pass share token
                 />
             </div>
         </section>
   );
 }
 
-export function ReportHeatmapSection({ siteId, uniquePaths, days }: ReportHeatmapSectionProps) {
+export function ReportHeatmapSection({ siteId, uniquePaths, days, shareToken }: ReportHeatmapSectionProps) {
   if (uniquePaths.length === 0) return null;
 
   return (
@@ -138,6 +138,7 @@ export function ReportHeatmapSection({ siteId, uniquePaths, days }: ReportHeatma
           index={index} 
           siteId={siteId} 
           days={days}
+          shareToken={shareToken}
         />
       ))}
     </>

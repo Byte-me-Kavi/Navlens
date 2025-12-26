@@ -19,13 +19,14 @@ interface UseHeatmapDataResult {
 // Extended params with dateRangeDays
 interface HeatmapDataParams extends HeatmapParams {
   dateRangeDays?: number;
+  shareToken?: string;
 }
 
 // SWR fetcher for heatmap clicks
 const heatmapFetcher = async ([_url, params]: [string, HeatmapDataParams]): Promise<HeatmapPoint[]> => {
   console.log('🔥 Fetching heatmap data:', params);
 
-  const result = await heatmapApi.getHeatmapClicks(params);
+  const result = await heatmapApi.getHeatmapClicks(params, params.shareToken);
 
   console.log('✓ Heatmap data fetched:', {
     pointCount: result.length,
@@ -53,9 +54,10 @@ export function useHeatmapData(params: HeatmapDataParams): UseHeatmapDataResult 
         documentWidth: params.documentWidth,
         documentHeight: params.documentHeight,
         dateRangeDays: params.dateRangeDays || 30,
+        shareToken: params.shareToken,
       }
     ] as [string, HeatmapDataParams];
-  }, [params.siteId, params.pagePath, params.deviceType, params.documentWidth, params.documentHeight, params.dateRangeDays]);
+  }, [params.siteId, params.pagePath, params.deviceType, params.documentWidth, params.documentHeight, params.dateRangeDays, params.shareToken]);
 
   const { data, error, isLoading, mutate } = useSWR(
     cacheKey,

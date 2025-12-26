@@ -12,6 +12,8 @@ export const elementApi = {
    * Fetch element click data using POST request
    */
   async getElementClicks(params: ElementClickParams): Promise<ElementClick[]> {
+    const config = params.shareToken ? { headers: { 'x-share-token': params.shareToken } } : {};
+
     const data = await apiClient.post<ElementClick[]>('/element-clicks', {
       siteId: params.siteId,
       pagePath: params.pagePath,
@@ -20,7 +22,7 @@ export const elementApi = {
       documentHeight: params.documentHeight,
       ...(params.startDate && { startDate: params.startDate }),
       ...(params.endDate && { endDate: params.endDate })
-    });
+    }, config);
 
     return data;
   },

@@ -168,6 +168,17 @@ class ApiClient {
     });
     return response.data;
   }
+
+  /**
+   * Set share token for public report access
+   */
+  setShareToken(token: string | null) {
+    if (token) {
+      this.axios.defaults.headers.common['x-share-token'] = token;
+    } else {
+      delete this.axios.defaults.headers.common['x-share-token'];
+    }
+  }
 }
 
 // Export singleton instance

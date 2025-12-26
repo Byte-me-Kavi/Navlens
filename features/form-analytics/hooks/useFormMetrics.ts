@@ -15,10 +15,11 @@ export function useFormMetrics({
     formId,
     days = 7,
     enabled = true,
+    shareToken,
 }: UseFormMetricsOptions) {
     const { data, error, isLoading, mutate } = useSWR<FormAnalyticsResponse>(
-        enabled && siteId && formId ? ['form-metrics', siteId, formId, days] : null,
-        () => formAnalyticsApi.getFormMetrics(siteId, formId!, days),
+        enabled && siteId && formId ? ['form-metrics', siteId, formId, days, shareToken] : null,
+        () => formAnalyticsApi.getFormMetrics(siteId, formId!, days, shareToken),
         {
             revalidateOnFocus: false,
             dedupingInterval: 60000,

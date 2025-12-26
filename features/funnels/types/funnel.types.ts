@@ -77,11 +77,13 @@ export interface FunnelAnalysisParams {
   siteId: string;
   startDate?: string;
   endDate?: string;
+  shareToken?: string;
 }
 
 // List funnels params
 export interface ListFunnelsParams {
   siteId: string;
+  shareToken?: string;
 }
 
 // Funnel with stats preview for list display

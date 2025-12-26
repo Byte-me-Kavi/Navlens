@@ -1,9 +1,4 @@
-/**
- * useHoverHeatmapData Hook
- * 
- * Custom hook for fetching hover heatmap data with SWR caching
- */
-
+// features/heatmap/hooks/useHoverHeatmapData.ts
 import useSWR from 'swr';
 import { useMemo } from 'react';
 import { apiClient } from '@/shared/services/api/client';
@@ -41,6 +36,7 @@ export interface HoverHeatmapParams {
     startDate?: string;
     endDate?: string;
     days?: number;
+    shareToken?: string;
 }
 
 interface UseHoverHeatmapDataResult {
@@ -56,6 +52,8 @@ const hoverHeatmapFetcher = async ([, params]: [string, HoverHeatmapParams]): Pr
 
     // Prepare payload
     const payload = { ...params };
+    const config = params.shareToken ? { headers: { 'x-share-token': params.shareToken } } : {};
+
     if (params.days) {
         const end = new Date();
         const start = new Date();
@@ -65,7 +63,7 @@ const hoverHeatmapFetcher = async ([, params]: [string, HoverHeatmapParams]): Pr
         delete payload.days;
     }
 
-    const result = await apiClient.post<HoverHeatmapData>('/hover-heatmap', payload);
+    const result = await apiClient.post<HoverHeatmapData>('/hover-heatmap', payload, config);
 
     console.log('✓ Hover heatmap data fetched:', {
         pointCount: result.heatmapPoints?.length || 0,
@@ -87,10 +85,11 @@ export function useHoverHeatmapData(params: HoverHeatmapParams): UseHoverHeatmap
                 deviceType: params.deviceType,
                 startDate: params.startDate,
                 endDate: params.endDate,
-                days: params.days
+                days: params.days,
+                shareToken: params.shareToken
             }
         ] as [string, HoverHeatmapParams];
-    }, [params.siteId, params.pagePath, params.deviceType, params.startDate, params.endDate, params.days]);
+    }, [params.siteId, params.pagePath, params.deviceType, params.startDate, params.endDate, params.days, params.shareToken]);
 
     const { data, error, isLoading, mutate } = useSWR(
         cacheKey,

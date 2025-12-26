@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { secureApi } from "@/lib/secureApi";
+// secureApi unused
 import { useFunnelAnalysis, FunnelChart } from "@/features/funnels";
-import { FunnelIcon, ChartBarIcon } from "@heroicons/react/24/outline";
+import { funnelApi } from "@/features/funnels/services/funnelApi";
+import { FunnelIcon } from "@heroicons/react/24/outline";
 
 // Individual Funnel Item Component
-function ReportFunnelItem({ funnel, siteId, days }: { funnel: any, siteId: string, days: number }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ReportFunnelItem({ funnel, siteId, days, shareToken }: { funnel: any, siteId: string, days: number, shareToken?: string }) {
   const [dateRange] = useState(() => {
     const end = new Date();
     const start = new Date();
@@ -19,6 +21,7 @@ function ReportFunnelItem({ funnel, siteId, days }: { funnel: any, siteId: strin
     siteId,
     startDate: dateRange.startDate.split('T')[0],
     endDate: dateRange.endDate.split('T')[0],
+    shareToken,
   });
 
   if (loading) return <div className="animate-pulse h-64 bg-gray-50 rounded-xl mb-4"></div>;
@@ -36,6 +39,17 @@ function ReportFunnelItem({ funnel, siteId, days }: { funnel: any, siteId: strin
             </div>
        </div>
        
+       {/* Insight Info */}
+       <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mb-6 text-sm text-indigo-800">
+          <p>
+            Tracking <strong>{analysis.total_sessions.toLocaleString()}</strong> sessions through the <strong>{funnel.name}</strong> flow. 
+            The overall conversion rate is <strong>{analysis.overall_conversion_rate.toFixed(1)}%</strong>. 
+            {analysis.overall_conversion_rate < 15 
+              ? "Identifying and fixing the largest drop-off step could significantly increase revenue."
+              : "This funnel is performing effectively, but continuous optimization of drop-off points is recommended."}
+          </p>
+       </div>
+
        {/* High Level Stats */}
        <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
@@ -68,7 +82,8 @@ function ReportFunnelItem({ funnel, siteId, days }: { funnel: any, siteId: strin
   );
 }
 
-export default function ReportFunnelsWrapper({ siteId, days }: { siteId: string, days: number }) {
+export default function ReportFunnelsWrapper({ siteId, days, shareToken }: { siteId: string, days: number, shareToken?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [funnels, setFunnels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -77,9 +92,8 @@ export default function ReportFunnelsWrapper({ siteId, days }: { siteId: string,
         if (!siteId) return;
         setLoading(true);
         try {
-            const data = await secureApi.funnels.list(siteId);
-            // @ts-ignore - The API returns { funnels: [...] } but types might say otherwise
-            setFunnels(data.funnels || []);
+            const funnelsList = await funnelApi.listFunnels({ siteId, shareToken });
+            setFunnels(funnelsList || []);
         } catch (error) {
             console.error("Failed to list funnels", error);
         } finally {
@@ -87,7 +101,7 @@ export default function ReportFunnelsWrapper({ siteId, days }: { siteId: string,
         }
     };
     fetchFunnels();
-  }, [siteId]);
+  }, [siteId, shareToken]);
 
   if (loading) return <div className="text-gray-500 text-center py-8">Loading Funnels...</div>;
   if (funnels.length === 0) return <div className="text-gray-500 italic">No funnels configured for this site.</div>;
@@ -95,7 +109,7 @@ export default function ReportFunnelsWrapper({ siteId, days }: { siteId: string,
   return (
     <div className="space-y-6">
         {funnels.map(funnel => (
-            <ReportFunnelItem key={funnel.id} funnel={funnel} siteId={siteId} days={days} />
+            <ReportFunnelItem key={funnel.id} funnel={funnel} siteId={siteId} days={days} shareToken={shareToken} />
         ))}
     </div>
   );

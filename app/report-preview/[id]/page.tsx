@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { createServerClient } from '@supabase/ssr';
 import { getClickHouseClient } from '@/lib/clickhouse';
 import { ReportLayout } from '@/components/reports/ReportLayout';
@@ -15,7 +14,6 @@ import ReportSessionSpotlightsWrapper from "@/components/reports/wrappers/Report
 import ReportMobileAuditWrapper from "@/components/reports/wrappers/ReportMobileAuditWrapper";
 // MetricCard import removed
 import { 
-  UsersIcon, 
   CursorArrowRaysIcon, 
   ClockIcon, 
 
@@ -47,7 +45,7 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll() {
            // Read only in report generation context roughly
         },
       },
@@ -70,6 +68,7 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
   }
 
   // 2. Fetch Aggregated Stats (Respect Date Range)
+  // eslint-disable-next-line react-hooks/purity
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   
   const [
@@ -300,11 +299,11 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6 mb-8">
               <h4 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
                   <BoltIcon className="w-5 h-5" />
-                  The "Business Value" Insight
+                  The &quot;Business Value&quot; Insight
               </h4>
               <p className="text-indigo-800 text-sm italic">
-                  "I analyzed your site's technical foundation. Your Largest Contentful Paint (LCP) is <strong>{stats.lcp}s</strong>. 
-                  Google recommends typically under 2.5s. Fast loading sites directly correlate with lower bounce rates."
+                  &quot;I analyzed your site&apos;s technical foundation. Your Largest Contentful Paint (LCP) is <strong>{stats.lcp}s</strong>. 
+                  Google recommends typically under 2.5s. Fast loading sites directly correlate with lower bounce rates.&quot;
               </p>
               <div className="mt-4 pt-4 border-t border-indigo-200/50">
                   <p className="text-indigo-900 font-medium text-sm">
@@ -337,12 +336,12 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
            <div className="bg-rose-50 border border-rose-100 rounded-xl p-6 mb-8">
               <h4 className="font-bold text-rose-900 mb-2 flex items-center gap-2">
                   <ExclamationCircleIcon className="w-5 h-5" />
-                  The "Killer Feature" Analysis
+                  The &quot;Killer Feature&quot; Analysis
               </h4>
               <p className="text-rose-800 text-sm italic">
-                  "Users are experiencing friction. I detected <strong>{stats.rageClicks}</strong> Rage Clicks. 
-                  This often happens when users think an element (like an image or icon) is clickable but it isn't. 
-                  This breaks their flow and causes abandonment."
+                  &quot;Users are experiencing friction. I detected <strong>{stats.rageClicks}</strong> Rage Clicks. 
+                  This often happens when users think an element (like an image or icon) is clickable but it isn&apos;t. 
+                  This breaks their flow and causes abandonment.&quot;
               </p>
                <div className="mt-4 pt-4 border-t border-rose-200/50">
                   <p className="text-rose-900 font-medium text-sm">
@@ -379,7 +378,7 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
               <div className="flex items-center gap-4 mb-6 border-b border-gray-100 pb-4">
                   <span className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-600 text-white font-bold text-lg shadow-sm">5</span>
                   <div>
-                     <h2 className="text-3xl font-bold text-gray-900">"Why They Leave" Analysis</h2>
+                     <h2 className="text-3xl font-bold text-gray-900">&quot;Why They Leave&quot; Analysis</h2>
                      <p className="text-gray-500 text-lg mt-1">Conversion Leaks, Funnels & Drop-offs</p>
                   </div>
               </div>
@@ -387,8 +386,8 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-8">
                   <h4 className="font-bold text-blue-900 mb-2">Conversion Drop-off Insight</h4>
                   <p className="text-blue-800 text-sm italic">
-                      "Analyzing your Conversion Funnels and Forms reveals exactly where users abandon the process.
-                      A high drop-off at a specific form field or funnel step indicates a barrier—technical error, confusion, or request for too much info."
+                      &quot;Analyzing your Conversion Funnels and Forms reveals exactly where users abandon the process.
+                      A high drop-off at a specific form field or funnel step indicates a barrier—technical error, confusion, or request for too much info.&quot;
                   </p>
               </div>
 
@@ -427,9 +426,9 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-6 mb-8">
                   <h4 className="font-bold text-emerald-900 mb-2">Mobile Optimization Insight</h4>
                   <p className="text-emerald-800 text-sm italic">
-                      "A significant portion of web traffic is mobile. 
+                      &quot;A significant portion of web traffic is mobile. 
                       If your mobile bounce rate is higher than desktop, or if the heatmap shows cold zones on key mobile buttons, 
-                      prioritize responsive design improvements immediately."
+                      prioritize responsive design improvements immediately.&quot;
                   </p>
               </div>
 
@@ -564,7 +563,7 @@ export default async function ReportPreviewPage({ params, searchParams }: { para
              <div className="mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 text-white text-center shadow-lg">
                 <h3 className="text-2xl font-bold mb-2">Ready to Boost Your Conversions?</h3>
                 <p className="text-indigo-100 max-w-2xl mx-auto">
-                    Implementing these "Quick Wins" typically results in a 10-15% lift in immediate engagement. 
+                    Implementing these &quot;Quick Wins&quot; typically results in a 10-15% lift in immediate engagement. 
                     Monitor these metrics using Navlens over the next 30 days to track improvement.
                 </p>
             </div>

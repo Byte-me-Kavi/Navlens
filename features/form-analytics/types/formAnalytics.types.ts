@@ -76,6 +76,7 @@ export interface UseFormListOptions {
     siteId: string;
     days?: number;
     enabled?: boolean;
+    shareToken?: string;
 }
 
 export interface UseFormMetricsOptions {
@@ -83,4 +84,5 @@ export interface UseFormMetricsOptions {
     formId: string | null;
     days?: number;
     enabled?: boolean;
+    shareToken?: string;
 }

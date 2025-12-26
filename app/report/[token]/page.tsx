@@ -12,7 +12,6 @@ import ReportExperimentsWrapper from "@/components/reports/wrappers/ReportExperi
 import ReportSessionSpotlightsWrapper from "@/components/reports/wrappers/ReportSessionSpotlightsWrapper";
 import ReportMobileAuditWrapper from "@/components/reports/wrappers/ReportMobileAuditWrapper";
 import { 
-  UsersIcon, 
   CursorArrowRaysIcon, 
   ClockIcon, 
   ExclamationCircleIcon,
@@ -66,7 +65,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
   const siteId = share.site_id;
   const days = share.days || 30;
   const includeStr = share.include || 'all';
-  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_elements', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit'] : includeStr.split(','));
+  const include = new Set(includeStr === 'all' ? ['summary', 'traffic', 'heatmaps_clicks', 'heatmaps_scrolls', 'heatmaps_elements', 'network', 'journey', 'frustration', 'cohorts', 'feedback', 'forms', 'experiments', 'sessions', 'mobile_audit', 'funnels'] : includeStr.split(','));
 
   const showFeature = (key: string) => include.has(key);
   const showAnyHeatmap = showFeature('heatmaps_clicks') || showFeature('heatmaps_scrolls') || showFeature('heatmaps_elements');
@@ -87,6 +86,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
   }
 
   // Fetch data from sessions_view
+  // eslint-disable-next-line react-hooks/purity
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   
   const [
@@ -212,6 +212,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
     <ReportLayout 
       title={`Performance Report: ${site.domain}`} 
       dateRange={`Last ${days} Days`}
+      shareToken={token}
     >
       {/* 1. Executive Summary */}
       {showFeature('summary') && (
@@ -305,13 +306,13 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
               </p>
            </div>
 
-           <ReportPerformanceWrapper siteId={siteId} days={days} />
+           <ReportPerformanceWrapper siteId={siteId} days={days} shareToken={token} />
         </section>
       )}
 
       {/* 3. Heatmaps */}
       {showAnyHeatmap && (
-        <ReportHeatmapSection siteId={siteId} uniquePaths={uniquePaths} days={days} />
+        <ReportHeatmapSection siteId={siteId} uniquePaths={uniquePaths} days={days} shareToken={token} />
       )}
 
       {/* 4. Friction & Frustration Hunt */}
@@ -371,19 +372,19 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
 
               <h3 className="text-xl font-bold text-gray-900 mb-4">Conversion Funnels</h3>
               <div className="mb-12">
-                   <ReportFunnelsWrapper siteId={siteId} days={days} />
+                   <ReportFunnelsWrapper siteId={siteId} days={days} shareToken={token} />
               </div>
 
               <h3 className="text-xl font-bold text-gray-900 mb-4">Form Analytics</h3>
                <div className="mb-12">
-                  <ReportFormsWrapper siteId={siteId} days={days} />
+                  <ReportFormsWrapper siteId={siteId} days={days} shareToken={token} />
               </div>
 
               {showFeature('journey') && (
                 <>
                   <h3 className="text-xl font-bold text-gray-900 mb-4">User Journeys (Flow)</h3>
                   <div className="bg-white rounded-2xl border border-gray-100 p-1 shadow-sm overflow-hidden mb-8">
-                       <ReportJourneyWrapper siteId={siteId} days={days} />
+                       <ReportJourneyWrapper siteId={siteId} days={days} shareToken={token} />
                   </div>
                 </>
               )}
@@ -433,7 +434,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                 </div>
             </div>
 
-            <ReportMobileAuditWrapper siteId={siteId} days={days} sessionsData={sessionsData || []} />
+            <ReportMobileAuditWrapper siteId={siteId} days={days} sessionsData={sessionsData || []} shareToken={token} />
         </section>
       )}
 
@@ -448,7 +449,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                 </div>
             </div>
 
-            <ReportExperimentsWrapper siteId={siteId} days={days} />
+            <ReportExperimentsWrapper siteId={siteId} days={days} shareToken={token} />
         </section>
       )}
 
@@ -463,7 +464,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
                 </div>
             </div>
 
-            <ReportSessionSpotlightsWrapper siteId={siteId} days={days} sessionsData={sessionsData || []} />
+            <ReportSessionSpotlightsWrapper siteId={siteId} days={days} sessionsData={sessionsData || []} shareToken={token} />
         </section>
       )}
 
@@ -475,14 +476,14 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
               {showFeature('cohorts') && (
                 <div className="mb-12">
                     <h4 className="font-bold text-gray-900 mb-4">User Cohorts</h4>
-                    <ReportCohortsWrapper siteId={siteId} days={days} />
+                    <ReportCohortsWrapper siteId={siteId} days={days} shareToken={token} />
                 </div>
               )}
               
               {showFeature('feedback') && (
                 <div>
                     <h4 className="font-bold text-gray-900 mb-4">User Feedback</h4>
-                    <ReportFeedbackWrapper siteId={siteId} days={days} />
+                    <ReportFeedbackWrapper siteId={siteId} days={days} shareToken={token} />
                 </div>
               )}
         </section>

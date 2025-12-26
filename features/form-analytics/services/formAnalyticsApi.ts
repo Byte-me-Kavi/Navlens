@@ -5,19 +5,22 @@
 import { apiClient } from '@/shared/services/api/client';
 import { FormAnalyticsResponse, FieldMetrics } from '../types/formAnalytics.types';
 
+const withToken = (token?: string) => token ? { headers: { 'x-share-token': token } } : {};
+
 /**
  * Get list of forms with summary metrics
  */
 export async function getFormList(
     siteId: string,
-    days: number = 7
+    days: number = 7,
+    shareToken?: string
 ): Promise<FormAnalyticsResponse> {
     const params = new URLSearchParams({
         siteId,
         days: days.toString(),
     });
 
-    return apiClient.get<FormAnalyticsResponse>(`/insights/forms?${params.toString()}`);
+    return apiClient.get<FormAnalyticsResponse>(`/insights/forms?${params.toString()}`, withToken(shareToken));
 }
 
 /**
@@ -26,7 +29,8 @@ export async function getFormList(
 export async function getFormMetrics(
     siteId: string,
     formId: string,
-    days: number = 7
+    days: number = 7,
+    shareToken?: string
 ): Promise<FormAnalyticsResponse> {
     const params = new URLSearchParams({
         siteId,
@@ -35,7 +39,7 @@ export async function getFormMetrics(
         fields: 'true',
     });
 
-    return apiClient.get<FormAnalyticsResponse>(`/insights/forms?${params.toString()}`);
+    return apiClient.get<FormAnalyticsResponse>(`/insights/forms?${params.toString()}`, withToken(shareToken));
 }
 
 /**

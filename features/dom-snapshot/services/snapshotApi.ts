@@ -12,11 +12,13 @@ export const snapshotApi = {
    * Fetch DOM snapshot data using POST request
    */
   async getSnapshot(params: SnapshotParams): Promise<SnapshotData> {
+    const config = params.shareToken ? { headers: { 'x-share-token': params.shareToken } } : {};
+
     const response = await apiClient.post<SnapshotData>('/get-snapshot', {
       siteId: params.siteId,
       pagePath: params.pagePath,
       deviceType: params.deviceType,
-    });
+    }, config);
 
     // Handle different response formats
     if (response.snapshot) {

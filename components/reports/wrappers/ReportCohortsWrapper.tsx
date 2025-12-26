@@ -5,13 +5,11 @@ import { secureApi } from "@/lib/secureApi";
 import { 
     FiUsers, 
     FiSmartphone, 
-    FiTablet, 
-    FiMonitor, 
     FiMapPin, 
     FiEye, 
-    FiClock, 
     FiMousePointer, 
-    FiFilter 
+    FiFilter,
+    FiClock 
 } from "react-icons/fi";
 
 interface CohortRule {
@@ -78,7 +76,7 @@ const COHORT_FIELDS = [
   { value: "first_seen", label: "First Seen" },
 ];
 
-export default function ReportCohortsWrapper({ siteId, days }: { siteId: string, days: number }) {
+export default function ReportCohortsWrapper({ siteId, days, shareToken }: { siteId: string, days: number, shareToken?: string }) {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -87,8 +85,8 @@ export default function ReportCohortsWrapper({ siteId, days }: { siteId: string,
         if (!siteId) return;
         setLoading(true);
         try {
-            const data = await secureApi.cohorts.list(siteId);
-            // @ts-ignore - The API returns { cohorts: [...] } but types might say otherwise
+            const data = await secureApi.cohorts.list(siteId, shareToken);
+            // @ts-expect-error - The API returns { cohorts: [...] } but types might say otherwise
             setCohorts(data.cohorts || []);
         } catch (error) {
             console.error("Failed to load cohorts", error);
@@ -96,10 +94,12 @@ export default function ReportCohortsWrapper({ siteId, days }: { siteId: string,
             setLoading(false);
         }
     };
+
     fetchCohorts();
-  }, [siteId]);
+  }, [siteId, shareToken]);
 
   const [expandedCohort, setExpandedCohort] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [metrics, setMetrics] = useState<Record<string, any>>({});
   const [loadingMetrics, setLoadingMetrics] = useState<Record<string, boolean>>({});
 
@@ -120,7 +120,7 @@ export default function ReportCohortsWrapper({ siteId, days }: { siteId: string,
                 cohortId,
                 startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(), // Respect dynamic days
                 endDate: new Date().toISOString()
-            });
+            }, shareToken);
             setMetrics(prev => ({ ...prev, [cohortId]: data }));
         } catch (error) {
             console.error("Failed to load cohort metrics", error);
@@ -195,6 +195,7 @@ export default function ReportCohortsWrapper({ siteId, days }: { siteId: string,
                                             <div>
                                                 <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Top Pages</div>
                                                 <div className="space-y-1">
+                                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                                     {cohortMetrics.topPages.slice(0, 3).map((page: any, idx: number) => (
                                                         <div key={idx} className="flex justify-between text-sm">
                                                             <span className="text-gray-600 truncate max-w-[70%]">{page.page_path}</span>

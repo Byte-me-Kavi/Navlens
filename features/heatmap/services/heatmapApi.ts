@@ -12,7 +12,9 @@ export const heatmapApi = {
    * Fetch heatmap click data from the API using POST request
    * POST is used instead of GET to avoid exposing sensitive data in URL
    */
-  async getHeatmapClicks(params: HeatmapParams & { dateRangeDays?: number }): Promise<HeatmapPoint[]> {
+  async getHeatmapClicks(params: HeatmapParams & { dateRangeDays?: number }, shareToken?: string): Promise<HeatmapPoint[]> {
+    const config = shareToken ? { headers: { 'x-share-token': shareToken } } : {};
+
     const response = await apiClient.post<{ clicks: HeatmapPoint[] }>('/heatmap-clicks', {
       siteId: params.siteId,
       pagePath: params.pagePath,
@@ -22,7 +24,7 @@ export const heatmapApi = {
       dateRangeDays: params.dateRangeDays || 30,
       ...(params.startDate && { startDate: params.startDate }),
       ...(params.endDate && { endDate: params.endDate }),
-    });
+    }, config);
 
     // Backend returns {clicks: HeatmapPoint[]}, extract the array
     return response.clicks || [];

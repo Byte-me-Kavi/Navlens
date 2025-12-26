@@ -12,18 +12,11 @@ import {
   CreateFunnelRequest,
   UpdateFunnelRequest,
   FunnelAnalysis,
+  FunnelAnalysisParams as AnalyzeFunnelParams, // Alias it to match usage
+  ListFunnelsParams,
 } from '../types/funnel.types';
 
-export interface ListFunnelsParams {
-  siteId: string;
-}
-
-export interface AnalyzeFunnelParams {
-  siteId: string;
-  funnelId: string;
-  startDate?: string;
-  endDate?: string;
-}
+const withToken = (token?: string) => token ? { headers: { 'x-share-token': token } } : {};
 
 export const funnelApi = {
   /**
@@ -33,7 +26,7 @@ export const funnelApi = {
     const queryParams = new URLSearchParams({
       siteId: params.siteId,
     });
-    const response = await apiClient.get<{ funnels: FunnelWithStats[] }>(`/funnels?${queryParams}`);
+    const response = await apiClient.get<{ funnels: FunnelWithStats[] }>(`/funnels?${queryParams}`, undefined, withToken(params.shareToken));
     return response.funnels || [];
   },
 
@@ -44,7 +37,8 @@ export const funnelApi = {
     funnelId: string,
     siteId: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    shareToken?: string
   ): Promise<{ funnel: Funnel; analysis: FunnelAnalysis }> {
     const queryParams = new URLSearchParams({
       siteId,
@@ -53,8 +47,8 @@ export const funnelApi = {
     });
     if (startDate) queryParams.set('startDate', startDate);
     if (endDate) queryParams.set('endDate', endDate);
-    
-    return await apiClient.get<{ funnel: Funnel; analysis: FunnelAnalysis }>(`/funnels?${queryParams}`);
+
+    return await apiClient.get<{ funnel: Funnel; analysis: FunnelAnalysis }>(`/funnels?${queryParams}`, undefined, withToken(shareToken));
   },
 
   /**
@@ -104,7 +98,8 @@ export const funnelApi = {
       params.funnelId,
       params.siteId,
       params.startDate,
-      params.endDate
+      params.endDate,
+      params.shareToken
     );
     return { ...analysis, funnel };
   },

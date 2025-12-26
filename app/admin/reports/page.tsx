@@ -13,9 +13,6 @@ export default async function AdminReportsPage() {
             getAll() {
               return cookieStore.getAll();
             },
-            setAll(cookiesToSet) {
-               // Read only
-            }
           },
         }
       );
