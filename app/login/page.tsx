@@ -63,13 +63,13 @@ export default function Login() {
     // Check if user is already logged in and redirect
     const checkSession = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session && !hasShownToastRef.current) {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user && !hasShownToastRef.current) {
         hasShownToastRef.current = true;
         document.cookie = "x-login-success=true; path=/; max-age=5";
         document.cookie = `x-user-email=${
-          session.user.email || "user"
+          user.email || "user"
         }; path=/; max-age=5`;
         
         // Redirect to original destination if specified

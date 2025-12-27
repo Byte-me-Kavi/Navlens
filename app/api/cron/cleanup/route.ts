@@ -74,30 +74,53 @@ async function getUserRetentionPolicies(): Promise<UserRetention[]> {
 async function cleanupClickHouseData(policies: UserRetention[]): Promise<number> {
     let sitesProcessed = 0;
 
+    // Group users by retention period to batch operations
+    const policiesByDays = new Map<number, string[]>();
+
     for (const policy of policies) {
+        if (!policiesByDays.has(policy.retention_days)) {
+            policiesByDays.set(policy.retention_days, []);
+        }
+        policiesByDays.get(policy.retention_days)?.push(policy.user_id);
+    }
+
+    // Process each retention group
+    for (const [days, userIds] of Array.from(policiesByDays.entries())) {
         try {
+            // Fetch all sites for these users in one go
             const { data: sites } = await supabaseAdmin
                 .from('sites')
                 .select('id')
-                .eq('user_id', policy.user_id);
+                .in('user_id', userIds);
 
             if (!sites || sites.length === 0) continue;
 
+            const siteIds = sites.map(s => s.id);
+            sitesProcessed += siteIds.length;
+
+            // Calculate cutoff
             const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - policy.retention_days);
+            cutoffDate.setDate(cutoffDate.getDate() - days);
             const cutoffISO = cutoffDate.toISOString().split('T')[0];
 
-            for (const site of sites) {
+            // Perform BATCHED delete
+            // Note: ClickHouse DELETE is a mutation, better to do one big one than many small ones
+            // We use standard SQL syntax.
+            if (siteIds.length > 0) {
+                // Batch into chunks of 100 if extremely large, but for now <1000 is fine
+                const formattedIds = siteIds.map(id => `'${id}'`).join(',');
                 const deleteQuery = `
                     ALTER TABLE events DELETE
-                    WHERE site_id = '${site.id}'
+                    WHERE site_id IN (${formattedIds})
                       AND timestamp < '${cutoffISO}'
                 `;
+
                 await clickhouse.command({ query: deleteQuery });
-                sitesProcessed++;
+                console.log(`[cron/cleanup] Triggered delete for ${siteIds.length} sites older than ${days} days`);
             }
+
         } catch (error) {
-            console.error(`[cron/cleanup] Error for user ${policy.user_id}:`, error);
+            console.error(`[cron/cleanup] Error processing batch for ${days} days retention:`, error);
         }
     }
 

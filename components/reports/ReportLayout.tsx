@@ -21,7 +21,6 @@ interface ReportLayoutProps {
 export function ReportLayout({ children, title, dateRange, days, siteId, shareToken, include, expiresInDays, expiresAt }: ReportLayoutProps) {
   useEffect(() => {
     if (shareToken) {
-      console.log('Using public share token:', shareToken);
       apiClient.setShareToken(shareToken);
     }
     return () => apiClient.setShareToken(null);

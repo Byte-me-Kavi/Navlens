@@ -65,7 +65,6 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hasFetchedSites.current && mounted) {
       hasFetchedSites.current = true;
-      console.log("🚀 Dashboard mounted - fetching sites (centralized)");
       fetchSites();
     }
   }, [mounted, fetchSites]);
@@ -149,15 +148,23 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
     // Use a timer for OAuth redirects and other paths
     const delay = isOAuthRedirect ? 2000 : 800;
-    console.log(
-      `[Dashboard Layout] Setting loading to false after ${delay}ms delay`
-    );
-    const timer = setTimeout(() => {
+    
+    const timer = setTimeout(async () => {
+      // Security Check: Verify session exists before revealing dashboard
+      // This prevents "middleware bypass" via ?code=fake
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+         // Force redirect
+         window.location.href = '/login';
+         return;
+      }
+
       setIsLoading(false);
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [isLoading]);
+  }, [isLoading, supabase.auth]); // Check dependencies
 
   if (isLoading || !mounted) {
     return (

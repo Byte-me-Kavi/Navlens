@@ -55,12 +55,12 @@ function ReportHeatmapItem({ path, index, siteId, days, shareToken, allowedTypes
 
   const [selectedDataType, setSelectedDataType] = useState<
     "clicks" | "scrolls" | "hover" | "cursor-paths" | "elements"
-  >((availableDataTypes[0]?.value as any) || "clicks");
+  >((availableDataTypes[0]?.value) || "clicks");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [selectedDeviceType, setSelectedDeviceType] = useState<"desktop" | "tablet" | "mobile">(
-    (availableDeviceTypes[0]?.value as any) || "desktop"
+    (availableDeviceTypes[0]?.value) || "desktop"
   );
   const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false);
   const deviceDropdownRef = useRef<HTMLDivElement>(null);
@@ -158,7 +158,7 @@ function ReportHeatmapItem({ path, index, siteId, days, shareToken, allowedTypes
                             <button
                               key={type.value}
                               onClick={() => {
-                                setSelectedDeviceType(type.value as any);
+                                setSelectedDeviceType(type.value as "desktop" | "tablet" | "mobile");
                                 setDeviceDropdownOpen(false);
                               }}
                               className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors ${

@@ -106,13 +106,13 @@ export async function getUserPlanLimits(userId: string): Promise<PlanLimits> {
         .single();
 
     // Default limits (Free plan)
-    let limits: PlanLimits = { sessions: 500, recordings: 50 };
+    const limits: PlanLimits = { sessions: 500, recordings: 50 };
 
     if (profile?.subscriptions) {
         const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
         if (sub?.status === 'active' && sub?.subscription_plans) {
             const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
-            const planLimits = plan.limits as any;
+            const planLimits = plan.limits as { sessions?: number; recordings?: number } | null;
 
             if (planLimits) {
                 limits.sessions = planLimits.sessions !== undefined ? planLimits.sessions : 500;
@@ -153,10 +153,23 @@ export async function canStartSession(userId: string): Promise<{ allowed: boolea
 }
 
 /**
- * Increment session counter
+ * Increment session counter atomically checking limit
  */
-export async function incrementSessionCount(userId: string): Promise<void> {
-    await supabaseAdmin.rpc('increment_session_count', { user_id: userId });
+export async function incrementSessionCount(userId: string, limit: number): Promise<{ success: boolean; error?: string }> {
+    const { error } = await supabaseAdmin.rpc('increment_session_count', {
+        p_user_id: userId,
+        p_limit: limit
+    });
+
+    if (error) {
+        // Parse custom exception
+        if (error.message.includes('Session limit reached')) {
+            return { success: false, error: 'Session limit reached' };
+        }
+        console.error('[usage] Error incrementing session count:', error);
+        return { success: false, error: error.message };
+    }
+    return { success: true };
 }
 
 /**
@@ -188,26 +201,20 @@ export async function canCreateRecording(userId: string): Promise<{ allowed: boo
 }
 
 /**
- * Increment recording counter
+ * Increment recording counter atomically checking limit
  */
-export async function incrementRecordingCount(userId: string): Promise<void> {
-    // Get current stats first
-    const stats = await getUsageStats(userId);
-    if (!stats) {
-        console.error('[usage] Cannot increment recording count - no stats found');
-        return;
-    }
-
-    // Increment the count
-    const { error } = await supabaseAdmin
-        .from('user_usage_stats')
-        .update({
-            recordings_count: stats.recordings_count + 1,
-            updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId);
+export async function incrementRecordingCount(userId: string, limit: number): Promise<{ success: boolean; error?: string }> {
+    const { error } = await supabaseAdmin.rpc('increment_recording_count', {
+        p_user_id: userId,
+        p_limit: limit
+    });
 
     if (error) {
+        if (error.message.includes('Recording limit reached')) {
+            return { success: false, error: 'Recording limit reached' };
+        }
         console.error('[usage] Error incrementing recording count:', error);
+        return { success: false, error: error.message };
     }
+    return { success: true };
 }

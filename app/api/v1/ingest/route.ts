@@ -168,101 +168,100 @@ export async function POST(request: NextRequest) {
 
       const sessionCheckData = await sessionCheckResult.json();
       const isNewSession = (sessionCheckData.data?.[0] as { count: number })?.count === 0;
+      // Check if this is a new session by querying ClickHouse
+      // Note: We used to query ClickHouse here.
+      // Assuming isNewSession logic remains same as above...
 
       if (isNewSession) {
-        // Check session limit for this user
-        const { canStartSession, incrementSessionCount } = await import('@/lib/usage-tracker/counter');
-        const limitCheck = await canStartSession(siteData.user_id);
+        // Import usage tracker
+        const { getUserPlanLimits, incrementSessionCount } = await import('@/lib/usage-tracker/counter');
 
-        if (!limitCheck.allowed) {
+        // Get limits first
+        const limits = await getUserPlanLimits(siteData.user_id);
+
+        // Attempt atomic increment with limit enforcement
+        const result = await incrementSessionCount(siteData.user_id, limits.sessions);
+
+        if (!result.success) {
           console.warn(`[v1/ingest] Session limit reached for user ${siteData.user_id}`);
-          return jsonResponse(
-            {
-              error: limitCheck.error || 'Session limit reached',
-              current: limitCheck.current,
-              limit: limitCheck.limit
-            },
-            403,
-            origin
-          );
+          // Return 403 but creating a valid "limit_reached" event might be better?
+          // For now, we reject the ingestion of the session-start event or just log it?
+          // If we reject, the session isn't tracked.
+          return NextResponse.json({
+            error: 'Session limit reached',
+            code: 'LIMIT_REACHED'
+          }, { status: 403 });
         }
 
-        // Increment session counter
-        await incrementSessionCount(siteData.user_id);
         console.log(`[v1/ingest] New session tracked for user ${siteData.user_id}`);
       }
     }
     // --- SESSION LIMIT ENFORCEMENT END ---
 
     // Insert events into ClickHouse
-    const insertPromises = validEvents.map(async (event: ValidatedEventData) => {
-      try {
-        const insertData = {
-          site_id: siteId,
-          event_id: event.data?.event_id || crypto.randomUUID(), // Unique ID prevents deduplication
-          event_type: event.type,
-          timestamp: new Date(event.timestamp),
-          session_id: event.session_id,
-          user_id: event.user_id || null,
-          page_url: event.page_url || '',
-          page_path: event.page_path || '',
-          referrer: event.referrer || '',
-          user_agent: event.user_agent || '',
-          user_language: event.user_language || '',
-          viewport_width: event.viewport_width || 0,
-          viewport_height: event.viewport_height || 0,
-          screen_width: event.screen_width || 0,
-          screen_height: event.screen_height || 0,
-          device_type: event.device_type || '',
-          client_id: event.client_id || '',
-          load_time: event.load_time || 0,
-          ip_address: clientIP,
-          country: request.headers.get('x-vercel-ip-country') || 'Unknown',
-          // Flatten event.data fields
-          x: event.data?.x ?? 0,
-          y: event.data?.y ?? 0,
-          x_relative: event.data?.x_relative ?? 0,
-          y_relative: event.data?.y_relative ?? 0,
-          scroll_depth: event.data?.scroll_depth ?? 0,
-          document_width: event.data?.document_width ?? 0,
-          document_height: event.data?.document_height ?? 0,
-          element_id: event.data?.element_id || '',
-          element_classes: event.data?.element_classes || '',
-          element_tag: event.data?.element_tag || '',
-          element_text: event.data?.element_text || '',
-          element_selector: event.data?.element_selector || '',
-          // Additional element tracking fields
-          element_href: event.data?.element_href || '',
-          is_interactive: event.data?.is_interactive ?? false,
-          is_dead_click: event.data?.is_dead_click ?? false,
-          click_count: event.data?.click_count ?? 0,
-          // Behavioral metrics columns
-          confusion_scroll_score: typeof event.data?.confusion_scroll_score === 'number' ? event.data.confusion_scroll_score : 0,
-          hover_duration_ms: typeof event.data?.hover_duration_ms === 'number' ? event.data.hover_duration_ms : 0,
-          cursor_path_distance: typeof event.data?.cursor_path_distance === 'number' ? event.data.cursor_path_distance : 0,
-          cursor_direction_changes: typeof event.data?.cursor_direction_changes === 'number' ? event.data.cursor_direction_changes : 0,
-          is_erratic_movement: event.data?.is_erratic_movement ?? false,
-          attention_zone: typeof event.data?.attention_zone === 'string' ? event.data.attention_zone : '',
-          // A/B Testing experiment tracking
-          experiment_ids: Array.isArray(event.experiment_ids) ? event.experiment_ids : [],
-          variant_ids: Array.isArray(event.variant_ids) ? event.variant_ids : [],
-          created_at: new Date(),
-        };
+    const clickhouseInsertData = validEvents.map((event: ValidatedEventData) => ({
+      site_id: siteId,
+      event_id: event.data?.event_id || crypto.randomUUID(),
+      event_type: event.type,
+      timestamp: new Date(event.timestamp),
+      session_id: event.session_id,
+      user_id: event.user_id || null,
+      page_url: event.page_url || '',
+      page_path: event.page_path || '',
+      referrer: event.referrer || '',
+      user_agent: event.user_agent || '',
+      user_language: event.user_language || '',
+      viewport_width: event.viewport_width || 0,
+      viewport_height: event.viewport_height || 0,
+      screen_width: event.screen_width || 0,
+      screen_height: event.screen_height || 0,
+      device_type: event.device_type || '',
+      client_id: event.client_id || '',
+      load_time: event.load_time || 0,
+      ip_address: clientIP,
+      country: request.headers.get('x-vercel-ip-country') || 'Unknown',
+      // Flatten event.data fields
+      x: event.data?.x ?? 0,
+      y: event.data?.y ?? 0,
+      x_relative: event.data?.x_relative ?? 0,
+      y_relative: event.data?.y_relative ?? 0,
+      scroll_depth: event.data?.scroll_depth ?? 0,
+      document_width: event.data?.document_width ?? 0,
+      document_height: event.data?.document_height ?? 0,
+      element_id: event.data?.element_id || '',
+      element_classes: event.data?.element_classes || '',
+      element_tag: event.data?.element_tag || '',
+      element_text: event.data?.element_text || '',
+      element_selector: event.data?.element_selector || '',
+      // Additional element tracking fields
+      element_href: event.data?.element_href || '',
+      is_interactive: event.data?.is_interactive ?? false,
+      is_dead_click: event.data?.is_dead_click ?? false,
+      click_count: event.data?.click_count ?? 0,
+      // Behavioral metrics columns
+      confusion_scroll_score: typeof event.data?.confusion_scroll_score === 'number' ? event.data.confusion_scroll_score : 0,
+      hover_duration_ms: typeof event.data?.hover_duration_ms === 'number' ? event.data.hover_duration_ms : 0,
+      cursor_path_distance: typeof event.data?.cursor_path_distance === 'number' ? event.data.cursor_path_distance : 0,
+      cursor_direction_changes: typeof event.data?.cursor_direction_changes === 'number' ? event.data.cursor_direction_changes : 0,
+      is_erratic_movement: event.data?.is_erratic_movement ?? false,
+      attention_zone: typeof event.data?.attention_zone === 'string' ? event.data.attention_zone : '',
+      // A/B Testing experiment tracking
+      experiment_ids: Array.isArray(event.experiment_ids) ? event.experiment_ids : [],
+      variant_ids: Array.isArray(event.variant_ids) ? event.variant_ids : [],
+      created_at: new Date(),
+    }));
 
-        console.log('💾 Inserting into ClickHouse:', JSON.stringify(insertData, null, 2));
+    if (clickhouseInsertData.length > 0) {
+      console.log(`💾 Bulk inserting ${clickhouseInsertData.length} events into ClickHouse`);
+      await clickhouse.insert({
+        table: 'events',
+        values: clickhouseInsertData,
+        format: 'JSONEachRow',
+      });
+    }
 
-        await clickhouse.insert({
-          table: 'events',
-          values: [insertData],
-          format: 'JSONEachRow',
-        });
-      } catch (error: unknown) {
-        console.error('Failed to insert event:', error);
-        // Continue processing other events even if one fails
-      }
-    });
+    // Batch insert completed (or failed if exception thrown)
 
-    await Promise.allSettled(insertPromises);
 
     // --- SIGNAL SYNC TO POSTGRES (For Session Replay) ---
     // Log all event types for debugging

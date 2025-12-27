@@ -53,18 +53,18 @@ async function authenticateUser() {
         }
     );
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!session) return null;
+    if (!user) return null;
 
     // Fetch user's sites
     const { data: sites } = await supabase
         .from('sites')
         .select('id, name, domain')
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .limit(10);
 
-    return { session, sites: sites as SiteInfo[] | null };
+    return { user, sites: sites as SiteInfo[] | null };
 }
 
 // Summarize older messages to save tokens
@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
     try {
         // Authenticate and get sites
         const authResult = await authenticateUser();
-        if (!authResult?.session) {
+        if (!authResult?.user) {
             return NextResponse.json(
                 { error: 'Authentication required' },
                 { status: 401 }

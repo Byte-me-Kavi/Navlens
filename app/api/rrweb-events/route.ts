@@ -65,6 +65,26 @@ export async function POST(req: NextRequest) {
             return addTrackerCorsHeaders(response, origin, true);
         }
 
+        // --- VALIDATION: Prevent Database Bloat ---
+        if (!Array.isArray(events)) {
+            const response = NextResponse.json(
+                { error: 'Invalid data format: events must be an array' },
+                { status: 400 }
+            );
+            return addTrackerCorsHeaders(response, origin, true);
+        }
+
+        // Limit batch size to reasonable amount (prevents memory spikes and huge rows)
+        const MAX_EVENTS_PER_BATCH = 2000; // ample for typical partial snapshots
+        if (events.length > MAX_EVENTS_PER_BATCH) {
+            const response = NextResponse.json(
+                { error: `Batch too large. Max ${MAX_EVENTS_PER_BATCH} events allowed.` },
+                { status: 413 }
+            );
+            return addTrackerCorsHeaders(response, origin, true);
+        }
+
+
         // Validate site exists AND origin is allowed
         const validation = await validateSiteAndOrigin(site_id, origin);
 
@@ -106,16 +126,17 @@ export async function POST(req: NextRequest) {
 
             if (isNewRecording) {
                 // Use the new usage tracker to check recording limits
-                const { canCreateRecording, incrementRecordingCount } = await import('@/lib/usage-tracker/counter');
-                const limitCheck = await canCreateRecording(siteData.user_id);
+                const { getUserPlanLimits, incrementRecordingCount } = await import('@/lib/usage-tracker/counter');
+                const limits = await getUserPlanLimits(siteData.user_id);
 
-                if (!limitCheck.allowed) {
+                const result = await incrementRecordingCount(siteData.user_id, limits.recordings);
+
+                if (!result.success) {
                     console.warn(`[rrweb-events] Recording limit reached for user ${siteData.user_id}`);
                     const response = NextResponse.json(
                         {
-                            error: limitCheck.error || 'Recording limit reached',
-                            current: limitCheck.current,
-                            limit: limitCheck.limit,
+                            error: 'Recording limit reached',
+                            limit: limits.recordings,
                             message: 'Your subscription recording limit has been reached. Please upgrade your plan.'
                         },
                         { status: 403 }
@@ -123,8 +144,6 @@ export async function POST(req: NextRequest) {
                     return addTrackerCorsHeaders(response, origin, true);
                 }
 
-                // Increment recording counter
-                await incrementRecordingCount(siteData.user_id);
                 console.log(`[rrweb-events] New recording tracked for user ${siteData.user_id}`);
             }
         }

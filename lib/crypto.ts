@@ -1,8 +1,8 @@
 
-const SECRET_KEY = process.env.NEXT_PUBLIC_ADMIN_ENC_KEY || '';
+const SECRET_KEY = process.env.ADMIN_SESSION_SECRET || process.env.NEXT_PUBLIC_ADMIN_ENC_KEY || '';
 
-if (!SECRET_KEY || SECRET_KEY.length !== 64) {
-    console.warn('Crypto: Invalid or missing NEXT_PUBLIC_ADMIN_ENC_KEY. Shared key must be 64 hex characters (32 bytes).');
+if (!SECRET_KEY || SECRET_KEY.length < 32) {
+    console.warn('Crypto: Invalid or missing ADMIN_SESSION_SECRET. Encryption may fail or be insecure.');
 }
 
 // Helper: Hex string to Uint8Array
@@ -34,11 +34,25 @@ function getCrypto() {
     }
 }
 
+// Helper: Ensure 32-byte key material
+function getSecretKeyMaterial(): Uint8Array {
+    if (SECRET_KEY.length === 64 && /^[0-9a-fA-F]+$/.test(SECRET_KEY)) {
+        return hexToBytes(SECRET_KEY);
+    }
+    // Pad or truncate to 32 bytes
+    const bytes = new TextEncoder().encode(SECRET_KEY);
+    if (bytes.length >= 32) return bytes.slice(0, 32);
+
+    const padded = new Uint8Array(32);
+    padded.set(bytes);
+    return padded;
+}
+
 async function getKey(usage: 'encrypt' | 'decrypt'): Promise<CryptoKey> {
     const crypto = getCrypto();
     return crypto.subtle.importKey(
         'raw',
-        hexToBytes(SECRET_KEY),
+        getSecretKeyMaterial(),
         { name: 'AES-GCM' },
         false,
         [usage]

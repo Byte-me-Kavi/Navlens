@@ -134,7 +134,7 @@ async function processHeatmapClicks(
       const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
       if (sub?.status === 'active' && sub?.subscription_plans) {
         const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
-        const limits = plan.limits as any;
+        const limits = plan.limits as { heatmap_pages?: number };
         if (limits?.heatmap_pages !== undefined) {
           maxPages = limits.heatmap_pages;
         } else {

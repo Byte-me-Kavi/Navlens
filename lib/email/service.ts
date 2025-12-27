@@ -197,7 +197,7 @@ export async function sendUsageWarning90Email(email: string, usageType: 'session
         html: `
             <h2 style="color: #D97706;">Almost at Limit!</h2>
             <p>Hi there,</p>
-            <p>You've used <strong>${percentage}%</strong> of your monthly ${usageLabel.toLowerCase()} quota. Your tracking will stop when you hit the limit.</p>
+            <p>You've used <strong>${percentage}%</strong> of your monthly ${usageLabel.toLowerCase()} quota on your <strong>${planName}</strong> plan. Your tracking will stop when you hit the limit.</p>
             
             <div style="background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%); border: 2px solid #F59E0B; border-radius: 12px; padding: 24px; margin: 24px 0;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
@@ -255,6 +255,22 @@ export async function sendUsageLimitReachedEmail(email: string, usageType: 'sess
             <p style="text-align: center; font-size: 14px; color: #6B7280;">
                 Or wait until your billing cycle resets.
             </p>
+        `
+    });
+}
+
+export async function sendPaymentFailedEmail(email: string, planName: string) {
+    return sendEmail({
+        to: email,
+        subject: 'Payment Failed ❌',
+        html: `
+            <h2 style="color: #DC2626;">Payment Failed</h2>
+            <p>We were unable to process your payment for the <strong>${planName}</strong> plan.</p>
+            <p>Your subscription may be suspended if we cannot process the payment.</p>
+            <p>Please update your payment method to avoid any interruption to your service.</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/account" style="background-color: #4F46E5; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Update Payment Method</a>
+            </div>
         `
     });
 }

@@ -49,13 +49,13 @@ export default function Header({ onMenuToggle }: HeaderProps) {
 
   const fetchNotifications = useCallback(async () => {
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
         const { data, error: _error } = await supabase
             .from('notifications')
             .select('*')
-            .eq('user_id', session.user.id)
+            .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(10);
             
@@ -83,9 +83,9 @@ export default function Header({ onMenuToggle }: HeaderProps) {
 
   const markAllAsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-        await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        await supabase.from('notifications').update({ read: true }).eq('user_id', user.id);
     }
   };
 
@@ -191,10 +191,10 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   useEffect(() => {
     const getUser = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        const email = session.user.email || null;
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const email = user.email || null;
         setUserEmail(email);
 
         // First try to get cached image
@@ -207,7 +207,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         }
 
         // If no cache, process metadata
-        const userMetadata = session.user.user_metadata;
+        const userMetadata = user.user_metadata;
         const processedImage = processUserImage(userMetadata, email);
         setUserImage(processedImage);
       }
@@ -218,12 +218,14 @@ export default function Header({ onMenuToggle }: HeaderProps) {
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        const email = session.user.email || null;
+    } = supabase.auth.onAuthStateChange(async (_event, _session) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const email = user.email || null;
         setUserEmail(email);
 
-        const userMetadata = session.user.user_metadata;
+        const userMetadata = user.user_metadata;
         const processedImage = processUserImage(userMetadata, email);
         setUserImage(processedImage);
       } else {

@@ -49,7 +49,7 @@ export default function GuidePage() {
   const GuideIcon = guide.icon;
 
   // Get current guide index for navigation
-  const currentIndex = allGuideSlugs.indexOf(guideName);
+  const currentIndex = allGuideSlugs.indexOf(guideName as GuideKey);
   const prevGuide =
     currentIndex > 0 ? allGuideSlugs[currentIndex - 1] : undefined;
   const nextGuide =

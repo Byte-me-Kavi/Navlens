@@ -1,17 +1,17 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
+
 import { createClient } from '@/lib/supabase/server-admin';
 import { withMonitoring } from "@/lib/api-middleware";
+import { verifyAdminSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 async function GET_handler(request: NextRequest) {
     try {
         // 1. Security Check
-        const cookieStore = await cookies();
-        const adminSession = cookieStore.get('admin_session');
+        const isAdmin = await verifyAdminSession();
 
-        if (!adminSession?.value) {
+        if (!isAdmin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

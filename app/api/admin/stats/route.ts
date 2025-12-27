@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+
 import { createClient } from '@/lib/supabase/server-admin';
 import { getClickHouseClient } from '@/lib/clickhouse';
+import { verifyAdminSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
         // 1. Security Check: Verify Admin Session
-        const cookieStore = await cookies();
-        const adminSession = cookieStore.get('admin_session');
+        const isAdmin = await verifyAdminSession();
 
-        if (!adminSession?.value) {
+        if (!isAdmin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

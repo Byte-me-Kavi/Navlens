@@ -167,10 +167,10 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUserEmail(session.user.email || null);
-        const userMetadata = session.user.user_metadata;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || null);
+        const userMetadata = user.user_metadata;
         if (userMetadata?.avatar_url) {
           setUserImage(userMetadata.avatar_url);
         }

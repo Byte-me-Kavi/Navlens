@@ -131,6 +131,13 @@ export default function SessionReplayPage() {
       else return "desktop";
     };
     setUserDevice(detectDevice());
+
+    const handleResize = () => {
+      setUserDevice(detectDevice());
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const fetchSessionReplay = useCallback(async () => {

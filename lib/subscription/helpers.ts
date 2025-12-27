@@ -131,18 +131,21 @@ export async function checkSessionLimit(userId: string): Promise<{
 
 export async function trackSessionUsage(
     userId: string,
-    siteId: string
+    _siteId: string
 ): Promise<{
     success: boolean;
     limitExceeded: boolean;
     current?: number;
     limit?: number | null;
 }> {
+    // Get limits for incrementSessionCount
+    const limits = await getUserPlanLimits(userId);
+
     // Increment usage using robust logic from counter.ts (Source of truth: user_usage_stats)
     // Note: incrementSessionCount handles RPC or direct update internally
     const { incrementSessionCount } = await import('@/lib/usage-tracker/counter');
     try {
-        await incrementSessionCount(userId);
+        await incrementSessionCount(userId, limits.sessions);
     } catch (error) {
         console.error('Failed to track session usage:', error);
         // Don't fail the request, just log error

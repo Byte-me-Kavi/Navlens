@@ -165,9 +165,19 @@ export default function HeatmapViewerPage() {
       }
     };
 
+    const handleResize = () => {
+      const detected = detectDevice();
+      setUserDevice(detected);
+      // Optional: Only auto-switch selected device if user hasn't manually overridden it?
+      // For now, let's just update the userDevice state which controls warnings
+    };
+
     const detected = detectDevice();
     setUserDevice(detected);
     setSelectedDevice(detected);
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Handler for device change

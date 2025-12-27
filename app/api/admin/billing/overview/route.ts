@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+
 import { createClient } from '@/lib/supabase/server-admin';
+import { verifyAdminSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,12 +22,12 @@ interface PlanLimits {
     max_sites?: number;
 }
 
+
 export async function GET() {
     try {
-        const cookieStore = await cookies();
-        const adminSession = cookieStore.get('admin_session');
+        const isAdmin = await verifyAdminSession();
 
-        if (!adminSession?.value) {
+        if (!isAdmin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

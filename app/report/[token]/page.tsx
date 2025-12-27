@@ -99,7 +99,7 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
     supabase.from('sessions_view').select('visitor_id', { count: 'exact', head: true }).eq('site_id', siteId).gte('started_at', startDate),
     supabase.from('sessions_view').select('session_id', { count: 'exact', head: true }).eq('site_id', siteId).gte('started_at', startDate),
     supabase.from('web_vitals').select('lcp').eq('site_id', siteId).gte('created_at', startDate).not('lcp', 'is', null).limit(100),
-    showAnyHeatmap ? supabase.from('snapshots').select('page_path, created_at').eq('site_id', siteId).order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
+    showAnyHeatmap ? supabase.from('snapshots').select('page_path, created_at').eq('site_id', siteId).order('created_at', { ascending: false }).limit(1000) : Promise.resolve({ data: [] }),
     (showFeature('sessions') || showFeature('mobile_audit') || showFeature('summary') || showFeature('traffic')) 
       ? supabase.from('sessions_view')
           .select('session_id, visitor_id, started_at, duration, page_views, device_type, country, signals')

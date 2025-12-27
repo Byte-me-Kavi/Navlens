@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+
 import { createClient } from '@/lib/supabase/server-admin';
 import { logAdminAction } from '@/lib/admin-logger';
+import { verifyAdminSession } from '@/lib/auth';
 
 export async function POST(
     request: NextRequest,
@@ -9,9 +10,8 @@ export async function POST(
 ) {
     try {
         // 1. Security Check
-        const cookieStore = await cookies();
-        const adminSession = cookieStore.get('admin_session');
-        if (!adminSession?.value) {
+        const isAdmin = await verifyAdminSession();
+        if (!isAdmin) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

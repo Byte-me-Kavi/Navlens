@@ -18,6 +18,14 @@ import {
   FireIcon,
   PresentationChartLineIcon,
   DevicePhoneMobileIcon,
+  SignalIcon,
+  FunnelIcon,
+  MapIcon,
+  ClipboardDocumentListIcon,
+  UserGroupIcon,
+  FaceFrownIcon,
+  ChatBubbleBottomCenterTextIcon,
+  CpuChipIcon,
 } from "@heroicons/react/24/outline";
 
 const features = [
@@ -83,6 +91,66 @@ const features = [
     description:
       "Separate insights for desktop, tablet, and mobile users. Optimize experiences perfectly for every device type.",
     color: "purple",
+  },
+  {
+    icon: SignalIcon,
+    title: "Network Diagnostics",
+    description: "Monitor API latency, resource loading speeds, and catch network errors to ensure optimal performance.",
+    color: "purple",
+  },
+  {
+    icon: FunnelIcon,
+    title: "Conversion Funnels",
+    description: "Track user drop-off at every step of your key conversion paths to identify and fix bottlenecks.",
+    color: "blue",
+  },
+  {
+    icon: MapIcon,
+    title: "User Journeys",
+    description: "Visualize the exact paths users take through your site to understand their navigation behavior.",
+    color: "purple",
+  },
+  {
+    icon: CpuChipIcon,
+    title: "Smart Elements",
+    description: "Get detailed interaction stats for every clickable element on your page automatically.",
+    color: "blue",
+  },
+  {
+    icon: ClipboardDocumentListIcon,
+    title: "Form Analytics",
+    description: "See which fields cause abandonment and how long users spend on each part of your forms.",
+    color: "purple",
+  },
+  {
+    icon: UserGroupIcon,
+    title: "User Cohorts",
+    description: "Segment users by behavior, device, or source to analyze specific groups in detail.",
+    color: "blue",
+  },
+  {
+    icon: FaceFrownIcon,
+    title: "Frustration Signals",
+    description: "Automatically detect rage clicks and dead clicks to identify broken or confusing elements.",
+    color: "purple",
+  },
+  {
+    icon: ChatBubbleBottomCenterTextIcon,
+    title: "Visitor Feedback",
+    description: "Collect direct feedback from users with unobtrusive widgets and surveys.",
+    color: "blue",
+  },
+  {
+    icon: CursorArrowRaysIcon,
+    title: "Cursor Paths",
+    description: "Trace mouse movements to understand user attention and hesitation even without clicks.",
+    color: "purple",
+  },
+  {
+    icon: EyeIcon,
+    title: "Hover Heatmaps",
+    description: "See where users hover their mouse to understand what captures their attention.",
+    color: "blue",
   },
 ];
 

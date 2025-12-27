@@ -5,233 +5,310 @@ import {
   ArrowTrendingUpIcon,
   BeakerIcon,
   SignalIcon,
+  FunnelIcon,
+  MapIcon,
+  CpuChipIcon,
+  ClipboardDocumentListIcon,
+  UserGroupIcon,
+  FaceFrownIcon,
+  ChatBubbleBottomCenterTextIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 
-export const guidesData = {
+export type GuideKey =
+  | "installation-guide"
+  | "understanding-heatmaps"
+  | "dashboard-overview"
+  | "data-analysis-basics"
+  | "a-b-testing-experiments"
+  | "network-performance"
+  | "conversion-funnels"
+  | "user-journeys"
+  | "smart-element-insights"
+  | "form-analytics"
+  | "user-cohorts"
+  | "frustration-signals"
+  | "visitor-feedback"
+  | "cursor-paths-heatmaps"
+  | "hover-heatmaps";
+
+export const allGuideSlugs: GuideKey[] = [
+  "installation-guide",
+  "understanding-heatmaps",
+  "dashboard-overview",
+  "data-analysis-basics",
+  "a-b-testing-experiments",
+  "network-performance",
+  "conversion-funnels",
+  "user-journeys",
+  "smart-element-insights",
+  "form-analytics",
+  "user-cohorts",
+  "frustration-signals",
+  "visitor-feedback",
+  "cursor-paths-heatmaps",
+  "hover-heatmaps",
+];
+
+export interface GuideSection {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  codeBlock?: string;
+}
+
+export interface Guide {
+  title: string;
+  description: string;
+  date: string;
+  icon: any;
+  estimatedTime: string;
+  difficulty: string;
+  relatedGuides?: GuideKey[];
+  sections: GuideSection[];
+}
+
+export const guidesData: Record<GuideKey, Guide> = {
   "installation-guide": {
     title: "Installation Guide",
     description: "Set up Navlens in your project in just a few minutes",
+    date: "Updated Dec 26, 2025",
     icon: RocketLaunchIcon,
-    estimatedTime: "5-10 minutes",
+    estimatedTime: "5 min",
     difficulty: "Beginner",
     sections: [
       {
-        id: "step-1",
-        title: "Step 1: Create Your Account",
-        description: "Start by creating a free Navlens account at navlens.io",
-        content:
-          "Sign up for a free account by visiting our website. After confirming your email, you will be taken to your dashboard.",
-        codeBlock: null,
-      },
-      {
-        id: "step-2",
-        title: "Step 2: Add Tracking Script",
-        description: "Add the script to your application",
-        content:
-          "Insert the following code snippet into the <head> of your website's HTML.",
-        codeBlock:
-          "<script \n  async \n  src=\"https://navlensanalytics.com/tracker.js\" \n  data-site-id=\"YOUR_SITE_ID\"\n  data-api-key=\"YOUR_API_KEY\"\n  data-api-host=\"https://navlensanalytics.com\"\n><\\/script>",
-      },
-    ],
-    nextSteps: ["first-heatmap-setup"],
-    relatedGuides: ["first-heatmap-setup", "dashboard-overview"],
+        id: "quick-start",
+        title: "Quick Start",
+        description: "Add the script to your site",
+        content: "Add the tracking script to your website's <head> tag. You can find your unique script in the Dashboard under Settings > Installation.",
+        codeBlock: '<script defer src="https://navlens.io/tracker.js" data-site-id="YOUR_SITE_ID"></script>'
+      }
+    ]
   },
-  "first-heatmap-setup": {
+  "understanding-heatmaps": {
     title: "Understanding Heatmaps",
-    description: "Learn how heatmaps are automatically generated for your pages",
+    description: "Learn about automatic heatmap generation",
+    date: "Updated Dec 26, 2025",
     icon: CursorArrowRaysIcon,
-    estimatedTime: "2-5 minutes",
+    estimatedTime: "10 min",
     difficulty: "Beginner",
     sections: [
       {
-        id: "step-1",
-        title: "Automatic Data Collection",
-        description: "Zero configuration needed",
-        content:
-          "Once you install the tracking script, Navlens automatically begins capturing click data, scroll depth, and mouse movements for every page visited by your users. No manual configuration is required.",
-        codeBlock: null,
-      },
-      {
-        id: "step-2",
-        title: "Viewing Your Heatmaps",
-        description: "Accessing visualization data",
-        content:
-          "Simply navigate to the Heatmaps section in your dashboard. You will see a list of pages where user activity has been detected. Click on any page to view the generated heatmap overlay.",
-        codeBlock: null,
-      },
-    ],
-    nextSteps: ["dashboard-overview", "data-analysis-basics"],
-    relatedGuides: ["installation-guide"],
+        id: "types-of-heatmaps",
+        title: "Types of Heatmaps",
+        description: "Different ways to visualize data",
+        content: "Heatmaps visualize where users click, move, and scroll on your site.\n- Click Maps: Show hotspots where users click the most.\n- Scroll Maps: Visualize how far down the page users scroll.\n- Move Maps: Track mouse movement patterns."
+      }
+    ]
   },
   "dashboard-overview": {
     title: "Dashboard Overview",
     description: "Navigate and utilize the Navlens dashboard features",
+    date: "Updated Dec 26, 2025",
     icon: ChartBarIcon,
-    estimatedTime: "8-12 minutes",
+    estimatedTime: "15 min",
     difficulty: "Beginner",
     sections: [
       {
-        id: "step-1",
-        title: "Understanding the Main Dashboard",
-        description: "Overview of dashboard components",
-        content:
-          "Your dashboard includes: Sidebar Navigation, Top Statistics, Recent Activity, and Quick Actions.",
-        codeBlock: null,
-      },
-      {
-        id: "step-2",
-        title: "Navigating Heatmaps Section",
-        description: "View and manage all your heatmaps",
-        content:
-          "The Heatmaps section shows all active heatmaps. View real-time data, compare pages, and export visualizations.",
-        codeBlock: null,
-      },
-      {
-        id: "step-3",
-        title: "Accessing Analytics",
-        description: "Deep dive into user analytics",
-        content:
-          "Analytics section provides: Session recordings, User behavior flows, Conversion funnels, Custom event tracking.",
-        codeBlock: null,
-      },
-      {
-        id: "step-4",
-        title: "Network Performance",
-        description: "Monitor API latency",
-        content:
-          "Check the Network Health dashboard for real-time API latency and uptime status.",
-        codeBlock: null,
-      },
-    ],
-    nextSteps: ["data-analysis-basics"],
-    relatedGuides: ["first-heatmap-setup", "installation-guide"],
+        id: "overview",
+        title: "Overview",
+        description: "Key metrics at a glance",
+        content: "Navigate your analytics efficiently:\n- Overview: High-level metrics (visitors, bounce rate, etc).\n- Heatmaps: Visual interaction data.\n- Recordings: Replay user sessions.\n- Live View: Real-time visitor activity."
+      }
+    ]
   },
-
   "data-analysis-basics": {
     title: "Data Analysis Basics",
     description: "Learn fundamental data analysis and interpretation",
+    date: "Updated Dec 26, 2025",
     icon: ArrowTrendingUpIcon,
-    estimatedTime: "15-20 minutes",
+    estimatedTime: "20 min",
     difficulty: "Intermediate",
     sections: [
       {
-        id: "step-1",
-        title: "Reading Heatmap Data",
-        description: "Interpret heatmap visualizations effectively",
-        content:
-          "Heatmaps use color intensity: Red/Hot = high interaction, Yellow/Warm = medium, Blue/Cool = low. Hot spots show areas of interest.",
-        codeBlock: null,
-      },
-      {
-        id: "step-2",
-        title: "Analyzing User Sessions",
-        description: "Review individual user sessions and behavior",
-        content:
-          "Session recordings show exactly how users interact with your site. Watch interactions, identify friction points, and find UX issues.",
-        codeBlock: null,
-      },
-      {
-        id: "step-3",
-        title: "Understanding Conversion Funnels",
-        description: "Track and optimize conversion paths",
-        content:
-          "Create funnels to track user progression: Landing > Product > Cart > Checkout > Purchase. Identify and optimize drop-off points.",
-        codeBlock: null,
-      },
-      {
-        id: "step-4",
-        title: "Actionable Insights & Recommendations",
-        description: "Turn data into actionable improvements",
-        content:
-          "Use AI-powered insights to identify high-impact improvements and get optimization recommendations.",
-        codeBlock: null,
-      },
-    ],
-    nextSteps: [],
-    relatedGuides: ["dashboard-overview"],
+        id: "interpreting-data",
+        title: "Interpreting Data",
+        description: "What the numbers mean",
+        content: "Learn to interpret your data:\n1. Volume vs. Quality: High traffic doesn't always mean high engagement.\n2. Bounce Rate: High bounce rates might indicate irrelevant content or slow loading.\n3. Session Duration: Longer sessions often signal higher engagement."
+      }
+    ]
   },
   "a-b-testing-experiments": {
     title: "A/B Testing Experiments",
     description: "Create and manage experiments to optimize user experience",
+    date: "Updated Dec 26, 2025",
     icon: BeakerIcon,
-    estimatedTime: "15-20 minutes",
+    estimatedTime: "25 min",
     difficulty: "Advanced",
     sections: [
       {
-        id: "step-1",
-        title: "Initialize the AB Editor",
-        description: "Launch the visual editor",
-        content:
-          "From your dashboard, navigate to Experiments and click 'Open Editor'. This will launch the visual editor over your live site.",
-        codeBlock: null,
-      },
-      {
-        id: "step-2",
-        title: "Create Variants",
-        description: "Define your test variants",
-        content:
-          "Select the element you want to test and create variations. You can change text, colors, visibility, and more.",
-        codeBlock: null,
-      },
-      {
-        id: "step-3",
-        title: "Set Traffic Distribution",
-        description: "Control user exposure",
-        content:
-          "Choose what percentage of traffic sees each variant. We recommend a 50/50 split for simple A/B tests.",
-        codeBlock: null,
-      },
-      {
-        id: "step-4",
-        title: "Define Goals",
-        description: "Measure success",
-        content:
-          "Select the metric you want to improve (e.g., Clicks, Form Submissions, Page Views).",
-        codeBlock: null,
-      },
-    ],
-    nextSteps: ["data-analysis-basics"],
-    relatedGuides: ["dashboard-overview"],
+        id: "running-tests",
+        title: "Running Tests",
+        description: "How to set up an experiment",
+        content: "Test different versions of your site:\n1. Create variants in the editor.\n2. Set traffic distribution (e.g., 50/50).\n3. Define a goal (e.g., 'Clicked Sign Up').\n4. Launch and monitor statistical significance."
+      }
+    ]
   },
-
   "network-performance": {
     title: "Network Performance",
     description: "Monitor API latency and resource loading health",
+    date: "Updated Dec 27, 2025",
     icon: SignalIcon,
-    estimatedTime: "10-15 minutes",
+    estimatedTime: "10 min",
+    difficulty: "Intermediate",
+    sections: [
+      {
+        id: "monitoring",
+        title: "Monitoring Health",
+        description: "Keep your site fast",
+        content: "Monitor your site's technical health:\n- Latency: Time to first byte and API response times.\n- Resource Loading: Identify heavy images or scripts slowing down your site.\n- Errors: Catch 404s and 500s that users encounter."
+      }
+    ]
+  },
+  "conversion-funnels": {
+    title: "Conversion Funnels",
+    description: "Analyze user drop-off across defined steps",
+    date: "Updated Dec 27, 2025",
+    icon: FunnelIcon,
+    estimatedTime: "15 min",
+    difficulty: "Intermediate",
+    sections: [
+      {
+        id: "setup",
+        title: "Setting Up Funnels",
+        description: "Track the journey",
+        content: "Track user journeys towards conversion:\n1. Define steps (e.g., Landing -> Pricing -> Signup).\n2. Analyze drop-off rates at each step.\n3. Identify bottlenecks causing users to leave."
+      }
+    ]
+  },
+  "user-journeys": {
+    title: "User Journeys",
+    description: "Visual navigation paths and flow analysis",
+    date: "Updated Dec 27, 2025",
+    icon: MapIcon,
+    estimatedTime: "10 min",
+    difficulty: "Intermediate",
+    sections: [
+      {
+        id: "visualization",
+        title: "Visualizing Paths",
+        description: "See where users go",
+        content: "Visualize navigation paths:\n- See the most common paths users take.\n- Identify looping behavior (users getting lost).\n- Optimize site structure based on actual flow."
+      }
+    ]
+  },
+  "smart-element-insights": {
+    title: "Smart Element Insights",
+    description: "Detailed interaction stats for UI elements",
+    date: "Updated Dec 27, 2025",
+    icon: CpuChipIcon,
+    estimatedTime: "5 min",
+    difficulty: "Beginner",
+    sections: [
+      {
+        id: "interaction-stats",
+        title: "Interaction Stats",
+        description: "Click and hover data",
+        content: "Detailed stats for UI elements:\n- Interactions: Total clicks and hovers.\n- Visibility: How often an element is actually seen.\n- Conversion Contribution: How often clicking leads to a goal."
+      }
+    ]
+  },
+  "form-analytics": {
+    title: "Form Analytics",
+    description: "Optimize form completion and field usage",
+    date: "Updated Dec 27, 2025",
+    icon: ClipboardDocumentListIcon,
+    estimatedTime: "10 min",
+    difficulty: "Intermediate",
+    sections: [
+      {
+        id: "optimization",
+        title: "Form Optimization",
+        description: "Improve completion rates",
+        content: "Optimize your forms:\n- Drop-off: Which field makes users quit?\n- Time per field: Which questions take too long?\n- Refill rate: Which fields cause validation errors?"
+      }
+    ]
+  },
+  "user-cohorts": {
+    title: "User Cohorts",
+    description: "Segment and analyze specific user groups",
+    date: "Updated Dec 27, 2025",
+    icon: UserGroupIcon,
+    estimatedTime: "15 min",
     difficulty: "Advanced",
     sections: [
       {
-        id: "step-1",
-        title: "View Network Health",
-        description: "Check global status",
-        content:
-          "The Network Health dashboard shows real-time API latency and uptime status across different regions.",
-        codeBlock: null,
-      },
-      {
-        id: "step-2",
-        title: "Analyze Latency",
-        description: "Drill down into response times",
-        content:
-          "View detailed breakdown of request times (DNS, SSL, TTFB, Download) to identify bottlenecks.",
-        codeBlock: null,
-      },
-      {
-        id: "step-3",
-        title: "Set Alerts",
-        description: "Get notified of issues",
-        content:
-          "Configure alerts to be notified via email or Slack when latency exceeds your defined thresholds.",
-        codeBlock: null,
-      },
-    ],
-    nextSteps: ["dashboard-overview"],
-    relatedGuides: ["dashboard-overview", "data-analysis-basics"],
+        id: "segmentation",
+        title: "Segmentation",
+        description: "Group your users",
+        content: "Segment your audience:\n- Retention: Track returning users over time.\n- Behavior: Group users who performed specific actions.\n- Demographics: Segment by location, device, or source."
+      }
+    ]
   },
-
+  "frustration-signals": {
+    title: "Frustration Signals",
+    description: "Detect rage clicks and broken experiences",
+    date: "Updated Dec 27, 2025",
+    icon: FaceFrownIcon,
+    estimatedTime: "5 min",
+    difficulty: "Beginner",
+    sections: [
+      {
+        id: "detection",
+        title: "Detecting Struggle",
+        description: "Find pain points",
+        content: "Detect user struggle automatically:\n- Rage Clicks: Rapidly clicking the same element (sign of broken UI).\n- Dead Clicks: Clicking un-clickable elements.\n- Rapid Scrolling: Searching for content in frustration."
+      }
+    ]
+  },
+  "visitor-feedback": {
+    title: "Visitor Feedback",
+    description: "Collect direct inputs via surveys and widgets",
+    date: "Updated Dec 27, 2025",
+    icon: ChatBubbleBottomCenterTextIcon,
+    estimatedTime: "5 min",
+    difficulty: "Beginner",
+    sections: [
+      {
+        id: "collection",
+        title: "Collecting Feedback",
+        description: "Ask your users",
+        content: "Collect qualitative data:\n- Surveys: Ask NPS or specific questions.\n- Feedback Widgets: Allow users to report bugs or suggestions.\n- Context: See the session recording associated with the feedback."
+      }
+    ]
+  },
+  "cursor-paths-heatmaps": {
+    title: "Cursor Paths",
+    description: "Trace mouse movement patterns",
+    date: "Updated Dec 27, 2025",
+    icon: CursorArrowRaysIcon,
+    estimatedTime: "5 min",
+    difficulty: "Intermediate",
+    sections: [
+      {
+        id: "tracing",
+        title: "Tracing Movement",
+        description: "Follow the cursor",
+        content: "Trace user attention:\n- Visualize mouse movement trails.\n- Understand reading patterns and hesitation.\n- Analyze non-clicking interaction behavior."
+      }
+    ]
+  },
+  "hover-heatmaps": {
+    title: "Hover Heatmaps",
+    description: "Analyze user attention via hover data",
+    date: "Updated Dec 27, 2025",
+    icon: EyeIcon,
+    estimatedTime: "5 min",
+    difficulty: "Intermediate",
+    sections: [
+      {
+        id: "hover-analysis",
+        title: "Hover Analysis",
+        description: "What captures attention",
+        content: "See where users hover:\n- Identify elements that attract attention but aren't clicked.\n- Analyze menu interactions and dropdown usage.\n- Correlate hover interest with click-through rates."
+      }
+    ]
+  }
 };
-
-export const allGuideSlugs = Object.keys(guidesData);
-
-export type GuideKey = keyof typeof guidesData;

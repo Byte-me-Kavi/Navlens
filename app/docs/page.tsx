@@ -19,6 +19,13 @@ import {
   ArrowTrendingUpIcon,
   BeakerIcon,
   SignalIcon,
+  FunnelIcon,
+  MapIcon,
+  ClipboardDocumentListIcon,
+  FaceFrownIcon,
+  ChatBubbleBottomCenterTextIcon,
+  CpuChipIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 import { Navbar } from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -73,6 +80,60 @@ export default function DocumentationPage() {
         description: "Monitor API latency and resource loading health",
         icon: SignalIcon,
         steps: 6,
+      },
+      {
+        title: "Conversion Funnels",
+        description: "Analyze user drop-off across defined steps",
+        icon: FunnelIcon,
+        steps: 4,
+      },
+      {
+        title: "User Journeys",
+        description: "Visual navigation paths and flow analysis",
+        icon: MapIcon,
+        steps: 5,
+      },
+      {
+        title: "Smart Element Insights",
+        description: "Detailed interaction stats for UI elements",
+        icon: CpuChipIcon,
+        steps: 3,
+      },
+      {
+        title: "Form Analytics",
+        description: "Optimize form completion and field usage",
+        icon: ClipboardDocumentListIcon,
+        steps: 4,
+      },
+      {
+        title: "User Cohorts",
+        description: "Segment and analyze specific user groups",
+        icon: UserGroupIcon,
+        steps: 5,
+      },
+      {
+        title: "Frustration Signals",
+        description: "Detect rage clicks and broken experiences",
+        icon: FaceFrownIcon,
+        steps: 3,
+      },
+      {
+        title: "Visitor Feedback",
+        description: "Collect direct inputs via surveys and widgets",
+        icon: ChatBubbleBottomCenterTextIcon,
+        steps: 4,
+      },
+      {
+        title: "Cursor Paths Heatmaps",
+        description: "Trace mouse movement patterns",
+        icon: CursorArrowRaysIcon, // Reusing similar icon
+        steps: 3,
+      },
+      {
+        title: "Hover Heatmaps",
+        description: "Analyze user attention via hover data",
+        icon: EyeIcon, // Reusing similar icon
+        steps: 3,
       },
     ],
     []

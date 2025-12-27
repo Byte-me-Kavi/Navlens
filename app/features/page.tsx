@@ -22,6 +22,14 @@ import {
   Cog8ToothIcon,
   DocumentTextIcon,
   ArrowTrendingUpIcon,
+  SignalIcon,
+  FunnelIcon,
+  MapIcon,
+  ClipboardDocumentListIcon,
+  UserGroupIcon,
+  FaceFrownIcon,
+  ChatBubbleBottomCenterTextIcon,
+  CpuChipIcon,
 } from "@heroicons/react/24/outline";
 
 export default function FeaturesPage() {
@@ -53,6 +61,22 @@ export default function FeaturesPage() {
       image: "/images/features/scroll.png",
     },
     {
+      icon: CursorArrowRaysIcon,
+      title: "Cursor Paths Heatmaps",
+      description:
+        "Trace mouse movements to understand user attention and hesitation. See where users look even if they don't click.",
+      color: "purple",
+      image: "/images/features/paths.jpg",
+    },
+    {
+      icon: EyeIcon,
+      title: "Hover Heatmaps",
+      description:
+        "Visualize hover activity to understand what captures attention. Great for analyzing menus and interactive elements.",
+      color: "blue",
+      image: "/images/features/hover.jpg",
+    },
+    {
       icon: EyeIcon,
       title: "Session Recording",
       description:
@@ -61,12 +85,68 @@ export default function FeaturesPage() {
       image: "/images/features/session.png",
     },
     {
-      icon: ShieldCheckIcon,
-      title: "Privacy & Security",
+      icon: SignalIcon,
+      title: "Network Diagnostics",
       description:
-        "GDPR and CCPA compliant. We respect user privacy while providing powerful analytics without collecting personal data.",
+        "Monitor API latency, resource loading speeds, and catch network errors. Ensure your users have a fast, error-free experience.",
       color: "purple",
-      image: "/images/features/security.png",
+      image: "/images/features/network.jpg",
+    },
+    {
+      icon: FunnelIcon,
+      title: "Conversion Funnels",
+      description:
+        "Define multi-step conversion paths and track user drop-off at every stage. Identify friction points and optimize flows for higher conversion rates.",
+      color: "blue",
+      image: "/images/features/funnel.jpg",
+    },
+    {
+      icon: MapIcon,
+      title: "User Journeys",
+      description:
+        "Visualize the exact paths users take through your site. See common entry points, exit pages, and navigation loops to improve site structure.",
+      color: "purple",
+      image: "/images/features/user-journey.jpg",
+    },
+    {
+      icon: CpuChipIcon,
+      title: "Smart Element Insights",
+      description:
+        "Get detailed interaction statistics for every clickable element on your page automatically. No manual tagging required.",
+      color: "blue",
+      image: "/images/features/element.jpg",
+    },
+    {
+      icon: ClipboardDocumentListIcon,
+      title: "Form Analytics",
+      description:
+        "Deep dive into form performance. See which fields cause abandonment, time spent per field, and improve completion rates.",
+      color: "purple",
+      image: "/images/features/form.jpg",
+    },
+    {
+      icon: UserGroupIcon,
+      title: "User Cohorts",
+      description:
+        "Segment users by behavior, device, traffic source, or custom properties. Analyze specific groups to uncover hidden trends.",
+      color: "blue",
+      image: "/images/features/cohort.jpg",
+    },
+    {
+      icon: FaceFrownIcon,
+      title: "Frustration Signals",
+      description:
+        "Automatically detect 'rage clicks' and 'dead clicks'. Identify broken elements or confusing UI components that frustrate users.",
+      color: "purple",
+      image: "/images/features/signals.jpg",
+    },
+    {
+      icon: ChatBubbleBottomCenterTextIcon,
+      title: "Visitor Feedback",
+      description:
+        "Collect direct feedback from your users with unobtrusive widgets. Ask specific questions triggered by user behavior.",
+      color: "blue",
+      image: "/images/features/feedback.jpg",
     },
     {
       icon: BoltIcon,
@@ -89,31 +169,38 @@ export default function FeaturesPage() {
       title: "Multi-Device Support",
       description:
         "Separate insights for desktop, tablet, and mobile users. Optimize experiences perfectly for every device type.",
-      color: "blue",
-      image: "/images/features/all-devices.png",
-    },
-  ];
-
-  const integrations = [
-    {
-      title: "Heatmaps",
-      description: "Visual representation of user interactions",
-      icon: FireIcon,
-    },
-    {
-      title: "Session Replay",
-      description: "Watch real user sessions unfold",
-      icon: EyeIcon,
-    },
-    {
-      title: "Behavior Analytics",
-      description: "Understand user patterns and trends",
-      icon: ChartBarIcon,
-    },
-    {
-      title: "Conversion Tracking",
-      description: "Monitor conversion funnels in real-time",
-      icon: CheckCircleIcon,
+        image: "/images/features/all-devices.png",
+      },
+      {
+        icon: ShieldCheckIcon,
+        title: "Privacy & Security",
+        description:
+          "GDPR and CCPA compliant. We respect user privacy while providing powerful analytics without collecting personal data.",
+        color: "purple",
+        image: "/images/features/security.png",
+      },
+    ];
+    
+    const integrations = [
+      {
+        title: "Heatmaps",
+        description: "Visual representation of user interactions",
+        icon: FireIcon,
+      },
+      {
+        title: "Session Replay",
+        description: "Watch real user sessions unfold",
+        icon: EyeIcon,
+      },
+      {
+        title: "Behavior Analytics",
+        description: "Understand user patterns and trends",
+        icon: ChartBarIcon,
+      },
+      {
+        title: "Conversion Tracking",
+        description: "Monitor conversion funnels in real-time",
+        icon: CheckCircleIcon,
     },
   ];
 

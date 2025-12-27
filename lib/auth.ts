@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
+import { decryptData } from '@/lib/crypto';
 
 export interface AuthResult {
   user: User | null;
@@ -150,17 +151,19 @@ export async function authenticateAndAuthorize(request?: NextRequest): Promise<A
     // The Report Generator uses a custom 'admin_session' cookie.
     // If present and valid, we grant full access (as a super admin).
     // In a production environment, you should verify this session token against a DB or secure store.
-    const adminSession = cookieStore.get('admin_session');
-    const adminEmail = process.env.ADMIN_EMAIL;
+    // Check for Admin Bypass (Fallback if no standard user)
+    // The Report Generator uses a custom 'admin_session' cookie.
 
-    // Strict Admin Check: Must have session cookie AND ADMIN_EMAIL env var configured
-    if (adminSession?.value && adminEmail) {
-      console.log('🔐 Admin Session Detected - Bypassing standard auth for Report Generator');
+    // Check if secure admin session exists
+    const isAdmin = await verifyAdminSession();
+
+    if (isAdmin) {
+      console.log('🔐 Admin Session Verified - Bypassing standard auth');
       // Grant universal access
       return {
         user: {
           id: 'admin-bypass',
-          email: adminEmail,
+          email: process.env.ADMIN_EMAIL || 'admin@local',
           aud: 'authenticated',
           role: 'admin'
         } as User,
@@ -259,5 +262,40 @@ export async function getUserFromRequest(request: NextRequest): Promise<User | n
   } catch (error) {
     console.error('Get user from request error:', error);
     return null;
+  }
+}
+
+/**
+ * Verifies the admin session cookie is signed and valid
+ */
+export async function verifyAdminSession(): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    const adminSession = cookieStore.get('admin_session');
+
+    if (!adminSession?.value) return false;
+
+    // If using legacy plain "true" cookie during migration, invalidate it (enforcing security)
+    if (adminSession.value === 'true') {
+      return false;
+    }
+
+    const payload = await decryptData(adminSession.value);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = payload as any;
+
+    if (session && session.valid && session.role === 'admin') {
+      // Check expiration if present
+      if (session.expires_at && session.expires_at < Date.now()) {
+        return false;
+      }
+      return true;
+    }
+
+    return false;
+  } catch (e) {
+    console.error('Verify admin session failed:', e);
+    return false;
   }
 }

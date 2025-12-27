@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server-admin'; // Use service role
 import { verifyPayHereNotification } from '@/lib/payhere/hash';
 import { PAYHERE_STATUS_CODES } from '@/lib/payhere/types';
-import { sendSubscriptionActiveEmail } from '@/lib/email/service';
+import { sendSubscriptionActiveEmail, sendPaymentFailedEmail } from '@/lib/email/service';
 
 export async function POST(req: NextRequest) {
     try {
@@ -63,6 +63,46 @@ export async function POST(req: NextRequest) {
 
         // Parse amount
         const amount = parseFloat(notification.payhere_amount);
+
+        // 1. IDEMPOTENCY CHECK
+        // Prevent replay attacks or duplicate processing
+        const { data: duplicatePayment } = await supabase
+            .from('payment_history')
+            .select('id')
+            .eq('payhere_payment_id', notification.payment_id)
+            .single();
+
+        if (duplicatePayment) {
+            console.log(`[PayHere Webhook] Duplicate payment ${notification.payment_id} - already processed.`);
+            return NextResponse.json({ success: true });
+        }
+
+        // 2. AMOUNT VALIDATION (Anti-Tampering)
+        // Ensure the paid amount matches the plan price
+        const { data: planData } = await supabase
+            .from('subscription_plans')
+            .select('price_usd, price_lkr, name')
+            .eq('id', planId)
+            .single();
+
+        if (planData) {
+            // Allow small floating point diffs (0.5)
+            const paidAmount = parseFloat(notification.payhere_amount);
+            let expectedPrice = planData.price_usd; // Default to USD
+
+            // If currency is LKR, check LKR price
+            if (notification.payhere_currency === 'LKR') {
+                expectedPrice = planData.price_lkr;
+            }
+
+            // If paid amount is significantly less than expected (allow $1 margin for exchange rate fluctuations if needed)
+            if (paidAmount < (expectedPrice - 1)) {
+                console.error(`[PayHere Webhook] Fraud Alert: Amount mismatch. Paid: ${paidAmount}, Expected: ${expectedPrice} for plan ${planData.name}`);
+                return NextResponse.json({ error: 'Amount mismatch' }, { status: 400 });
+            }
+        } else {
+            console.warn(`[PayHere Webhook] Warning: content received for unknown plan ${planId}`);
+        }
 
         // Handle payment based on status code
         if (notification.status_code === '2') {
@@ -169,11 +209,12 @@ export async function POST(req: NextRequest) {
             // Send confirmation email
             try {
                 // Get user email
-                const { data: userData } = await supabase.auth.admin.listUsers();
-                const user = userData.users.find(u => u.id === userId);
+                const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
 
                 if (user?.email) {
                     await sendSubscriptionActiveEmail(user.email, planId === '2' ? 'Pro' : 'Enterprise');
+                } else if (userError) {
+                    console.error('[PayHere Webhook] Failed to fetch user for email:', userError);
                 }
             } catch (emailError) {
                 console.error('[PayHere Webhook] Failed to send email:', emailError);
@@ -238,7 +279,17 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            // TODO: Send failed payment email to user
+            // Send failed payment email
+            try {
+                const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
+                if (user?.email) {
+                    await sendPaymentFailedEmail(user.email, planId === '2' ? 'Pro' : 'Enterprise');
+                } else if (userError) {
+                    console.error('[PayHere Webhook] Failed to fetch user for email:', userError);
+                }
+            } catch (emailError) {
+                console.error('[PayHere Webhook] Failed to send failed payment email:', emailError);
+            }
         }
 
         // Return 200 to acknowledge receipt

@@ -53,8 +53,21 @@ export async function POST(req: Request) {
             AdminSecurityService.reset(ip);
 
             // Set secure session cookie
+            // Set secure session cookie
             const cookieStore = await cookies();
-            cookieStore.set('admin_session', 'true', {
+
+            // Create signed/encrypted session token
+            const sessionPayload = {
+                valid: true,
+                email: email,
+                role: 'admin',
+                created_at: Date.now(),
+                expires_at: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+            };
+
+            const signedToken = await encryptData(sessionPayload);
+
+            cookieStore.set('admin_session', signedToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 path: '/',
