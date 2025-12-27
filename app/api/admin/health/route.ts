@@ -21,7 +21,7 @@ async function GET_handler() {
             process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
         // Simple health check
-        const { count, error } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+        const { count, error } = await supabase.from('subscriptions').select('*', { count: 'exact', head: true });
 
         // Note: Unable to get exact DB size without admin SQL access, using row counts as proxy where possible
         // or if the user has a stored procedure. For now, we'll return count.

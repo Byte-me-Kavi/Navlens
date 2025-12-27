@@ -30,35 +30,32 @@ export function useFeatureGate(
 
         async function checkAccess() {
             try {
-                // 1. Get User Session
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) {
+                // 1. Get Authenticated User (validates JWT server-side)
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
                     if (isMounted) setIsLoading(false);
                     return;
                 }
 
-                // 2. Fetch Subscription
-                const { data: profile } = await supabase
-                    .from('profiles')
+                // 2. Fetch Subscription (Directly from subscriptions table)
+                const { data: subscription } = await supabase
+                    .from('subscriptions')
                     .select(`
-                        subscription:subscriptions(
-                            status,
-                            plan:subscription_plans(name)
-                        )
+                        status,
+                        plan:subscription_plans(name)
                     `)
-                    .eq('user_id', session.user.id)
-                    .single();
+                    .eq('user_id', user.id)
+                    .in('status', ['active', 'trialing'])
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
 
                 // Determine Tier
                 let currentTier: PlanTier = 'FREE';
 
-                // Handle potential array or single object response from Supabase join
-                const subData = profile?.subscription;
-                const sub = Array.isArray(subData) ? subData[0] : subData;
-
-                if (sub?.status === 'active' || sub?.status === 'trialing') {
+                if (subscription?.status === 'active' || subscription?.status === 'trialing') {
                     // @ts-expect-error - Supabase type inference is tricky with nested joins
-                    const planName = sub.plan?.name?.toUpperCase();
+                    const planName = subscription.plan?.name?.toUpperCase();
                     if (planName && planName in PLANS) {
                         currentTier = planName as PlanTier;
                     }

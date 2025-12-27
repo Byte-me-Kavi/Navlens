@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import { validators } from '@/lib/validation';
 import { unstable_cache } from 'next/cache';
+import { trackerCorsHeaders } from '@/lib/security/cors';
+import { getUserFromRequest } from '@/lib/auth';
+import { mergeLimitsWithFallback } from '@/lib/plans/limits';
+
+// Use admin client for server-side operations (bypasses RLS safely)
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 interface Survey {
     id: string;
@@ -22,7 +31,7 @@ interface Survey {
 // Cache surveys for 5 minutes
 const getCachedSurveys = unstable_cache(
     async (siteId: string) => {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('surveys')
             .select('id, name, type, trigger_type, trigger_config, questions, display_frequency, targeting_rules')
             .eq('site_id', siteId)
@@ -40,7 +49,17 @@ const getCachedSurveys = unstable_cache(
     { revalidate: 300 } // 5 minutes
 );
 
+/**
+ * GET /api/surveys
+ * Public endpoint for tracker script to fetch active surveys
+ * Note: This endpoint is intentionally public (no auth) because it's called
+ * from customer websites via the tracker script. However, we validate:
+ * 1. Site exists and is not banned
+ * 2. Site ID format is valid UUID
+ */
 export async function GET(request: NextRequest) {
+    const origin = request.headers.get('origin');
+
     try {
         const { searchParams } = new URL(request.url);
         const siteId = searchParams.get('site_id');
@@ -48,11 +67,38 @@ export async function GET(request: NextRequest) {
         const deviceType = searchParams.get('device_type');
 
         if (!siteId) {
-            return NextResponse.json({ error: 'Missing site_id parameter' }, { status: 400 });
+            return NextResponse.json(
+                { error: 'Missing site_id parameter' },
+                { status: 400, headers: trackerCorsHeaders(origin) }
+            );
         }
 
         if (!validators.isValidUUID(siteId)) {
-            return NextResponse.json({ error: 'Invalid site_id format' }, { status: 400 });
+            return NextResponse.json(
+                { error: 'Invalid site_id format' },
+                { status: 400, headers: trackerCorsHeaders(origin) }
+            );
+        }
+
+        // Validate site exists and is active (not banned)
+        const { data: site, error: siteError } = await supabaseAdmin
+            .from('sites')
+            .select('id, status')
+            .eq('id', siteId)
+            .single();
+
+        if (siteError || !site) {
+            return NextResponse.json(
+                { error: 'Site not found' },
+                { status: 404, headers: trackerCorsHeaders(origin) }
+            );
+        }
+
+        if (site.status === 'banned') {
+            return NextResponse.json(
+                { error: 'Site access denied' },
+                { status: 403, headers: trackerCorsHeaders(origin) }
+            );
         }
 
         // Get cached surveys
@@ -95,14 +141,17 @@ export async function GET(request: NextRequest) {
             { surveys: clientSurveys },
             {
                 headers: {
-                    'Access-Control-Allow-Origin': '*',
+                    ...trackerCorsHeaders(origin),
                     'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
                 },
             }
         );
     } catch (error: unknown) {
         console.error('[surveys] Error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500, headers: trackerCorsHeaders(null) }
+        );
     }
 }
 
@@ -112,6 +161,15 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
+        // Authenticate user
+        const user = await getUserFromRequest(request);
+        if (!user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+
         const body = await request.json();
         const { siteId, name, type, trigger_type, trigger_config, questions, display_frequency, targeting_rules } = body;
 
@@ -127,8 +185,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid siteId format' }, { status: 400 });
         }
 
-        // Get user ID from site
-        const { data: site, error: siteError } = await supabase
+        // Get site and verify ownership
+        const { data: site, error: siteError } = await supabaseAdmin
             .from('sites')
             .select('user_id')
             .eq('id', siteId)
@@ -141,45 +199,44 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Verify user owns this site
+        if (site.user_id !== user.id) {
+            return NextResponse.json(
+                { error: 'You do not have access to this site' },
+                { status: 403 }
+            );
+        }
+
         // --- LIMIT ENFORCEMENT START ---
         // Get user's subscription limits
-        const { data: profile } = await supabase
-            .from('profiles')
+        const { data: subscription } = await supabaseAdmin
+            .from('subscriptions')
             .select(`
-                subscriptions (
-                    status,
-                    subscription_plans (
-                        name,
-                        limits
-                    )
+                status,
+                subscription_plans (
+                    name,
+                    limits
                 )
             `)
             .eq('user_id', site.user_id)
-            .single();
+            .eq('status', 'active')
+            .limit(1)
+            .maybeSingle();
 
-        // Default limit (Free plan) -> 0 surveys
-        let maxSurveys = 0;
+        // Get limits using centralized fallback logic
+        let maxSurveys = 0; // Free plan default
 
-        if (profile?.subscriptions) {
-            const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
-            if (sub?.status === 'active' && sub?.subscription_plans) {
-                const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
-                const limits = plan.limits as { active_surveys?: number };
-
-                if (limits?.active_surveys !== undefined) {
-                    maxSurveys = limits.active_surveys;
-                } else {
-                    // Fallback logic
-                    const planName = plan.name?.toLowerCase() || '';
-                    if (planName.includes('starter')) maxSurveys = 1;
-                    else if (planName.includes('pro') || planName.includes('enterprise')) maxSurveys = -1; // Unlimited
-                }
-            }
+        if (subscription?.status === 'active' && subscription?.subscription_plans) {
+            const plan = Array.isArray(subscription.subscription_plans)
+                ? subscription.subscription_plans[0]
+                : subscription.subscription_plans;
+            const mergedLimits = mergeLimitsWithFallback(plan.limits, plan.name);
+            maxSurveys = mergedLimits.active_surveys;
         }
 
         // Count ACTIVE surveys for this site
         if (maxSurveys !== -1) {
-            const { count: activeCount, error: countError } = await supabase
+            const { count: activeCount, error: countError } = await supabaseAdmin
                 .from('surveys')
                 .select('id', { count: 'exact', head: true })
                 .eq('site_id', siteId)
@@ -199,7 +256,7 @@ export async function POST(request: NextRequest) {
         // --- LIMIT ENFORCEMENT END ---
 
         // Create survey
-        const { data: newSurvey, error: createError } = await supabase
+        const { data: newSurvey, error: createError } = await supabaseAdmin
             .from('surveys')
             .insert({
                 site_id: siteId,
@@ -236,13 +293,10 @@ export async function POST(request: NextRequest) {
 }
 
 // CORS preflight
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+    const origin = request.headers.get('origin');
     return new NextResponse(null, {
         status: 200,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-        },
+        headers: trackerCorsHeaders(origin),
     });
 }

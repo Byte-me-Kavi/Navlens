@@ -23,9 +23,8 @@ export async function GET() {
         console.log('[AdminStats] Starting data fetch...');
 
         const results = await Promise.allSettled([
-            // 0: Users
-            supabase.from('profiles').select('*', { count: 'exact', head: true })
-                .then(res => { if (res.error) throw res.error; return res; }),
+            // 0: Users (via Auth now, logic handled below)
+            Promise.resolve({ count: 0, error: null }),
 
             // 1: Sites
             supabase.from('sites').select('*', { count: 'exact', head: true })

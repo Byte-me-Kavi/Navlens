@@ -149,11 +149,11 @@ export async function POST(req: NextRequest) {
                     })
                     .eq('id', existingSubscription.id);
 
-                // Update profile with subscription link
-                await supabase
-                    .from('profiles')
-                    .update({ subscription_id: existingSubscription.id })
-                    .eq('user_id', userId);
+                // Update profile with subscription link - DEPRECATED
+                // await supabase
+                //     .from('profiles')
+                //     .update({ subscription_id: existingSubscription.id })
+                //     .eq('user_id', userId);
 
             } else {
                 // Create new subscription
@@ -172,11 +172,11 @@ export async function POST(req: NextRequest) {
                     .single();
 
                 if (newSubscription) {
-                    // Update profile
-                    await supabase
-                        .from('profiles')
-                        .update({ subscription_id: newSubscription.id })
-                        .eq('user_id', userId);
+                    // Update profile - DEPRECATED
+                    // await supabase
+                    //     .from('profiles')
+                    //     .update({ subscription_id: newSubscription.id })
+                    //     .eq('user_id', userId);
                 }
             }
 
@@ -212,7 +212,9 @@ export async function POST(req: NextRequest) {
                 const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
 
                 if (user?.email) {
-                    await sendSubscriptionActiveEmail(user.email, planId === '2' ? 'Pro' : 'Enterprise');
+                    // Use plan name from database instead of hardcoded ID check
+                    const planName = planData?.name || 'Premium';
+                    await sendSubscriptionActiveEmail(user.email, planName);
                 } else if (userError) {
                     console.error('[PayHere Webhook] Failed to fetch user for email:', userError);
                 }
@@ -283,7 +285,9 @@ export async function POST(req: NextRequest) {
             try {
                 const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
                 if (user?.email) {
-                    await sendPaymentFailedEmail(user.email, planId === '2' ? 'Pro' : 'Enterprise');
+                    // Use plan name from database instead of hardcoded ID check
+                    const planName = planData?.name || 'Premium';
+                    await sendPaymentFailedEmail(user.email, planName);
                 } else if (userError) {
                     console.error('[PayHere Webhook] Failed to fetch user for email:', userError);
                 }

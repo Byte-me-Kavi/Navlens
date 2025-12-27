@@ -106,61 +106,29 @@ export default function SubscriptionSuccessPage() {
 
         console.log(`🔄 Checking subscription (Attempt ${retryCount.current + 1}/${MAX_RETRIES})...`);
 
-        // 1. Try to fetch existing active subscription first
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select(`
-            subscription_id,
-            subscriptions (
-              id,
-              status,
-              plan_id,
-              subscription_plans (
-                name,
-                id
-              )
-            )
-          `)
-          .eq("user_id", session.user.id)
-          .maybeSingle();
-
-        if (profileError) {
-            logError("Error fetching profile:", profileError);
-        }
-
         let confirmedPlanName = "";
 
-        // Check if we already have an active subscription linked
-        if (profile?.subscriptions) {
-            const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
-            if (sub?.status === 'active') {
-                const p = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
-                confirmedPlanName = p?.name || "";
-                console.log("✅ Found active subscription (via profile):", confirmedPlanName);
-            }
+        // 1. Check subscriptions table directly
+        const { data: directSub } = await supabase
+            .from('subscriptions')
+            .select(`
+                id,
+                status,
+                subscription_plans (name)
+            `)
+            .eq('user_id', session.user.id)
+            .in('status', ['active', 'trialing'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (directSub) {
+             const p = Array.isArray(directSub.subscription_plans) ? directSub.subscription_plans[0] : directSub.subscription_plans;
+             confirmedPlanName = p?.name || "";
+             console.log("✅ Found active subscription (direct query):", confirmedPlanName);
         }
 
-        // FALLBACK: If not found via profile, check subscriptions table directly
-        if (!confirmedPlanName) {
-             const { data: directSub } = await supabase
-                .from('subscriptions')
-                .select(`
-                    id,
-                    status,
-                    subscription_plans (name)
-                `)
-                .eq('user_id', session.user.id)
-                .eq('status', 'active')
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
 
-             if (directSub) {
-                 const p = Array.isArray(directSub.subscription_plans) ? directSub.subscription_plans[0] : directSub.subscription_plans;
-                 confirmedPlanName = p?.name || "";
-                 console.log("✅ Found active subscription (direct query):", confirmedPlanName);
-             }
-        }
 
         // 2. If no active subscription found, try the confirm endpoint (force sync with PayHere)
         if (!confirmedPlanName && orderId) {

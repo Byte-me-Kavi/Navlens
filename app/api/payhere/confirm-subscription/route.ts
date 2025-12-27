@@ -104,16 +104,15 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Update the user's profile to link to this subscription
-        const { error: profileError } = await adminSupabase
-            .from('profiles')
-            .update({ subscription_id: pendingSubscription.id })
-            .eq('user_id', user.id);
+        // Update the user's profile to link to this subscription - DEPRECATED
+        // const { error: profileError } = await adminSupabase
+        //     .from('profiles')
+        //     .update({ subscription_id: pendingSubscription.id })
+        //     .eq('user_id', user.id);
 
-        if (profileError) {
-            console.error('[Confirm Subscription] Failed to update profile:', profileError);
-            // Don't fail - subscription is already active
-        }
+        // if (profileError) {
+        //     console.error('[Confirm Subscription] Failed to update profile:', profileError);
+        // }
 
         // Fetch the updated subscription with plan details
         const { data: activatedSubscription } = await adminSupabase

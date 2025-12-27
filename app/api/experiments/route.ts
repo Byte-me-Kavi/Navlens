@@ -23,6 +23,7 @@ import type {
 import { getUserFromRequest } from '@/lib/auth';
 import { secureCorsHeaders } from '@/lib/security';
 import { validateAndSanitizeGoals } from '@/lib/experiments/goalValidation';
+import { mergeLimitsWithFallback } from '@/lib/plans/limits';
 
 // Supabase admin client
 const supabaseAdmin = createClient(
@@ -208,38 +209,29 @@ export async function POST(request: NextRequest) {
 
         // --- LIMIT ENFORCEMENT START ---
         // Get user's subscription limits
-        const { data: profile } = await supabaseAdmin
-            .from('profiles')
+        const { data: subscription } = await supabaseAdmin
+            .from('subscriptions')
             .select(`
-                subscriptions (
-                    status,
-                    subscription_plans (
-                        name,
-                        limits
-                    )
+                status,
+                subscription_plans (
+                    name,
+                    limits
                 )
             `)
             .eq('user_id', user.id)
-            .single();
+            .eq('status', 'active')
+            .limit(1)
+            .maybeSingle();
 
-        // Default limit (Free plan) -> 0 experiments
-        let maxExperiments = 0;
+        // Get limits using centralized fallback logic
+        let maxExperiments = 0; // Free plan default
 
-        if (profile?.subscriptions) {
-            const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
-            if (sub?.status === 'active' && sub?.subscription_plans) {
-                const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
-                const limits = plan.limits as { active_experiments?: number };
-
-                if (limits?.active_experiments !== undefined) {
-                    maxExperiments = limits.active_experiments;
-                } else {
-                    // Fallback logic
-                    const planName = plan.name?.toLowerCase() || '';
-                    if (planName.includes('starter')) maxExperiments = 1;
-                    else if (planName.includes('pro') || planName.includes('enterprise')) maxExperiments = -1; // Unlimited
-                }
-            }
+        if (subscription?.status === 'active' && subscription?.subscription_plans) {
+            const plan = Array.isArray(subscription.subscription_plans)
+                ? subscription.subscription_plans[0]
+                : subscription.subscription_plans;
+            const mergedLimits = mergeLimitsWithFallback(plan.limits, plan.name);
+            maxExperiments = mergedLimits.active_experiments;
         }
 
         // Count ACTIVE experiments for this site

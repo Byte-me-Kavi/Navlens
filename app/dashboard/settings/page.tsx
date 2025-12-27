@@ -33,12 +33,12 @@ export default function SettingsPage() {
     const loadUserData = async () => {
       try {
         const {
-          data: { session },
-        } = await supabase.auth.getSession();
+          data: { user },
+        } = await supabase.auth.getUser();
 
-        if (session?.user?.email) {
-          setEmail(session.user.email);
-          setDisplayName(session.user.user_metadata?.full_name || "");
+        if (user?.email) {
+          setEmail(user.email);
+          setDisplayName(user.user_metadata?.full_name || "");
         }
 
         // Fetch user preferences from database

@@ -8,7 +8,15 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// POST: Create a shareable report link
+/**
+ * POST: Create a shareable report link
+ * 
+ * SECURITY DESIGN:
+ * - Report CREATION is restricted to administrators only
+ * - This prevents regular users from generating unlimited public links
+ * - GET (list) and DELETE are available to regular site owners to manage existing shares
+ * - Public viewers (via share token) cannot create, list, or delete shares
+ */
 export async function POST(req: NextRequest) {
     try {
         // Authenticate user

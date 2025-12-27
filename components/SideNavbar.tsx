@@ -117,10 +117,10 @@ export default function SideNavbar({ onClose }: SideNavbarProps) {
 
   const currentSite = selectedSiteId ? getSiteById(selectedSiteId) : null;
 
-  const supabase = createBrowserClient(
+  const [supabase] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  ));
 
   const toggleGroup = (groupName: string) => {
     setOpenGroups((prev) => {

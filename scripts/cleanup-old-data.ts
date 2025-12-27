@@ -27,49 +27,46 @@ interface UserRetention {
 async function getUserRetentionPolicies(): Promise<UserRetention[]> {
     console.log('[cleanup] Fetching user retention policies...');
 
-    const { data: profiles, error } = await supabaseAdmin
-        .from('profiles')
+    // Query subscriptions directly (profiles table removed)
+    const { data: subscriptions, error } = await supabaseAdmin
+        .from('subscriptions')
         .select(`
             user_id,
-            subscriptions (
-                status,
-                subscription_plans (
-                    name,
-                    limits
-                )
+            status,
+            subscription_plans (
+                name,
+                limits
             )
-        `);
+        `)
+        .eq('status', 'active');
 
     if (error) {
-        console.error('[cleanup] Error fetching profiles:', error);
+        console.error('[cleanup] Error fetching subscriptions:', error);
         return [];
     }
 
     const retentionPolicies: UserRetention[] = [];
 
-    for (const profile of profiles || []) {
+    for (const sub of subscriptions || []) {
         let retentionDays = 3; // Default (Free plan)
 
-        if (profile.subscriptions) {
-            const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
-            if (sub?.status === 'active' && sub?.subscription_plans) {
-                const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
-                const limits = plan.limits as any;
+        if (sub?.subscription_plans) {
+            const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
+            const limits = plan.limits as Record<string, unknown>;
 
-                if (limits?.retention_days !== undefined) {
-                    retentionDays = limits.retention_days;
-                } else {
-                    // Fallback based on plan name
-                    const planName = plan.name?.toLowerCase() || '';
-                    if (planName.includes('starter')) retentionDays = 30;
-                    else if (planName.includes('pro')) retentionDays = 90;
-                    else if (planName.includes('enterprise')) retentionDays = 365;
-                }
+            if (limits?.retention_days !== undefined) {
+                retentionDays = limits.retention_days as number;
+            } else {
+                // Fallback based on plan name
+                const planName = plan.name?.toLowerCase() || '';
+                if (planName.includes('starter')) retentionDays = 30;
+                else if (planName.includes('pro')) retentionDays = 90;
+                else if (planName.includes('enterprise')) retentionDays = 365;
             }
         }
 
         retentionPolicies.push({
-            user_id: profile.user_id,
+            user_id: sub.user_id,
             retention_days: retentionDays
         });
     }

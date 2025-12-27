@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validators } from '@/lib/validation';
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { getClickHouseClient } from '@/lib/clickhouse';
+import { mergeLimitsWithFallback } from '@/lib/plans/limits';
 
 // --- Type Definitions ---
 interface CountResult {
@@ -74,38 +75,29 @@ export async function POST(req: NextRequest) {
 
                 if (siteData?.user_id) {
 
-                    const { data: profile } = await supabaseAdmin
-                        .from('profiles')
+                    const { data: subscriptions } = await supabaseAdmin
+                        .from('subscriptions')
                         .select(`
-                        subscriptions (
                             status,
                             subscription_plans (
                                 name,
                                 limits
                             )
-                        )
-                    `)
+                        `)
                         .eq('user_id', siteData.user_id)
-                        .single();
+                        .eq('status', 'active')
+                        .order('created_at', { ascending: false })
+                        .limit(1);
 
-                    // Default limit (Free plan) -> 3 heatmap pages
-                    let maxHeatmapPages = 3;
+                    // Use centralized limit fallback logic
+                    let maxHeatmapPages = 3; // Default for Free plan
 
-                    if (profile?.subscriptions) {
-                        const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
+                    if (subscriptions && subscriptions.length > 0) {
+                        const sub = subscriptions[0];
                         if (sub?.status === 'active' && sub?.subscription_plans) {
                             const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
-                            const limits = plan.limits as { heatmap_pages?: number };
-
-                            if (limits?.heatmap_pages !== undefined) {
-                                maxHeatmapPages = limits.heatmap_pages;
-                            } else {
-                                // Fallback logic based on plan name
-                                const planName = plan.name?.toLowerCase() || '';
-                                if (planName.includes('starter')) maxHeatmapPages = 8;
-                                else if (planName.includes('pro')) maxHeatmapPages = 15;
-                                else if (planName.includes('enterprise')) maxHeatmapPages = -1; // Unlimited
-                            }
+                            const mergedLimits = mergeLimitsWithFallback(plan.limits, plan.name);
+                            maxHeatmapPages = mergedLimits.heatmap_pages;
                         }
                     }
 

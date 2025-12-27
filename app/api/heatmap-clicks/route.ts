@@ -115,23 +115,23 @@ async function processHeatmapClicks(
     // Proceed to fetch data
   } else {
     // Regular User - Enforce Limits
-    const { data: profile } = await (await import('@/lib/supabase/server-admin')).createClient()
-      .from('profiles')
+    const { data: subscription } = await (await import('@/lib/supabase/server-admin')).createClient()
+      .from('subscriptions')
       .select(`
-              subscriptions (
-                  status,
-                  subscription_plans (
-                      name,
-                      limits
-                  )
+              status,
+              subscription_plans (
+                  name,
+                  limits
               )
           `)
       .eq('user_id', authResult.user.id)
-      .single();
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
 
     let maxPages = 3; // Default Free
-    if (profile?.subscriptions) {
-      const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
+    if (subscription) {
+      const sub = subscription;
       if (sub?.status === 'active' && sub?.subscription_plans) {
         const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
         const limits = plan.limits as { heatmap_pages?: number };

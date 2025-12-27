@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateAndAuthorize, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
+import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
 
@@ -26,6 +26,11 @@ export async function POST(request: NextRequest) {
 
         if (!siteId) {
             return NextResponse.json({ error: 'Missing siteId parameter' }, { status: 400 });
+        }
+
+        // Check if user is authorized for this site
+        if (!isAuthorizedForSite(authResult.userSites, siteId)) {
+            return createUnauthorizedResponse();
         }
 
         // Build query

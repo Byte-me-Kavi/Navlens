@@ -42,12 +42,10 @@ async function POST_handler(request: NextRequest) {
                 // We will assume the Admin Page sends the UUID if possible. If input is email, we have to search.
                 // Let's rely on frontend sending UUID if singular. But if Admin types email...
                 // Let's simplistic approach:
-                const { data: _data, error: _error } = await supabase.from('profiles').select('user_id').eq('email', targetValue).single(); // Assuming profiles has email? Profiles usually doesn't have email in some schemas.
-                // Start with Auth:
-                // Wait, we can't query auth users easily.
-                // Let's assuming we fetch all profiles?
-                // Let's trust the frontend sends a UUID for "Specific User".
-                targetUserIds = [targetValue];
+                // WARNING: Email lookup removed as profiles table is deprecated.
+                // Admin must provide UUID for specific user targeting, or use 'all'.
+                targetUserIds = [];
+                console.warn('Email lookup not supported without profiles table. Use UUID.');
             } else {
                 targetUserIds = [targetValue];
             }

@@ -162,26 +162,6 @@ export interface Database {
                     created_at?: string
                 }
             }
-            profiles: {
-                Row: {
-                    id: string
-                    user_id: string
-                    email: string | null
-                    subscription_id: string | null
-                }
-                Insert: {
-                    id?: string
-                    user_id: string
-                    email?: string | null
-                    subscription_id?: string | null
-                }
-                Update: {
-                    id?: string
-                    user_id?: string
-                    email?: string | null
-                    subscription_id?: string | null
-                }
-            }
         }
         Views: {
             sessions_view: {

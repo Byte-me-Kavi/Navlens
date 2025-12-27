@@ -82,13 +82,13 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   const [pagesLoading, setPagesLoading] = useState(false);
 
   // Create Supabase client once using ref to prevent recreation on every render
-  const supabaseRef = useRef(
+  // Create Supabase client once using useState lazy initializer to prevent recreation
+  const [supabase] = useState(() => 
     createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
   );
-  const supabase = supabaseRef.current;
 
   useEffect(() => {
     setIsHydrated(true);  
@@ -116,11 +116,11 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       try {
         // Check authentication
         const {
-          data: { session },
-        } = await supabase.auth.getSession();
+          data: { user },
+        } = await supabase.auth.getUser();
 
-        if (!session) {
-          console.log("No authenticated session - skipping sites fetch");
+        if (!user) {
+          console.log("No authenticated user - skipping sites fetch");
           setSitesLoading(false);
           return;
         }

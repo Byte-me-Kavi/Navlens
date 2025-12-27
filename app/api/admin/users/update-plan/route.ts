@@ -82,7 +82,7 @@ async function POST_handler(request: NextRequest) {
 
         let _targetSubId = null;
         if (newSub) {
-            await supabase.from('profiles').update({ subscription_id: newSub.id }).eq('user_id', userId);
+            // await supabase.from('profiles').update({ subscription_id: newSub.id }).eq('user_id', userId);
             _targetSubId = newSub.id;
         }
 

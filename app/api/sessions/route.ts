@@ -4,7 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { authenticateAndAuthorize, isAuthorizedForSite, createUnauthorizedResponse, createUnauthenticatedResponse } from "@/lib/auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Service role key is required for server-side operations
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // Default pagination settings
 import { withMonitoring } from "@/lib/api-middleware";

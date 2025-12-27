@@ -208,45 +208,45 @@ const PricingPage: React.FC = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // First try via profile link
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select(`
-            subscription_id,
-            subscriptions (
-              id,
-              status,
-              plan_id
-            )
-          `)
+        // Query subscriptions directly
+        const { data: directSub } = await supabase
+          .from('subscriptions')
+          .select('id, status, plan_id')
           .eq('user_id', user.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
           .single();
 
-        let activeSubscription = profile?.subscriptions;
-
-        // If no subscription linked to profile, check subscriptions table directly
-        if (!activeSubscription || (Array.isArray(activeSubscription) && activeSubscription.length === 0)) {
-          const { data: directSub } = await supabase
-            .from('subscriptions')
-            .select('id, status, plan_id')
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-          if (directSub) {
-             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-             activeSubscription = directSub as any;
-          }
-        }
+        const activeSubscription = directSub; // Simplified logic
 
         if (activeSubscription) {
            const sub = Array.isArray(activeSubscription) ? activeSubscription[0] : activeSubscription;
            if (sub?.status === 'active') {
                setCurrentPlanId(sub.plan_id);
-               // Find name from plan ID in static config
-               const planName = Object.values(PLANS).find(p => p.id === sub.plan_id)?.name;
+               
+               // Resolve Plan Name from DB UUID
+               // 1. Try config directly (if using string IDs stored in DB)
+               let planName = Object.values(PLANS).find(p => p.id === sub.plan_id)?.name;
+               
+               // 2. If no match (likely UUID in DB), find name via subscription_plans table
+               if (!planName) {
+                   const { data: planData } = await supabase
+                       .from('subscription_plans')
+                       .select('name')
+                       .eq('id', sub.plan_id)
+                       .single();
+                   
+                   if (planData?.name) {
+                       // Normalize DB name "Pro" -> Config ID "pro" -> Name "Pro"
+                       // This ensures we match capitalization exactly with static config
+                       const normalizedName = Object.values(PLANS).find(
+                           p => p.name.toLowerCase() === planData.name.toLowerCase()
+                       )?.name;
+                       planName = normalizedName || planData.name;
+                   }
+               }
+
                setCurrentPlanName(planName || null);
            }
         }
@@ -309,17 +309,25 @@ const PricingPage: React.FC = () => {
 
     console.log('💳 Paid plan detected - initiating payment');
 
-    // Check authentication first
-    const { data: { session } } = await supabase.auth.getSession();
+    // Check authentication first (validates JWT server-side)
+    const { data: { user } } = await supabase.auth.getUser();
     
-    if (!session) {
+    if (!user) {
       console.log('❌ No user found - redirecting to login');
       // Redirect to login with return to pricing with plan parameter
       router.push(`/login?redirect=/pricing&plan=${planId}`);
       return;
     }
 
-    console.log('✅ User authenticated:', session.user.email);
+    // Get session for access token (needed for API calls)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.log('❌ No session found - redirecting to login');
+      router.push(`/login?redirect=/pricing&plan=${planId}`);
+      return;
+    }
+
+    console.log('✅ User authenticated:', user.email);
     console.log('🚀 Calling PayHere API...');
 
     try {
@@ -382,6 +390,14 @@ const PricingPage: React.FC = () => {
     
     setDowngradeLoading(true);
     try {
+      // Validate user first (server-side JWT validation)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      // Get session for access token
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/login');

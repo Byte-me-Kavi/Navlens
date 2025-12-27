@@ -74,11 +74,11 @@ export async function POST(req: NextRequest) {
                 throw updateError;
             }
 
-            // Remove from profile
-            await supabaseAdmin
-                .from('profiles')
-                .update({ subscription_id: null })
-                .eq('user_id', user.id);
+            // Remove from profile - DEPRECATED
+            // await supabaseAdmin
+            //     .from('profiles')
+            //     .update({ subscription_id: null })
+            //     .eq('user_id', user.id);
 
         } else {
             // Cancel at period end

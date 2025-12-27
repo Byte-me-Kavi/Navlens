@@ -274,48 +274,21 @@ export function BillingTab() {
             createdAt: user.created_at
         });
 
-        // 1. Fetch Subscription
-        // Attempt to get via profile first
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select(`
-            subscription_id,
-            subscriptions (
-              id, status, start_date, current_period_end, cancel_at_period_end,
-              subscription_plans (name, price_usd, price_lkr, features)
-            )
-          `)
-          .eq('user_id', user.id)
-          .single();
+        // 1. Fetch Subscription (Direct)
+        const { data: directSub } = await supabase
+            .from('subscriptions')
+            .select(`
+                id, status, start_date, current_period_end, cancel_at_period_end,
+                subscription_plans (name, price_usd, price_lkr, features)
+            `)
+            .eq('user_id', user.id)
+            .in('status', ['active', 'trialing'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let activeSub: any = profile?.subscriptions;
-        
-        // Handle array or single object returns
-        if (Array.isArray(activeSub)) {
-             activeSub = activeSub[0];
-        }
-
-        // FALLBACK: If profile join failed or returned empty/null, check subscriptions table directly
-        if (!activeSub || Object.keys(activeSub).length === 0) {
-            const { data: directSub } = await supabase
-                .from('subscriptions')
-                .select(`
-                    id, status, start_date, current_period_end, cancel_at_period_end,
-                    subscription_plans (name, price_usd, price_lkr, features)
-                `)
-                .eq('user_id', user.id)
-                .eq('status', 'active')
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-            
-            if (directSub) {
-                activeSub = directSub;
-                // Optional: Update profile to link this sub (self-healing)
-                // await supabase.from('profiles').update({ subscription_id: directSub.id }).eq('user_id', user.id);
-            }
-        }
+        const activeSub = directSub;
         
         setSubscription(activeSub);
 

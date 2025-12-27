@@ -32,43 +32,21 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }
 
       // Fetch subscription data
-      // First try to get from profile
-      const { data: profileData } = await supabase
-        .from('profiles')
+      // Fetch subscription data directly
+      const { data: directSub } = await supabase
+        .from('subscriptions')
         .select(`
-          subscription_id,
-          subscriptions (
-            id, status, current_period_end,
-            subscription_plans (name)
-          )
+          id, status, current_period_end,
+          subscription_plans (name)
         `)
         .eq('user_id', user.id)
-        .limit(1);
+        .in('status', ['active', 'trialing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      const profile = profileData?.[0];
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let activeSubscription: any = profile?.subscriptions;
+      const activeSubscription = directSub;
       let planName = 'Free';
-
-      // If no pointer in profile, check subscriptions table directly for active sub
-      if (!activeSubscription || (Array.isArray(activeSubscription) && activeSubscription.length === 0)) {
-        const { data: directSub } = await supabase
-          .from('subscriptions')
-          .select(`
-            id, status, current_period_end,
-            subscription_plans (name)
-          `)
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (directSub) {
-          activeSubscription = directSub;
-        }
-      }
 
       if (activeSubscription) {
         // Handle array or single object response

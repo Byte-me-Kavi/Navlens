@@ -72,11 +72,11 @@ export default async function DashboardOverview() {
     }
   );
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // Check Authentication (Page Protection)
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 

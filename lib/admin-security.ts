@@ -91,6 +91,13 @@ export class AdminSecurityService {
 
         ipStore.set(ip, state);
 
+        // DEBUG: Log OTP to console for development
+        console.log(`\n========================================`);
+        console.log(`[AdminSecurity] DEBUG - OTP CODE: ${otp}`);
+        console.log(`[AdminSecurity] For IP: ${ip}`);
+        console.log(`[AdminSecurity] Expires in 5 minutes`);
+        console.log(`========================================\n`);
+
         // --- EMAIL OTP DELIVERY ---
         try {
             const transporter = nodemailer.createTransport({

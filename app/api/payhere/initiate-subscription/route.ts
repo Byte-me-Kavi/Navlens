@@ -147,17 +147,11 @@ export async function POST(req: NextRequest) {
             // Continue anyway - not critical
         }
 
-        // Fetch user profile for customer details
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, phone, company_name')
-            .eq('user_id', user.id)
-            .single();
-
-        // Parse full name
-        const fullName = profile?.full_name || user.email?.split('@')[0] || 'User';
+        // Parse full name from Auth User Metadata (or fallback to email)
+        const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
         const [firstName, ...lastNameParts] = fullName.split(' ');
         const lastName = lastNameParts.join(' ') || firstName;
+        const phone = '0000000000'; // Default, as we are removing profiles table and it is optional for PayHere
 
         // Initialize PayHere client
         const payhereClient = new PayHereClient();
@@ -178,7 +172,7 @@ export async function POST(req: NextRequest) {
                 firstName,
                 lastName,
                 email: user.email!,
-                phone: profile?.phone || '0000000000',
+                phone: phone,
                 address: 'N/A',
                 city: 'Colombo',
                 country: 'Sri Lanka',

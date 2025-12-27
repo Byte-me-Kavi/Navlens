@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@supabase/ssr';
 import { validators } from '@/lib/validation';
+import { mergeLimitsWithFallback } from '@/lib/plans/limits';
 
 // This is our main 'create site' action
 export async function createSite(formData: FormData) {
@@ -71,22 +72,15 @@ export async function createSite(formData: FormData) {
     // Default limit (Free plan)
     let maxSites = 1;
 
+
     if (subscription?.subscription_plans) {
         const plan = Array.isArray(subscription.subscription_plans)
             ? subscription.subscription_plans[0]
             : subscription.subscription_plans;
-        const limits = plan?.limits as Record<string, number> | undefined;
 
-        // Check limit from Plan Config (Database)
-        if (limits?.max_sites !== undefined) {
-            maxSites = limits.max_sites;
-        } else {
-            // Fallback based on plan name if limit not explicitly in DB column yet
-            const planName = plan?.name?.toLowerCase() || '';
-            if (planName.includes('starter')) maxSites = 3;
-            else if (planName.includes('pro')) maxSites = 5;
-            else if (planName.includes('enterprise')) maxSites = 999;
-        }
+        // Use centralized limit fallback logic
+        const mergedLimits = mergeLimitsWithFallback(plan.limits, plan.name);
+        maxSites = mergedLimits.max_sites;
 
         console.log('[SiteLimit] User:', user.email, 'Plan:', plan?.name, 'MaxSites:', maxSites);
     } else {

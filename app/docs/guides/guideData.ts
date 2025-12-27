@@ -62,6 +62,7 @@ export interface Guide {
   title: string;
   description: string;
   date: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: any;
   estimatedTime: string;
   difficulty: string;

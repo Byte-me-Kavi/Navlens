@@ -5,6 +5,8 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { PlanLimit } from '@/lib/plans/config';
+import { mergeLimitsWithFallback, FREE_PLAN_DEFAULTS } from '@/lib/plans/limits';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,10 +19,13 @@ interface UsageStats {
     period_start: string;
 }
 
-interface PlanLimits {
+// Re-export PlanLimit as PlanLimits for backward compatibility within this file
+type PlanLimits = Pick<PlanLimit, 'sessions' | 'recordings' | 'max_sites' | 'heatmap_pages'> & {
     sessions: number;
     recordings: number;
-}
+    max_sites: number;
+    heatmap_pages: number;
+};
 
 /**
  * Get or create usage stats for a user
@@ -70,6 +75,7 @@ export async function getUsageStats(userId: string): Promise<UsageStats | null> 
             .from('user_usage_stats')
             .update({
                 sessions_this_month: 0,
+                recordings_count: 0, // Reset recordings too
                 period_start: now.toISOString(),
                 updated_at: now.toISOString(),
             })
@@ -92,32 +98,41 @@ export async function getUsageStats(userId: string): Promise<UsageStats | null> 
  * Get user's plan limits
  */
 export async function getUserPlanLimits(userId: string): Promise<PlanLimits> {
-    const { data: profile } = await supabaseAdmin
-        .from('profiles')
+    // Query subscriptions directly, matching lib/subscription/helpers.ts pattern
+    const { data: subscription } = await supabaseAdmin
+        .from('subscriptions')
         .select(`
-            subscriptions (
-                status,
-                subscription_plans (
-                    limits
-                )
+            status,
+            subscription_plans (
+                name,
+                limits
             )
         `)
         .eq('user_id', userId)
-        .single();
+        .eq('status', 'active')
+        .maybeSingle();
 
-    // Default limits (Free plan)
-    const limits: PlanLimits = { sessions: 500, recordings: 50 };
+    // Default limits (Free plan) - using centralized defaults
+    const limits: PlanLimits = {
+        sessions: FREE_PLAN_DEFAULTS.sessions,
+        recordings: FREE_PLAN_DEFAULTS.recordings,
+        max_sites: FREE_PLAN_DEFAULTS.max_sites,
+        heatmap_pages: FREE_PLAN_DEFAULTS.heatmap_pages
+    };
 
-    if (profile?.subscriptions) {
-        const sub = Array.isArray(profile.subscriptions) ? profile.subscriptions[0] : profile.subscriptions;
-        if (sub?.status === 'active' && sub?.subscription_plans) {
+    if (subscription) {
+        const sub = subscription;
+        if (sub.subscription_plans) {
             const plan = Array.isArray(sub.subscription_plans) ? sub.subscription_plans[0] : sub.subscription_plans;
-            const planLimits = plan.limits as { sessions?: number; recordings?: number } | null;
+            const planName = plan.name || '';
+            const planLimits = plan.limits as Partial<PlanLimit> | null;
 
-            if (planLimits) {
-                limits.sessions = planLimits.sessions !== undefined ? planLimits.sessions : 500;
-                limits.recordings = planLimits.recordings !== undefined ? planLimits.recordings : 50;
-            }
+            // Use centralized merge function for consistent fallbacks
+            const merged = mergeLimitsWithFallback(planLimits, planName);
+            limits.sessions = merged.sessions;
+            limits.recordings = merged.recordings;
+            limits.max_sites = merged.max_sites;
+            limits.heatmap_pages = merged.heatmap_pages;
         }
     }
 

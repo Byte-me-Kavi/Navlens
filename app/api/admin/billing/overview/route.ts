@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { createClient } from '@/lib/supabase/server-admin';
 import { verifyAdminSession } from '@/lib/auth';
+import { PlanLimit } from '@/lib/plans/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,15 +13,8 @@ interface UserUsageStats {
     period_start: string;
 }
 
-interface PlanLimits {
-    sessions?: number;
-    recordings?: number;
-    retention_days?: number;
-    active_experiments?: number;
-    active_surveys?: number;
-    heatmap_pages?: number;
-    max_sites?: number;
-}
+// Use canonical PlanLimit type from config, with all props optional for DB parsing
+type PlanLimits = Partial<PlanLimit>;
 
 
 export async function GET() {

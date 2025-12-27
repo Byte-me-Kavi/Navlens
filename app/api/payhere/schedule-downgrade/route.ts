@@ -124,14 +124,14 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Store the scheduled plan in a separate record or profile metadata
+        // Store the scheduled plan in a separate record or profile metadata - DEPRECATED
         // For now, we'll use the profiles table's metadata
-        await supabase
-            .from('profiles')
-            .update({
-                updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', user.id);
+        // await supabase
+        //     .from('profiles')
+        //     .update({
+        //         updated_at: new Date().toISOString(),
+        //     })
+        //     .eq('user_id', user.id);
 
         // Log the scheduled downgrade
         console.log('[Schedule Downgrade] Scheduled:', {
