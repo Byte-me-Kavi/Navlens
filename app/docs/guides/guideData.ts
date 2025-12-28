@@ -84,7 +84,7 @@ export const guidesData: Record<GuideKey, Guide> = {
         title: "Quick Start",
         description: "Add the script to your site",
         content: "Add the tracking script to your website's <head> tag. You can find your unique script in the Dashboard under Settings > Installation.",
-        codeBlock: '<script defer src="https://navlens.io/tracker.js" data-site-id="YOUR_SITE_ID"></script>'
+        codeBlock: '<script defer src="https://navlensanalytics.com/tracker.js" data-site-id="YOUR_SITE_ID"></script>'
       }
     ]
   },

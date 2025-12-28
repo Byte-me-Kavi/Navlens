@@ -3,7 +3,7 @@ import ClientLayout from "./ClientLayout";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://navlens.io"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://navlensanalytics.com"),
   title: {
     default: "Navlens Analytics - Visual User Behavior Insights",
     template: "%s | Navlens Analytics",
@@ -82,9 +82,9 @@ export default function RootLayout({
       {
         "@type": "Organization",
         name: "Navlens Analytics",
-        url: process.env.NEXT_PUBLIC_APP_URL || "https://navlens.io",
+        url: process.env.NEXT_PUBLIC_APP_URL || "https://navlensanalytics.com",
         logo: `${
-          process.env.NEXT_PUBLIC_APP_URL || "https://navlens.io"
+          process.env.NEXT_PUBLIC_APP_URL || "https://navlensanalytics.com"
         }/logo.png`,
         sameAs: ["https://twitter.com/navlens"],
       },
