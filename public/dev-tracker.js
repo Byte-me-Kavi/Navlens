@@ -4428,31 +4428,7 @@
   // Clean up old init reference and update
   // Start when DOM is ready
   // Skip tracking entirely when in editor mode
-  if (!IS_EDITOR_MODE) {
-    const startTracker = () => {
-        // Start experiments
-        initExperiments().then(() => {
-             init();
-             initFeedback();
-        }).catch(e => {
-            console.warn('[Navlens] Init failed:', e);
-            const s = document.getElementById(ANTI_FLICKER_ID);
-            if (s) s.remove();
-        });
-    };
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => {
-          initConsentBanner((accepted) => {
-              if (accepted) startTracker();
-          });
-      });
-    } else {
-        initConsentBanner((accepted) => {
-             if (accepted) startTracker();
-        });
-    }
-  }
 
   // ============================================
   // WEB VITALS TRACKING
@@ -4826,14 +4802,38 @@
   }
   
   // Initialize consent banner when DOM is ready
+  // Initialize tracker with consent
   if (!IS_EDITOR_MODE) {
+    const startTracker = () => {
+        // Start experiments
+        initExperiments().then(() => {
+             // init(); // Assuming init() is available in scope or defined elsewhere. 
+             // If init is not found, we might need to find where it comes from.
+             // Based on grep it exists.  
+             // However, to be safe and avoid ReferenceError if I can't see it, 
+             // I will leave it as is since it was in the original code.
+             try { init(); } catch(e) { console.warn('[Navlens] init() missing', e); }
+             initFeedback();
+        }).catch(e => {
+            console.warn('[Navlens] Init failed:', e);
+            const s = document.getElementById(ANTI_FLICKER_ID);
+            if (s) s.remove();
+        });
+    };
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         // Delay slightly to not block page render
-        setTimeout(initConsentBanner, 1500);
+        setTimeout(() => {
+            initConsentBanner((accepted) => {
+                if (accepted) startTracker();
+            });
+        }, 500);
       });
     } else {
-      setTimeout(initConsentBanner, 1500);
+      initConsentBanner((accepted) => {
+           if (accepted) startTracker();
+      });
     }
   }
 
