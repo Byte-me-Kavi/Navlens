@@ -51,6 +51,11 @@ export const metadata: Metadata = {
       "Visualize user behavior with stunning heatmaps. Track every click, scroll, and interaction.",
     creator: "@navlens",
   },
+  icons: {
+    icon: "/images/favicon.png",
+    shortcut: "/images/favicon.png",
+    apple: "/images/favicon.png",
+  },
 };
 
 export default function RootLayout({
