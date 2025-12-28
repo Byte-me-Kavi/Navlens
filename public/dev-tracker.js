@@ -4429,31 +4429,30 @@
   // Start when DOM is ready
   // Skip tracking entirely when in editor mode
   if (!IS_EDITOR_MODE) {
-    // START IMMEDIATELY - Don't wait for DOMContentLoaded for config fetch
-    const experimentsReady = initExperiments().catch(e => {
-        console.warn('[Navlens] Experiment init failed:', e);
-        // Ensure content is shown even on error
-        const s = document.getElementById(ANTI_FLICKER_ID);
-        if (s) s.remove();
-    });
+    const startTracker = () => {
+        // Start experiments
+        initExperiments().then(() => {
+             init();
+             initFeedback();
+        }).catch(e => {
+            console.warn('[Navlens] Init failed:', e);
+            const s = document.getElementById(ANTI_FLICKER_ID);
+            if (s) s.remove();
+        });
+    };
 
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", async () => { 
-        await experimentsReady; // Wait for merged config to load
-        init(); // Initialize core tracking (clicks, page views, etc.)
-        initFeedback(); 
+      document.addEventListener("DOMContentLoaded", () => {
+          initConsentBanner((accepted) => {
+              if (accepted) startTracker();
+          });
       });
     } else {
-      // DOM already loaded - initialize immediately
-      // Wait for experiments (and merged config) before feedback
-      experimentsReady.then(() => {
-        init(); // Initialize core tracking (clicks, page views, etc.)
-        initFeedback();
-      });
+        initConsentBanner((accepted) => {
+             if (accepted) startTracker();
+        });
     }
   }
-
-  // NOTE: Duplicate navlens API removed - using unified window.Navlens with window.navlens alias
 
   // ============================================
   // WEB VITALS TRACKING
@@ -4626,248 +4625,205 @@
   // ============================================
   // CONSENT BANNER (UI Only - Functionality TBD)
   // Shows a notification that the site uses Navlens
+  // CONSENT BANNER
+  // Cookie Consent & Privacy Protection
   // ============================================
   
   const CONSENT_STORAGE_KEY = 'navlens_consent_status';
   const CONSENT_VERSION = '1.0';
+  let consentResolvedCallback = null;
   
-  function initConsentBanner() {
-    // Skip in editor mode
+  function initConsentBanner(onConsentResolved) {
     if (IS_EDITOR_MODE) return;
     
+    consentResolvedCallback = onConsentResolved;
+
     // Check if user has already responded
     try {
       const stored = localStorage.getItem(CONSENT_STORAGE_KEY);
       if (stored) {
         const data = JSON.parse(stored);
         if (data.version === CONSENT_VERSION && data.responded) {
-          console.log('[Navlens] Consent already recorded:', data.status);
-          return; // Don't show banner again
+          console.log('[Navlens] Consent previously recorded:', data.status);
+          if (data.status === 'accepted' && onConsentResolved) {
+             onConsentResolved(true);
+          }
+          return; 
         }
       }
-    } catch (_e) {
-      // localStorage not available or corrupted
-    }
+    } catch (_e) {}
     
-    // Create banner container
+    // Create modern banner
     const banner = document.createElement('div');
     banner.id = 'navlens-consent-banner';
+    // Accessibility attributes
+    banner.setAttribute('role', 'dialog');
+    banner.setAttribute('aria-label', 'Cookie Consent');
+    banner.setAttribute('aria-modal', 'true');
+    
     banner.innerHTML = `
       <style>
         #navlens-consent-banner {
           position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-          color: #f8fafc;
-          padding: 16px 24px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          z-index: 999999;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-          font-size: 14px;
-          box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-          animation: navlens-slide-up 0.4s ease-out;
+          bottom: 24px;
+          left: 24px;
+          max-width: 400px;
+          width: calc(100% - 48px);
+          background: #ffffff;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+          border-radius: 12px;
+          padding: 20px;
+          z-index: 2147483647; /* Max z-index */
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          animation: navlens-fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+          border: 1px solid rgba(0,0,0,0.05);
+          color: #1f2937;
         }
-        
-        @keyframes navlens-slide-up {
-          from {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        
-        #navlens-consent-banner .navlens-banner-content {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex: 1;
-        }
-        
-        #navlens-consent-banner .navlens-banner-icon {
-          width: 32px;
-          height: 32px;
-          background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-        
-        #navlens-consent-banner .navlens-banner-icon svg {
-          width: 18px;
-          height: 18px;
-          fill: white;
-        }
-        
-        #navlens-consent-banner .navlens-banner-text {
-          line-height: 1.5;
-        }
-        
-        #navlens-consent-banner .navlens-banner-text strong {
-          color: #93c5fd;
-        }
-        
-        #navlens-consent-banner .navlens-banner-text a {
-          color: #93c5fd;
-          text-decoration: underline;
-          cursor: pointer;
-        }
-        
-        #navlens-consent-banner .navlens-banner-buttons {
-          display: flex;
-          gap: 10px;
-          flex-shrink: 0;
-        }
-        
-        #navlens-consent-banner button {
-          padding: 10px 20px;
-          border-radius: 8px;
-          border: none;
-          cursor: pointer;
-          font-weight: 600;
-          font-size: 13px;
-          transition: all 0.2s ease;
-          font-family: inherit;
-        }
-        
-        #navlens-consent-banner .navlens-accept-btn {
-          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-          color: white;
-          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
-        }
-        
-        #navlens-consent-banner .navlens-accept-btn:hover {
-          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
-        }
-        
-        #navlens-consent-banner .navlens-customize-btn {
-          background: rgba(255, 255, 255, 0.1);
-          color: #e2e8f0;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        #navlens-consent-banner .navlens-customize-btn:hover {
-          background: rgba(255, 255, 255, 0.15);
-          border-color: rgba(255, 255, 255, 0.3);
-        }
-        
-        @media (max-width: 640px) {
+
+        @media (prefers-color-scheme: dark) {
           #navlens-consent-banner {
-            flex-direction: column;
-            padding: 16px;
-            text-align: center;
-          }
-          
-          #navlens-consent-banner .navlens-banner-content {
-            flex-direction: column;
-          }
-          
-          #navlens-consent-banner .navlens-banner-buttons {
-            width: 100%;
-            justify-content: center;
+            background: #111827;
+            color: #f9fafb;
+            border-color: #374151;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
           }
         }
+
+        @keyframes navlens-fade-in-up {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes navlens-fade-out-down {
+          from { opacity: 1; transform: translateY(0); }
+          to { opacity: 0; transform: translateY(20px); }
+        }
+
+        .navlens-cb-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+
+        .navlens-cb-icon {
+          font-size: 20px;
+          line-height: 1;
+        }
+
+        .navlens-cb-title {
+          font-weight: 600;
+          font-size: 16px;
+          margin: 0 0 4px 0;
+          line-height: 1.4;
+        }
+
+        .navlens-cb-text {
+          font-size: 14px;
+          line-height: 1.5;
+          margin: 0;
+          opacity: 0.9;
+          color: inherit;
+        }
+
+        .navlens-cb-footer {
+          display: flex;
+          flex-wrap: wrap; 
+          gap: 8px;
+          margin-top: 16px;
+        }
+
+        .navlens-cb-button {
+          flex: 1;
+          display: inline-flex;
+          justify-content: center;
+          align-items: center;
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+          border: 1px solid transparent;
+          white-space: nowrap;
+        }
+
+        .navlens-cb-accept {
+          background-color: #000000;
+          color: #ffffff;
+          border-color: #000000;
+        }
+        
+        .navlens-cb-accept:hover {
+          background-color: #222222;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .navlens-cb-accept {
+            background-color: #ffffff;
+            color: #000000;
+          }
+          .navlens-cb-accept:hover {
+            background-color: #f3f4f6;
+          }
+        }
+        
+        .navlens-cb-decline {
+          background-color: transparent;
+          border-color: #d1d5db;
+          color: inherit;
+        }
+
+        .navlens-cb-decline:hover {
+          background-color: rgba(0,0,0,0.05);
+        }
+
+        @media (prefers-color-scheme: dark) {
+           .navlens-cb-decline {
+             border-color: #4b5563;
+           }
+           .navlens-cb-decline:hover {
+             background-color: rgba(255,255,255,0.05);
+           }
+        }
+        
+        .navlens-cb-link {
+          font-size: 12px;
+          color: #6b7280;
+          text-decoration: underline;
+          margin-top: 12px;
+          display: block;
+          width: 100%;
+          text-align: center;
+          cursor: pointer;
+        }
+         @media (prefers-color-scheme: dark) {
+          .navlens-cb-link {
+            color: #9ca3af;
+          }
+        }
+
       </style>
       
-      <div class="navlens-banner-content">
-        <div class="navlens-banner-icon">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-          </svg>
-        </div>
-        <div class="navlens-banner-text">
-          🍪 This site uses <strong>Navlens</strong> to analyze visitor behavior and improve user experience. 
-          We collect anonymous interaction data to optimize this website.
-          <a href="https://navlens.io/privacy" target="_blank" rel="noopener">Learn more</a>
+      <div class="navlens-cb-header">
+        <div class="navlens-cb-icon">🍪</div>
+        <div>
+          <h3 class="navlens-cb-title">We value your privacy</h3>
+          <p class="navlens-cb-text">
+            We use cookies to enhance your browsing experience, serve personalized ads or content, and analyze our traffic. By clicking "Accept All", you consent to our use of cookies.
+          </p>
         </div>
       </div>
       
-      <div class="navlens-banner-buttons">
-        <button class="navlens-customize-btn" id="navlens-customize">Customize</button>
-        <button class="navlens-accept-btn" id="navlens-accept">Accept All</button>
+      <div class="navlens-cb-footer">
+        <button class="navlens-cb-button navlens-cb-decline" id="navlens-cb-reject">Reject All</button>
+        <button class="navlens-cb-button navlens-cb-accept" id="navlens-cb-accept">Accept All</button>
       </div>
+      <a class="navlens-cb-link" href="#" id="navlens-cb-policy">Cookie Policy</a>
     `;
     
-    // Add to page
     document.body.appendChild(banner);
-    
-    // Handle Accept button
-    document.getElementById('navlens-accept').addEventListener('click', () => {
-      saveConsent('accepted');
-      hideBanner();
-    });
-    
-    // Handle Customize button (UI only for now)
-    document.getElementById('navlens-customize').addEventListener('click', () => {
-      // TODO: Implement customization modal
-      console.log('[Navlens] Customize preferences clicked - functionality coming soon');
-      // For now, just save as "customized" and hide
-      saveConsent('customized');
-      hideBanner();
-    });
   }
-  
-  function saveConsent(status) {
-    try {
-      localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify({
-        version: CONSENT_VERSION,
-        status: status,
-        responded: true,
-        timestamp: new Date().toISOString()
-      }));
-      console.log('[Navlens] Consent saved:', status);
-    } catch (_e) {
-      console.warn('[Navlens] Could not save consent to localStorage');
-    }
-  }
-  
-  function hideBanner() {
-    const banner = document.getElementById('navlens-consent-banner');
-    if (banner) {
-      banner.style.animation = 'navlens-slide-down 0.3s ease-in forwards';
-      banner.style.cssText += `
-        @keyframes navlens-slide-down {
-          to {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-        }
-      `;
-      setTimeout(() => banner.remove(), 300);
-    }
-  }
-  
-  // Expose consent API for external use
-  window.Navlens = window.Navlens || {};
-  window.Navlens.consent = {
-    show: initConsentBanner,
-    hide: hideBanner,
-    getStatus: () => {
-      try {
-        const stored = localStorage.getItem(CONSENT_STORAGE_KEY);
-        return stored ? JSON.parse(stored) : null;
-      } catch (_e) {
-        return null;
-      }
-    },
-    reset: () => {
-      try {
-        localStorage.removeItem(CONSENT_STORAGE_KEY);
-        console.log('[Navlens] Consent reset');
-      } catch (_e) {}
-    }
-  };
   
   // Initialize consent banner when DOM is ready
   if (!IS_EDITOR_MODE) {
