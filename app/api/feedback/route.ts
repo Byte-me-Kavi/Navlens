@@ -107,10 +107,8 @@ export async function POST(request: NextRequest) {
                 body = JSON.parse(decompressed.toString('utf-8'));
             } catch (decompressError) {
                 console.error('[feedback] Decompression error:', decompressError);
-                return NextResponse.json({ error: 'Failed to decompress request' }, {
-                    status: 400,
-                    headers: { 'Access-Control-Allow-Origin': '*' },
-                });
+                const response = NextResponse.json({ error: 'Failed to decompress request' }, { status: 400 });
+                return addTrackerCorsHeaders(response, request.headers.get('origin'), true);
             }
         } else {
             body = await request.json();
@@ -218,30 +216,19 @@ export async function POST(request: NextRequest) {
             if (insertError.code === '23503') {
                 return NextResponse.json({ error: 'Invalid site_id' }, { status: 400 });
             }
-            return NextResponse.json({ error: 'Failed to save feedback' }, {
-                status: 500,
-                headers: {
-                    'Access-Control-Allow-Origin': '*',
-                },
-            });
+            const response = NextResponse.json({ error: 'Failed to save feedback' }, { status: 500 });
+            return addTrackerCorsHeaders(response, origin, true);
         }
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             feedback_id: feedback.id,
-        }, {
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
         });
+        return addTrackerCorsHeaders(response, origin, true);
     } catch (error: unknown) {
         console.error('[feedback] Error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, {
-            status: 500,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
-        });
+        const response = NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return addTrackerCorsHeaders(response, origin, true);
     }
 }
 
