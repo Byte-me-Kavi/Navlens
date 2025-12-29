@@ -109,25 +109,7 @@ export async function POST(req: NextRequest) {
             // Success - Activate subscription
             console.log('[PayHere Webhook] Payment successful, activating subscription');
 
-            // CRITICAL FIX: Aggressively Cancel ALL EXISTING subscriptions to prevent multiple active plans
-            // This includes 'active', 'trialing', and even 'cancelled' ones that might have future end dates.
-            // We want the NEW payment to be the ONLY source of truth for access.
-            const { error: cleanupError } = await supabase
-                .from('subscriptions')
-                .update({
-                    status: 'cancelled',
-                    cancel_at_period_end: false,
-                    canceled_at: new Date().toISOString(),
-                    current_period_end: new Date().toISOString() // End immediately
-                })
-                .eq('user_id', userId);
-            // We do NOT filter by status here because we want to wipe the slate clean for this user.
-
-            if (cleanupError) {
-                console.error('[PayHere Webhook] Cleanup Error (Non-fatal):', cleanupError);
-            }
-
-            // Find existing pending subscription or create new one
+            // Find existing pending subscription FIRST
             const { data: existingSubscription } = await supabase
                 .from('subscriptions')
                 .select('id')
@@ -135,6 +117,29 @@ export async function POST(req: NextRequest) {
                 .eq('plan_id', planId)
                 .eq('status', 'pending')
                 .single();
+
+            // CRITICAL FIX: Aggressively Cancel ALL EXISTING subscriptions to prevent multiple active plans
+            // BUT exclude the one we are about to activate (if it exists)
+            const cleanupQuery = supabase
+                .from('subscriptions')
+                .update({
+                    status: 'cancelled',
+                    cancel_at_period_end: false,
+                    canceled_at: new Date().toISOString(),
+                    current_period_end: new Date().toISOString()
+                })
+                .eq('user_id', userId);
+
+            // Exclude current one if found
+            if (existingSubscription) {
+                cleanupQuery.neq('id', existingSubscription.id);
+            }
+
+            const { error: cleanupError } = await cleanupQuery;
+
+            if (cleanupError) {
+                console.error('[PayHere Webhook] Cleanup Error (Non-fatal):', cleanupError);
+            }
 
             if (existingSubscription) {
                 // Update existing subscription
@@ -148,12 +153,6 @@ export async function POST(req: NextRequest) {
                         updated_at: new Date().toISOString(),
                     })
                     .eq('id', existingSubscription.id);
-
-                // Update profile with subscription link - DEPRECATED
-                // await supabase
-                //     .from('profiles')
-                //     .update({ subscription_id: existingSubscription.id })
-                //     .eq('user_id', userId);
 
             } else {
                 // Create new subscription
@@ -170,14 +169,6 @@ export async function POST(req: NextRequest) {
                     })
                     .select('id')
                     .single();
-
-                if (newSubscription) {
-                    // Update profile - DEPRECATED
-                    // await supabase
-                    //     .from('profiles')
-                    //     .update({ subscription_id: newSubscription.id })
-                    //     .eq('user_id', userId);
-                }
             }
 
             // Record payment in history
