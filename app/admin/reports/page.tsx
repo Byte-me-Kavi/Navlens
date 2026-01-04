@@ -1,21 +1,17 @@
-import React from 'react';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server-admin';
+import { verifyAdminSession } from '@/lib/auth';
 import AdminReportGenerator from './AdminReportGenerator';
 
 export default async function AdminReportsPage() {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll() {
-              return cookieStore.getAll();
-            },
-          },
-        }
-      );
+    // 1. Verify Admin Access
+    const isAdmin = await verifyAdminSession();
+    if (!isAdmin) {
+        redirect('/admin/login');
+    }
+
+    // 2. Use Service Role Client to bypass RLS
+    const supabase = createClient();
 
     // Fetch all sites for the admin dropdown
     const { data: sites } = await supabase
