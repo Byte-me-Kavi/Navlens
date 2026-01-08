@@ -22,9 +22,9 @@ export default function RefundPolicy() {
     },
     {
       icon: CheckCircleIcon,
-      title: "No Questions Asked",
+      title: "Original Payment Method",
       description:
-        "We believe in our product. If it's not right for you, we'll process your refund without hassle.",
+        "Refunds are processed directly to the original payment method used during your purchase.",
     },
     {
       icon: CurrencyDollarIcon,
@@ -99,6 +99,10 @@ export default function RefundPolicy() {
       content: (
         <>
           <p className="mb-3">Once your refund request is approved:</p>
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="font-semibold text-green-800">Important:</p>
+            <p className="text-green-700">All refunds will be credited directly to the original payment method used during the initial purchase. We do not process refunds to alternative payment methods.</p>
+          </div>
           <p className="font-semibold mt-4 mb-2">Credit/Debit Cards:</p>
           <ul className="list-disc pl-6 space-y-1">
             <li>Refunds are processed within 5-7 business days</li>
