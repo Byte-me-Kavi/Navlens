@@ -12,7 +12,8 @@ import {
   RocketLaunchIcon,
   StarIcon,
   BuildingOffice2Icon,
-  PaperAirplaneIcon
+  PaperAirplaneIcon,
+  SparklesIcon
 } from "@heroicons/react/24/outline";
 import { PLANS } from '@/lib/plans/config';
 import { UpgradeModal } from "@/components/subscription/UpgradeModal";
@@ -425,7 +426,26 @@ export function BillingTab() {
                 </div>
             </div>
 
-            {/* <div className="flex flex-col gap-3 w-full md:w-auto min-w-[160px]">
+            <div className="flex flex-col gap-3 w-full md:w-auto min-w-[160px]">
+                {/* Renew Button - Show if expiring soon (< 7 days) or already expired but somehow still active status */}
+                {subscription?.status === 'active' && !isFree && !subscription.cancel_at_period_end && (
+                     (() => {
+                        const daysLeft = Math.ceil((new Date(subscription.current_period_end).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                        if (daysLeft <= 7) {
+                            return (
+                                <button
+                                    onClick={() => window.location.href = `/pricing?plan=${subscription.plan_id}&renew=true`}
+                                    className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all shadow-sm bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-indigo-200 shadow-indigo-100 animate-pulse"
+                                >
+                                    <SparklesIcon className="w-4 h-4" />
+                                    Renew Subscription
+                                </button>
+                            );
+                        }
+                        return null;
+                     })()
+                )}
+
                 <button
                     onClick={() => setShowUpgradeModal(true)}
                     className={`
@@ -438,13 +458,7 @@ export function BillingTab() {
                 >
                     {isFree ? <><SparklesIcon className="w-4 h-4" /> Upgrade Plan</> : 'Manage Plan'}
                 </button>
-                {subscription && (
-                    <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 font-medium">
-                        <CalendarIcon className="w-3.5 h-3.5" />
-                        Renews {new Date(subscription.current_period_end).toLocaleDateString()}
-                    </div>
-                )}
-            </div> */}
+            </div>
         </div>
 
         {/* Usage Stats - Enhanced Visuals */}

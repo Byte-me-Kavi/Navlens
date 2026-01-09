@@ -331,6 +331,10 @@ const PricingPage: React.FC = () => {
     console.log('🚀 Calling PayHere API...');
 
     try {
+      // Check for renewal flag in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const isRenewal = urlParams.get('renew') === 'true';
+
       // Call API to initiate PayHere payment
       const response = await fetch('/api/payhere/initiate-subscription', {
         method: 'POST',
@@ -341,6 +345,7 @@ const PricingPage: React.FC = () => {
         body: JSON.stringify({
           planId,
           currency: 'USD',
+          isRenewal, // Pass renewal flag
         }),
       });
 
@@ -675,7 +680,7 @@ const PricingPage: React.FC = () => {
 
                       if (isSamePlan) {
                         return (
-                          <div className="w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-green-500 to-green-600 text-white cursor-default">
+                          <div className="w-full py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm bg-linear-to-r from-green-500 to-green-600 text-white cursor-default">
                             <CheckIcon className="w-5 h-5" />
                             Already Activated
                           </div>
@@ -684,7 +689,7 @@ const PricingPage: React.FC = () => {
                         return (
                           <button
                             onClick={() => handleScheduleDowngrade(plan.id, plan.name)}
-                            className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg hover:shadow-amber-500/50 hover:scale-105"
+                            className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm bg-linear-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg hover:shadow-amber-500/50 hover:scale-105"
                           >
                             Downgrade to {plan.name}
                             <ArrowRightIcon className="w-5 h-5" />
@@ -694,7 +699,7 @@ const PricingPage: React.FC = () => {
                         return (
                           <button
                             onClick={() => handleSelectPlan(plan.id, plan.name, plan.isFree)}
-                            className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg hover:shadow-green-500/50 hover:scale-105"
+                            className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm bg-linear-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg hover:shadow-green-500/50 hover:scale-105"
                           >
                             {plan.name === 'Enterprise' ? 'Contact Us' : `Upgrade to ${plan.name}`}
                             <ArrowRightIcon className="w-5 h-5" />
@@ -943,7 +948,7 @@ const PricingPage: React.FC = () => {
               <button
                 onClick={confirmDowngrade}
                 disabled={downgradeLoading}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50"
               >
                 {downgradeLoading ? 'Processing...' : 'Confirm Downgrade'}
               </button>

@@ -19,13 +19,15 @@ export interface PayHereCustomer {
     country: string;
 }
 
+// NOTE: Supports both recurring (PayHere Pro) and one-time (PayHere Lite) payments
+// For one-time payments, set recurrence and duration to empty strings
 export interface RecurringPaymentRequest {
     orderId: string;
     items: string; // Description of the subscription
     currency: 'USD' | 'LKR' | 'GBP' | 'EUR' | 'AUD';
     amount: number;
-    recurrence: '1 Month' | '1 Year';
-    duration: 'Forever' | string; // 'Forever' or '6 Months', '1 Year', etc.
+    recurrence: '1 Month' | '1 Year' | ''; // Empty for one-time payment (PayHere Lite)
+    duration: 'Forever' | string | ''; // Empty for one-time payment (PayHere Lite)
     customer: PayHereCustomer;
     returnUrl: string;
     cancelUrl: string;

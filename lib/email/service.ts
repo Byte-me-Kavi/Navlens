@@ -275,3 +275,33 @@ export async function sendPaymentFailedEmail(email: string, planName: string) {
     });
 }
 
+export async function sendSubscriptionExpiringEmail(email: string, planName: string, daysLeft: number, renewLink: string) {
+    const isToday = daysLeft <= 0;
+    const timeText = isToday ? 'today' : `in ${daysLeft} days`;
+    
+    return sendEmail({
+        to: email,
+        subject: isToday ? 'Subscription Expiring Today ⚠️' : `Subscription Expiring in ${daysLeft} Days 📅`,
+        html: `
+            <h2 style="color: #D97706;">Subscription Expiring Soon</h2>
+            <p>Hi there,</p>
+            <p>Your <strong>${planName}</strong> subscription is set to expire <strong>${timeText}</strong>.</p>
+            <p>To ensure uninterrupted access to your analytics and premium features, please renew your subscription now.</p>
+            
+            <div style="background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 12px; padding: 20px; margin: 24px 0;">
+                <p style="margin: 0; color: #92400E; font-weight: 500;">
+                    ⚠️ If you don't renew, your account will revert to the Free Tier.
+                </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${renewLink}" style="background-color: #4F46E5; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">Renew Subscription</a>
+            </div>
+            
+            <p style="text-align: center; font-size: 14px; color: #6B7280;">
+                Or go to <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/account?tab=billing">Billing Settings</a>.
+            </p>
+        `
+    });
+}
+

@@ -118,6 +118,35 @@ export async function POST(req: NextRequest) {
                 .eq('status', 'pending')
                 .single();
 
+            // FETCH OLD ACTIVE SUBSCRIPTION (For Renewal Logic)
+            const { data: oldActiveSubscription } = await supabase
+                .from('subscriptions')
+                .select('current_period_end')
+                .eq('user_id', userId)
+                .eq('status', 'active')
+                .neq('id', existingSubscription?.id || -1) // Don't fetch the pending one
+                .single();
+
+            // Calculate new period dates
+            let newStartDate = new Date();
+            let newEndDate = new Date();
+            
+            // Default: 30 days from now
+            newEndDate.setDate(newStartDate.getDate() + 30);
+
+            // If renewing an active subscription that hasn't expired yet, extend from THAT date
+            if (oldActiveSubscription && new Date(oldActiveSubscription.current_period_end) > newStartDate) {
+                console.log('[PayHere Webhook] Extending existing subscription period.');
+                const currentEnd = new Date(oldActiveSubscription.current_period_end);
+                
+                // New start date is effectively the continuation
+                // But generally for record keeping 'current_period_start' is usually 'now' or the start of the billing cycle
+                // We will keep start date as NOW (since payment happened now), but push end date further
+                
+                newEndDate = new Date(currentEnd);
+                newEndDate.setDate(newEndDate.getDate() + 30);
+            }
+
             // CRITICAL FIX: Aggressively Cancel ALL EXISTING subscriptions to prevent multiple active plans
             // BUT exclude the one we are about to activate (if it exists)
             const cleanupQuery = supabase
@@ -126,7 +155,7 @@ export async function POST(req: NextRequest) {
                     status: 'cancelled',
                     cancel_at_period_end: false,
                     canceled_at: new Date().toISOString(),
-                    current_period_end: new Date().toISOString()
+                    current_period_end: new Date().toISOString() // We expire them immediately to switch rights to the new one
                 })
                 .eq('user_id', userId);
 
@@ -148,8 +177,8 @@ export async function POST(req: NextRequest) {
                     .update({
                         status: 'active',
                         payhere_subscription_id: notification.subscription_id,
-                        current_period_start: new Date().toISOString(),
-                        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // +30 days
+                        current_period_start: newStartDate.toISOString(),
+                        current_period_end: newEndDate.toISOString(),
                         updated_at: new Date().toISOString(),
                     })
                     .eq('id', existingSubscription.id);
@@ -163,9 +192,9 @@ export async function POST(req: NextRequest) {
                         plan_id: planId,
                         payhere_subscription_id: notification.subscription_id,
                         status: 'active',
-                        start_date: new Date().toISOString(),
-                        current_period_start: new Date().toISOString(),
-                        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                        start_date: newStartDate.toISOString(),
+                        current_period_start: newStartDate.toISOString(),
+                        current_period_end: newEndDate.toISOString(),
                     })
                     .select('id')
                     .single();

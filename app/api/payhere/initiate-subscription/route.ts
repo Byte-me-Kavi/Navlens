@@ -115,13 +115,20 @@ export async function POST(req: NextRequest) {
             const targetTier = planTier[plan.name] ?? 0;
 
             if (activeSubscription.plan_id === plan.id) {
-                // Same plan - user already subscribed
-                console.log('[Initiate Subscription] User already has this plan:', currentPlanName);
-                return NextResponse.json({
-                    error: 'Already subscribed',
-                    message: `You already have an active ${currentPlanName} subscription.`,
-                    currentPlan: currentPlanName,
-                }, { status: 409 });
+                // If this is a renewal (explicit request), allow it
+                // This creates a NEW pending subscription that will replace the old one upon payment success
+                if (body.isRenewal) {
+                    console.log('[Initiate Subscription] Renewal requested for active plan:', currentPlanName);
+                    // allow fall-through to create payment request
+                } else {
+                    // Same plan - user already subscribed
+                    console.log('[Initiate Subscription] User already has this plan:', currentPlanName);
+                    return NextResponse.json({
+                        error: 'Already subscribed',
+                        message: `You already have an active ${currentPlanName} subscription.`,
+                        currentPlan: currentPlanName,
+                    }, { status: 409 });
+                }
             } else if (targetTier <= currentTier) {
                 // Downgrade or same tier - not allowed
                 console.log('[Initiate Subscription] Downgrade not allowed from', currentPlanName, 'to', plan.name);

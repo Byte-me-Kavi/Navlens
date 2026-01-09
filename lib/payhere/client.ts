@@ -40,15 +40,20 @@ export class PayHereClient {
      * Generate HTML form for PayHere recurring payment
      * This form should be auto-submitted to redirect user to PayHere
      */
+    /**
+     * NOTE: Using one-time payment instead of recurring due to PayHere Lite limitations.
+     * To enable recurring payments, upgrade to PayHere Pro and uncomment recurrence/duration fields.
+     */
     createRecurringPaymentForm(request: RecurringPaymentRequest): string {
         const hash = generatePayHereHash(
             this.config.merchantId,
             request.orderId,
             request.amount,
             request.currency,
-            this.config.merchantSecret,
-            request.recurrence,  // Add recurrence for recurring payment hash
-            request.duration     // Add duration for recurring payment hash
+            this.config.merchantSecret
+            // PayHere Lite: Recurring fields commented out
+            // request.recurrence,  // Add recurrence for recurring payment hash
+            // request.duration     // Add duration for recurring payment hash
         );
 
         // DEBUG: Log hash generation details
@@ -79,8 +84,9 @@ export class PayHereClient {
             { name: 'items', value: request.items },
             { name: 'currency', value: request.currency },
             { name: 'amount', value: request.amount.toFixed(2) },
-            { name: 'recurrence', value: request.recurrence },
-            { name: 'duration', value: request.duration },
+            // PayHere Lite: Recurring fields commented out - uncomment for PayHere Pro
+            // { name: 'recurrence', value: request.recurrence },
+            // { name: 'duration', value: request.duration },
             { name: 'hash', value: hash },
         ];
 
@@ -131,8 +137,12 @@ ${formInputs}
             items: `Navlens ${planName} Plan - Monthly Subscription`,
             currency,
             amount,
-            recurrence: '1 Month',
-            duration: 'Forever',
+            // PayHere Lite: One-time payment (recurring disabled)
+            // Uncomment below for PayHere Pro recurring payments:
+            // recurrence: '1 Month',
+            // duration: 'Forever',
+            recurrence: '',  // Empty for one-time payment
+            duration: '',    // Empty for one-time payment
             customer,
             returnUrl: `${baseUrl}/dashboard/account/success`,
             cancelUrl: `${baseUrl}/pricing?cancelled=true`,
