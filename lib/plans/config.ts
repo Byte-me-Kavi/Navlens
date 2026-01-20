@@ -93,7 +93,7 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
     STARTER: {
         id: 'starter',
         name: 'Starter',
-        price: 29,
+        price: 1, // TEMP: was 29 - testing payment gateway
         description: 'See clear behavior. For solopreneurs.',
         limits: {
             sessions: 5000,
